@@ -1,0 +1,15 @@
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+out/
+**/out/
+.turbo/
+**/storybook-static/
+.git
+.gitignore
+.env.local
+**/.env.local
+*.log
+npm-debug.log*
+.DS_Store

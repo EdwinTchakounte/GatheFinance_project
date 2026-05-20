@@ -1,0 +1,293 @@
+{
+  "meta": {
+    "siteName": "Gathe Finance",
+    "homeTitle": "Gathe Finance — Savings and credit cooperative in Cameroon",
+    "homeDescription": "The savings and credit cooperative of Cameroonian entrepreneurs: credit, savings, transfers, community investment and financial education."
+  },
+  "cookies": {
+    "text": "We use cookies to measure site traffic and improve your experience.",
+    "link": "Learn more",
+    "accept": "Accept",
+    "decline": "Decline"
+  },
+  "nav": {
+    "home": "Home",
+    "about": "About",
+    "aboutMission": "Mission",
+    "aboutTeam": "The team",
+    "services": "Financial services",
+    "servicesCredit": "Credit",
+    "servicesSavings": "Savings",
+    "servicesInvestment": "Investment",
+    "servicesTransfers": "Money transfers & withdrawals",
+    "servicesEducation": "Financial education & advice",
+    "aboutAgencies": "Our branches",
+    "servicesCreditDesc": "Consumer, micro, home and personal loans",
+    "servicesTransfersDesc": "Send, withdraw and deposit money",
+    "servicesSavingsDesc": "Savings accounts and project plans",
+    "servicesInvestmentDesc": "Community and secured investment",
+    "servicesEducationDesc": "Workshops, seminars and personalised advice",
+    "blog": "Blog",
+    "contact": "Contact",
+    "join": "Become a member",
+    "memberSpace": "Member area",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "switchToEnglish": "English",
+    "switchToFrench": "Français",
+    "skipToContent": "Skip to content"
+  },
+  "common": {
+    "joinCoop": "Join the cooperative",
+    "joinCoopButton": "Join the Cooperative",
+    "discoverServices": "Explore our services",
+    "learnMore": "Learn more",
+    "readArticle": "Read the article",
+    "backToTop": "Back to top",
+    "openingHoursLabel": "Opening hours",
+    "contentComingSoon": "This page is being integrated. Its content — identical to the current site — will be published very soon.",
+    "home": "Home"
+  },
+  "footer": {
+    "whyTitle": "Why Gathe Finance?",
+    "whyMission": "Mission",
+    "whyTeam": "The team",
+    "whyAgencies": "Our branches",
+    "whyContact": "Contact",
+    "servicesTitle": "Financial services & more",
+    "servicesSavings": "Savings",
+    "servicesCredit": "Credit",
+    "servicesTransfers": "Deposit, transfer & withdrawal",
+    "servicesInvestment": "Investment",
+    "servicesEducation": "Advice & education",
+    "headOffice": "Head office",
+    "phone": "Phone",
+    "landline": "Landline",
+    "followFacebook": "Follow on Facebook",
+    "followLinkedin": "Follow on LinkedIn",
+    "legalNotice": "Legal notice",
+    "privacyPolicy": "Privacy policy",
+    "copyrightTagline": "Savings and credit cooperative in Cameroon"
+  },
+  "form": {
+    "name": "Name",
+    "city": "City",
+    "phone": "Phone",
+    "email": "Email address",
+    "message": "Message",
+    "captchaLabel": "What is {question}?",
+    "submit": "Send",
+    "sending": "Sending…",
+    "success": "Thank you! Your message has been sent to our team.",
+    "error": "Something went wrong. Please try again in a moment.",
+    "requiredName": "Please enter your name.",
+    "requiredEmail": "Please enter your email address.",
+    "invalidEmail": "This email address does not look valid.",
+    "requiredCaptcha": "Please answer the anti-spam question.",
+    "wrongCaptcha": "Incorrect answer. Please try again."
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Savings and credit cooperative",
+      "title": "A financial future in your hands",
+      "titlePre": "A financial future",
+      "titleAccent": "in your hands",
+      "text": "Whether you are starting a business or looking to grow it, we offer financial tools tailored to your ambitions and your means.",
+      "primaryCta": "Join the cooperative",
+      "secondaryCta": "Explore our services"
+    },
+    "stats": {
+      "projectsValue": "4,500",
+      "projectsLabel": "projects financed",
+      "fundedValue": "400M",
+      "fundedSuffix": "FCFA",
+      "fundedLabel": "in projects financed"
+    },
+    "services": {
+      "eyebrow": "Our services",
+      "title": "Solutions for every step",
+      "items": {
+        "credit": { "title": "Credit", "text": "Get flexible, fast loans to finance your projects." },
+        "savings": { "title": "Save", "text": "Grow your savings safely with attractive interest rates." },
+        "transfers": { "title": "Money transfers & withdrawals", "text": "Send and withdraw money easily, locally and internationally." },
+        "investment": { "title": "Community investment", "text": "Contribute to the development of your community while increasing your income." }
+      }
+    },
+    "about": {
+      "eyebrow": "Who we are",
+      "title": "Gathe Finance, the savings and credit cooperative for entrepreneurs",
+      "text": "We believe in the ability of every Cameroonian entrepreneur to turn their ideas into reality. Whether you are a craftsperson, trader, farmer or a fast-growing start-up, we are here to offer financial solutions suited to your needs. Together, let's build a future where every entrepreneur has the means to succeed.",
+      "cta": "Learn more about Gathe Finance"
+    },
+    "values": {
+      "eyebrow": "Our commitment",
+      "title": "A cooperative built for you",
+      "items": {
+        "accessibility": { "title": "Accessible to all", "text": "Our services are designed to be accessible to all entrepreneurs, whatever the size of your project or your sector of activity." },
+        "transparency": { "title": "Flexible, transparent terms", "text": "We offer credit and savings solutions with clear terms, no hidden fees, and flexible repayment options." },
+        "community": { "title": "A community that stands together", "text": "By joining Gathe Finance, you become part of a community of entrepreneurs who support one another to succeed. Together, we create a positive dynamic that fuels the growth of local businesses." },
+        "local": { "title": "Local commitment", "text": "As a local cooperative, we understand the specific challenges Cameroonian entrepreneurs face. Our services are adapted to those realities." }
+      }
+    },
+    "cta": {
+      "title": "Join our savings and credit cooperative",
+      "text": "Don't let a lack of financing hold back your ambitions any longer. Gathe Finance believes in you and your projects. Together, we can turn your entrepreneurial dreams into reality. Sign up now to benefit from our loan, savings and personalised support services.",
+      "button": "Join the Cooperative"
+    },
+    "blog": {
+      "eyebrow": "The blog",
+      "title": "Insights & news",
+      "viewAll": "See all articles",
+      "byline": "by {author} · {date}"
+    }
+  },
+  "about": {
+    "eyebrow": "About",
+    "title": "About Gathe Finance",
+    "lead": "Gathe Finance is solidarity-based self-financing set up for the trusted players of the Cameroonian entrepreneurial ecosystem.",
+    "missionTitle": "Our reason for being",
+    "intro": "<strong>Gathe Finance</strong> is an initiative of <brclink>Broad Range Consulting Group</brclink>, created to enable the <strong>trusted players of the entrepreneurial ecosystem</strong> in Cameroon to:",
+    "objectives": [
+      "Collectively self-finance their business projects",
+      "Professionalise even the smallest activity carried out by each member so as to ensure its growth month after month",
+      "Obtain a degree of liquidity at a given time at a Zero interest rate",
+      "Acquire equipment for their activity",
+      "Be financially strong and stand together for the development of the Cameroonian entrepreneurial ecosystem, beyond an economy that today rests on micro, small and medium enterprises for at least 80%"
+    ],
+    "zeroInterestBadge": "Zero interest rate",
+    "callout": "<strong>Gathe Finance</strong> is solidarity-based self-financing set up to address problems such as <strong>not being eligible for bank credit</strong> or the lack of subsidies meant to support Cameroonian micro, small and medium enterprises.",
+    "initiativeOf": "An initiative of",
+    "teamTitle": "A team at your side",
+    "teamText": "Our team supports every member of the cooperative, from the first contact to following up on their project. Get in touch to talk about yours.",
+    "agenciesTitle": "Find us",
+    "agenciesIntro": "Our head office is open to you during opening hours."
+  },
+  "services": {
+    "eyebrow": "Financial services",
+    "title": "Gathe Finance's financial services",
+    "lead": "Drawing on our experience and local roots, we are committed to offering you financial services tailored to your needs and accessible to all. Our mission is to enable every Cameroonian — whether an entrepreneur, an employee or a member of a rural community — to access the financial solutions that will help them succeed.",
+    "intro2": "In a constantly changing economic environment, financial soundness and access to the right resources are essential to reaching your goals. Whether you need credit, savings services, investment solutions or financial advice, <strong>Gathe Finance</strong> is here to support you at every stage of your financial journey.",
+    "anchors": {
+      "credit": "Credit",
+      "transfers": "Deposit & transfers",
+      "savings": "Savings",
+      "investment": "Investment",
+      "education": "Education & advice"
+    },
+    "pillars": {
+      "credit": {
+        "title": "Credit: Financing solutions for all your projects",
+        "intro": "Access to credit is essential to bring your projects to life — whether to improve your personal life, launch or expand a business, or invest in real estate. We offer flexible credit solutions tailored to every kind of need.",
+        "items": {
+          "consumption": {
+            "title": "Consumer credit",
+            "text": "Do you have a major purchase in mind, or need cash to cover unexpected expenses? Our consumer loans are designed to help you finance your purchases (appliances, vehicles, equipment, etc.) without depleting your savings. You benefit from flexible terms, an attractive interest rate and fast approval, so you can make your purchases without waiting."
+          },
+          "micro": {
+            "title": "Microcredit",
+            "text": "Are you a small entrepreneur or trader looking for financing to grow your activity? Microcredit is an ideal solution for those who do not easily have access to traditional financing. With amounts adjusted to your needs, this type of credit lets you finance income-generating activities — in agriculture, trade, crafts or other sectors. We firmly believe that small businesses are the engine of our economy, and we are here to support them."
+          },
+          "realEstate": {
+            "title": "Home loan",
+            "text": "The dream of owning your own home is within reach thanks to our home loan. Whether you want to buy a house, a plot of land or invest in a property, we support you in this important project. With competitive rates and repayment terms adapted to your budget, you can become an owner with peace of mind and start building your assets."
+          },
+          "personal": {
+            "title": "Personal loan",
+            "text": "Sometimes you simply need cash to handle an emergency or finance a personal project. Our personal loan is flexible, quick to obtain and tailored to your specific needs. Whether for studies, renovation work or family events, we offer you tailor-made support."
+          }
+        }
+      },
+      "transfers": {
+        "title": "Deposit, transfer and withdrawal: simplicity every day",
+        "intro": "We understand how important it is to manage your finances in a smooth and accessible way. Our deposit, transfer and withdrawal services are designed to make your life easier and let you handle your financial transactions with confidence, wherever you are.",
+        "items": {
+          "sendReceive": {
+            "title": "Money transfers and withdrawals",
+            "text": "Sending or withdrawing money has never been so easy. Whether you want to send money to a loved one or withdraw funds to cover your daily expenses, our branch ensures a fast and secure transaction. By using our money transfer services, you benefit from transparent and competitive pricing, both locally and internationally."
+          },
+          "deposit": {
+            "title": "Cash deposit",
+            "text": "Deposit your savings safely and access your funds at any time. Our deposit services are fast, reliable and available at our branch."
+          }
+        }
+      },
+      "savings": {
+        "title": "Savings: grow your future",
+        "intro": "Saving is a crucial step in securing your financial future, and we are here to help you build good saving habits. With a broad range of savings products accessible to all, we make saving easy and rewarding.",
+        "items": {
+          "accounts": {
+            "title": "Savings accounts",
+            "text": "Our savings accounts are designed to meet your individual needs — whether setting money aside for a future project, an emergency, or to ensure your long-term financial security. Enjoy competitive interest rates and the flexibility to withdraw your funds at any time."
+          },
+          "plans": {
+            "title": "Savings plans for specific projects",
+            "text": "We also offer savings plans tailored to your particular goals, such as buying a house, funding your children's education, or building a retirement fund. These plans let you set money aside gradually and reach your goals faster."
+          }
+        }
+      },
+      "investment": {
+        "title": "Investment: put your money to work for you",
+        "intro": "<strong>Gathe Finance</strong> helps you grow your savings through accessible investment solutions, even with small amounts. We believe that everyone, regardless of their means, can invest to grow their capital.",
+        "items": {
+          "community": {
+            "title": "Community investment",
+            "text": "Our community investment service lets you take part in projects that support the development of your community. It is a way not only to grow your money, but also to make a positive contribution to society."
+          },
+          "secured": {
+            "title": "Secured investments",
+            "text": "For the more cautious, we offer secured investment products with guaranteed returns. You can invest with peace of mind, confident that you are growing your savings while minimising risk."
+          }
+        }
+      },
+      "education": {
+        "title": "Financial education and advice: build a solid financial foundation",
+        "intro": "Managing personal and professional finances is a skill that can be learned. That is why we offer financial education and advisory services to help you make informed decisions and improve how you manage your finances.",
+        "items": {
+          "workshops": {
+            "title": "Workshops and seminars",
+            "text": "We regularly run practical workshops and seminars on key topics such as saving, investing, credit management and budgeting. These trainings are open to all and aim to improve your financial skills so you can manage your finances independently and effectively."
+          },
+          "advice": {
+            "title": "Personalised advice",
+            "text": "Our financial experts are at your disposal to offer personalised advice tailored to your goals and your situation. Whether you need advice on an investment project, a home loan, or managing your savings, we are here to guide you."
+          }
+        }
+      }
+    }
+  },
+  "contact": {
+    "eyebrow": "Contact",
+    "title": "Contact",
+    "lead": "Our team is available to answer your questions or complaints. Get tailored assistance from professionals. Contact us by filling in the form below. You can also call us or send us a message on WhatsApp.",
+    "formTitle": "Write to us",
+    "coordsTitle": "Our contact details",
+    "writeOnWhatsApp": "Message us on WhatsApp"
+  },
+  "membership": {
+    "eyebrow": "Membership",
+    "title": "Become a member of Gathe Finance",
+    "lead": "Don't let a lack of financing hold back your ambitions any longer. Gathe Finance believes in you and your projects. Sign up now to benefit from our loan, savings and personalised support services.",
+    "whyTitle": "Why join us",
+    "formTitle": "Request to become a member",
+    "afterNote": "Until the online member area opens, your request is sent directly to our team, who will get back to you."
+  },
+  "legal": {
+    "draftNotice": "The content of this page is being finalised and will be published soon."
+  },
+  "blog": {
+    "eyebrow": "Blog",
+    "title": "Blog",
+    "subtitle": "Financial tips and news from the cooperative.",
+    "category": "Advice",
+    "empty": "The first articles will be published very soon.",
+    "readArticle": "Read the article",
+    "byline": "by {author} · {date}",
+    "relatedTitle": "Related articles",
+    "backToBlog": "Back to the blog"
+  },
+  "notFound": {
+    "title": "This page can't be found",
+    "text": "The link you followed may be outdated, or the page may have been moved.",
+    "backHome": "Back to home"
+  }
+}

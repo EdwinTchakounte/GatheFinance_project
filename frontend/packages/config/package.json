@@ -1,0 +1,15 @@
+{
+  "name": "@gathe/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tokens de design partagés (Tailwind v4) et config TypeScript pour Gathe Finance",
+  "type": "module",
+  "exports": {
+    "./theme.css": "./theme.css",
+    "./tsconfig.base.json": "./tsconfig.base.json"
+  },
+  "files": [
+    "theme.css",
+    "tsconfig.base.json"
+  ]
+}

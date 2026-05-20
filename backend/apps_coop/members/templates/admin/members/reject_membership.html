@@ -1,0 +1,30 @@
+{% extends "admin/base_site.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <h1>{{ title }}</h1>
+
+  <p style="margin: 1em 0;">
+    Tu vas rejeter la demande de <strong>{{ request_obj.display_name }}</strong>
+    ({{ request_obj.email }}).
+    Le motif sera enregistré et pourra être communiqué au demandeur dans un email.
+  </p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <fieldset class="module aligned">
+      <div class="form-row">
+        <label for="id_motif"><strong>Motif du rejet (obligatoire)</strong></label>
+        <textarea id="id_motif" name="motif" rows="5" cols="60" required></textarea>
+      </div>
+    </fieldset>
+
+    <div class="submit-row" style="margin-top:1em;">
+      <input type="submit" value="Rejeter la demande" class="default" style="background:#ba2121;">
+      <a href="../" class="button cancel-link" style="margin-left:1em;">Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,293 @@
+{
+  "meta": {
+    "siteName": "Gathe Finance",
+    "homeTitle": "Gathe Finance — Coopérative d'épargne et de crédit au Cameroun",
+    "homeDescription": "Coopérative d'épargne et de crédit des entrepreneurs camerounais : crédit, épargne, transferts, investissement communautaire et éducation financière."
+  },
+  "cookies": {
+    "text": "Nous utilisons des cookies pour mesurer l'audience du site et améliorer votre expérience.",
+    "link": "En savoir plus",
+    "accept": "Accepter",
+    "decline": "Refuser"
+  },
+  "nav": {
+    "home": "Accueil",
+    "about": "À Propos",
+    "aboutMission": "Mission",
+    "aboutTeam": "L'équipe",
+    "services": "Services financiers",
+    "servicesCredit": "Crédit",
+    "servicesSavings": "Épargne",
+    "servicesInvestment": "Investissement",
+    "servicesTransfers": "Envoi et retrait d'argent",
+    "servicesEducation": "Éducation financière et conseil",
+    "aboutAgencies": "Nos agences",
+    "servicesCreditDesc": "Consommation, microcrédit, immobilier, personnel",
+    "servicesTransfersDesc": "Envoi, retrait et dépôt d'argent",
+    "servicesSavingsDesc": "Comptes d'épargne et plans projets",
+    "servicesInvestmentDesc": "Investissement communautaire et sécurisé",
+    "servicesEducationDesc": "Ateliers, séminaires et conseils personnalisés",
+    "blog": "Blog",
+    "contact": "Contact",
+    "join": "Devenir membre",
+    "memberSpace": "Espace membre",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu",
+    "switchToEnglish": "English",
+    "switchToFrench": "Français",
+    "skipToContent": "Aller au contenu"
+  },
+  "common": {
+    "joinCoop": "Rejoindre la coopérative",
+    "joinCoopButton": "Rejoignez la Coopérative",
+    "discoverServices": "Découvrir nos services",
+    "learnMore": "En savoir plus",
+    "readArticle": "Lire l'article",
+    "backToTop": "Revenir en haut",
+    "openingHoursLabel": "Heures d'ouvertures",
+    "contentComingSoon": "Cette page est en cours d'intégration. Son contenu — identique à celui du site actuel — sera mis en ligne très prochainement.",
+    "home": "Accueil"
+  },
+  "footer": {
+    "whyTitle": "Pourquoi Gathe Finance ?",
+    "whyMission": "Mission",
+    "whyTeam": "L'équipe",
+    "whyAgencies": "Nos agences",
+    "whyContact": "Contact",
+    "servicesTitle": "Services Financiers et autres",
+    "servicesSavings": "Épargne",
+    "servicesCredit": "Crédit",
+    "servicesTransfers": "Dépôt, envoi et retrait d'argent",
+    "servicesInvestment": "Investissement",
+    "servicesEducation": "Conseils et éducation",
+    "headOffice": "Siège social",
+    "phone": "Téléphone",
+    "landline": "Fix",
+    "followFacebook": "Suivre sur Facebook",
+    "followLinkedin": "Suivre sur LinkedIn",
+    "legalNotice": "Mentions légales",
+    "privacyPolicy": "Politique de confidentialité",
+    "copyrightTagline": "Coopérative d'épargne et de crédit au Cameroun"
+  },
+  "form": {
+    "name": "Nom",
+    "city": "Ville",
+    "phone": "Téléphone",
+    "email": "Adresse e-mail",
+    "message": "Message",
+    "captchaLabel": "Combien font {question} ?",
+    "submit": "Envoyer",
+    "sending": "Envoi en cours…",
+    "success": "Merci ! Votre message a bien été transmis à notre équipe.",
+    "error": "Une erreur est survenue. Merci de réessayer dans un instant.",
+    "requiredName": "Veuillez indiquer votre nom.",
+    "requiredEmail": "Veuillez indiquer votre adresse e-mail.",
+    "invalidEmail": "Cette adresse e-mail ne semble pas valide.",
+    "requiredCaptcha": "Veuillez répondre à la question anti-spam.",
+    "wrongCaptcha": "Réponse incorrecte. Merci de réessayer."
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Coopérative d'épargne et de crédit",
+      "title": "Un avenir financier entre vos mains",
+      "titlePre": "Un avenir financier",
+      "titleAccent": "entre vos mains",
+      "text": "Que vous démarriez une activité ou cherchiez à la développer, nous vous offrons des outils financiers adaptés à vos ambitions et à vos capacités.",
+      "primaryCta": "Rejoindre la coopérative",
+      "secondaryCta": "Découvrir nos services"
+    },
+    "stats": {
+      "projectsValue": "4 500",
+      "projectsLabel": "projets financés",
+      "fundedValue": "400 M",
+      "fundedSuffix": "FCFA",
+      "fundedLabel": "de projets financés"
+    },
+    "services": {
+      "eyebrow": "Nos services",
+      "title": "Des solutions pour chaque étape",
+      "items": {
+        "credit": { "title": "Crédit", "text": "Obtenez des prêts flexibles et rapides pour financer vos projets." },
+        "savings": { "title": "Épargner", "text": "Faites fructifier vos économies en toute sécurité avec des taux d'intérêt attractifs." },
+        "transfers": { "title": "Envoi et retrait d'argent", "text": "Transférez et retirez facilement de l'argent, localement et internationalement." },
+        "investment": { "title": "Investissement communautaire", "text": "Contribuez au développement de votre communauté tout en augmentant vos revenus." }
+      }
+    },
+    "about": {
+      "eyebrow": "Qui sommes-nous",
+      "title": "Gathe finance, la coopérative d'épargne et de crédit des entrepreneurs",
+      "text": "Nous croyons en la capacité de chaque entrepreneur camerounais à transformer ses idées en réalité. Que vous soyez un artisan, commerçant, agriculteur, ou start-up en plein développement, nous sommes là pour vous offrir des solutions financières adaptées à vos besoins. Ensemble, bâtissons un avenir où chaque entrepreneur a les moyens de réussir.",
+      "cta": "En savoir plus sur Gathe Finance"
+    },
+    "values": {
+      "eyebrow": "Notre engagement",
+      "title": "Une coopérative à votre image",
+      "items": {
+        "accessibility": { "title": "Accessibilité pour Tous", "text": "Nos services sont conçus pour être accessibles à tous les entrepreneurs, quelle que soit la taille de votre projet ou votre secteur d'activité." },
+        "transparency": { "title": "Conditions Souples et Transparentes", "text": "Nous proposons des solutions de crédit et d'épargne avec des conditions claires, sans frais cachés, et des options de remboursement flexibles." },
+        "community": { "title": "Communauté Solidaire", "text": "En rejoignant Gathe Finance, vous intégrez une communauté d'entrepreneurs solidaires qui s'entraident pour réussir. Ensemble, nous créons une dynamique positive pour soutenir la croissance des entreprises locales." },
+        "local": { "title": "Engagement Local", "text": "En tant que coopérative locale, nous comprenons les défis spécifiques auxquels font face les entrepreneurs camerounais. Nos services sont adaptés à ces réalités." }
+      }
+    },
+    "cta": {
+      "title": "Rejoindre notre coopérative de crédit et d'épargne",
+      "text": "Ne laissez plus le manque de financement freiner vos ambitions. Gathe Finance crois en vous et en vos projets. Ensemble, nous pouvons faire de vos rêves d'entrepreneur une réalité. Inscrivez-vous dès maintenant pour bénéficier de nos services de prêts, d'épargne et d'accompagnement personnalisé.",
+      "button": "Rejoignez la Coopérative"
+    },
+    "blog": {
+      "eyebrow": "Le blog",
+      "title": "Conseils & actualité",
+      "viewAll": "Voir tous les articles",
+      "byline": "par {author} · {date}"
+    }
+  },
+  "about": {
+    "eyebrow": "À propos",
+    "title": "À propos de Gathe Finance",
+    "lead": "Gathe Finance c'est de l'auto financement solidaire mis en place pour les personnes fiables de l'écosystème entrepreneurial camerounais.",
+    "missionTitle": "Notre raison d'être",
+    "intro": "<strong>Gathe Finance</strong> est une initiative de l'entreprise <brclink>Broad Range Consulting Group</brclink> créée dans l'optique de permettre aux <strong>personnes fiables de l'écosystème entrepreneurial</strong> camerounais de :",
+    "objectives": [
+      "Auto financer solidairement leur projet d'entreprise",
+      "Professionnaliser la plus petite activité faite par chacun afin d'assurer la croissance de celle-ci mois après mois",
+      "Obtenir une certaine liquidité à un moment donné à taux Zéro d'intérêt",
+      "Acquérir du matériel pour leur activité",
+      "Être financièrement forts et solidaires entre eux pour le développement de l'écosystème entrepreneurial camerounais par delà de l'économie qui repose à 80 % au moins aujourd'hui sur les TPE/PME/PMI"
+    ],
+    "zeroInterestBadge": "Taux Zéro d'intérêt",
+    "callout": "<strong>Gathe Finance</strong> c'est de l'auto financement solidaire qui a été mis en place pour pallier aux problèmes tels que la <strong>non éligibilité au crédit bancaire</strong> ou l'insuffisance de subventions destinées à soutenir les TPE/PME/PMI camerounaises.",
+    "initiativeOf": "Une initiative de",
+    "teamTitle": "Une équipe à votre écoute",
+    "teamText": "Notre équipe accompagne chaque membre de la coopérative, du premier contact au suivi de son projet. Contactez-nous pour échanger sur le vôtre.",
+    "agenciesTitle": "Nous trouver",
+    "agenciesIntro": "Notre siège est à votre disposition aux heures d'ouverture."
+  },
+  "services": {
+    "eyebrow": "Services financiers",
+    "title": "Services financiers de Gathe Finance",
+    "lead": "Forts de notre expérience et de notre ancrage local, nous avons à cœur de vous offrir des services financiers adaptés à vos besoins et accessibles à tous. Notre mission est de permettre à chaque Camerounais, qu'il soit entrepreneur, salarié, ou membre de la communauté rurale, d'accéder aux solutions financières qui lui permettront de réussir.",
+    "intro2": "Dans un environnement économique en constante évolution, la solidité financière et l'accès aux ressources adéquates sont des facteurs essentiels pour atteindre vos objectifs. Que vous ayez besoin de crédits, de services d'épargne, de solutions d'investissement, ou de conseils financiers, <strong>Gathe Finance</strong> est là pour vous accompagner à chaque étape de votre parcours financier.",
+    "anchors": {
+      "credit": "Crédit",
+      "transfers": "Dépôt & transferts",
+      "savings": "Épargne",
+      "investment": "Investissement",
+      "education": "Éducation & conseil"
+    },
+    "pillars": {
+      "credit": {
+        "title": "Crédit : Des Solutions de Financement pour Tous Vos Projets",
+        "intro": "L'accès au crédit est essentiel pour concrétiser vos projets, qu'il s'agisse d'améliorer votre vie personnelle, de lancer ou d'étendre une entreprise, ou d'investir dans l'immobilier. Nous offrons des solutions de crédit flexibles et adaptées à tous types de besoins.",
+        "items": {
+          "consumption": {
+            "title": "Crédit à la Consommation",
+            "text": "Vous avez un projet d'achat important ou besoin de liquidités pour couvrir des dépenses imprévues ? Nos crédits à la consommation sont conçus pour vous aider à financer vos achats (électroménagers, voitures, équipements, etc.) sans épuiser vos économies. Vous bénéficiez de conditions souples, d'un taux d'intérêt avantageux, et d'une approbation rapide pour que vous puissiez réaliser vos achats sans attendre."
+          },
+          "micro": {
+            "title": "Microcrédit",
+            "text": "Vous êtes un petit entrepreneur ou un commerçant à la recherche d'un financement pour développer votre activité ? Le microcrédit est une solution idéale pour ceux qui n'ont pas facilement accès aux financements traditionnels. Avec des montants ajustés à vos besoins, ce type de crédit permet de financer des activités génératrices de revenus, que ce soit dans l'agriculture, le commerce, l'artisanat, ou d'autres secteurs. Nous croyons fermement que les petites entreprises sont le moteur de notre économie, et nous sommes là pour les soutenir."
+          },
+          "realEstate": {
+            "title": "Prêt Immobilier",
+            "text": "Réaliser le rêve de devenir propriétaire est à portée de main grâce à notre prêt immobilier. Que vous souhaitiez acheter une maison, un terrain, ou investir dans un bien immobilier, nous vous accompagnons dans ce projet important. Avec des taux compétitifs et des conditions de remboursement adaptées à votre budget, vous pouvez devenir propriétaire en toute sérénité et commencer à bâtir votre patrimoine."
+          },
+          "personal": {
+            "title": "Prêt Personnel",
+            "text": "Parfois, vous avez simplement besoin de liquidités pour répondre à une urgence ou financer un projet personnel. Notre prêt personnel est flexible, rapide à obtenir, et adapté à vos besoins spécifiques. Que ce soit pour des études, des travaux de rénovation ou des événements familiaux, nous vous proposons un accompagnement sur mesure."
+          }
+        }
+      },
+      "transfers": {
+        "title": "Dépôt, Envoi et Retrait d'Argent : La Simplicité au Quotidien",
+        "intro": "Nous comprenons l'importance de pouvoir gérer ses finances de manière fluide et accessible. Nos services de dépôt, envoi et retrait d'argent sont pensés pour vous simplifier la vie et vous permettre de gérer vos transactions financières en toute confiance, où que vous soyez.",
+        "items": {
+          "sendReceive": {
+            "title": "Envoi et Retrait d'Argent",
+            "text": "Envoyer ou retirer de l'argent n'a jamais été aussi facile. Que vous souhaitiez envoyer de l'argent à un proche ou retirer des fonds pour couvrir vos dépenses quotidiennes, notre agence vous assure une transaction rapide et sécurisée. En utilisant nos services d'envoi d'argent, vous bénéficiez d'une tarification transparente et compétitive, tant au niveau local qu'international."
+          },
+          "deposit": {
+            "title": "Dépôt d'Argent",
+            "text": "Déposez vos économies en toute sécurité et accédez à vos fonds à tout moment. Nos services de dépôt sont rapides, fiables, et disponibles dans notre agence."
+          }
+        }
+      },
+      "savings": {
+        "title": "Épargne : Faites Croître Votre Avenir",
+        "intro": "Épargner est une étape cruciale pour sécuriser votre avenir financier, et nous sommes là pour vous aider à développer de bonnes habitudes d'épargne. Avec une large gamme de produits d'épargne accessibles à tous, nous rendons l'épargne facile et avantageuse.",
+        "items": {
+          "accounts": {
+            "title": "Comptes d'Épargne",
+            "text": "Nos comptes d'épargne sont conçus pour répondre à vos besoins individuels, qu'il s'agisse de mettre de l'argent de côté pour un projet futur, une urgence, ou pour garantir votre sécurité financière à long terme. Profitez de taux d'intérêt compétitifs et de la flexibilité de pouvoir retirer vos fonds à tout moment."
+          },
+          "plans": {
+            "title": "Plans d'Épargne pour Projets Spécifiques",
+            "text": "Nous vous proposons également des plans d'épargne adaptés à vos objectifs particuliers, comme l'achat d'une maison, le financement des études de vos enfants, ou la constitution d'un fonds de retraite. Ces plans vous permettent de mettre de l'argent de côté de manière progressive et d'atteindre vos objectifs plus rapidement."
+          }
+        }
+      },
+      "investment": {
+        "title": "Investissement : Faites Travailler Votre Argent pour Vous",
+        "intro": "<strong>Gathe Finance</strong> vous aide à faire fructifier vos économies à travers des solutions d'investissement accessibles, même avec de petits montants. Nous croyons que chacun, indépendamment de ses moyens, peut investir pour faire croître son capital.",
+        "items": {
+          "community": {
+            "title": "Investissement Communautaire",
+            "text": "Notre service d'investissement communautaire vous permet de participer à des projets qui favorisent le développement de votre communauté. Il s'agit d'un moyen non seulement de faire fructifier votre argent, mais aussi d'apporter une contribution positive à la société."
+          },
+          "secured": {
+            "title": "Investissements Sécurisés",
+            "text": "Pour les plus prudents, nous proposons des produits d'investissement sécurisés avec des rendements garantis. Vous pouvez ainsi investir sereinement, avec l'assurance de faire fructifier vos économies tout en minimisant les risques."
+          }
+        }
+      },
+      "education": {
+        "title": "Éducation Financière et Conseil : Construisez une Base Financière Solide",
+        "intro": "La gestion des finances personnelles et professionnelles est un art qui s'apprend. C'est pourquoi nous offrons des services d'éducation financière et de conseil pour vous aider à prendre des décisions éclairées et améliorer votre gestion financière.",
+        "items": {
+          "workshops": {
+            "title": "Ateliers et Séminaires",
+            "text": "Nous organisons régulièrement des ateliers pratiques et des séminaires sur des sujets clés tels que l'épargne, l'investissement, la gestion de crédit, et l'élaboration de budgets. Ces formations sont ouvertes à tous et visent à améliorer vos compétences financières pour que vous puissiez gérer vos finances de manière autonome et efficace."
+          },
+          "advice": {
+            "title": "Conseils Personnalisés",
+            "text": "Nos experts financiers sont à votre disposition pour vous offrir des conseils personnalisés, adaptés à vos objectifs et à votre situation. Que vous ayez besoin de conseils sur un projet d'investissement, un prêt immobilier, ou la gestion de votre épargne, nous sommes là pour vous guider."
+          }
+        }
+      }
+    }
+  },
+  "contact": {
+    "eyebrow": "Contact",
+    "title": "Contact",
+    "lead": "Notre équipe est disponible pour répondre à vos questions ou vos réclamations. Bénéficiez d'une assistance sur mesure par des professionnels. Contactez-nous en remplissant le formulaire ci-dessous. En outre, vous pouvez également nous appeler ou nous envoyer un message sur WhatsApp.",
+    "formTitle": "Écrivez-nous",
+    "coordsTitle": "Nos coordonnées",
+    "writeOnWhatsApp": "Écrire sur WhatsApp"
+  },
+  "membership": {
+    "eyebrow": "Adhésion",
+    "title": "Devenir membre de Gathe Finance",
+    "lead": "Ne laissez plus le manque de financement freiner vos ambitions. Gathe Finance crois en vous et en vos projets. Inscrivez-vous dès maintenant pour bénéficier de nos services de prêts, d'épargne et d'accompagnement personnalisé.",
+    "whyTitle": "Pourquoi nous rejoindre",
+    "formTitle": "Demander à devenir membre",
+    "afterNote": "En attendant l'ouverture de l'espace membre en ligne, votre demande est transmise directement à notre équipe, qui vous recontactera."
+  },
+  "legal": {
+    "draftNotice": "Le contenu de cette page est en cours de finalisation et sera publié prochainement."
+  },
+  "blog": {
+    "eyebrow": "Blog",
+    "title": "Blog",
+    "subtitle": "Conseils financiers et actualité de la coopérative.",
+    "category": "Conseils",
+    "empty": "Les premiers articles seront publiés très prochainement.",
+    "readArticle": "Lire l'article",
+    "byline": "par {author} · {date}",
+    "relatedTitle": "Articles similaires",
+    "backToBlog": "Retour au blog"
+  },
+  "notFound": {
+    "title": "Cette page est introuvable",
+    "text": "Le lien que vous avez suivi est peut-être obsolète, ou la page a été déplacée.",
+    "backHome": "Retour à l'accueil"
+  }
+}

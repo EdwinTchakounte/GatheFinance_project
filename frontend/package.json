@@ -1,0 +1,21 @@
+{
+  "name": "gathe-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Site vitrine Gathe Finance (Next.js) + design system partagé",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @gathe/site",
+    "build": "npm run build --workspace @gathe/site",
+    "start": "npm run start --workspace @gathe/site",
+    "lint": "npm run lint --workspace @gathe/site",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "storybook": "npm run storybook --workspace @gathe/ui"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

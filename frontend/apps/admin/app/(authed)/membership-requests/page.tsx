@@ -1,0 +1,386 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Check, X, Mail, Phone, MapPin } from "lucide-react";
+
+import { buttonClasses } from "@gathe/ui";
+
+import { Modal, ModalField, modalInputClass } from "@/components/modal";
+import { adminApi, type ApiError, type MembershipRequest } from "@/lib/api";
+
+
+export default function MembershipRequestsPage() {
+  return (
+    
+      <Inner />
+    
+  );
+}
+
+function Inner() {
+  const [filter, setFilter] = useState<"en_attente" | "approuvee" | "rejetee" | "">("en_attente");
+  const [items, setItems] = useState<MembershipRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actingId, setActingId] = useState<number | null>(null);
+  const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+
+  // Modal state
+  const [approveTarget, setApproveTarget] = useState<MembershipRequest | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<MembershipRequest | null>(null);
+
+  async function reload() {
+    setLoading(true);
+    try {
+      adminApi.primeCsrf().catch(() => undefined);
+      const list = await adminApi.membershipRequests.list(filter || undefined);
+      setItems(list);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { reload(); /* eslint-disable-next-line */ }, [filter]);
+
+  async function submitApprove(payload: { prenom: string; nom: string }) {
+    if (!approveTarget) return;
+    setActingId(approveTarget.id);
+    try {
+      await adminApi.membershipRequests.approve(approveTarget.id, payload);
+      setMessage({ tone: "ok", text: `Demande #${approveTarget.id} approuvée — Member créé.` });
+      setApproveTarget(null);
+      await reload();
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setMessage({ tone: "err", text: apiErr.detail ?? "Approbation impossible." });
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function submitReject(motif: string) {
+    if (!rejectTarget) return;
+    setActingId(rejectTarget.id);
+    try {
+      await adminApi.membershipRequests.reject(rejectTarget.id, motif);
+      setMessage({ tone: "ok", text: `Demande #${rejectTarget.id} rejetée.` });
+      setRejectTarget(null);
+      await reload();
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setMessage({ tone: "err", text: apiErr.detail ?? "Rejet impossible." });
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  return (
+    <div className="px-8 py-8 lg:px-12 lg:py-10">
+      <header className="mb-8 flex items-end justify-between gap-4">
+        <div>
+          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
+            Adhésions
+          </p>
+          <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
+            Demandes d'adhésion
+          </h1>
+          <p className="mt-1 text-sm text-ink-600">
+            Examine, approuve ou rejette les demandes soumises depuis la vitrine.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
+          {[
+            { v: "en_attente", l: "En attente" },
+            { v: "approuvee", l: "Approuvées" },
+            { v: "rejetee", l: "Rejetées" },
+            { v: "", l: "Toutes" },
+          ].map((opt) => (
+            <button
+              key={opt.v}
+              type="button"
+              onClick={() => setFilter(opt.v as "en_attente" | "approuvee" | "rejetee" | "")}
+              className={[
+                "rounded px-3 py-1.5 text-xs font-medium transition-colors",
+                filter === opt.v ? "bg-blue-700 text-white" : "text-ink-700 hover:text-blue-700",
+              ].join(" ")}
+            >
+              {opt.l}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {message ? (
+        <div className={
+          "mb-5 rounded-md px-4 py-2.5 text-sm " +
+          (message.tone === "ok"
+            ? "bg-emerald/10 text-emerald border border-emerald/30"
+            : "bg-terra-50/60 text-terra-700 border border-terra-400/40")
+        }>
+          {message.text}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <p className="text-ink-600">Chargement…</p>
+      ) : items.length === 0 ? (
+        <p className="rounded-md border border-dashed border-line-200 bg-paper/70 p-12 text-center text-sm text-ink-600">
+          Aucune demande dans ce filtre.
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-md border border-line-200 bg-paper">
+          <table className="table-admin">
+            <thead>
+              <tr>
+                <th>Demandeur</th>
+                <th>Contact</th>
+                <th>Motivation</th>
+                <th>Reçue le</th>
+                <th>Statut</th>
+                <th className="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <p className="font-medium text-ink-900">
+                      {r.prenom ? `${r.prenom} ` : ""}{r.nom}
+                    </p>
+                    <p className="text-xs text-ink-600 font-mono">#{r.id}</p>
+                  </td>
+                  <td className="space-y-1">
+                    <p className="flex items-center gap-1.5 text-sm">
+                      <Mail className="size-3.5 text-ink-400" aria-hidden="true" />{r.email}
+                    </p>
+                    {r.phone ? (
+                      <p className="flex items-center gap-1.5 text-xs text-ink-600">
+                        <Phone className="size-3 text-ink-400" aria-hidden="true" />{r.phone}
+                      </p>
+                    ) : null}
+                    {r.city ? (
+                      <p className="flex items-center gap-1.5 text-xs text-ink-600">
+                        <MapPin className="size-3 text-ink-400" aria-hidden="true" />{r.city}
+                      </p>
+                    ) : null}
+                  </td>
+                  <td className="max-w-xs">
+                    <p className="line-clamp-3 text-sm text-ink-700">
+                      {r.motivation || <em className="text-ink-400">non renseignée</em>}
+                    </p>
+                  </td>
+                  <td className="text-sm text-ink-600 whitespace-nowrap">
+                    {new Date(r.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "2-digit" })}
+                  </td>
+                  <td>
+                    <span className={
+                      "pill " +
+                      (r.statut === "en_attente" ? "pill-warning"
+                       : r.statut === "approuvee" ? "pill-success" : "pill-danger")
+                    }>{r.statut_display}</span>
+                    {r.statut === "rejetee" && r.motif_rejet ? (
+                      <p className="mt-1 text-xs text-terra-700 max-w-[12rem]">{r.motif_rejet}</p>
+                    ) : null}
+                  </td>
+                  <td className="text-right">
+                    {r.statut === "en_attente" ? (
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setApproveTarget(r)}
+                          disabled={actingId === r.id}
+                          className={buttonClasses({ variant: "success", size: "sm" })}
+                        >
+                          <Check className="size-3.5" aria-hidden="true" />
+                          Approuver
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRejectTarget(r)}
+                          disabled={actingId === r.id}
+                          className={buttonClasses({ variant: "ghost", size: "sm" })}
+                        >
+                          <X className="size-3.5" aria-hidden="true" />
+                          Rejeter
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-ink-400">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <ApproveMembershipModal
+        target={approveTarget}
+        onClose={() => setApproveTarget(null)}
+        onSubmit={submitApprove}
+        submitting={actingId !== null}
+      />
+      <RejectMembershipModal
+        target={rejectTarget}
+        onClose={() => setRejectTarget(null)}
+        onSubmit={submitReject}
+        submitting={actingId !== null}
+      />
+    </div>
+  );
+}
+
+
+function ApproveMembershipModal({
+  target,
+  onClose,
+  onSubmit,
+  submitting,
+}: {
+  target: MembershipRequest | null;
+  onClose: () => void;
+  onSubmit: (payload: { prenom: string; nom: string }) => void;
+  submitting: boolean;
+}) {
+  const [prenom, setPrenom] = useState("");
+  const [nom, setNom] = useState("");
+
+  // Reset fields each time the modal opens with a new target.
+  useEffect(() => {
+    if (target) {
+      setPrenom(target.prenom || target.nom.split(" ")[0] || "");
+      setNom(target.nom || "");
+    }
+  }, [target]);
+
+  const open = target !== null;
+  const trimmedNom = nom.trim();
+  const canSubmit = !submitting && trimmedNom.length > 0;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Approuver l'adhésion"
+      description={
+        target
+          ? `Création du compte membre pour ${target.email}.`
+          : undefined
+      }
+      tone="success"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className={buttonClasses({ variant: "ghost", size: "sm" })}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={() => canSubmit && onSubmit({ prenom: prenom.trim(), nom: trimmedNom })}
+            disabled={!canSubmit}
+            className={buttonClasses({ variant: "success", size: "sm" })}
+          >
+            <Check className="size-3.5" aria-hidden="true" />
+            Approuver et créer le compte
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <ModalField label="Prénom" hint="Tel qu'il figurera sur le carnet de membre.">
+          <input
+            type="text"
+            value={prenom}
+            onChange={(e) => setPrenom(e.target.value)}
+            className={modalInputClass}
+            autoFocus
+          />
+        </ModalField>
+        <ModalField label="Nom" hint="Obligatoire.">
+          <input
+            type="text"
+            value={nom}
+            onChange={(e) => setNom(e.target.value)}
+            className={modalInputClass}
+            required
+          />
+        </ModalField>
+      </div>
+    </Modal>
+  );
+}
+
+
+function RejectMembershipModal({
+  target,
+  onClose,
+  onSubmit,
+  submitting,
+}: {
+  target: MembershipRequest | null;
+  onClose: () => void;
+  onSubmit: (motif: string) => void;
+  submitting: boolean;
+}) {
+  const [motif, setMotif] = useState("");
+
+  useEffect(() => {
+    if (target) setMotif("");
+  }, [target]);
+
+  const open = target !== null;
+  const trimmed = motif.trim();
+  const canSubmit = !submitting && trimmed.length > 0;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Rejeter la demande"
+      description={
+        target
+          ? `La notification de rejet sera envoyée à ${target.email}.`
+          : undefined
+      }
+      tone="danger"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className={buttonClasses({ variant: "ghost", size: "sm" })}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={() => canSubmit && onSubmit(trimmed)}
+            disabled={!canSubmit}
+            className={buttonClasses({ variant: "danger", size: "sm" })}
+          >
+            <X className="size-3.5" aria-hidden="true" />
+            Confirmer le rejet
+          </button>
+        </>
+      }
+    >
+      <ModalField
+        label="Motif"
+        hint="Concis et factuel — sera communiqué au demandeur."
+      >
+        <textarea
+          value={motif}
+          onChange={(e) => setMotif(e.target.value)}
+          rows={4}
+          className={modalInputClass + " resize-y"}
+          placeholder="Ex. : pièces justificatives manquantes (CNI recto/verso)."
+          autoFocus
+        />
+      </ModalField>
+    </Modal>
+  );
+}

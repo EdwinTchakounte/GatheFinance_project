@@ -1,0 +1,51 @@
+{% extends "admin/base_site.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <h1>{{ title }}</h1>
+
+  <p style="margin: 1em 0;">
+    Approuver la demande de
+    <strong>{{ request_obj.member.prenom }} {{ request_obj.member.nom }}</strong>
+    ({{ request_obj.member.numero_membre }})
+    pour un crédit de
+    <strong>{{ request_obj.montant_demande }} XAF</strong>
+    sur <strong>{{ request_obj.duree_mois }} mois</strong>.
+  </p>
+
+  <p style="background:#f6f6f6;padding:1em;border-left:3px solid #4caf50;">
+    <strong>Motif du membre :</strong><br>
+    {{ request_obj.motif }}
+  </p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <fieldset class="module aligned">
+      <div class="form-row">
+        <label for="id_taux"><strong>Taux d'intérêt annuel</strong></label>
+        <input type="number" id="id_taux" name="taux_interet" step="0.0001" min="0" max="1" required value="0.12">
+        <p class="help">Ex. <code>0.12</code> pour 12 %/an. Recalcul de l'échéancier en amortissement constant.</p>
+      </div>
+      <div class="form-row">
+        <label for="id_date_premiere"><strong>Date de la 1<sup>re</sup> échéance</strong></label>
+        <input type="date" id="id_date_premiere" name="date_premiere_echeance" required value="{{ default_date_premiere }}">
+        <p class="help">Mois suivant le décaissement, en pratique.</p>
+      </div>
+    </fieldset>
+
+    <div class="submit-row" style="margin-top:1em;">
+      <input type="submit" value="Approuver et créer le crédit" class="default">
+      <a href="../" class="button cancel-link" style="margin-left:1em;">Annuler</a>
+    </div>
+
+    <p style="margin-top:1em; color:#666; font-size:0.9em;">
+      Crée atomiquement : <strong>Loan</strong> (numéro auto <code>GF-CR-{% now "Y" %}-NNNN</code>)
+      + <strong>l'échéancier complet</strong> en amortissement constant
+      ({{ request_obj.duree_mois }} échéances mensuelles).
+      Le membre verra immédiatement son crédit dans son espace.
+    </p>
+  </form>
+</div>
+{% endblock %}

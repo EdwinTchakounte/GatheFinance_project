@@ -1,0 +1,14 @@
+-r base.txt
+
+# Dev tooling
+django-debug-toolbar>=4.4
+django-extensions>=3.2
+ruff>=0.6
+
+# Test tooling — Pytest-driven test suite pour apps_coop (domaine coopératif).
+# pytest-django intègre les fixtures `db`/`client`/settings Django.
+# factory_boy génère des objets persistés sans répéter le boilerplate.
+pytest>=8.3
+pytest-django>=4.9
+pytest-cov>=5.0
+factory_boy>=3.3

@@ -1,0 +1,287 @@
+import 'package:flutter/material.dart';
+
+import '../../../app/theme/paysika/pa_colors.dart';
+import '../../../app/theme/paysika/pa_typography.dart';
+import '../../formatters/xaf_formatter.dart';
+
+/// Hero balance Paysika — signature visuelle de la home.
+///
+/// Card avec **gradient diagonal aurore** (teal bas-gauche → navy haut-droite),
+/// halo blanc soft top-right, contenu :
+///   - eyebrow "Solde épargne" + icône œil pour show/hide
+///   - solde 36pt bold blanc, peut être masqué (••• ••• XAF)
+///   - lien sub "Voir les opérations en attente ↓" optionnel
+///   - bouton CTA pill cyan vif à droite "+ Verser"
+///
+/// Reproduction fidèle du hero balance Paysika observé dans capture_paysika/.
+class PaHeroBalance extends StatefulWidget {
+  const PaHeroBalance({
+    super.key,
+    required this.amount,
+    required this.onDeposit,
+    this.label = 'Solde épargne',
+    this.ctaLabel = 'Verser',
+    this.pendingLabel,
+    this.onPendingTap,
+    this.onRequestReveal,
+  });
+
+  final num amount;
+  final VoidCallback onDeposit;
+  final String label;
+  final String ctaLabel;
+
+  /// Sous-ligne optionnelle "Voir les opérations en attente" — null = caché.
+  final String? pendingLabel;
+  final VoidCallback? onPendingTap;
+
+  /// Appelé quand le membre demande à révéler le solde masqué. Doit retourner
+  /// `true` si l'accès est autorisé (PIN correct). Si null, le solde se révèle
+  /// directement sans contrôle.
+  final Future<bool> Function()? onRequestReveal;
+
+  @override
+  State<PaHeroBalance> createState() => _PaHeroBalanceState();
+}
+
+class _PaHeroBalanceState extends State<PaHeroBalance> {
+  // Solde masqué par défaut (Règlement de confidentialité interne).
+  bool _hidden = true;
+
+  Future<void> _toggle() async {
+    if (!_hidden) {
+      setState(() => _hidden = true);
+      return;
+    }
+    // Demande de révélation → contrôle PIN si fourni.
+    if (widget.onRequestReveal != null) {
+      final ok = await widget.onRequestReveal!();
+      if (ok && mounted) setState(() => _hidden = false);
+    } else {
+      setState(() => _hidden = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final amountStr =
+        _hidden ? '••• ••• XAF' : XAFFormatter.format(widget.amount);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: PaGradients.heroAurore,
+        borderRadius: BorderRadius.circular(24),
+        // Ombre colorée profonde — donne le « flotte sur la page » premium.
+        boxShadow: [
+          BoxShadow(
+            color: PaColors.blue.withValues(alpha: 0.22),
+            blurRadius: 32,
+            offset: const Offset(0, 14),
+            spreadRadius: -6,
+          ),
+          BoxShadow(
+            color: PaColors.navy.withValues(alpha: 0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            // Halo blanc top-right — profondeur premium signature.
+            Positioned(
+              top: -50,
+              right: -40,
+              child: IgnorePointer(
+                child: Container(
+                  width: 220,
+                  height: 220,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.22),
+                        Colors.white.withValues(alpha: 0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Highlight diagonal top-left — touche glassmorphism subtile.
+            Positioned(
+              top: -20,
+              left: -30,
+              child: IgnorePointer(
+                child: Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.12),
+                        Colors.white.withValues(alpha: 0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Filet horizontal subtil — séparation visuelle premium.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 60,
+              child: IgnorePointer(
+                child: Container(
+                  height: 1,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0),
+                        Colors.white.withValues(alpha: 0.15),
+                        Colors.white.withValues(alpha: 0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Eyebrow + œil + CTA
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Text(
+                              widget.label,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: _toggle,
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  _hidden
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // CTA pill cyan vif
+                      _DepositPill(
+                        label: widget.ctaLabel,
+                        onTap: widget.onDeposit,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Solde principal — Inter SemiBold (chiffres nets premium)
+                  Text(
+                    amountStr,
+                    style: PaText.amount(
+                      size: 34,
+                      weight: FontWeight.w700,
+                      color: Colors.white,
+                      height: 1.05,
+                    ),
+                  ),
+
+                  // Pending optional
+                  if (widget.pendingLabel != null) ...[
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: widget.onPendingTap,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.pendingLabel!,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 18,
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class _DepositPill extends StatelessWidget {
+  const _DepositPill({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: PaGradients.ctaPill,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.add_rounded, color: PaColors.onTeal, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: PaColors.onTeal,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

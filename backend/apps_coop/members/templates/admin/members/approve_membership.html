@@ -1,0 +1,47 @@
+{% extends "admin/base_site.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <h1>{{ title }}</h1>
+
+  <p style="margin: 1em 0;">
+    Le nom saisi par le demandeur est <strong>« {{ request_obj.nom }} »</strong>.
+    Tu peux affiner avant de créer le membre.
+  </p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <fieldset class="module aligned">
+      <div class="form-row">
+        <label for="id_prenom"><strong>Prénom</strong></label>
+        <input type="text" id="id_prenom" name="prenom" value="{{ request_obj.prenom }}" size="40">
+      </div>
+      <div class="form-row">
+        <label for="id_nom"><strong>Nom</strong></label>
+        <input type="text" id="id_nom" name="nom" value="{{ request_obj.nom }}" size="40" required>
+      </div>
+
+      <div class="form-row" style="border-top:1px solid #eee; padding-top:1em; margin-top:1em;">
+        <p>
+          Email : <strong>{{ request_obj.email }}</strong><br>
+          Téléphone : <strong>{{ request_obj.phone|default:"—" }}</strong><br>
+          Ville : <strong>{{ request_obj.city|default:"—" }}</strong>
+        </p>
+      </div>
+    </fieldset>
+
+    <div class="submit-row" style="margin-top:1em;">
+      <input type="submit" value="Approuver et créer le membre" class="default">
+      <a href="../" class="button cancel-link" style="margin-left:1em;">Annuler</a>
+    </div>
+
+    <p style="margin-top:1em; color:#666; font-size:0.9em;">
+      Crée atomiquement : <strong>User + Member</strong> (statut suspendu jusqu'au
+      paiement de la 1<sup>re</sup> cotisation) + <strong>compte d'épargne vide</strong>.
+      Un numéro membre <code>GF-{% now "Y" %}-NNNN</code> est attribué automatiquement.
+    </p>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,67 @@
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  poweredByHeader: false,
+  // Django requires trailing slashes on API paths (e.g. /api/v1/auth/csrf/).
+  // Without this flag, Next would 308-redirect /api/v1/foo/ → /api/v1/foo,
+  // breaking the rewrite to the backend.
+  skipTrailingSlashRedirect: true,
+  // Transpile the shared design-system packages (TS source, no build step).
+  transpilePackages: ["@gathe/ui", "@gathe/config"],
+  images: {
+    formats: ["image/avif", "image/webp"],
+    remotePatterns: [
+      // Wagtail media (local, docker network, and the eventual production domains).
+      { protocol: "http", hostname: "localhost", port: "8000" },
+      { protocol: "http", hostname: "backend", port: "8000" },
+      { protocol: "https", hostname: "cms.gathe-finance.com" },
+      { protocol: "https", hostname: "media.gathe-finance.com" },
+      { protocol: "https", hostname: "*.backblazeb2.com" },
+    ],
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+    ];
+  },
+  // Le portail sociétaire a été extrait vers `apps/portal/` (sur son propre
+  // port en dev). Le site marketing parle au backend uniquement via les
+  // route handlers `/api/forms/*` (cf. app/api/forms/[action]/route.ts) ;
+  // plus aucun rewrite `/api/v1` n'est nécessaire ici.
+  // 301 redirects from the old WordPress URLs (preserve SEO).
+  async redirects() {
+    return [
+      { source: "/a-propos-gathe-finance", destination: "/a-propos", permanent: true },
+      { source: "/devenir-membre-gathe-finance", destination: "/devenir-membre", permanent: true },
+      {
+        source: "/les-avantages-du-credit-pour-booster-le-developpement-de-votre-pme",
+        destination: "/blog/les-avantages-du-credit-pour-booster-le-developpement-de-votre-pme",
+        permanent: true,
+      },
+      {
+        source: "/pret-immobilier-comment-acceder-a-votre-propriete-en-toute-serenite",
+        destination: "/blog/pret-immobilier-comment-acceder-a-votre-propriete-en-toute-serenite",
+        permanent: true,
+      },
+      {
+        source: "/comment-planifier-leducation-de-vos-enfants-grace-a-la-caisse-scolaire",
+        destination: "/blog/comment-planifier-leducation-de-vos-enfants-grace-a-la-caisse-scolaire",
+        permanent: true,
+      },
+    ];
+  },
+};
+
+export default withNextIntl(nextConfig);

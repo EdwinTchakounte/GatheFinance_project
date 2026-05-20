@@ -1,0 +1,151 @@
+"""Payments domain — every money flow (deposit, fee, repayment, disbursement)
+goes through one `Payment` row. Source is currently `manuel` or `mobile_money`;
+adding a new gateway is just a new enum value plus a provider implementation.
+"""
+from __future__ import annotations
+
+import uuid
+
+from django.conf import settings
+from django.db import models
+
+from apps_coop.common import TimestampedModel, ZERO, money_field
+from apps_coop.members.models import Member
+
+
+class FeeType(TimestampedModel):
+    """Catalogue of recurring administrative fees the cooperative charges.
+
+    The amount is stored here so updating a fee never requires a migration.
+    """
+
+    class Code(models.TextChoices):
+        INSCRIPTION = "INSCRIPTION", "Frais d'inscription"
+        ADHESION = "ADHESION", "Frais d'adhésion"
+        DEMANDE_CREDIT = "DEMANDE_CREDIT", "Frais de demande de crédit"
+        RECONDUCTION = "RECONDUCTION", "Frais de reconduction"
+        CARNET = "CARNET", "Frais de carnet"
+
+    code = models.CharField(max_length=24, choices=Code.choices, unique=True)
+    libelle = models.CharField(max_length=120)
+    montant = money_field(default=ZERO)
+    actif = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["code"]
+        verbose_name = "Type de frais"
+        verbose_name_plural = "Types de frais"
+
+    def __str__(self) -> str:
+        return f"{self.code} · {self.montant}"
+
+
+class Payment(TimestampedModel):
+    """Pivot entity for every money movement. Mobile Money fields are nullable
+    so manual cash entries (recorded by an admin at the agency) work too.
+    """
+
+    class Type(models.TextChoices):
+        EPARGNE = "epargne", "Épargne"
+        FRAIS_INSCRIPTION = "frais_inscription", "Frais d'inscription"
+        FRAIS_ADHESION = "frais_adhesion", "Frais d'adhésion"
+        FRAIS_DEMANDE_CREDIT = "frais_demande_credit", "Frais de demande de crédit"
+        FRAIS_RECONDUCTION = "frais_reconduction", "Frais de reconduction"
+        FRAIS_CARNET = "frais_carnet", "Frais de carnet"
+        REMBOURSEMENT = "remboursement", "Remboursement"
+        DECAISSEMENT = "decaissement", "Décaissement"
+
+    class Source(models.TextChoices):
+        MANUEL = "manuel", "Saisie agence"
+        MOBILE_MONEY = "mobile_money", "Mobile Money"
+
+    class Statut(models.TextChoices):
+        EN_ATTENTE = "en_attente", "En attente"
+        VALIDE = "valide", "Validé"
+        REJETE = "rejete", "Rejeté"
+
+    member = models.ForeignKey(Member, on_delete=models.PROTECT, related_name="payments")
+    montant = money_field()
+    type = models.CharField(max_length=24, choices=Type.choices, db_index=True)
+    source = models.CharField(max_length=16, choices=Source.choices, db_index=True)
+    statut = models.CharField(max_length=12, choices=Statut.choices, default=Statut.EN_ATTENTE, db_index=True)
+
+    # Optional links — set when the payment is imputed to a credit
+    loan = models.ForeignKey(
+        "loans.Loan",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="related_payments",
+    )
+    loan_installment = models.ForeignKey(
+        "loans.LoanInstallment",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="related_payments",
+    )
+
+    validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments_validated",
+    )
+    date_versement = models.DateTimeField(db_index=True)
+    date_validation = models.DateTimeField(null=True, blank=True)
+
+    # External gateway tracking — only filled for `source = mobile_money`
+    provider_code = models.CharField(
+        max_length=24,
+        blank=True,
+        help_text="Provider key (e.g. 'tara'). Empty for manual entries.",
+    )
+    reference_externe = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+        help_text="Provider transaction id once initiated.",
+    )
+    idempotency_key = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        help_text="Prevents duplicate gateway init when the user retries.",
+    )
+    gateway_initiated_at = models.DateTimeField(null=True, blank=True)
+    motif_rejet = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-date_versement", "-id"]
+        indexes = [
+            models.Index(fields=["statut", "source"]),
+            models.Index(fields=["member", "-date_versement"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"#{self.pk} · {self.type} · {self.montant} · {self.statut}"
+
+
+class PaymentProof(TimestampedModel):
+    """Receipt or screenshot attached to a Payment (mostly for manual entries)."""
+
+    class TypeDocument(models.TextChoices):
+        RECU = "recu", "Reçu"
+        CAPTURE = "capture", "Capture d'écran"
+        RIB = "rib", "RIB / référence"
+        AUTRE = "autre", "Autre"
+
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name="proofs")
+    fichier = models.FileField(upload_to="coop/payments/%Y/%m/")
+    type_document = models.CharField(max_length=10, choices=TypeDocument.choices)
+    taille = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Justificatif de paiement"
+        verbose_name_plural = "Justificatifs de paiement"
+
+    def __str__(self) -> str:
+        return f"{self.type_document} pour Payment #{self.payment_id}"

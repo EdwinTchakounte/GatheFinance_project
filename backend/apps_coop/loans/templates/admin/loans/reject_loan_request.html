@@ -1,0 +1,32 @@
+{% extends "admin/base_site.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <h1>{{ title }}</h1>
+
+  <p style="margin: 1em 0;">
+    Rejeter la demande de
+    <strong>{{ request_obj.member.prenom }} {{ request_obj.member.nom }}</strong>
+    pour <strong>{{ request_obj.montant_demande }} XAF</strong> sur
+    <strong>{{ request_obj.duree_mois }} mois</strong>.
+  </p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <fieldset class="module aligned">
+      <div class="form-row">
+        <label for="id_motif"><strong>Motif du rejet (obligatoire)</strong></label>
+        <textarea id="id_motif" name="motif" rows="5" cols="60" required></textarea>
+        <p class="help">Sera communiqué au membre.</p>
+      </div>
+    </fieldset>
+
+    <div class="submit-row" style="margin-top:1em;">
+      <input type="submit" value="Rejeter la demande" class="default" style="background:#ba2121;">
+      <a href="../" class="button cancel-link" style="margin-left:1em;">Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

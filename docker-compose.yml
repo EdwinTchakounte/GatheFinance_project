@@ -1,0 +1,165 @@
+# Lancement local en un clic :  docker compose up --build
+#   - site vitrine (Next.js) :  http://localhost:${FRONTEND_HOST_PORT:-3000}   (FR)  ·  /en  (EN)
+#   - admin CMS (Wagtail)    :  http://localhost:${BACKEND_HOST_PORT:-8000}/admin/   (admin / adminadmin par défaut)
+#   - API headless           :  http://localhost:${BACKEND_HOST_PORT:-8000}/api/v2/pages/  ·  /api/site/settings/
+#
+# Copier .env.docker.example -> .env pour personnaliser (secrets, identifiants admin,
+# et — si les ports 3000/8000 sont déjà pris — BACKEND_HOST_PORT / FRONTEND_HOST_PORT).
+# C'est une configuration de DÉVELOPPEMENT (autoreload, code monté en volume) ; un
+# compose de production sera ajouté dans infra/.
+
+name: gathe-finance
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gathe_site}
+      POSTGRES_USER: ${POSTGRES_USER:-gathe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gathe}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gathe} -d ${POSTGRES_DB:-gathe_site}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    # ports: ["5432:5432"]   # décommenter pour inspecter la base depuis l'hôte
+
+  backend:
+    build:
+      context: ./backend
+      target: dev
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DJANGO_DEBUG: "true"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-insecure-change-me}
+      DATABASE_URL: postgres://${POSTGRES_USER:-gathe}:${POSTGRES_PASSWORD:-gathe}@db:5432/${POSTGRES_DB:-gathe_site}
+      WAGTAILADMIN_BASE_URL: ${WAGTAILADMIN_BASE_URL:-http://localhost:8000}
+      # Webhook revalidation interne (DNS Docker)
+      FRONTEND_BASE_URL: http://frontend:3000
+      # Liens "Voir sur le site" visibles par l'utilisateur (port exposé)
+      FRONTEND_PUBLIC_URL: ${FRONTEND_PUBLIC_URL:-http://localhost:${FRONTEND_HOST_PORT:-3000}}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-dev-revalidate-secret}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:3200,http://127.0.0.1:3200}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000,http://localhost:8200,http://127.0.0.1:8200,http://localhost:3200,http://127.0.0.1:3200}
+      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
+      DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-admin}
+      DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:-adminadmin}
+      DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-admin@gathe-finance.com}
+      # Tara Mobile Money — vides = mode mock automatique (pas d'appel HTTP).
+      # Renseigner les 3 dans .env pour activer le mode live.
+      TARA_API_KEY: ${TARA_API_KEY:-}
+      TARA_BUSINESS_ID: ${TARA_BUSINESS_ID:-}
+      TARA_WEBHOOK_SECRET: ${TARA_WEBHOOK_SECRET:-}
+      # URL publique joignable par Tara pour le callback webhook.
+      # En local : utiliser un tunnel (ngrok) et mettre l'URL https ici.
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:${BACKEND_HOST_PORT:-8000}}
+    volumes:
+      - ./backend:/app
+      - backend_media:/app/media
+    ports:
+      - "${BACKEND_HOST_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Worker django-q2 — exécute les schedules cron (intérêts mensuel, retards
+  # quotidien, réconciliation horaire). Réutilise l'image backend pour ne pas
+  # dupliquer. Le seed des Schedule rows est fait via `python manage.py seed_q_schedules`.
+  qcluster:
+    build:
+      context: ./backend
+      target: dev
+    command: ["python", "manage.py", "qcluster"]
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DJANGO_DEBUG: "true"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-insecure-change-me}
+      DATABASE_URL: postgres://${POSTGRES_USER:-gathe}:${POSTGRES_PASSWORD:-gathe}@db:5432/${POSTGRES_DB:-gathe_site}
+      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
+      # Tara — le cron de réconciliation horaire interroge le statut des
+      # paiements en attente ; il a donc besoin des mêmes credentials.
+      TARA_API_KEY: ${TARA_API_KEY:-}
+      TARA_BUSINESS_ID: ${TARA_BUSINESS_ID:-}
+      TARA_WEBHOOK_SECRET: ${TARA_WEBHOOK_SECRET:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:${BACKEND_HOST_PORT:-8000}}
+    volumes:
+      - ./backend:/app
+      - backend_media:/app/media
+    depends_on:
+      backend:
+        condition: service_started
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      NODE_ENV: development
+      CMS_API_URL: http://backend:8000
+      CMS_REVALIDATE_SECONDS: "60"
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-dev-revalidate-secret}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_PORTAL_URL: ${NEXT_PUBLIC_PORTAL_URL:-http://localhost:3201}
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/apps/site/.next
+    ports:
+      - "${FRONTEND_HOST_PORT:-3000}:3000"
+    depends_on:
+      - backend
+
+  # Portail sociétaire — Next.js dédié, isolé de la vitrine et de l'admin.
+  # Réutilise l'image frontend (target dev) puis lance `npm run dev` sur @gathe/portal.
+  portal:
+    build:
+      context: ./frontend
+      target: dev
+    command: ["npm", "run", "dev", "--workspace", "@gathe/portal", "--", "-H", "0.0.0.0", "-p", "3000"]
+    environment:
+      NODE_ENV: development
+      BACKEND_INTERNAL_URL: http://backend:8000
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3200}
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_portal_next:/app/apps/portal/.next
+    ports:
+      - "${PORTAL_HOST_PORT:-3201}:3000"
+    depends_on:
+      - backend
+
+  # Admin dashboard — separate Next.js app sharing the design system.
+  # Réutilise l'image frontend (target dev) puis lance `npm run dev` sur @gathe/admin.
+  admin:
+    build:
+      context: ./frontend
+      target: dev
+    command: ["npm", "run", "dev", "--workspace", "@gathe/admin", "--", "-H", "0.0.0.0", "-p", "3000"]
+    environment:
+      NODE_ENV: development
+      BACKEND_INTERNAL_URL: http://backend:8000
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_admin_next:/app/apps/admin/.next
+    ports:
+      - "${ADMIN_HOST_PORT:-3202}:3000"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
+  backend_media:
+  frontend_admin_next:
+  frontend_portal_next:
+  frontend_node_modules:
+  frontend_next:

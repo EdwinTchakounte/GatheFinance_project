@@ -1,0 +1,277 @@
+# Production stack — Gathe Finance
+# -----------------------------------------------------------------------------
+# Lancement :  cd infra && docker compose -f docker-compose.prod.yml up -d --build
+#
+# Pré-requis :
+#   - DNS pointant les 5 sous-domaines vers le VPS Contabo, basés sur
+#     gathe-finance.horus-lab.com (site), portail.*, admin.*, api.*, cms.*
+#   - Fichier .env.prod dans `infra/` (copier .env.prod.example, le remplir)
+#   - Port 80/443 ouverts sur le VPS
+#
+# Composants :
+#   - db        : Postgres 16 (volume persistant + healthcheck)
+#   - backend   : Django + Wagtail (gunicorn, whitenoise)
+#   - qcluster  : django-q2 scheduler (réutilise l'image backend)
+#   - site      : Next.js marketing
+#   - portal    : Next.js espace sociétaire
+#   - admin     : Next.js dashboard staff
+#   - traefik   : reverse-proxy TLS automatique (Let's Encrypt)
+#   - backup    : pg_dump quotidien → /backups (à monter sur stockage externe)
+
+name: gathe-finance-prod
+
+x-backend-env: &backend-env
+  DJANGO_SETTINGS_MODULE: config.settings.prod
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
+  DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+  WAGTAILADMIN_BASE_URL: https://${CMS_DOMAIN}
+  FRONTEND_BASE_URL: https://${SITE_DOMAIN}
+  PUBLIC_BASE_URL: https://${API_DOMAIN}
+  REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+  CORS_ALLOWED_ORIGINS: https://${SITE_DOMAIN},https://${PORTAL_DOMAIN},https://${ADMIN_DOMAIN}
+  CSRF_TRUSTED_ORIGINS: https://${SITE_DOMAIN},https://${PORTAL_DOMAIN},https://${ADMIN_DOMAIN},https://${API_DOMAIN},https://${CMS_DOMAIN}
+  # E-mail : API HTTP Brevo via django-anymail (pas de SMTP). prod.py sélectionne
+  # déjà le backend Anymail-Brevo ; on lui passe juste la clé API + l'expéditeur.
+  BREVO_API_KEY: ${BREVO_API_KEY:-}
+  DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL}
+  CONTACT_NOTIFICATION_EMAIL: ${CONTACT_NOTIFICATION_EMAIL:-contact@gathe-finance.com}
+  EMAIL_BACKEND: ${EMAIL_BACKEND:-anymail.backends.brevo.EmailBackend}
+  TARA_API_KEY: ${TARA_API_KEY:-}
+  TARA_BUSINESS_ID: ${TARA_BUSINESS_ID:-}
+  TARA_WEBHOOK_SECRET: ${TARA_WEBHOOK_SECRET:-}
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+  AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  AWS_S3_ENDPOINT_URL: ${AWS_S3_ENDPOINT_URL:-}
+  AWS_S3_REGION_NAME: ${AWS_S3_REGION_NAME:-}
+  MEDIA_DOMAIN: ${MEDIA_DOMAIN:-}
+
+services:
+  # ---------------------------------------------------------------------------
+  # Base de données
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [internal]
+
+  # ---------------------------------------------------------------------------
+  # Backend Django + Wagtail
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ../backend
+      target: prod
+    image: gathe-finance/backend:prod
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      COLLECT_STATIC: "1"
+      DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME}
+      DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD}
+      DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL}
+    volumes:
+      - backend_media:/app/media
+      - backend_static:/app/staticfiles
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/docs/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks: [internal, web]
+    labels:
+      - "traefik.enable=true"
+      # API publique
+      - "traefik.http.routers.gathe-api.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.gathe-api.entrypoints=websecure"
+      - "traefik.http.routers.gathe-api.tls=true"
+      - "traefik.http.routers.gathe-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gathe-api.service=gathe-backend"
+      # CMS / Wagtail admin
+      - "traefik.http.routers.gathe-cms.rule=Host(`${CMS_DOMAIN}`)"
+      - "traefik.http.routers.gathe-cms.entrypoints=websecure"
+      - "traefik.http.routers.gathe-cms.tls=true"
+      - "traefik.http.routers.gathe-cms.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gathe-cms.service=gathe-backend"
+      - "traefik.http.services.gathe-backend.loadbalancer.server.port=8000"
+
+  # ---------------------------------------------------------------------------
+  # Scheduler django-q2 (intérêts mensuel, retards quotidien, réconciliation)
+  # ---------------------------------------------------------------------------
+  qcluster:
+    image: gathe-finance/backend:prod
+    restart: unless-stopped
+    command: ["python", "manage.py", "qcluster"]
+    environment:
+      <<: *backend-env
+    depends_on:
+      backend:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    networks: [internal]
+
+  # ---------------------------------------------------------------------------
+  # Frontends Next.js (3 workspaces séparés)
+  # ---------------------------------------------------------------------------
+  site:
+    build:
+      context: ../frontend
+      target: runner-site
+      args:
+        CMS_API_URL: http://backend:8000
+        NEXT_PUBLIC_SITE_URL: https://${SITE_DOMAIN}
+        NEXT_PUBLIC_PORTAL_URL: https://${PORTAL_DOMAIN}
+    image: gathe-finance/site:prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      CMS_API_URL: http://backend:8000
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+      NEXT_PUBLIC_SITE_URL: https://${SITE_DOMAIN}
+      NEXT_PUBLIC_PORTAL_URL: https://${PORTAL_DOMAIN}
+    depends_on: [backend]
+    networks: [internal, web]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gathe-site.rule=Host(`${SITE_DOMAIN}`)"
+      - "traefik.http.routers.gathe-site.entrypoints=websecure"
+      - "traefik.http.routers.gathe-site.tls=true"
+      - "traefik.http.routers.gathe-site.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gathe-site.loadbalancer.server.port=3000"
+
+  portal:
+    build:
+      context: ../frontend
+      target: runner-portal
+      args:
+        BACKEND_INTERNAL_URL: http://backend:8000
+        NEXT_PUBLIC_SITE_URL: https://${SITE_DOMAIN}
+    image: gathe-finance/portal:prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      BACKEND_INTERNAL_URL: http://backend:8000
+      NEXT_PUBLIC_SITE_URL: https://${SITE_DOMAIN}
+    depends_on: [backend]
+    networks: [internal, web]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gathe-portal.rule=Host(`${PORTAL_DOMAIN}`)"
+      - "traefik.http.routers.gathe-portal.entrypoints=websecure"
+      - "traefik.http.routers.gathe-portal.tls=true"
+      - "traefik.http.routers.gathe-portal.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gathe-portal.loadbalancer.server.port=3000"
+
+  admin:
+    build:
+      context: ../frontend
+      target: runner-admin
+      args:
+        BACKEND_INTERNAL_URL: http://backend:8000
+    image: gathe-finance/admin:prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      BACKEND_INTERNAL_URL: http://backend:8000
+    depends_on: [backend]
+    networks: [internal, web]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gathe-admin.rule=Host(`${ADMIN_DOMAIN}`)"
+      - "traefik.http.routers.gathe-admin.entrypoints=websecure"
+      - "traefik.http.routers.gathe-admin.tls=true"
+      - "traefik.http.routers.gathe-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gathe-admin.loadbalancer.server.port=3000"
+
+  # ---------------------------------------------------------------------------
+  # Reverse-proxy + Let's Encrypt
+  # ---------------------------------------------------------------------------
+  # Reverse-proxy intégré (TLS auto). OPT-IN : ne démarre qu'avec
+  # `--profile traefik`. Si tu mets ton propre nginx devant, n'active PAS ce
+  # profil et utilise plutôt docker-compose.nginx.yml (expose les ports).
+  traefik:
+    image: traefik:v3.1
+    profiles: ["traefik"]
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=gathe-finance-prod_web"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--api.dashboard=false"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks: [web]
+
+  # ---------------------------------------------------------------------------
+  # Backups Postgres (cron quotidien → /backups)
+  # ---------------------------------------------------------------------------
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+    volumes:
+      - backups:/backups
+      - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "0 3 * * * /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1" | crontab - && \
+        touch /var/log/backup.log && \
+        crond -f -L /dev/stdout
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal]
+
+
+networks:
+  # `internal` : isolé, accessible uniquement entre conteneurs
+  internal:
+    internal: true
+  # `web` : exposé via Traefik (frontends + backend public)
+  web:
+
+
+volumes:
+  db_data:
+  backend_media:
+  backend_static:
+  letsencrypt:
+  backups:

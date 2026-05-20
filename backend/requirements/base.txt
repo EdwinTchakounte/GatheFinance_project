@@ -1,0 +1,40 @@
+# Core
+Django>=5.2,<5.3
+wagtail>=7.0,<7.5
+wagtail-localize>=1.12
+
+# API
+djangorestframework>=3.15
+django-cors-headers>=4.4
+django-filter>=24.3
+
+# Database
+psycopg[binary]>=3.2
+
+# Storage (Backblaze B2 via S3-compatible)
+django-storages[s3]>=1.14
+boto3>=1.35
+
+# Images
+Pillow>=10.4
+
+# Config / env
+django-environ>=0.11
+
+# Security helpers
+django-ratelimit>=4.1
+
+# HTTP client for outbound calls to payment providers (Tara Money & friends)
+requests>=2.32
+
+# OpenAPI / Swagger schema generation for the cooperative API.
+drf-spectacular>=0.27
+
+# Task scheduler — DB-broker, no Redis needed. Runs the monthly interest cron,
+# the daily overdue check, and the hourly payment reconciliation.
+django-q2>=1.7
+croniter>=2.0  # cron expressions for django-q schedules
+
+# Mail — Brevo via son API HTTP (PAS le SMTP). django-anymail traduit les
+# e-mails Django (EmailMultiAlternatives) vers l'API transactionnelle Brevo.
+django-anymail[brevo]>=10.3

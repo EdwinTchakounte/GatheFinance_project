@@ -1,0 +1,264 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { Container, buttonClasses } from "@gathe/ui";
+
+import {
+  portalApi,
+  type ApiError,
+  type Identity,
+  type SavingsSnapshot,
+} from "@/lib/api";
+
+
+function formatXAF(amount: string): string {
+  const n = Number(amount);
+  if (Number.isNaN(n)) return amount;
+  return n.toLocaleString("fr-FR", { maximumFractionDigits: 0 }) + " XAF";
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+
+export default function PortalDashboardPage() {
+  const router = useRouter();
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [savings, setSavings] = useState<SavingsSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const me = await portalApi.me();
+        if (cancelled) return;
+        if (!me.member) {
+          // Internal staff without a member profile — they should use the admin instead.
+          setIdentity(me);
+          setSavings(null);
+          setLoading(false);
+          return;
+        }
+        const snap = await portalApi.savings();
+        if (cancelled) return;
+        setIdentity(me);
+        setSavings(snap);
+      } catch (err) {
+        const apiErr = err as ApiError;
+        if (apiErr.status === 401 || apiErr.status === 403) {
+          router.replace("/connexion");
+          return;
+        }
+        setError(apiErr.detail ?? "Impossible de charger l'espace membre.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  async function onLogout() {
+    try {
+      await portalApi.logout();
+    } finally {
+      router.replace("/connexion");
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-svh bg-cream py-20">
+        <Container>
+          <p className="text-center text-ink-600">Chargement…</p>
+        </Container>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="min-h-svh bg-cream py-20">
+        <Container>
+          <p className="mx-auto max-w-md rounded-md border border-terra-400/40 bg-terra-50/60 p-5 text-center text-terra-700">
+            {error}
+          </p>
+        </Container>
+      </main>
+    );
+  }
+
+  if (!identity?.member) {
+    return (
+      <main className="min-h-svh bg-cream py-20">
+        <Container>
+          <div className="mx-auto max-w-md rounded-md border border-line-200 bg-paper p-7 text-center">
+            <h2 className="font-editorial text-xl text-ink-900">
+              Compte interne
+            </h2>
+            <p className="mt-3 text-sm text-ink-600">
+              Ce compte est rattaché au personnel. Utilise le dashboard
+              administrateur ou{" "}
+              <a href="/django-admin/" className="font-medium text-blue-700 hover:underline">
+                /django-admin/
+              </a>
+              .
+            </p>
+            <button onClick={onLogout} className={buttonClasses({ variant: "secondary", size: "md" }) + " mt-6"}>
+              Se déconnecter
+            </button>
+          </div>
+        </Container>
+      </main>
+    );
+  }
+
+  const m = identity.member;
+  const isSuspended = m.statut === "suspendu";
+
+  return (
+    <main className="min-h-svh bg-cream py-12 lg:py-16">
+      <Container className="max-w-5xl">
+        {/* Header */}
+        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line-200 pb-6">
+          <div>
+            <span className="label-num">Espace membre</span>
+            <h1 className="mt-3 font-editorial text-3xl font-medium leading-tight text-ink-900">
+              Bonjour, {m.prenom} {m.nom}
+            </h1>
+            <p className="mt-1 text-sm text-ink-600">
+              Membre n° <span className="font-mono">{m.numero_membre}</span>
+              {" · "}
+              <span className={
+                m.statut === "actif"
+                  ? "font-medium text-emerald"
+                  : "font-medium text-terra-600"
+              }>
+                {m.statut === "actif" ? "Compte actif" : `Compte ${m.statut}`}
+              </span>
+            </p>
+          </div>
+          <button onClick={onLogout} className={buttonClasses({ variant: "ghost", size: "sm" })}>
+            Se déconnecter
+          </button>
+        </header>
+
+        {/* Suspended members : big activation CTA instead of the savings dashboard */}
+        {isSuspended ? (
+          <section className="mt-10 rounded-md border border-terra-400/40 bg-terra-50/40 p-8 text-center">
+            <span className="label-num mx-auto">Action requise</span>
+            <h2 className="mt-3 font-editorial text-2xl font-medium text-ink-900">
+              Active ton compte membre
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-ink-700">
+              Ta demande d'adhésion a été approuvée, mais ton compte reste
+              suspendu tant que tu n'as pas réglé ta 1<sup>re</sup> cotisation.
+              Une fois payée, tu accèdes à l'épargne, au crédit et à tous les
+              services de la coopérative.
+            </p>
+            <button
+              onClick={() => router.push("/activation")}
+              className={buttonClasses({ variant: "success", size: "lg" }) + " mt-6"}
+            >
+              Payer la cotisation maintenant
+            </button>
+          </section>
+        ) : null}
+
+        {/* Below — only for active members */}
+        {!isSuspended && (<>
+        {/* Solde */}
+        <section className="mt-10 grid gap-6 md:grid-cols-3">
+          <div className="md:col-span-2 rounded-md border border-line-200 bg-paper p-7">
+            <h2 className="font-editorial text-sm font-medium uppercase tracking-[0.14em] text-ink-600">
+              Solde d'épargne
+            </h2>
+            <p className="mt-3 font-editorial text-5xl font-medium leading-none text-ink-900">
+              {savings ? formatXAF(savings.solde) : "—"}
+            </p>
+            {savings ? (
+              <p className="mt-3 text-sm text-ink-600">
+                Taux annuel appliqué :{" "}
+                <span className="font-medium text-ink-900">
+                  {(Number(savings.taux_interet_applique) * 100).toFixed(2)} %
+                </span>
+                {" · "}Compte ouvert le {formatDate(savings.date_ouverture)}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="rounded-md border border-line-200 bg-cream p-7">
+            <h2 className="font-editorial text-sm font-medium uppercase tracking-[0.14em] text-ink-600">
+              Actions
+            </h2>
+            <button
+              type="button"
+              onClick={() => router.push("/epargne/depot")}
+              className={buttonClasses({ variant: "success", size: "md", fullWidth: true }) + " mt-4"}
+            >
+              Verser ma cotisation
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/credit")}
+              className={buttonClasses({ variant: "secondary", size: "md", fullWidth: true }) + " mt-3"}
+            >
+              Mes crédits
+            </button>
+            <p className="mt-3 text-xs text-ink-600">
+              Déposer, demander un crédit, suivre tes échéances.
+            </p>
+          </div>
+        </section>
+
+        {/* Transactions récentes */}
+        <section className="mt-12">
+          <h2 className="font-editorial text-xl font-medium text-ink-900">
+            Transactions récentes
+          </h2>
+          {savings && savings.transactions_recentes.length > 0 ? (
+            <ul className="mt-5 divide-y divide-line-200 rounded-md border border-line-200 bg-paper">
+              {savings.transactions_recentes.map((tx) => (
+                <li key={tx.id} className="flex items-center justify-between px-5 py-3.5">
+                  <div>
+                    <p className="font-medium text-ink-900">{tx.type_display}</p>
+                    <p className="text-xs text-ink-600">{formatDate(tx.date)}</p>
+                  </div>
+                  <p className={
+                    tx.type_op === "retrait"
+                      ? "font-mono text-terra-700"
+                      : "font-mono text-emerald"
+                  }>
+                    {tx.type_op === "retrait" ? "−" : "+"}
+                    {formatXAF(tx.montant)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-5 rounded-md border border-dashed border-line-200 bg-paper/70 p-8 text-center text-sm text-ink-600">
+              Aucune transaction pour le moment. Effectue ton 1<sup>er</sup> dépôt
+              quand tu veux.
+            </p>
+          )}
+        </section>
+        </>)}
+      </Container>
+    </main>
+  );
+}

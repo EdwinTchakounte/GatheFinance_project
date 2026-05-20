@@ -1,0 +1,57 @@
+# --- Python / Django / Wagtail ---
+backend/.venv/
+backend/**/__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+backend/media/
+backend/staticfiles/
+backend/static_collected/
+backend/*.sqlite3
+backend/db.sqlite3
+backend/.env
+backend/.env.*
+!backend/.env.example
+celerybeat-schedule
+
+# --- Node / Next.js ---
+node_modules/
+frontend/**/node_modules/
+.next/
+out/
+.turbo/
+frontend/**/.next/
+frontend/**/out/
+frontend/**/storybook-static/
+*.tsbuildinfo
+.env.local
+.env.development.local
+.env.production.local
+frontend/**/.env.local
+
+# --- Tooling / editors ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+coverage/
+.cache/
+
+# --- Secrets / local config ---
+/.env
+/.env.*
+!/.env.docker.example
+infra/.env.prod
+infra/.env.prod.*
+!infra/.env.prod.example
+*.pem
+*.key
+secrets/
+
+# --- Build artifacts of doc tooling (kept out of VCS) ---
+/tmp/

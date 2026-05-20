@@ -1,0 +1,598 @@
+@import "tailwindcss";
+@import "@gathe/config/theme.css";
+@import "lenis/dist/lenis.css";
+
+/* The shared design-system package lives outside this app's folder, so Tailwind
+   needs to be told to scan it for class names. */
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+
+/* =========================================================================
+   VITRINE — bi-thème : CLAIR FUN (défaut, calé sur le logo bleu+vert) +
+   SOMBRE (skin fintech façon taramoney.com), commutés par
+   `documentElement[data-theme]`. Polices Syne + DM Sans pour les deux.
+   Le sombre est *opt-in* (toggle) : on ne touche pas @gathe/config ni
+   @gathe/ui, donc portail/admin gardent leur look.
+   ========================================================================= */
+@theme {
+  /* ---- Polices : Syne (display) + DM Sans (corps) — communes aux 2 thèmes */
+  --font-display: var(--font-syne), "Syne", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-dmsans), "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-editorial: var(--font-syne), "Syne", ui-sans-serif, sans-serif;
+  --font-serif: var(--font-editorial);
+
+  /* ---- Rayons « fun » — formes généreusement arrondies ----------------- */
+  --radius-md: 0.75rem;
+  --radius-lg: 1.1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+}
+
+/* -------------------------------------------------------------------------
+   CLAIR FUN = défaut. Hérite des tokens institutionnels (@gathe/config :
+   bleu cobalt + vert émeraude, surfaces crème) ; on ne réaffecte que
+   l'accent vif et les variables de « skin » consommées par les primitives.
+   ------------------------------------------------------------------------- */
+:root {
+  /* Accent vif partagé (proche du vert logo, version pop) */
+  --accent: #16a34a;
+  --accent-strong: #15803d;
+  --accent-soft: rgba(22, 163, 74, 0.12);
+
+  --skin-text: var(--color-ink-700);
+  --skin-text-strong: var(--color-ink-900);
+  --skin-text-muted: var(--color-ink-500);
+  --skin-hairline: var(--color-line-200);
+  --skin-card-bg: #ffffff;
+  --skin-card-border: var(--color-line-200);
+  --skin-card-hover-bg: var(--color-cream);
+  --skin-card-hover-border: var(--color-blue-300);
+  --skin-band-bg: var(--color-cream);
+  --skin-band-strong-bg: var(--color-blue-950);
+  --skin-th-bg: var(--color-cream);
+  --skin-ghost-bg: var(--color-surface-0);
+  --skin-ghost-border: var(--color-line-200);
+  --skin-ghost-text: var(--color-ink-700);
+  --skin-ghost-hover-bg: var(--color-surface-50);
+  --skin-noise: 0;          /* pas de grain en clair */
+}
+
+/* -------------------------------------------------------------------------
+   SOMBRE = skin Tara. Réaffecte les tokens Tailwind (bg-*/text-*) au runtime
+   + les variables de skin. Vert utilisé pour les ACCENTS, jamais pour le
+   corps de texte (corrige « texte vert sur fond noir »).
+   ------------------------------------------------------------------------- */
+:root[data-theme="dark"],
+:root.dark {
+  --color-paper: #0b0b0c;
+  --color-surface-0: rgba(255, 255, 255, 0.04);
+  --color-surface-50: #141416;
+  --color-cream: #141416;
+  --color-line-200: rgba(255, 255, 255, 0.10);
+  --color-line-100: rgba(255, 255, 255, 0.07);
+  --color-line-50:  rgba(255, 255, 255, 0.05);
+
+  /* Texte = blanc/gris (jamais vert) */
+  --color-ink-950: #ffffff;
+  --color-ink-900: #ffffff;
+  --color-ink-800: rgba(255, 255, 255, 0.82);
+  --color-ink-700: rgba(255, 255, 255, 0.74);
+  --color-ink-600: rgba(255, 255, 255, 0.58);
+  --color-ink-500: rgba(255, 255, 255, 0.55);
+  --color-ink-400: rgba(255, 255, 255, 0.40);
+  --color-ink-300: rgba(255, 255, 255, 0.34);
+
+  /* Accent vert (liens/CTA/labels) — lisible sur near-black */
+  --accent: #34d77a;
+  --accent-strong: #22c55e;
+  --accent-soft: rgba(52, 215, 122, 0.14);
+  --color-blue-50:   rgba(52, 215, 122, 0.10);
+  --color-blue-100:  rgba(52, 215, 122, 0.14);
+  --color-blue-200:  rgba(52, 215, 122, 0.22);
+  --color-blue-300:  rgba(52, 215, 122, 0.34);
+  --color-blue-400:  #34d77a;
+  --color-blue-500:  #34d77a;
+  --color-blue-600:  #22c55e;
+  --color-blue-700:  #34d77a;
+  --color-blue-800:  #22c55e;
+  --color-blue-900:  #141416;
+  --color-blue-950:  #0b0b0c;
+  --color-green-500: #34d77a;
+  --color-green-600: #22c55e;
+  --color-emerald:   #34d77a;
+  --color-terra-500: #34d77a;
+  --color-terra-700: rgba(52, 215, 122, 0.75);
+  --color-green-50:  rgba(52, 215, 122, 0.10);
+  --color-green-100: rgba(52, 215, 122, 0.14);
+  --color-green-200: rgba(52, 215, 122, 0.22);
+  --color-terra-50:  rgba(52, 215, 122, 0.08);
+  --color-terra-100: rgba(52, 215, 122, 0.12);
+
+  --skin-text: rgba(255, 255, 255, 0.74);
+  --skin-text-strong: #ffffff;
+  --skin-text-muted: rgba(255, 255, 255, 0.55);
+  --skin-hairline: rgba(255, 255, 255, 0.10);
+  --skin-card-bg: rgba(255, 255, 255, 0.045);
+  --skin-card-border: rgba(255, 255, 255, 0.10);
+  --skin-card-hover-bg: rgba(255, 255, 255, 0.07);
+  --skin-card-hover-border: rgba(52, 215, 122, 0.40);
+  --skin-band-bg: #141416;
+  --skin-band-strong-bg: #0b0b0c;
+  --skin-th-bg: #1a1a1d;
+  --skin-ghost-bg: rgba(255, 255, 255, 0.05);
+  --skin-ghost-border: rgba(255, 255, 255, 0.12);
+  --skin-ghost-text: rgba(255, 255, 255, 0.82);
+  --skin-ghost-hover-bg: rgba(255, 255, 255, 0.10);
+  --skin-noise: 0.022;
+}
+
+@layer base {
+  html {
+    /* Lenis owns smooth scroll: keep `auto` so its rAF interpolation is the
+       single source of truth (CSS smooth-scroll fights Lenis). */
+    scroll-behavior: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+  body {
+    background-color: var(--color-paper);
+    color: var(--skin-text);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: clip;
+    position: relative;
+  }
+  ::selection {
+    background-color: var(--accent-soft);
+    color: var(--skin-text-strong);
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    color: var(--color-ink-900);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  /* Headlines that explicitly opt into the editorial serif. */
+  .font-editorial,
+  .editorial,
+  .editorial h1, .editorial h2, .editorial h3, .editorial h4 {
+    font-family: var(--font-editorial);
+    letter-spacing: 0;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+}
+
+/* =========================================================================
+   DARK SKIN — ambient atmosphere (noise grain + soft orbs). Fixed, behind
+   everything, non-interactive. Keeps the page reading on near-black #080808.
+   ========================================================================= */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--skin-noise);   /* 0 en clair, ~0.022 en sombre */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+/* Orbes ambiantes : sombre uniquement. */
+.dark-orb { display: none; }
+:root[data-theme="dark"] .dark-orb,
+:root.dark .dark-orb {
+  display: block;
+  position: fixed;
+  width: 42rem;
+  height: 42rem;
+  border-radius: 9999px;
+  filter: blur(120px);
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: 0;
+}
+:root[data-theme="dark"] .dark-orb--green,
+:root.dark .dark-orb--green { top: -14rem; right: -10rem; background: #22c55e; }
+:root[data-theme="dark"] .dark-orb--blue,
+:root.dark .dark-orb--blue  { bottom: -16rem; left: -12rem; background: #0ea5e9; }
+
+/* =========================================================================
+   Editorial / institutional primitives — used across the whole site.
+   ========================================================================= */
+
+/* Vertical rhythm for page sections. */
+.section-pad { padding-block: clamp(4rem, 7vw, 7rem); }
+.section-pad-sm { padding-block: clamp(2.75rem, 4.5vw, 4.5rem); }
+
+/* =========================================================================
+   Scroll hint — bottom-of-hero pulsing chevron + filet (chantier 2).
+   ========================================================================= */
+@keyframes scroll-hint-chevron {
+  0%, 100% { transform: translateY(0); opacity: 0.55; }
+  50%      { transform: translateY(6px); opacity: 1; }
+}
+@keyframes scroll-hint-rule {
+  0%, 100% { transform: scaleY(0.45); opacity: 0.4; }
+  50%      { transform: scaleY(1);    opacity: 0.95; }
+}
+.scroll-hint-chevron {
+  animation: scroll-hint-chevron 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.scroll-hint-rule {
+  transform-origin: top;
+  animation: scroll-hint-rule 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-hint-chevron,
+  .scroll-hint-rule { animation: none; opacity: 0.75; transform: none; }
+}
+
+/* A thin warm filet — the press "rule". */
+.rule {
+  border-color: var(--color-line-200);
+}
+.rule-t { border-top: 1px solid var(--color-line-200); }
+.rule-b { border-bottom: 1px solid var(--color-line-200); }
+.rule-l { border-left: 1px solid var(--color-line-200); }
+.rule-r { border-right: 1px solid var(--color-line-200); }
+.rule-dark { border-color: rgb(255 255 255 / 0.16); }
+.rule-t.rule-dark { border-top-color: rgb(255 255 255 / 0.16); }
+.rule-b.rule-dark { border-bottom-color: rgb(255 255 255 / 0.16); }
+.rule-l.rule-dark { border-left-color: rgb(255 255 255 / 0.16); }
+.rule-r.rule-dark { border-right-color: rgb(255 255 255 / 0.16); }
+
+/* Numbered section label — green pulsing dot, no hairline tail. */
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.35); opacity: 0.55; }
+}
+.label-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+.label-num::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--accent);
+  box-shadow: 0 0 8px 1px var(--accent-soft);
+  animation: pulse 2s ease-in-out infinite;
+}
+.label-num--on-dark { color: #34d77a; }
+.label-num--on-dark::before { background: #34d77a; }
+@media (prefers-reduced-motion: reduce) {
+  .label-num::before { animation: none; }
+}
+
+/* Editorial kicker (smaller, italic, serif). */
+.kicker {
+  font-family: var(--font-editorial);
+  font-style: italic;
+  color: var(--color-terra-700);
+  letter-spacing: 0.01em;
+}
+
+/* Caption — for photos, stat blocks, charts. */
+.caption {
+  font-family: var(--font-editorial);
+  font-style: italic;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-ink-500);
+}
+.caption--on-dark { color: rgb(255 255 255 / 0.65); }
+
+/* Measure — used to constrain editorial body copy to a comfortable column. */
+.measure { max-width: 38em; }
+.measure-wide { max-width: 52em; }
+
+/* Press grid — 12-col base for sections that want columnar layouts. */
+.press-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: clamp(1.25rem, 2vw, 2rem);
+}
+
+/* Card — adaptative (skin vars) : surface claire en clair, verre en sombre. */
+.card {
+  background: var(--skin-card-bg);
+  border: 1px solid var(--skin-card-border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--duration-base) var(--ease-out-soft),
+              background-color var(--duration-base) var(--ease-out-soft),
+              transform var(--duration-base) var(--ease-out-soft);
+}
+.card:hover {
+  background: var(--skin-card-hover-bg);
+  border-color: var(--skin-card-hover-border);
+  transform: translateY(-2px);
+}
+.card--cream { background: var(--color-cream); }
+.card--inverse { background: var(--accent-soft); border-color: var(--skin-card-hover-border); }
+.card--inverse:hover { border-color: var(--accent); }
+.card--featured { background: var(--accent-soft); border-color: var(--skin-card-hover-border); }
+
+/* Big stat block — Syne, tight tracking. */
+.stat-num {
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--skin-text-strong);
+}
+.stat-num--on-dark { color: #fff; }
+.stat-label {
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--skin-text-muted);
+}
+.stat-label--on-dark { color: rgba(255, 255, 255, 0.55); }
+
+/* Pull-quote. */
+.pullquote {
+  font-family: var(--font-editorial);
+  font-size: 1.5rem;
+  line-height: 1.4;
+  color: var(--skin-text-strong);
+  border-left: 2px solid var(--accent);
+  padding-left: 1.25rem;
+}
+
+/* Bands — claires sur fond crème, immersives en sombre. */
+.bg-band-dark {
+  background-color: var(--skin-band-strong-bg);
+  color: rgba(255, 255, 255, 0.92);
+}
+.bg-band-blue {
+  background-color: var(--skin-band-strong-bg);
+  color: rgba(255, 255, 255, 0.92);
+}
+.bg-band-cream {
+  background-color: var(--skin-band-bg);
+}
+
+/* Subtle ambient float for accent dots (the only ambient motion kept). */
+@keyframes float-y { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.animate-float { animation: float-y 7s ease-in-out infinite; }
+.animate-float-slow { animation: float-y 11s ease-in-out infinite; }
+
+/* Scroll-reveal: hidden until the element gains .is-visible (via IntersectionObserver). */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.55s var(--ease-out-soft), transform 0.55s var(--ease-out-soft);
+}
+.reveal.is-visible { opacity: 1; transform: none; }
+
+/* Body copy — left-aligned editorial measure for the institutional registre.
+   The earlier .copy class (justified) is kept for legacy callers; new code
+   should prefer .editorial-copy. */
+.editorial-copy {
+  font-family: var(--font-sans);
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+.copy {
+  text-wrap: pretty;
+}
+@media (min-width: 768px) {
+  .copy {
+    text-align: justify;
+    -webkit-hyphens: auto;
+    hyphens: auto;
+    hyphenate-limit-chars: 7 4 4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .animate-float, .animate-float-slow { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+/* Long-form article / legal-page typography (StreamField renderer). */
+.prose-gathe {
+  color: var(--color-ink-700);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  font-family: var(--font-sans);
+}
+.prose-gathe > * + * {
+  margin-top: 1.15em;
+}
+.prose-gathe h2 {
+  font-family: var(--font-editorial);
+  font-size: 1.625rem;
+  font-weight: 600;
+  color: var(--color-ink-900);
+  margin-top: 2.2em;
+  line-height: 1.3;
+}
+.prose-gathe h3 {
+  font-family: var(--font-editorial);
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--color-ink-900);
+  margin-top: 1.8em;
+}
+.prose-gathe h4 {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-ink-900);
+  margin-top: 1.6em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.prose-gathe a {
+  color: var(--color-blue-700);
+  text-decoration: underline;
+  text-decoration-color: var(--color-blue-300);
+  text-underline-offset: 2px;
+}
+.prose-gathe a:hover {
+  color: var(--color-blue-800);
+}
+.prose-gathe strong {
+  color: var(--color-ink-900);
+  font-weight: 600;
+}
+.prose-gathe ul,
+.prose-gathe ol {
+  padding-left: 1.4em;
+}
+.prose-gathe ul {
+  list-style: disc;
+}
+.prose-gathe ol {
+  list-style: decimal;
+}
+.prose-gathe li + li {
+  margin-top: 0.4em;
+}
+.prose-gathe blockquote {
+  border-left: 2px solid var(--color-terra-500);
+  padding-left: 1.25rem;
+  color: var(--color-ink-700);
+  font-family: var(--font-editorial);
+  font-style: italic;
+  font-size: 1.2rem;
+}
+.prose-gathe hr {
+  border-color: var(--color-line-200);
+  margin: 2.5em 0;
+}
+
+/* =========================================================================
+   DARK SKIN — adoptable utility classes for the vitrine components.
+   ========================================================================= */
+
+/* Primary CTA glow — green pill, black text, soft halo. */
+.btn-primary {
+  background: #22c55e;
+  color: #000;
+  font-weight: 600;
+  border-radius: 12px;
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.25);
+  transition: transform var(--duration-fast) var(--ease-out-soft),
+              background-color var(--duration-base) var(--ease-out-soft);
+}
+.btn-primary:hover { background: #16a34a; }
+.btn-primary:active { transform: scale(0.97); }
+/* Ghost / secondary — adaptative. */
+.btn-ghost {
+  background: var(--skin-ghost-bg);
+  border: 1px solid var(--skin-ghost-border);
+  color: var(--skin-ghost-text);
+  border-radius: 12px;
+  transition: background-color var(--duration-base) var(--ease-out-soft),
+              border-color var(--duration-base) var(--ease-out-soft);
+}
+.btn-ghost:hover { background: var(--skin-ghost-hover-bg); border-color: var(--accent); }
+
+/* Pill / badge — pastille verte + hairline, adaptative. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 11.5px;
+  background: var(--skin-ghost-bg);
+  border: 1px solid var(--skin-ghost-border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  color: var(--skin-text-muted);
+}
+.pill::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-soft);
+}
+
+/* Trust bar / partners marquee — full-width band, scrolling content. */
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.trust-bar {
+  border-top: 1px solid var(--skin-hairline);
+  border-bottom: 1px solid var(--skin-hairline);
+  background: var(--skin-ghost-bg);
+  overflow: hidden;
+}
+.trust-bar__track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 22s linear infinite;
+}
+.trust-bar:hover .trust-bar__track { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .trust-bar__track { animation: none; }
+}
+
+/* Step numbering 01/02/03 — Syne green, divided by hairlines. */
+.step-num {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 800;
+  color: #22c55e;
+}
+
+/* Pricing — big value + green 0% glow. */
+.price-value {
+  font-family: var(--font-display);
+  font-size: 52px;
+  font-weight: 800;
+  letter-spacing: -3px;
+  line-height: 1;
+}
+.price-free {
+  color: #22c55e;
+  text-shadow: 0 0 24px rgba(34, 197, 94, 0.45);
+}
+.compare-table th { background: var(--skin-th-bg); }
+.compare-table .col-product { color: var(--accent-strong); }
+.compare-table tr:hover { background: var(--skin-ghost-bg); }
+
+/* Testimonials — avatar initials with green glow; amber stars. */
+.avatar-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 0.5px solid rgba(34, 197, 94, 0.45);
+  color: #22c55e;
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.25);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+.stars { color: #f59e0b; }
+
+/* Section separator filet. */
+.separator {
+  height: 1px;
+  max-width: 1100px;
+  margin-inline: auto;
+  background: var(--skin-hairline);
+}
+
+/* Navbar slide-down entrance. */
+@keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+.nav-slidedown { animation: slideDown 0.5s var(--ease-out-soft) both; }
+@media (prefers-reduced-motion: reduce) {
+  .nav-slidedown { animation: none; }
+}

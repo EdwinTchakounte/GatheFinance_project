@@ -1,0 +1,84 @@
+@import "tailwindcss";
+@import "@gathe/config/theme.css";
+
+/* Make Tailwind scan the shared UI package for class names. */
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+
+@layer base {
+  body {
+    background-color: var(--color-cream);
+    color: var(--color-ink-700);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background-color: var(--color-blue-100);
+    color: var(--color-blue-900);
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    color: var(--color-ink-900);
+    text-wrap: balance;
+  }
+  .font-editorial {
+    font-family: var(--font-editorial);
+    letter-spacing: 0;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+}
+
+/* Admin-specific utility: data-density tables */
+.table-admin {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.table-admin th {
+  text-align: left;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: var(--color-ink-600);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-line-200);
+}
+.table-admin td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--color-line-100);
+  vertical-align: top;
+}
+.table-admin tbody tr:hover {
+  background-color: var(--color-cream);
+}
+
+/* Status pills */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.pill-success { background: rgba(58, 170, 53, 0.12); color: #1f6f1c; }
+.pill-info    { background: rgba(14, 77, 146, 0.12); color: var(--color-blue-700); }
+.pill-warning { background: rgba(194, 116, 42, 0.14); color: #8c531e; }
+.pill-danger  { background: rgba(186, 33, 33, 0.10); color: #ba2121; }
+.pill-muted   { background: var(--color-line-100); color: var(--color-ink-600); }
+
+/* Fade-in léger pour le contenu qui change de page sans re-monter le sidebar.
+   Le sidebar reste persistant ; seule la zone <main> rejoue cette animation
+   à chaque pathname différent (cf. (authed)/layout.tsx). */
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

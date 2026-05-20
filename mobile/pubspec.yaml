@@ -1,0 +1,102 @@
+name: gathe_finance
+description: Espace sociétaire mobile Gathe Finance — coopérative d'épargne et de crédit.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State management — Riverpod 2 (annotations + code-gen).
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Navigation — go_router déclaratif, deep linking.
+  go_router: ^14.6.0
+
+  # Réseau (préparé pour l'API quand on basculera off-mock).
+  dio: ^5.7.0
+
+  # Sérialisation
+  json_annotation: ^4.9.0
+
+  # Storage — secure (tokens) + simple (préfs UI).
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.3.3
+
+  # Biométrie — déverrouillage par empreinte / Face.
+  local_auth: ^2.3.0
+  local_auth_android: ^1.0.46
+
+  # Génération + partage du relevé PDF (offline).
+  pdf: ^3.11.1
+  printing: ^5.13.3
+
+  # i18n — pin sur la version exigée par flutter_localizations (Flutter 3.41)
+  intl: ^0.20.2
+
+  # Polices brand
+  google_fonts: ^6.2.1
+
+  # Effets visuels
+  flutter_svg: ^2.0.10+1
+  shimmer: ^3.0.0
+  cached_network_image: ^3.4.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.13
+  riverpod_generator: ^2.4.3
+  json_serializable: ^6.8.0
+  riverpod_lint: ^2.6.3
+  custom_lint: ^0.7.6
+  # Mocks pour les tests unitaires des usecases et repositories.
+  # mocktail est sans code-gen, type-safe via extensions Dart.
+  mocktail: ^1.0.4
+  # Génère les icônes Android/iOS depuis le logo officiel.
+  flutter_launcher_icons: ^0.14.2
+
+# Configuration des icônes générées depuis assets/images/logo.jpg.
+# Run : `dart run flutter_launcher_icons`
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  remove_alpha_ios: true
+  image_path: "assets/images/app_icon.png"
+  min_sdk_android: 24
+  adaptive_icon_background: "#FAF6EF"
+  adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
+  adaptive_icon_monochrome: "assets/images/app_icon_monochrome.png"
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/images/
+    - assets/icons/
+
+  # Polices bundlées (offline) — variables fonts, le poids est piloté via
+  # fontVariations/fontWeight. Indispensable : l'appli tourne sans internet,
+  # GoogleFonts par réseau retombait sur Roboto sur le device.
+  fonts:
+    - family: Sora
+      fonts:
+        - asset: assets/fonts/Sora.ttf
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter.ttf
+    - family: Lora
+      fonts:
+        - asset: assets/fonts/Lora.ttf
+    - family: JetBrains Mono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono.ttf

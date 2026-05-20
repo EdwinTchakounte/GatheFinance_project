@@ -1,0 +1,29 @@
+@import "tailwindcss";
+@import "@gathe/config/theme.css";
+
+/* Make Tailwind scan the shared UI package for class names. */
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+
+@layer base {
+  body {
+    background-color: var(--color-cream);
+    color: var(--color-ink-700);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background-color: var(--color-blue-100);
+    color: var(--color-blue-900);
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    color: var(--color-ink-900);
+    text-wrap: balance;
+  }
+  .font-editorial {
+    font-family: var(--font-editorial);
+    letter-spacing: 0;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+}
