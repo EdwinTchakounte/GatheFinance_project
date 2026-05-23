@@ -54,7 +54,9 @@ ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG BACKEND_INTERNAL_URL=http://backend:8000
-ENV BACKEND_INTERNAL_URL=$BACKEND_INTERNAL_URL
+ARG NEXT_PUBLIC_PORTAL_URL=http://localhost:3201
+ENV BACKEND_INTERNAL_URL=$BACKEND_INTERNAL_URL \
+    NEXT_PUBLIC_PORTAL_URL=$NEXT_PUBLIC_PORTAL_URL
 RUN npm run build --workspace @gathe/admin
 
 # ---- runners (production) ---------------------------------------------------

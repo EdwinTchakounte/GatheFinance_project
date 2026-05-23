@@ -43,6 +43,12 @@ export default function PortalLoginPage() {
     <main className="min-h-svh bg-cream py-16">
       <section className="mx-auto w-full max-w-md px-6">
         <header className="mb-8 text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/logo.jpg"
+            alt="Gathé Finance"
+            className="mx-auto mb-4 h-14 w-auto"
+          />
           <span className="label-num">Espace membre</span>
           <h1 className="mt-3 font-editorial text-3xl font-medium text-ink-900">
             Connexion

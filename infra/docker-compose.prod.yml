@@ -187,11 +187,13 @@ services:
       target: runner-admin
       args:
         BACKEND_INTERNAL_URL: http://backend:8000
+        NEXT_PUBLIC_PORTAL_URL: https://${PORTAL_DOMAIN}
     image: gathe-finance/admin:prod
     restart: unless-stopped
     environment:
       NODE_ENV: production
       BACKEND_INTERNAL_URL: http://backend:8000
+      NEXT_PUBLIC_PORTAL_URL: https://${PORTAL_DOMAIN}
     depends_on: [backend]
     networks: [internal, web]
     labels:

@@ -1,0 +1,66 @@
+# Override prod — déploiement DERRIÈRE TON nginx conteneurisé (pas Traefik).
+# ===========================================================================
+# Cas d'usage : le VPS héberge déjà d'autres stacks derrière un nginx en
+# conteneur (réseau Docker partagé). On rattache les services Gathé à CE réseau
+# et on évite les collisions de noms (`db`, `backend`) avec les autres projets.
+#
+# Lancer SANS Traefik :
+#   docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml \
+#     --env-file .env.prod up -d --build
+#
+# .env.prod doit définir PROXY_NETWORK = nom du réseau Docker de ton nginx
+# (défaut: backend_default). Côté ton nginx, proxy_pass vers :
+#   gathe-site:3000 / gathe-portal:3000 / gathe-admin:3000 / gathe-backend:8000
+# (alias uniques pour ne pas entrer en collision avec un autre projet).
+#
+# Recharger ton nginx après modif de sa conf : `docker restart <ton_nginx>`
+# (un `nginx -s reload` ne suffit pas toujours).
+
+services:
+  # Postgres Gathé — alias unique pour ne pas être confondu avec un autre `db`.
+  db:
+    networks:
+      internal:
+        aliases: [gathe-db]
+
+  backend:
+    # `gathe-backend` = alias unique (évite la collision avec un autre `backend`
+    # sur le réseau partagé, qui provoquait des 400 aléatoires en round-robin).
+    networks:
+      internal:
+        aliases: [gathe-backend]
+      shared:
+        aliases: [gathe-backend]
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@gathe-db:5432/${POSTGRES_DB}"
+      # nginx (au bord) fait déjà la redirection HTTP→HTTPS ; on désactive celle
+      # de Django sinon les appels internes http://gathe-backend:8000 sont 301.
+      SECURE_SSL_REDIRECT: "False"
+      # Hôtes internes : healthcheck (localhost) + appels frontends (gathe-backend).
+      DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS},localhost,127.0.0.1,gathe-backend"
+
+  qcluster:
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@gathe-db:5432/${POSTGRES_DB}"
+
+  site:
+    networks: [internal, shared]
+    environment:
+      CMS_API_URL: "http://gathe-backend:8000"
+      BACKEND_INTERNAL_URL: "http://gathe-backend:8000"
+
+  portal:
+    networks: [internal, shared]
+    environment:
+      BACKEND_INTERNAL_URL: "http://gathe-backend:8000"
+
+  admin:
+    networks: [internal, shared]
+    environment:
+      BACKEND_INTERNAL_URL: "http://gathe-backend:8000"
+
+networks:
+  # Réseau Docker de ton nginx (déjà existant, déclaré external).
+  shared:
+    external: true
+    name: ${PROXY_NETWORK:-backend_default}

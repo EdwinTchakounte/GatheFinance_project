@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield } from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
 
 import { adminApi, type ApiError } from "@/lib/api";
+
+// Espace membre (portail) — URL de prod injectée au build via NEXT_PUBLIC_PORTAL_URL.
+const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? "http://localhost:3201";
 
 
 export default function AdminLoginPage() {
@@ -44,9 +46,12 @@ export default function AdminLoginPage() {
     <main className="grid min-h-svh place-items-center bg-cream px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 inline-flex size-12 items-center justify-center rounded-md bg-blue-700 text-white">
-            <Shield className="size-6" aria-hidden="true" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/logo.jpg"
+            alt="Gathé Finance"
+            className="mx-auto mb-4 h-14 w-auto rounded-md"
+          />
           <p className="font-display text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
             Gathe Finance
           </p>
@@ -109,7 +114,7 @@ export default function AdminLoginPage() {
 
         <p className="mt-6 text-center text-xs text-ink-600">
           Tu cherches l'espace membre ?{" "}
-          <a href="http://localhost:3200/portal/connexion" className="font-medium text-blue-700 hover:underline">
+          <a href={`${PORTAL_URL}/connexion`} className="font-medium text-blue-700 hover:underline">
             C'est par ici →
           </a>
         </p>
