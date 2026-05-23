@@ -7,8 +7,6 @@ arrives. This view is consumption-only.
 """
 from __future__ import annotations
 
-from decimal import Decimal
-
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
@@ -111,6 +109,17 @@ class SavingsInfoView(APIView):
     authentication_classes: list = []
 
     def get(self, request):
+        # Taux et frais lus en base (modifiables côté admin, BR2) avec fallback
+        # réglementaire.
+        from apps_coop.payments.models import FeeType, RateParam
+        from apps_coop.payments.rates import get_rate
+
+        taux_mensuel = get_rate(RateParam.Code.SAVINGS_INTEREST_MONTHLY)
+        carnet = (
+            FeeType.objects.filter(code=FeeType.Code.CARNET, actif=True)
+            .values_list("montant", flat=True)
+            .first()
+        )
         return Response(
             {
                 "suggested_daily_amount_xaf": 1000,
@@ -137,10 +146,66 @@ class SavingsInfoView(APIView):
                         "hours": "Lun–Ven · 08h00 – 17h00",
                     },
                 ],
-                "interest_rate_monthly": "0.01",  # 1 % / mois (Article 4)
-                "booklet_fee_xaf": 1000,
+                "interest_rate_monthly": str(taux_mensuel),  # défaut 1 % (Article 4)
+                "booklet_fee_xaf": int(carnet) if carnet is not None else 1000,
             }
         )
+
+
+# ── Épargne classique (dissociée de la cotisation) ──────────────────────────
+
+@extend_schema(
+    tags=["savings"],
+    summary="Compte épargne classique du membre + config",
+    description=(
+        "Renvoie le solde, les 10 dernières transactions et la configuration "
+        "du produit épargne classique (taux, bornes de dépôt, ouverture). "
+        "Le compte est créé à la volée s'il n'existe pas encore (solde 0)."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsMember])
+def classic_savings_me(request):
+    from datetime import date
+
+    from .models import ClassicSavingsAccount
+    from .serializers import ClassicSavingsAccountReadSerializer
+
+    member = request.user.member
+    account, _ = ClassicSavingsAccount.objects.get_or_create(
+        member=member,
+        defaults={"date_ouverture": date.today()},
+    )
+    return Response(ClassicSavingsAccountReadSerializer(account).data)
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="🔒 Admin — configuration de l'épargne classique",
+    description="GET lit la config, PATCH la met à jour (staff). Singleton.",
+)
+@api_view(["GET", "PATCH"])
+@permission_classes([IsStaff])
+def classic_savings_config(request):
+    from .models import ClassicSavingsConfig
+    from .serializers import ClassicSavingsConfigSerializer
+
+    cfg = ClassicSavingsConfig.get_solo()
+    if request.method == "GET":
+        return Response(ClassicSavingsConfigSerializer(cfg).data)
+
+    s = ClassicSavingsConfigSerializer(cfg, data=request.data, partial=True)
+    s.is_valid(raise_exception=True)
+    s.save()
+    record_audit(
+        action="config.classic_savings_updated",
+        entite_type="ClassicSavingsConfig",
+        entite_id=cfg.pk,
+        user=request.user,
+        details={k: str(v) for k, v in s.validated_data.items()},
+        ip=client_ip(request),
+    )
+    return Response(ClassicSavingsConfigSerializer(cfg).data)
 
 
 # ── Retrait d'épargne ───────────────────────────────────────────────────────

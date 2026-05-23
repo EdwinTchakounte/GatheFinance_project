@@ -6,6 +6,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/formatters/date_formatter.dart';
+import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/paysika/pa_action_pill.dart';
 import '../../../../core/widgets/paysika/pa_avatar.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
@@ -20,6 +21,7 @@ import '../../../auth/presentation/state/auth_notifier.dart';
 import '../../../notifications/presentation/state/notifications_notifier.dart';
 import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
+import '../../../savings/presentation/state/classic_savings_notifier.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
 import '../widgets/deposit_sheet.dart';
 
@@ -112,6 +114,16 @@ class HomePage extends ConsumerWidget {
                         onTap: () => context.push('/savings/history'),
                       ),
                     ],
+                  ),
+                ),
+              ),
+
+              // ── Épargne classique (dissociée de la cotisation) ──
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                  child: _ClassicSavingsCard(
+                    onDeposit: () => _openClassicDeposit(context),
                   ),
                 ),
               ),
@@ -231,6 +243,18 @@ class HomePage extends ConsumerWidget {
       enableDrag: true,
       shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheet),
       builder: (_) => const DepositSheet(),
+    );
+  }
+
+  static Future<void> _openClassicDeposit(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: PaColors.paper,
+      barrierColor: PaColors.navyDeep.withValues(alpha: 0.55),
+      enableDrag: true,
+      shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheet),
+      builder: (_) => const DepositSheet(classic: true),
     );
   }
 
@@ -479,6 +503,90 @@ class _HeroError extends StatelessWidget {
           Text(
             message,
             style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+// ───────────────────────────────────────────────────────────────────────────
+// Carte Épargne classique — produit dissocié de la cotisation (dépôt libre).
+// ───────────────────────────────────────────────────────────────────────────
+
+class _ClassicSavingsCard extends ConsumerWidget {
+  const _ClassicSavingsCard({required this.onDeposit});
+
+  final VoidCallback onDeposit;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppL10n.of(context);
+    final account = ref.watch(classicSavingsProvider);
+    final solde = account.maybeWhen(data: (a) => a.solde, orElse: () => null);
+
+    return PaCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: PaColors.tealSurface,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.savings_outlined, color: PaColors.teal, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.classic_card_title,
+                  style: const TextStyle(
+                    color: PaColors.inkPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  solde == null ? l.classic_card_sub : XAFFormatter.format(solde),
+                  style: const TextStyle(
+                    color: PaColors.inkMuted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onDeposit,
+              borderRadius: BorderRadius.circular(999),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                decoration: BoxDecoration(
+                  gradient: PaGradients.ctaPill,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  l.classic_card_cta,
+                  style: const TextStyle(
+                    color: PaColors.onTeal,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

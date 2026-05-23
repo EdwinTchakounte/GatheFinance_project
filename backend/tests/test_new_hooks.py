@@ -1,8 +1,10 @@
-"""Tests des 3 hooks paiement câblés en I1/I2/I3.
+"""Tests des hooks paiement câblés.
 
   - _hook_carnet_fees          → crée BookletOrder, idempotent
-  - _hook_loan_renewal_fees    → lie le Payment à la LoanRenewal en cours
   - _hook_decaissement         → bascule Loan.statut = actif + date_decaissement
+
+NB : la reconduction est désormais SANS frais — il n'existe plus de hook
+`_hook_loan_renewal_fees` (cf. test_renewal_decision.py).
 """
 from __future__ import annotations
 
@@ -54,7 +56,7 @@ class TestCarnetFeesHook:
         assert BookletOrder.objects.filter(payment=payment).count() == 1
 
 
-# -- I2 — frais_reconduction ------------------------------------------------
+# -- helper partagé : crédit actif (+ renewal pour les besoins du test) ------
 
 
 def _seed_active_loan_with_renewal(member) -> tuple[Loan, LoanRenewal]:
@@ -82,31 +84,6 @@ def _seed_active_loan_with_renewal(member) -> tuple[Loan, LoanRenewal]:
     )
     renewal = LoanRenewal.objects.create(loan=loan, nouvelle_duree_mois=6)
     return loan, renewal
-
-
-class TestLoanRenewalFeesHook:
-    def test_payment_is_linked_to_renewal(self, active_member):
-        _, renewal = _seed_active_loan_with_renewal(active_member)
-        payment = _make_payment(active_member, Payment.Type.FRAIS_RECONDUCTION, montant=Decimal("3000"))
-        handle_webhook_event(payment.idempotency_key, "valide", raw_payload={})
-        renewal.refresh_from_db()
-        assert renewal.frais_reconduction_payment_id == payment.id
-
-    def test_no_pending_renewal_logs_warning_but_no_crash(self, active_member, caplog):
-        # Pas de LoanRenewal en attente — le hook log un warning et sort proprement.
-        payment = _make_payment(active_member, Payment.Type.FRAIS_RECONDUCTION, montant=Decimal("3000"))
-        with caplog.at_level("WARNING"):
-            handle_webhook_event(payment.idempotency_key, "valide", raw_payload={})
-        assert any("frais_reconduction" in r.message for r in caplog.records)
-
-    def test_replay_does_not_overwrite_existing_link(self, active_member):
-        _, renewal = _seed_active_loan_with_renewal(active_member)
-        p1 = _make_payment(active_member, Payment.Type.FRAIS_RECONDUCTION)
-        handle_webhook_event(p1.idempotency_key, "valide", raw_payload={})
-        # 2e webhook sur le même payment → no-op idempotent au niveau handle_webhook_event.
-        handle_webhook_event(p1.idempotency_key, "valide", raw_payload={})
-        renewal.refresh_from_db()
-        assert renewal.frais_reconduction_payment_id == p1.id
 
 
 # -- I3 — decaissement ------------------------------------------------------

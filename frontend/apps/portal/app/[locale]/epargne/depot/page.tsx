@@ -36,15 +36,14 @@ export default function PortalDepositPage() {
   //   "savings"          → standard savings deposit (default)
   //   "credit-fees"      → frais de dossier crédit (montant depuis FeeType)
   //   "loan-repayment"   → remboursement d'une échéance (loan_id obligatoire)
-  //   "loan-renewal"     → frais de reconduction (renewal_id pour info, montant depuis FeeType)
+  // NB : la reconduction est SANS frais → plus de contexte "loan-renewal".
   const context = searchParams.get("context") ?? "savings";
   const loanIdParam = searchParams.get("loan");
   const isCreditFees = context === "credit-fees";
   const isLoanRepayment = context === "loan-repayment";
-  const isRenewal = context === "loan-renewal";
   const loanId = loanIdParam ? Number(loanIdParam) : null;
   // Helper: la page renvoie vers /credit pour tout ce qui touche au crédit.
-  const isCreditContext = isCreditFees || isLoanRepayment || isRenewal;
+  const isCreditContext = isCreditFees || isLoanRepayment;
   // Le choix de canal (Tara vs agence) ne concerne que le dépôt épargne.
   const offerChannelChoice = context === "savings";
 
@@ -66,14 +65,6 @@ export default function PortalDepositPage() {
           if (fee) setForm((f) => ({ ...f, montant: fee.montant }));
         })
         .catch(() => undefined);
-    } else if (isRenewal) {
-      portalApi.payments
-        .fees()
-        .then((fees) => {
-          const fee = fees["RECONDUCTION"];
-          if (fee) setForm((f) => ({ ...f, montant: fee.montant }));
-        })
-        .catch(() => undefined);
     } else if (isLoanRepayment && loanId !== null) {
       // Pre-fill the form with the next due installment's amount.
       portalApi.loans
@@ -89,7 +80,7 @@ export default function PortalDepositPage() {
         })
         .catch(() => undefined);
     }
-  }, [isCreditFees, isLoanRepayment, isRenewal, loanId]);
+  }, [isCreditFees, isLoanRepayment, loanId]);
 
   // Auto-poll the payment status every 2 s while it's `en_attente`.
   useEffect(() => {
@@ -116,11 +107,9 @@ export default function PortalDepositPage() {
       const result = await portalApi.payments.init({
         type: isCreditFees
           ? "frais_demande_credit"
-          : isRenewal
-            ? "frais_reconduction"
-            : isLoanRepayment
-              ? "remboursement"
-              : "epargne",
+          : isLoanRepayment
+            ? "remboursement"
+            : "epargne",
         montant: Number(form.montant),
         phone: form.phone,
         network: form.network,
@@ -166,20 +155,16 @@ export default function PortalDepositPage() {
           <h1 className="mt-3 font-editorial text-3xl font-medium text-ink-900">
             {isCreditFees
               ? "Payer les frais de dossier"
-              : isRenewal
-                ? "Payer les frais de reconduction"
-                : isLoanRepayment
-                  ? "Rembourser mon crédit"
-                  : "Verser ma cotisation"}
+              : isLoanRepayment
+                ? "Rembourser mon crédit"
+                : "Verser ma cotisation"}
           </h1>
           <p className="mt-2 text-sm text-ink-600">
             {isCreditFees
               ? "Règle les frais de demande de crédit pour que ta demande passe en instruction."
-              : isRenewal
-                ? "Règle les frais de reconduction pour que ta demande soit transmise au comité."
-                : isLoanRepayment
-                  ? "Le montant sera imputé en FIFO sur tes échéances (plus anciennes d'abord)."
-                  : "Cotisation journalière suggérée : 1 000 FCFA. Tu restes libre de modifier."}
+              : isLoanRepayment
+                ? "Le montant sera imputé en FIFO sur tes échéances (plus anciennes d'abord)."
+                : "Cotisation journalière suggérée : 1 000 FCFA. Tu restes libre de modifier."}
           </p>
         </header>
 
@@ -406,9 +391,7 @@ export default function PortalDepositPage() {
                 ? "Voir mon crédit mis à jour"
                 : isCreditFees
                   ? "Voir l'état de ma demande"
-                  : isRenewal
-                    ? "Voir l'état de ma reconduction"
-                    : "Retour au tableau de bord"}
+                  : "Retour au tableau de bord"}
             </button>
           </div>
         ) : null}

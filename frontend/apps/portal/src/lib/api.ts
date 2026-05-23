@@ -206,7 +206,9 @@ export const portalApi = {
         "/loans/requests/",
         { method: "POST", body: JSON.stringify(data) },
       ),
-    requestRenewal: (loanId: number, data: { nouvelle_duree_mois: number }) =>
+    // Reconduction = +1 mois fixe, SANS frais (seul le taux est majoré).
+    // Le corps est optionnel : la durée éventuelle est ignorée côté backend.
+    requestRenewal: (loanId: number, data: { nouvelle_duree_mois?: number } = {}) =>
       request<{
         renewal: {
           id: number;
@@ -216,7 +218,6 @@ export const portalApi = {
           date_demande: string;
           frais_reconduction_payment_id: number | null;
         };
-        frais_a_payer: { code: string; libelle: string; montant: string } | null;
       }>(`/loans/${loanId}/renewal/`, {
         method: "POST",
         body: JSON.stringify(data),

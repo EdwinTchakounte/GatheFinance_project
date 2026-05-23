@@ -24,4 +24,7 @@ urlpatterns = [
     # Retrait d'épargne (membre)
     path("withdrawal/", views.request_withdrawal_view, name="withdrawal-create"),
     path("withdrawals/me/", views.my_withdrawals, name="withdrawals-me"),
+    # Épargne classique (dissociée de la cotisation) — dépôt via /payments/init/
+    path("classic/me/", views.classic_savings_me, name="classic-me"),
+    path("classic/config/", views.classic_savings_config, name="classic-config"),
 ]

@@ -13,9 +13,10 @@ _ALLOWED_INIT_TYPES = {
     Payment.Type.FRAIS_ADHESION,
     Payment.Type.FRAIS_INSCRIPTION,
     Payment.Type.EPARGNE,
+    Payment.Type.EPARGNE_CLASSIQUE,
     Payment.Type.REMBOURSEMENT,
     Payment.Type.FRAIS_DEMANDE_CREDIT,
-    Payment.Type.FRAIS_RECONDUCTION,
+    # FRAIS_RECONDUCTION retiré : la reconduction est sans frais (Règlement).
     Payment.Type.FRAIS_CARNET,
 }
 

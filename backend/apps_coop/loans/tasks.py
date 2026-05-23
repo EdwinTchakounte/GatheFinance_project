@@ -43,22 +43,34 @@ def _q(x: Decimal) -> Decimal:
 #: Seuil en jours à partir duquel un Loan en retard bascule en contentieux.
 CONTENTIEUX_THRESHOLD_DAYS = 90
 
-#: Taux Article 12 — pénalité = 50 % des intérêts dus sur la somme manquante.
+#: Défaut réglementaire Article 12 — pénalité = 50 % des intérêts dus sur la
+#: somme manquante. Modifiable côté admin via ``RateParam.LATE_PENALTY`` (BR2).
 LATE_PENALTY_RATE = Decimal("0.50")
 
 
-def _compute_penalty(montant_interets: Decimal, montant_total: Decimal, montant_paye: Decimal) -> Decimal:
-    """Pénalité Article 12 = 50 % × intérêts proratisés sur la somme manquante.
+def _compute_penalty(
+    montant_interets: Decimal,
+    montant_total: Decimal,
+    montant_paye: Decimal,
+    taux: Decimal | None = None,
+) -> Decimal:
+    """Pénalité Article 12 = ``taux`` × intérêts proratisés sur la somme manquante.
 
-    Si tout reste dû, c'est 50 % des intérêts de l'échéance.
-    Si une partie a été payée, on calcule la pénalité au prorata.
+    ``taux`` par défaut = ``RateParam.LATE_PENALTY`` (50 % réglementaire,
+    modifiable côté admin). Si tout reste dû, c'est ``taux`` × intérêts de
+    l'échéance ; si une partie a été payée, on calcule au prorata.
     """
     if montant_total <= 0:
         return Decimal("0")
+    if taux is None:
+        from apps_coop.payments.models import RateParam
+        from apps_coop.payments.rates import get_rate
+
+        taux = get_rate(RateParam.Code.LATE_PENALTY)
     reste_du = max(montant_total - montant_paye, Decimal("0"))
     ratio_du = reste_du / montant_total  # entre 0 et 1
     interets_dus = montant_interets * ratio_du
-    return _q(interets_dus * LATE_PENALTY_RATE)
+    return _q(interets_dus * taux)
 
 
 def suivi_retards_quotidien() -> dict:
@@ -67,9 +79,12 @@ def suivi_retards_quotidien() -> dict:
     Returns un summary structuré + record_audit.
     """
     from apps_coop.loans.models import Loan, LoanInstallment
+    from apps_coop.payments.models import RateParam
+    from apps_coop.payments.rates import get_rate
 
     today = timezone.localdate()
     now = timezone.now()
+    taux_penalite = get_rate(RateParam.Code.LATE_PENALTY)  # lu une fois
 
     installments_examinees = 0
     passees_en_retard = 0
@@ -78,6 +93,9 @@ def suivi_retards_quotidien() -> dict:
     loans_en_retard = 0
     loans_contentieux = 0
     erreurs = 0
+    # Pénalités posées CE passage, par crédit — ajoutées au solde_restant
+    # en phase 2 pour les rendre exigibles (sinon calculées mais jamais dues).
+    penalites_par_loan: dict[int, Decimal] = {}
 
     # 1) Marquer les installments dont la date_echeance est dépassée.
     overdue_qs = LoanInstallment.objects.filter(
@@ -109,11 +127,15 @@ def suivi_retards_quotidien() -> dict:
                         Decimal(locked.montant_interets),
                         Decimal(locked.montant_total),
                         Decimal(locked.montant_paye),
+                        taux=taux_penalite,
                     )
                     if penalite > 0:
                         locked.montant_penalite = penalite
                         total_penalites += penalite
                         penalites_appliquees += 1
+                        penalites_par_loan[locked.loan_id] = (
+                            penalites_par_loan.get(locked.loan_id, Decimal("0")) + penalite
+                        )
                     locked.penalite_appliquee_at = now
 
                 locked.statut = LoanInstallment.Statut.EN_RETARD
@@ -147,6 +169,8 @@ def suivi_retards_quotidien() -> dict:
         .filter(statut=LoanInstallment.Statut.EN_RETARD)
         .values_list("loan_id", flat=True)
     )
+    # Toujours inclure les crédits qui ont reçu une pénalité ce passage.
+    affected_loan_ids |= set(penalites_par_loan)
 
     contentieux_cutoff = today - timedelta(days=CONTENTIEUX_THRESHOLD_DAYS)
 
@@ -176,18 +200,29 @@ def suivi_retards_quotidien() -> dict:
                 else:
                     new_statut = Loan.Statut.EN_RETARD
 
-                if loan.statut != new_statut:
-                    old_statut = loan.statut
-                    loan.statut = new_statut
-                    loan.save(update_fields=["statut", "updated_at"])
+                # Rendre la pénalité exigible : on l'ajoute au solde restant.
+                extra_penalite = penalites_par_loan.get(loan_id, Decimal("0"))
+                update_fields: list[str] = []
+                if extra_penalite > 0:
+                    loan.solde_restant = _q(Decimal(loan.solde_restant) + extra_penalite)
+                    update_fields.append("solde_restant")
 
+                old_statut = loan.statut
+                if loan.statut != new_statut:
+                    loan.statut = new_statut
+                    update_fields.append("statut")
                     if new_statut == Loan.Statut.EN_RETARD:
                         loans_en_retard += 1
                     else:
                         loans_contentieux += 1
 
+                if update_fields:
+                    update_fields.append("updated_at")
+                    loan.save(update_fields=update_fields)
+
+                if loan.statut != old_statut or extra_penalite > 0:
                     record_audit(
-                        action=f"loan.{new_statut}",
+                        action=f"loan.{loan.statut}",
                         entite_type="Loan",
                         entite_id=loan.pk,
                         details={
@@ -195,6 +230,8 @@ def suivi_retards_quotidien() -> dict:
                             "previous_statut": old_statut,
                             "oldest_overdue_date": oldest_overdue.date_echeance.isoformat(),
                             "days_late": (today - oldest_overdue.date_echeance).days,
+                            "penalite_ajoutee": str(extra_penalite),
+                            "solde_restant": str(loan.solde_restant),
                         },
                     )
         except Exception:  # noqa: BLE001

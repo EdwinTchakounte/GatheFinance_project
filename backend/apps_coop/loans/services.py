@@ -16,11 +16,12 @@ from django.utils import timezone
 
 from apps_coop.audit.services import record as record_audit
 from apps_coop.members.models import Member
+from apps_coop.payments.models import RateParam
+from apps_coop.payments.rates import get_rate
 from apps_coop.savings.models import SavingsAccount
 
 from .models import Loan, LoanInstallment, LoanRenewal, LoanRequest
 from .terms import (
-    LOAN_INTEREST_RATE,
     PaymentModality,
     duration_months_for,
     n_installments,
@@ -167,7 +168,9 @@ def _next_numero_dossier() -> str:
 # ---------------------------------------------------------------------------
 
 
-def generate_installments_flat_interest(loan: Loan) -> list[LoanInstallment]:
+def generate_installments_flat_interest(
+    loan: Loan, *, interets_totaux: Decimal | None = None
+) -> list[LoanInstallment]:
     """Génère l'échéancier d'un Loan selon le règlement.
 
     Règlement Intérieur, Article 5 :
@@ -186,13 +189,21 @@ def generate_installments_flat_interest(loan: Loan) -> list[LoanInstallment]:
     La dernière échéance absorbe le reliquat d'arrondi pour que la somme des
     capitaux soit exactement ``montant`` (idem pour les intérêts).
 
+    ``interets_totaux`` (optionnel) : pour une **reconduction**, les intérêts
+    ne se calculent pas sur ``montant`` mais sur le **capital restant**
+    (Article 11). On passe alors le montant d'intérêts déjà calculé ; sinon
+    (crédit initial) on retombe sur ``montant × taux``.
+
     L'historique conservait l'ancien nom ``generate_installments_amortissement_constant``
     par compat ; il pointe désormais sur cette fonction (alias en bas du module).
     """
     n = n_installments(loan.duree_mois, loan.modalite_paiement)
     montant = Decimal(loan.montant)
-    taux = Decimal(loan.taux_interet)
-    interets_totaux = _q(montant * taux)
+    if interets_totaux is None:
+        taux = Decimal(loan.taux_interet)
+        interets_totaux = _q(montant * taux)
+    else:
+        interets_totaux = _q(Decimal(interets_totaux))
     capital_par_ech = _q(montant / n)
     interets_par_ech = _q(interets_totaux / n)
 
@@ -230,6 +241,34 @@ def generate_installments_flat_interest(loan: Loan) -> list[LoanInstallment]:
 generate_installments_amortissement_constant = generate_installments_flat_interest
 
 
+def _remaining_capital_and_interest(loan: Loan) -> tuple[Decimal, Decimal]:
+    """Capital et intérêts encore dus sur ``loan``, échéance par échéance.
+
+    Au sein d'une échéance, le versement (``montant_paye``) couvre d'abord le
+    capital+intérêts (``montant_total``) ; l'éventuelle pénalité se règle en
+    plus. On proratise donc le reste dû sur la part capital+intérêts :
+
+        payé_ci   = min(montant_paye, montant_total)
+        reste_ratio = (montant_total − payé_ci) / montant_total
+        capital_restant  += montant_capital  × reste_ratio
+        intérêts_restants += montant_interets × reste_ratio
+
+    Les pénalités ne sont volontairement **pas** reprises dans la base de
+    reconduction (la formule validée = capital + intérêts + taux×capital).
+    """
+    capital_restant = Decimal("0")
+    interets_restants = Decimal("0")
+    for inst in loan.installments.all():
+        total = Decimal(inst.montant_total)
+        if total <= 0:
+            continue
+        paye_ci = min(Decimal(inst.montant_paye), total)
+        reste_ratio = (total - paye_ci) / total
+        capital_restant += Decimal(inst.montant_capital) * reste_ratio
+        interets_restants += Decimal(inst.montant_interets) * reste_ratio
+    return _q(capital_restant), _q(interets_restants)
+
+
 # ---------------------------------------------------------------------------
 # Approve / reject — public API used by Django admin actions
 # ---------------------------------------------------------------------------
@@ -248,9 +287,9 @@ def approve_loan_request(
     """Create the Loan + the full installment schedule atomically.
 
     Règlement Intérieur appliqué :
-      - Taux : ``LOAN_INTEREST_RATE`` (10 % par transaction, Article 5) ;
-        ``taux_annuel`` reste accepté pour rétro-compat (admin Django) — sa
-        valeur écrase la valeur réglementaire si fournie.
+      - Taux : ``RateParam.LOAN_INTEREST`` (défaut 10 % par transaction,
+        Article 5, modifiable côté admin) ; ``taux_annuel`` reste accepté pour
+        rétro-compat (admin Django) — sa valeur écrase le taux courant si fournie.
       - Durée : dérivée du ``montant_demande`` via le tableau de paliers
         (Article 7). La valeur stockée dans ``LoanRequest.duree_mois`` est
         ignorée pour éviter toute incohérence avec le règlement.
@@ -266,7 +305,11 @@ def approve_loan_request(
             f"(expected {LoanRequest.Statut.EN_INSTRUCTION!r})."
         )
 
-    taux = Decimal(taux_annuel) if taux_annuel is not None else LOAN_INTEREST_RATE
+    taux = (
+        Decimal(taux_annuel)
+        if taux_annuel is not None
+        else get_rate(RateParam.Code.LOAN_INTEREST)
+    )
     montant = Decimal(loan_request.montant_demande)
     duree = duration_months_for(montant)
     modalite = loan_request.modalite_paiement or PaymentModality.MENSUEL
@@ -527,7 +570,7 @@ def reject_loan_request(loan_request: LoanRequest, *, decided_by, motif: str) ->
 # ---------------------------------------------------------------------------
 
 
-from .terms import RENEWAL_EXTRA_MONTHS, RenewalRate
+from .terms import RENEWAL_EXTRA_MONTHS
 
 
 @transaction.atomic
@@ -540,9 +583,11 @@ def request_loan_renewal(
     """Crée une `LoanRenewal(statut=demandee)` pour un crédit en cours.
 
     Règlement Intérieur, Article 10 : la reconduction accorde **un mois
-    supplémentaire fixe**. Le paramètre ``nouvelle_duree_mois`` est conservé
-    pour rétro-compat (admin) mais sa valeur est ignorée si absente :
-    on retient ``RENEWAL_EXTRA_MONTHS`` (= 1) par défaut.
+    supplémentaire fixe et unique**. La demande porte donc toujours sur
+    ``RENEWAL_EXTRA_MONTHS`` (= 1 mois) ; le paramètre ``nouvelle_duree_mois``
+    est conservé pour compat de signature mais **ignoré** (toute valeur ≠ 1 est
+    écrasée). La reconduction n'engendre **aucun frais** : seul le taux est
+    majoré (Article 11).
 
     Article 11 : le taux varie selon le choix du membre :
       - intérêts versés cash à la reconduction → 10 %  → ``interets_au_comptant=True``
@@ -556,9 +601,16 @@ def request_loan_renewal(
             f"Reconduction impossible : crédit en statut {loan.statut!r}."
         )
 
-    duree = nouvelle_duree_mois if nouvelle_duree_mois else RENEWAL_EXTRA_MONTHS
-    if duree < 1:
-        raise ValueError("La durée d'une reconduction doit être ≥ 1 mois.")
+    # Une seule reconduction par crédit : un crédit déjà issu d'une reconduction
+    # ne peut pas être reconduit à nouveau (bloqué dès la soumission).
+    if loan.issu_reconduction:
+        raise ValueError(
+            "Ce crédit est déjà issu d'une reconduction : "
+            "la reconduction n'a lieu qu'une seule fois par crédit."
+        )
+
+    # Durée non négociable : +1 mois (Article 10). On ignore toute autre valeur.
+    duree = RENEWAL_EXTRA_MONTHS
 
     existing = (
         LoanRenewal.objects.select_for_update()
@@ -607,7 +659,7 @@ def approve_loan_renewal(
     sa valeur écrase la valeur réglementaire — utile pour une dérogation.
 
     Étapes :
-      1. Vérifie que ``renewal.statut == demandee`` et que les frais sont payés.
+      1. Vérifie que ``renewal.statut == demandee`` (aucun frais à régler).
       2. Clôture l'ancien Loan (``statut=cloture``).
       3. Crée une `LoanRequest` synthétique pour respecter la FK OneToOne.
       4. Crée le nouveau Loan en réutilisant le ``solde_restant`` de l'ancien.
@@ -637,35 +689,39 @@ def approve_loan_renewal(
             f"Impossible d'approuver une reconduction en statut {renewal.statut!r}."
         )
 
-    if renewal.frais_reconduction_payment_id is None:
-        raise ValueError(
-            "Frais de reconduction non réglés — le paiement doit être validé "
-            "avant que le comité ne décide."
-        )
-    fees = renewal.frais_reconduction_payment
-    if fees.statut != "valide":
-        raise ValueError(
-            f"Frais de reconduction en statut {fees.statut!r} — pas encore validés."
-        )
+    # La reconduction n'engendre AUCUN frais (Règlement Intérieur) : seul le
+    # taux d'intérêt est majoré. Aucun paiement préalable n'est requis avant
+    # la décision du comité.
 
-    # Taux applicable : Article 11 — 10 % si intérêts cash, 15 % sinon.
+    # Taux applicable : Article 11 — au comptant (≈10 %) si intérêts cash,
+    # reporté (≈15 %) sinon. Valeurs modifiables côté admin (RateParam, BR2).
     if taux_annuel is None:
-        taux_annuel = (
-            RenewalRate.INTERETS_AU_COMPTANT
+        taux_annuel = get_rate(
+            RateParam.Code.RENEWAL_CASH
             if renewal.interets_au_comptant
-            else RenewalRate.INTERETS_REPORTES
+            else RateParam.Code.RENEWAL_DEFERRED
         )
     if not (Decimal("0") <= Decimal(taux_annuel) <= Decimal("1")):
         raise ValueError("Taux attendu entre 0 et 1 (ex. 0.10 pour 10 %).")
 
     old_loan = renewal.loan
     member = old_loan.member
-    solde_a_reprendre = Decimal(old_loan.solde_restant)
-    if solde_a_reprendre <= 0:
+
+    # Base de reconduction (Article 11) : le taux porte sur le **capital
+    # restant**, jamais sur des intérêts déjà comptés (« intérêts rattachés
+    # une fois »). Le nouveau dû reprend le capital + les intérêts restants,
+    # puis ajoute taux × capital_restant :
+    #   au comptant (10 %) : capital + intérêts + 10 % × capital
+    #   reporté    (15 %) : capital + intérêts + 15 % × capital
+    capital_restant, interets_restants = _remaining_capital_and_interest(old_loan)
+    if capital_restant <= 0:
         raise ValueError(
-            f"Solde restant du crédit {old_loan.numero_dossier} est nul — "
+            f"Capital restant du crédit {old_loan.numero_dossier} est nul — "
             "rien à reconduire."
         )
+    base = _q(capital_restant + interets_restants)
+    interets_reconduction = _q(Decimal(taux_annuel) * capital_restant)
+    montant_total_du = _q(base + interets_reconduction)
 
     # 2) Clôture de l'ancien Loan
     old_loan.statut = Loan.Statut.CLOTURE
@@ -674,12 +730,12 @@ def approve_loan_renewal(
     # 3) LoanRequest synthétique pour la FK OneToOne du nouveau Loan.
     synth_request = LoanRequest.objects.create(
         member=member,
-        montant_demande=solde_a_reprendre,
+        montant_demande=base,
         duree_mois=renewal.nouvelle_duree_mois,
         modalite_paiement=old_loan.modalite_paiement,
         motif=(
             f"Reconduction du crédit {old_loan.numero_dossier} — "
-            f"solde repris : {solde_a_reprendre} XAF."
+            f"capital restant {capital_restant} + intérêts {interets_restants} XAF."
         ),
         statut=LoanRequest.Statut.APPROUVEE,
         date_decision=timezone.now(),
@@ -687,28 +743,29 @@ def approve_loan_renewal(
     )
 
     # 4) Nouveau Loan — la modalité est conservée (le membre garde sa cadence).
+    #    ``montant`` = base reportée (capital+intérêts restants) ; les intérêts
+    #    de reconduction sont calculés sur le capital seul (cf. interets_reconduction).
+    #    ``issu_reconduction`` empêche une 2ᵉ reconduction de ce crédit.
     nouveau_loan = Loan.objects.create(
         loan_request=synth_request,
         member=member,
         numero_dossier=_next_numero_dossier(),
-        montant=solde_a_reprendre,
+        montant=base,
         taux_interet=taux_annuel,
         duree_mois=renewal.nouvelle_duree_mois,
         modalite_paiement=old_loan.modalite_paiement,
         date_decaissement=date.today(),
         date_premiere_echeance=date_premiere_echeance,
-        # Calculés ci-dessous une fois les installments générés.
-        montant_total_du=solde_a_reprendre,
-        solde_restant=solde_a_reprendre,
+        montant_total_du=montant_total_du,
+        solde_restant=montant_total_du,
         statut=Loan.Statut.ACTIF,
+        issu_reconduction=True,
     )
 
-    # 5) Échéancier — flat interest selon le règlement.
-    installments = generate_installments_flat_interest(nouveau_loan)
-    total_du = sum((Decimal(i.montant_total) for i in installments), Decimal("0"))
-    nouveau_loan.montant_total_du = _q(total_du)
-    nouveau_loan.solde_restant = _q(total_du)
-    nouveau_loan.save(update_fields=["montant_total_du", "solde_restant", "updated_at"])
+    # 5) Échéancier — intérêts de reconduction calculés sur le capital restant.
+    generate_installments_flat_interest(
+        nouveau_loan, interets_totaux=interets_reconduction
+    )
 
     # 6) Renewal close
     renewal.statut = LoanRenewal.Statut.APPROUVEE
@@ -723,7 +780,9 @@ def approve_loan_renewal(
         details={
             "ancien_dossier": old_loan.numero_dossier,
             "nouveau_dossier": nouveau_loan.numero_dossier,
-            "solde_repris": str(solde_a_reprendre),
+            "capital_restant": str(capital_restant),
+            "interets_restants": str(interets_restants),
+            "interets_reconduction": str(interets_reconduction),
             "duree_mois": renewal.nouvelle_duree_mois,
             "taux_annuel": str(taux_annuel),
             "montant_total_du": str(nouveau_loan.montant_total_du),

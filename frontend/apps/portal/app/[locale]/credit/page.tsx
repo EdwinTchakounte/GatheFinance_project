@@ -56,6 +56,7 @@ export default function PortalCreditPage() {
   const [renewalTarget, setRenewalTarget] = useState<Loan | null>(null);
   const [renewalSubmitting, setRenewalSubmitting] = useState(false);
   const [renewalError, setRenewalError] = useState<string | null>(null);
+  const [renewalDone, setRenewalDone] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -350,18 +351,16 @@ export default function PortalCreditPage() {
           setRenewalTarget(null);
           setRenewalError(null);
         }}
-        onSubmit={async (nouvelle_duree_mois) => {
+        onSubmit={async () => {
           if (!renewalTarget) return;
           setRenewalSubmitting(true);
           setRenewalError(null);
           try {
-            const res = await portalApi.loans.requestRenewal(renewalTarget.id, {
-              nouvelle_duree_mois,
-            });
-            // Redirection vers le paiement des frais de reconduction.
-            router.push(
-              `/epargne/depot?context=loan-renewal&renewal=${res.renewal.id}`,
-            );
+            // Reconduction +1 mois, sans frais : la demande part directement
+            // en décision du comité, aucun paiement à régler.
+            await portalApi.loans.requestRenewal(renewalTarget.id);
+            setRenewalTarget(null);
+            setRenewalDone(true);
           } catch (err) {
             const apiErr = err as ApiError;
             setRenewalError(apiErr.detail ?? "Demande impossible.");
@@ -370,6 +369,38 @@ export default function PortalCreditPage() {
           }
         }}
       />
+      {renewalDone ? (
+        <div
+          role="presentation"
+          onClick={() => setRenewalDone(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/50 px-4 py-8 backdrop-blur-sm"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md overflow-hidden rounded-md border-l-4 border-l-blue-700 bg-paper p-6 shadow-xl"
+          >
+            <h2 className="font-editorial text-xl font-medium text-ink-900">
+              Demande de reconduction envoyée
+            </h2>
+            <p className="mt-2 text-sm text-ink-600">
+              Ta demande de reconduction (+1 mois) a bien été enregistrée.
+              Aucun frais n&apos;est dû — seul le taux d&apos;intérêt est majoré.
+              Elle est désormais en attente de décision du comité.
+            </p>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setRenewalDone(false)}
+                className={buttonClasses({ variant: "primary", size: "sm" })}
+              >
+                Compris
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
@@ -386,19 +417,11 @@ function RenewalModal({
   submitting: boolean;
   error: string | null;
   onClose: () => void;
-  onSubmit: (nouvelle_duree_mois: number) => void;
+  onSubmit: () => void;
 }) {
-  const [dureeStr, setDureeStr] = useState("6");
-
-  useEffect(() => {
-    if (target) setDureeStr("6");
-  }, [target]);
-
   if (!target) return null;
 
-  const duree = Number(dureeStr);
-  const dureeValid = Number.isInteger(duree) && duree >= 3 && duree <= 36;
-  const canSubmit = !submitting && dureeValid;
+  const canSubmit = !submitting;
 
   return (
     <div
@@ -422,27 +445,11 @@ function RenewalModal({
           </p>
         </header>
         <div className="px-6 py-4 space-y-4">
-          <label className="block">
-            <span className="block text-xs font-semibold uppercase tracking-wider text-ink-700">
-              Nouvelle durée (mois)
-            </span>
-            <span className="mt-0.5 block text-xs text-ink-500">
-              Entre 3 et 36 mois.
-            </span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={3}
-              max={36}
-              value={dureeStr}
-              onChange={(e) => setDureeStr(e.target.value)}
-              className="mt-1.5 w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-sm focus:border-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-700"
-              autoFocus
-            />
-          </label>
           <p className="rounded-md border border-blue-700/20 bg-blue-100/40 px-3 py-2 text-xs text-blue-900">
-            Une fois la demande créée, tu seras redirigé(e) vers le règlement
-            des <strong>frais de reconduction</strong>. Le comité statuera ensuite.
+            La reconduction prolonge ton crédit d&apos;<strong>un mois</strong>.
+            <strong> Aucun frais</strong> n&apos;est dû : seul le taux
+            d&apos;intérêt est majoré. Ta demande sera soumise au comité pour
+            validation.
           </p>
           {error ? (
             <p className="rounded-md border border-terra-400/40 bg-terra-50/60 px-3 py-2 text-xs text-terra-700">
@@ -460,11 +467,11 @@ function RenewalModal({
           </button>
           <button
             type="button"
-            onClick={() => canSubmit && onSubmit(duree)}
+            onClick={() => canSubmit && onSubmit()}
             disabled={!canSubmit}
             className={buttonClasses({ variant: "primary", size: "sm" })}
           >
-            Continuer
+            {submitting ? "Envoi…" : "Demander la reconduction"}
           </button>
         </footer>
       </div>

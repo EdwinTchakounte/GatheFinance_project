@@ -365,19 +365,18 @@ def loans_me_active(request):
     tags=["loans"],
     summary="Demander la reconduction d'un crédit en cours",
     description=(
-        "Crée une `LoanRenewal(statut=demandee)` pour le crédit indiqué. "
-        "Permission : `IsActiveMember` (compte membre actif). Le membre paie "
-        "ensuite les frais de reconduction via "
-        "`POST /api/v1/payments/init/` (type=`frais_reconduction`) ; le hook "
-        "`_hook_loan_renewal_fees` rattachera automatiquement le Payment à la "
-        "LoanRenewal. Le comité statue ensuite depuis Django admin.\n\n"
+        "Crée une `LoanRenewal(statut=demandee)` pour le crédit indiqué — "
+        "prorogation fixe de **+1 mois** (Article 10). Permission : "
+        "`IsActiveMember` (compte membre actif). **Aucun frais** n'est dû : "
+        "la reconduction ne fait que **majorer le taux d'intérêt** (Article 11). "
+        "La demande passe directement en attente de décision du comité.\n\n"
         "Idempotent : si une renewal `demandee` existe déjà pour ce crédit, "
         "elle est retournée telle quelle (pas de doublon)."
     ),
     request=LoanRenewalRequestSerializer,
     responses={
         201: LoanRenewalReadSerializer,
-        400: OpenApiResponse(description="Crédit pas en statut actif/en_retard, ou durée hors plage"),
+        400: OpenApiResponse(description="Crédit pas en statut actif/en_retard"),
         403: OpenApiResponse(description="Crédit n'appartient pas au membre"),
         404: OpenApiResponse(description="Crédit introuvable"),
     },
@@ -418,10 +417,8 @@ def loan_renewal_request(request, pk: int):
         ip=client_ip(request),
     )
 
-    # On renvoie aussi le montant des frais à payer (lecture FeeType admin-editable).
-    from apps_coop.payments.models import FeeType
-
-    fee = FeeType.objects.filter(code=FeeType.Code.RECONDUCTION, actif=True).first()
+    # Aucun frais : la reconduction n'engendre qu'une majoration de taux.
+    # La demande part directement en décision comité.
     payload = LoanRenewalReadSerializer({
         "id": renewal.id,
         "loan_id": loan.id,
@@ -430,17 +427,7 @@ def loan_renewal_request(request, pk: int):
         "date_demande": renewal.date_demande,
         "frais_reconduction_payment_id": renewal.frais_reconduction_payment_id,
     }).data
-    return Response(
-        {
-            "renewal": payload,
-            "frais_a_payer": {
-                "code": "RECONDUCTION",
-                "libelle": fee.libelle if fee else "Frais de reconduction",
-                "montant": str(fee.montant) if fee else "0",
-            } if fee else None,
-        },
-        status=status.HTTP_201_CREATED,
-    )
+    return Response({"renewal": payload}, status=status.HTTP_201_CREATED)
 
 
 _ADMIN_LOANS_PAGE_SIZE = 200

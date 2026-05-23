@@ -12,11 +12,16 @@ app_name = "coop_payments"
 urlpatterns = [
     path("init/", views.init_payment, name="init"),
     path("fees/", views.list_fees, name="fees"),
+    path("rates/", views.list_rates, name="rates"),
     path("webhook/tara/", views.webhook_tara, name="webhook-tara"),
     # Dev-only simulator — returns 404 when DEBUG=False. Kept inline rather
     # than gated by URL config so the route map stays simple.
     path("dev/<int:pk>/confirm/", views.dev_confirm_payment, name="dev-confirm"),
     # Admin (staff-only)
     path("admin/", views.admin_list_payments, name="admin-list"),
+    # Édition des coûts modifiables — frais + taux (BR2)
+    path("admin/config/", views.admin_config, name="admin-config"),
+    path("admin/fees/<str:code>/", views.admin_update_fee, name="admin-update-fee"),
+    path("admin/rates/<str:code>/", views.admin_update_rate, name="admin-update-rate"),
     path("<int:pk>/", views.payment_detail, name="detail"),
 ]

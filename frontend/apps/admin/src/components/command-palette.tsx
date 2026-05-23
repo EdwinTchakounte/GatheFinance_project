@@ -9,6 +9,7 @@ import {
   Wallet,
   Receipt,
   Users,
+  SlidersHorizontal,
   Search,
   CornerDownLeft,
   ArrowUp,
@@ -84,6 +85,14 @@ const PAGES: CommandItem[] = [
     sublabel: "Annuaire complet",
     icon: Users,
     href: "/members",
+  },
+  {
+    kind: "page",
+    id: "p:costs",
+    label: "Coûts",
+    sublabel: "Frais & taux modifiables",
+    icon: SlidersHorizontal,
+    href: "/costs",
   },
 ];
 

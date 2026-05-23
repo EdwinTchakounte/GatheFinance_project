@@ -175,6 +175,22 @@ export type PaymentRow = {
   };
 };
 
+export type FeeConfig = {
+  code: string;
+  libelle: string;
+  montant: string;
+  actif: boolean;
+};
+
+export type RateConfig = {
+  code: string;
+  libelle: string;
+  valeur: string;
+  actif: boolean;
+};
+
+export type CostsConfig = { fees: FeeConfig[]; rates: RateConfig[] };
+
 export type Paginated<T> = { count: number; results: T[] };
 
 function qs(params: Record<string, string | undefined>): string {
@@ -260,5 +276,20 @@ export const adminApi = {
   payments: {
     list: (params: { statut?: string; type?: string; q?: string } = {}) =>
       request<Paginated<PaymentRow>>(`/payments/admin/${qs(params)}`),
+  },
+
+  // Coûts modifiables — frais (FCFA) + taux (ratio) en base (BR2/BR3).
+  costs: {
+    config: () => request<CostsConfig>("/payments/admin/config/"),
+    updateFee: (code: string, payload: { montant?: number; libelle?: string; actif?: boolean }) =>
+      request<FeeConfig>(`/payments/admin/fees/${code}/`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    updateRate: (code: string, payload: { valeur?: number; libelle?: string; actif?: boolean }) =>
+      request<RateConfig>(`/payments/admin/rates/${code}/`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
   },
 };

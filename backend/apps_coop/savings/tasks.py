@@ -23,7 +23,7 @@ from django.utils import timezone
 
 from apps_coop.audit.services import record as record_audit
 
-from .cutoff import MIN_BALANCE_FOR_INTEREST, MONTHLY_INTEREST_RATE
+from .cutoff import MIN_BALANCE_FOR_INTEREST
 
 
 logger = logging.getLogger(__name__)
@@ -36,16 +36,21 @@ def _q(x: Decimal) -> Decimal:
 
 
 def crediter_interets_mensuels() -> dict:
-    """Crédite ``MONTHLY_INTEREST_RATE`` sur chaque compte d'épargne actif.
+    """Crédite le taux d'épargne mensuel sur chaque compte d'épargne actif.
 
+    Le taux est lu depuis ``RateParam.SAVINGS_INTEREST_MONTHLY`` (modifiable
+    côté admin, BR2) avec fallback sur le défaut réglementaire (1 %, Article 4).
     Idempotent : ne crédite pas 2× le même mois pour un compte donné.
     """
     from apps_coop.members.models import Member
     from apps_coop.notifications.services import send_template
+    from apps_coop.payments.models import RateParam
+    from apps_coop.payments.rates import get_rate
     from apps_coop.savings.models import SavingsAccount, SavingsTransaction
 
     now = timezone.now()
     period = f"{now.year}-{now.month:02d}"
+    taux = get_rate(RateParam.Code.SAVINGS_INTEREST_MONTHLY)
 
     comptes_traites = 0
     comptes_ignores = 0
@@ -86,7 +91,7 @@ def crediter_interets_mensuels() -> dict:
                     comptes_ignores += 1
                     continue
 
-                interets = _q(solde * MONTHLY_INTEREST_RATE)
+                interets = _q(solde * taux)
                 if interets <= 0:
                     comptes_ignores += 1
                     continue
@@ -111,7 +116,7 @@ def crediter_interets_mensuels() -> dict:
                     details={
                         "member_id": locked.member_id,
                         "period": period,
-                        "rate": str(MONTHLY_INTEREST_RATE),
+                        "rate": str(taux),
                         "solde_avant": str(solde),
                         "interets": str(interets),
                         "solde_apres": str(nouveau_solde),
@@ -148,7 +153,7 @@ def crediter_interets_mensuels() -> dict:
 
     summary = {
         "period": period,
-        "rate": str(MONTHLY_INTEREST_RATE),
+        "rate": str(taux),
         "comptes_traites": comptes_traites,
         "comptes_ignores": comptes_ignores,
         "erreurs": erreurs,

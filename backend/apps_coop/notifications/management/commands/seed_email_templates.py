@@ -1,4 +1,4 @@
-"""Idempotent seed of the 6 transactional EmailTemplate rows.
+"""Idempotent seed of the transactional EmailTemplate rows.
 
 Run with ``python manage.py seed_email_templates``. Safe to re-run — only
 inserts missing codes, never overwrites an admin-edited template.
@@ -106,19 +106,6 @@ TEMPLATES = [
         "variables": ["prenom", "numero_membre", "montant", "portal_url"],
     },
     {
-        "code": "loan_renewal.fees_paid",
-        "objet": "Reconduction crédit {numero_dossier} — frais reçus",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Les frais de reconduction de <strong>{montant} XAF</strong> pour ton crédit "
-            "<strong>{numero_dossier}</strong> ont été reçus.</p>"
-            "<p>Ta demande de reconduction est désormais soumise au comité crédit. "
-            "Tu recevras un email dès qu'une décision sera prise.</p>"
-            "<p><a href=\"{portal_url}/credit\">Suivre ma reconduction</a></p>"
-        ),
-        "variables": ["prenom", "numero_dossier", "montant", "portal_url"],
-    },
-    {
         "code": "loan.disbursed",
         "objet": "Crédit {numero_dossier} décaissé",
         "corps_html": (
@@ -164,6 +151,61 @@ TEMPLATES = [
             "ultérieurement.<br><a href=\"{portal_url}/credit\">Mon espace crédit</a></p>"
         ),
         "variables": ["prenom", "numero_dossier", "motif", "portal_url"],
+    },
+    {
+        # Cron mensuel — savings/tasks.py:crediter_interets_mensuels.
+        "code": "savings.interest_credited",
+        "objet": "Intérêts d'épargne crédités — {period}",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Tes intérêts d'épargne pour la période <strong>{period}</strong> "
+            "viennent d'être crédités : <strong>+{interets} XAF</strong> "
+            "(taux de 1 %/mois, Article 4 du Règlement).</p>"
+            "<p>Nouveau solde de ton compte d'épargne : <strong>{solde_apres} XAF</strong></p>"
+        ),
+        "variables": ["prenom", "period", "interets", "solde_apres"],
+    },
+    {
+        # savings/services.py:_notify(wr, approved=True).
+        "code": "withdrawal.approved",
+        "objet": "Retrait approuvé : {montant} XAF",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Ta demande de retrait de <strong>{montant} XAF</strong> a été "
+            "<strong>approuvée</strong>. Le montant a été débité de ton compte "
+            "d'épargne et te sera remis selon le canal convenu.</p>"
+            "<p><a href=\"{portal_url}/portal\">Voir mon espace</a></p>"
+        ),
+        "variables": ["prenom", "montant", "portal_url"],
+    },
+    {
+        # savings/services.py:_notify(wr, approved=False).
+        "code": "withdrawal.rejected",
+        "objet": "Retrait de {montant} XAF — non approuvé",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Ta demande de retrait de <strong>{montant} XAF</strong> n'a pas "
+            "été approuvée. Aucun montant n'a été débité de ton compte d'épargne.</p>"
+            "<p>Motif communiqué : <em>{motif_rejet}</em></p>"
+            "<p><a href=\"{portal_url}/portal\">Mon espace épargne</a></p>"
+        ),
+        "variables": ["prenom", "montant", "motif_rejet", "portal_url"],
+    },
+    {
+        # loans/views.py — mise en demeure (Article 13).
+        "code": "loan.notice",
+        "objet": "Mise en demeure — crédit {numero_dossier}",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Sauf erreur de notre part, ton crédit <strong>{numero_dossier}</strong> "
+            "présente un retard de remboursement. Solde restant dû : "
+            "<strong>{solde_restant} XAF</strong>.</p>"
+            "<p>Ceci constitue la mise en demeure n° <strong>{count}</strong> "
+            "(Article 13 du Règlement). Merci de régulariser ta situation au plus vite "
+            "pour éviter les pénalités de retard.</p>"
+            "<p><a href=\"{portal_url}/credit\">Régler mon échéance</a></p>"
+        ),
+        "variables": ["prenom", "numero_dossier", "solde_restant", "count", "portal_url"],
     },
 ]
 

@@ -9,6 +9,7 @@ import {
   Wallet,
   Receipt,
   Users,
+  SlidersHorizontal,
   LogOut,
 } from "lucide-react";
 
@@ -31,6 +32,7 @@ const NAV: NavItem[] = [
   { href: "/loans", label: "Crédits", icon: Wallet },
   { href: "/payments", label: "Paiements", icon: Receipt },
   { href: "/members", label: "Membres", icon: Users },
+  { href: "/costs", label: "Coûts", icon: SlidersHorizontal },
 ];
 
 

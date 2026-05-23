@@ -18,6 +18,10 @@ boto3>=1.35
 # Images
 Pillow>=10.4
 
+# PDF — attestation d'adhésion jointe à l'e-mail de bienvenue. Wheels
+# précompilés (aucune dépendance système, OK sur python:3.12-slim).
+reportlab>=4.0,<5
+
 # Config / env
 django-environ>=0.11
 

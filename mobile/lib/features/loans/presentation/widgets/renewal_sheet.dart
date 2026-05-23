@@ -37,7 +37,8 @@ class RenewalSheet extends ConsumerStatefulWidget {
 
 class _RenewalSheetState extends ConsumerState<RenewalSheet>
     with TickerProviderStateMixin {
-  int _duree = 6;
+  // Article 10 : prorogation fixe de +1 mois, non négociable.
+  static const int _duree = 1;
   _Step _step = _Step.form;
   late final AnimationController _checkCtrl;
 
@@ -122,37 +123,17 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
 
           const SizedBox(height: AppSpacing.xl),
 
+          // Prorogation fixe : +1 mois (Article 10) — pas de choix de durée.
           Row(
             children: [
-              Text(l.ren_new_duration, style: AppTypography.labelMedium),
-              const Spacer(),
+              const Icon(Icons.event_repeat_rounded,
+                  size: 18, color: PaColors.teal),
+              const SizedBox(width: 10),
               Text(
-                l.states_months(_duree),
-                style: AppTypography.headingSmall.copyWith(
-                  color: PaColors.teal,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+                l.ren_extra_month,
+                style: AppTypography.labelMedium.copyWith(color: PaColors.teal),
               ),
             ],
-          ),
-          const SizedBox(height: 4),
-          SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 6,
-              activeTrackColor: PaColors.teal,
-              inactiveTrackColor: PaColors.tealSurface,
-              thumbColor: PaColors.teal,
-              overlayColor: PaColors.teal.withValues(alpha: 0.12),
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 22),
-            ),
-            child: Slider(
-              min: 3,
-              max: 36,
-              divisions: 33,
-              value: _duree.toDouble(),
-              onChanged: (v) => setState(() => _duree = v.round()),
-            ),
           ),
 
           const SizedBox(height: AppSpacing.l),
@@ -241,7 +222,7 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
           Text(l.lreq_sent_title, style: AppTypography.headingMedium),
           const SizedBox(height: 6),
           Text(
-            l.ren_sent_body('$_duree'),
+            l.ren_sent_body,
             textAlign: TextAlign.center,
             style: AppTypography.bodyMedium.copyWith(
               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),

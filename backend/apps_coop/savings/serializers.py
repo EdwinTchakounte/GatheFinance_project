@@ -3,7 +3,14 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from .models import SavingsAccount, SavingsTransaction, WithdrawalRequest
+from .models import (
+    ClassicSavingsAccount,
+    ClassicSavingsConfig,
+    ClassicSavingsTransaction,
+    SavingsAccount,
+    SavingsTransaction,
+    WithdrawalRequest,
+)
 
 
 class SavingsTransactionReadSerializer(serializers.ModelSerializer):
@@ -41,6 +48,49 @@ class SavingsAccountReadSerializer(serializers.ModelSerializer):
     def get_transactions_recentes(self, obj: SavingsAccount):
         recent = obj.transactions.order_by("-date", "-id")[:10]
         return SavingsTransactionReadSerializer(recent, many=True).data
+
+
+class ClassicSavingsConfigSerializer(serializers.ModelSerializer):
+    """Config du produit épargne classique (lecture membre + édition staff)."""
+
+    class Meta:
+        model = ClassicSavingsConfig
+        fields = (
+            "actif",
+            "libelle",
+            "taux_interet_mensuel",
+            "depot_min",
+            "depot_max",
+            "retrait_validation_requise",
+        )
+
+
+class ClassicSavingsTransactionReadSerializer(serializers.ModelSerializer):
+    type_display = serializers.CharField(source="get_type_op_display", read_only=True)
+
+    class Meta:
+        model = ClassicSavingsTransaction
+        fields = ("id", "type_op", "type_display", "montant", "solde_apres", "date")
+        read_only_fields = fields
+
+
+class ClassicSavingsAccountReadSerializer(serializers.ModelSerializer):
+    """Snapshot du compte épargne classique du membre + config + activité récente."""
+
+    transactions_recentes = serializers.SerializerMethodField()
+    config = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ClassicSavingsAccount
+        fields = ("id", "solde", "date_ouverture", "config", "transactions_recentes")
+        read_only_fields = fields
+
+    def get_transactions_recentes(self, obj: ClassicSavingsAccount):
+        recent = obj.transactions.order_by("-date", "-id")[:10]
+        return ClassicSavingsTransactionReadSerializer(recent, many=True).data
+
+    def get_config(self, obj):
+        return ClassicSavingsConfigSerializer(ClassicSavingsConfig.get_solo()).data
 
 
 class WithdrawalRequestCreateSerializer(serializers.Serializer):

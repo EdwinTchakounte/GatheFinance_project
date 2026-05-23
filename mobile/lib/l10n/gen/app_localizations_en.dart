@@ -1242,6 +1242,22 @@ class AppL10nEn extends AppL10n {
       'Suggestion: 1,000 FCFA. The amount is up to you.';
 
   @override
+  String get classic_dep_title => 'Deposit to savings';
+
+  @override
+  String get classic_dep_sub =>
+      'Classic savings — any amount, separate from your daily contribution.';
+
+  @override
+  String get classic_card_title => 'Classic savings';
+
+  @override
+  String get classic_card_sub => 'Set money aside anytime';
+
+  @override
+  String get classic_card_cta => 'Deposit';
+
+  @override
   String get dep_confirm_default => 'Confirm the deposit';
 
   @override
@@ -1361,19 +1377,18 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String get ren_new_duration => 'New term';
+  String get ren_extra_month => 'Extension: +1 month';
 
   @override
   String get ren_fees_note =>
-      'Once the request is created, you\'ll be invited to pay the renewal fees.';
+      'Renewal extends your loan by one month. No fee is charged — only the interest rate is increased. Your request will be submitted to the committee for approval.';
 
   @override
   String get ren_submit => 'Request renewal';
 
   @override
-  String ren_sent_body(String n) {
-    return 'Your renewal request for $n months\nis awaiting fee payment.';
-  }
+  String get ren_sent_body =>
+      'Your renewal request (+1 month) has been sent.\nIt\'s now awaiting committee approval.';
 
   @override
   String lreq_installments(String n) {

@@ -15,6 +15,7 @@ import secrets
 import string
 from datetime import date
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import transaction
@@ -150,8 +151,68 @@ def approve_membership_request(
             "email": request_obj.email,
         },
     )
-    # TODO(UC1 step 2): send "welcome + payment link" email via apps_coop.notifications.
+    # UC1 step 2 — e-mail de bienvenue + lien de paiement de la 1ʳᵉ cotisation.
+    # Différé au commit : on n'envoie l'e-mail QUE si la transaction réussit
+    # (évite un mail de bienvenue pour une approbation qui rollback ensuite).
+    transaction.on_commit(lambda: _send_welcome_email(member, request_obj.email))
     return member
+
+
+def _send_welcome_email(member: Member, to_email: str) -> None:
+    """E-mail de bienvenue (UC1) — jamais bloquant pour l'approbation.
+
+    Joint l'attestation d'adhésion (PDF) générée à la volée. Si la génération
+    du PDF échoue pour une raison quelconque, on envoie quand même l'e-mail
+    sans pièce jointe — l'approbation ne doit jamais être pénalisée.
+    """
+    if not to_email:
+        return
+    try:
+        from decimal import Decimal
+
+        from apps_coop.notifications.services import send_template
+        from apps_coop.payments.models import FeeType
+
+        # « Première cotisation » = frais d'adhésion + frais d'inscription
+        # (montants exacts du Règlement, lus en base — jamais codés en dur).
+        fees = FeeType.objects.filter(
+            code__in=[FeeType.Code.ADHESION, FeeType.Code.INSCRIPTION]
+        )
+        total = sum((f.montant for f in fees), Decimal("0"))
+        frais_montant = f"{int(total):,}".replace(",", " ")
+
+        # Attestation d'adhésion (PDF) — jointe si la génération réussit, sinon
+        # on n'empêche pas l'envoi de l'e-mail.
+        attachments = None
+        try:
+            from .attestation import build_attestation_pdf
+
+            pdf_bytes = build_attestation_pdf(member)
+            attachments = [
+                ("attestation_adhesion.pdf", pdf_bytes, "application/pdf"),
+            ]
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "attestation PDF generation failed for %s — sending email without it",
+                member.numero_membre,
+                exc_info=True,
+            )
+
+        send_template(
+            "member.welcome",
+            to=to_email,
+            member=member,
+            context={
+                "prenom": member.prenom,
+                "nom": member.nom,
+                "numero_membre": member.numero_membre,
+                "frais_montant": frais_montant,
+                "portal_url": getattr(settings, "FRONTEND_PUBLIC_URL", "http://localhost:3200"),
+            },
+            attachments=attachments,
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("member.welcome email skipped for %s", to_email, exc_info=True)
 
 
 @transaction.atomic

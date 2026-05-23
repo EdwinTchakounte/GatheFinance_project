@@ -23,6 +23,7 @@ import '../../features/auth/domain/usecases/sign_in.dart';
 import '../../features/auth/domain/usecases/sign_out.dart';
 
 // ---- Savings --------------------------------------------------------------
+import '../../features/savings/data/datasources/classic_savings_mock_datasource.dart';
 import '../../features/savings/data/datasources/savings_mock_datasource.dart';
 import '../../features/savings/data/datasources/savings_remote_datasource.dart';
 import '../../features/savings/data/repositories/savings_repository_impl.dart';
@@ -108,6 +109,23 @@ final getMySavingsUseCaseProvider = Provider<GetMySavings>(
 
 final depositSavingsUseCaseProvider = Provider<DepositSavings>(
   (ref) => DepositSavings(ref.watch(savingsRepositoryProvider)),
+);
+
+// Épargne classique — dissociée de la cotisation (mock dédié, compte distinct).
+final classicSavingsDataSourceProvider = Provider<SavingsRemoteDataSource>(
+  (ref) => ClassicSavingsMockDataSource(),
+);
+
+final classicSavingsRepositoryProvider = Provider<SavingsRepository>(
+  (ref) => SavingsRepositoryImpl(ref.watch(classicSavingsDataSourceProvider)),
+);
+
+final getMyClassicSavingsUseCaseProvider = Provider<GetMySavings>(
+  (ref) => GetMySavings(ref.watch(classicSavingsRepositoryProvider)),
+);
+
+final depositClassicSavingsUseCaseProvider = Provider<DepositSavings>(
+  (ref) => DepositSavings(ref.watch(classicSavingsRepositoryProvider)),
 );
 
 

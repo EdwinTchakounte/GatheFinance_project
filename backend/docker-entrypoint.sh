@@ -35,6 +35,7 @@ echo "[entrypoint] bootstrapping site content (idempotent)..."
 python manage.py bootstrap_site || true
 python manage.py seed_blog || true
 python manage.py seed_fees || true
+python manage.py seed_rates || true
 
 # Create an admin user from env vars (Django reads DJANGO_SUPERUSER_PASSWORD itself).
 if [ -n "${DJANGO_SUPERUSER_USERNAME:-}" ] && [ -n "${DJANGO_SUPERUSER_PASSWORD:-}" ]; then

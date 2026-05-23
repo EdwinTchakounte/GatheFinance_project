@@ -38,8 +38,13 @@ def send_template(
     to: str,
     context: dict | None = None,
     member=None,
+    attachments: list | None = None,
 ) -> EmailLog:
     """Render the template ``code`` with ``context`` and send to ``to``.
+
+    ``attachments`` (optionnel) : liste de tuples ``(filename, content, mimetype)``
+    transmis tels quels à ``EmailMessage.attach`` — p. ex. l'attestation
+    d'adhésion jointe à l'e-mail de bienvenue. ``None`` = aucune pièce jointe.
 
     Returns the persisted ``EmailLog`` row (statut = ``envoye`` or ``echec``).
     Never raises — designed to be called from business hooks where audit
@@ -73,6 +78,9 @@ def send_template(
         )
         if body_html:
             msg.attach_alternative(body_html, "text/html")
+        for att in attachments or []:
+            # (filename, content, mimetype) — signature Django EmailMessage.attach.
+            msg.attach(*att)
         msg.send(fail_silently=False)
         log.statut = EmailLog.Statut.ENVOYE
         log.sent_at = timezone.now()

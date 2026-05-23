@@ -40,6 +40,46 @@ class FeeType(TimestampedModel):
         return f"{self.code} · {self.montant}"
 
 
+class RateParam(TimestampedModel):
+    """Catalogue des **taux** métier modifiables par l'admin (BR2).
+
+    Pendant FeeType (montants fixes en FCFA), mais pour les pourcentages : taux
+    d'intérêt crédit, intérêt épargne mensuel, taux de reconduction, pénalité.
+    Stockés en base → un admin les ajuste sans déploiement ni migration.
+
+    ``valeur`` est un ratio (ex. ``0.10`` = 10 %). Les défauts réglementaires
+    vivent dans ``loans/terms.py`` et ``savings/cutoff.py`` et servent de
+    fallback sûr (voir ``payments.rates.get_rate``).
+    """
+
+    class Code(models.TextChoices):
+        LOAN_INTEREST = "LOAN_INTEREST", "Taux d'intérêt crédit (par transaction)"
+        SAVINGS_INTEREST_MONTHLY = (
+            "SAVINGS_INTEREST_MONTHLY",
+            "Taux d'intérêt épargne (mensuel)",
+        )
+        RENEWAL_CASH = "RENEWAL_CASH", "Reconduction — intérêts au comptant"
+        RENEWAL_DEFERRED = "RENEWAL_DEFERRED", "Reconduction — intérêts reportés"
+        LATE_PENALTY = "LATE_PENALTY", "Pénalité de non-versement"
+
+    code = models.CharField(max_length=32, choices=Code.choices, unique=True)
+    libelle = models.CharField(max_length=120)
+    valeur = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        help_text="Ratio entre 0 et 1 (ex. 0.1000 pour 10 %).",
+    )
+    actif = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["code"]
+        verbose_name = "Taux métier"
+        verbose_name_plural = "Taux métier"
+
+    def __str__(self) -> str:
+        return f"{self.code} · {self.valeur}"
+
+
 class Payment(TimestampedModel):
     """Pivot entity for every money movement. Mobile Money fields are nullable
     so manual cash entries (recorded by an admin at the agency) work too.
@@ -47,6 +87,7 @@ class Payment(TimestampedModel):
 
     class Type(models.TextChoices):
         EPARGNE = "epargne", "Épargne"
+        EPARGNE_CLASSIQUE = "epargne_classique", "Épargne classique"
         FRAIS_INSCRIPTION = "frais_inscription", "Frais d'inscription"
         FRAIS_ADHESION = "frais_adhesion", "Frais d'adhésion"
         FRAIS_DEMANDE_CREDIT = "frais_demande_credit", "Frais de demande de crédit"

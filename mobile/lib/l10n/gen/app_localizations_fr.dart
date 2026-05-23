@@ -1247,6 +1247,22 @@ class AppL10nFr extends AppL10n {
       'Suggestion : 1 000 FCFA. Tu restes libre du montant.';
 
   @override
+  String get classic_dep_title => 'Déposer sur l\'épargne';
+
+  @override
+  String get classic_dep_sub =>
+      'Épargne classique — montant libre, séparé de ta cotisation.';
+
+  @override
+  String get classic_card_title => 'Épargne classique';
+
+  @override
+  String get classic_card_sub => 'Mets de côté quand tu veux';
+
+  @override
+  String get classic_card_cta => 'Déposer';
+
+  @override
   String get dep_confirm_default => 'Confirmer le versement';
 
   @override
@@ -1366,19 +1382,18 @@ class AppL10nFr extends AppL10n {
   }
 
   @override
-  String get ren_new_duration => 'Nouvelle durée';
+  String get ren_extra_month => 'Prolongation : +1 mois';
 
   @override
   String get ren_fees_note =>
-      'Une fois la demande créée, tu seras invité(e) à régler les frais de reconduction.';
+      'La reconduction prolonge ton crédit d\'un mois. Aucun frais n\'est dû : seul le taux d\'intérêt est majoré. Ta demande sera soumise au comité pour validation.';
 
   @override
   String get ren_submit => 'Demander la reconduction';
 
   @override
-  String ren_sent_body(String n) {
-    return 'Ta demande de reconduction sur $n mois\nest en attente de paiement des frais.';
-  }
+  String get ren_sent_body =>
+      'Ta demande de reconduction (+1 mois) a bien été envoyée.\nElle est en attente de validation du comité.';
 
   @override
   String lreq_installments(String n) {

@@ -17,6 +17,7 @@ The views stay thin — heavy lifting is delegated to ``services.py``.
 from __future__ import annotations
 
 import logging
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.utils import timezone
@@ -33,7 +34,7 @@ from rest_framework.response import Response
 from apps_coop.audit.services import client_ip, record as record_audit
 from apps_coop.members.permissions import IsMember, IsStaff
 
-from .models import FeeType, Payment
+from .models import FeeType, Payment, RateParam
 from .providers import get_provider
 from .providers.base import ProviderError
 from .serializers import PaymentInitSerializer, PaymentReadSerializer
@@ -61,7 +62,7 @@ _TYPES_ALLOWED_FOR_SUSPENDED = {
         "Crée un `Payment` en attente, appelle le provider (Tara) pour pousser le "
         "USSD au téléphone, et retourne le `paymentId` à utiliser pour le polling.\n\n"
         "Types acceptés : `epargne`, `frais_adhesion`, `frais_inscription`, "
-        "`frais_demande_credit`, `frais_reconduction`, `frais_carnet`, `remboursement`.\n\n"
+        "`frais_demande_credit`, `frais_carnet`, `remboursement`.\n\n"
         "**Restrictions** :\n"
         "- Membre `suspendu` → uniquement `frais_adhesion` / `frais_inscription`\n"
         "- Type `remboursement` → `loan_id` requis, doit appartenir au membre, "
@@ -129,6 +130,28 @@ def init_payment(request):
                         "Réduis le montant pour éviter un trop-perçu."
                     )
                 },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    # Épargne classique : produit dissocié de la cotisation, piloté par une
+    # config admin (ouverture + bornes de dépôt). Règles fines à venir.
+    if data["type"] == Payment.Type.EPARGNE_CLASSIQUE:
+        from apps_coop.savings.models import ClassicSavingsConfig
+
+        cfg = ClassicSavingsConfig.get_solo()
+        if not cfg.actif:
+            return Response(
+                {"detail": "L'épargne classique n'est pas ouverte aux dépôts pour le moment."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if data["montant"] < cfg.depot_min:
+            return Response(
+                {"detail": f"Dépôt minimum : {int(cfg.depot_min)} XAF."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if cfg.depot_max is not None and data["montant"] > cfg.depot_max:
+            return Response(
+                {"detail": f"Dépôt maximum : {int(cfg.depot_max)} XAF."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -309,6 +332,179 @@ def list_fees(request):
         for fee in FeeType.objects.filter(actif=True)
     }
     return Response(fees)
+
+
+# ---------------------------------------------------------------------------
+# Coûts modifiables (BR2) — taux métier + édition admin protégée
+# ---------------------------------------------------------------------------
+
+
+@extend_schema(
+    tags=["payments"],
+    summary="Catalogue des taux métier",
+    description=(
+        "Retourne les taux actifs depuis `RateParam` (admin-editable), indexés "
+        "par code. `valeur` est un ratio (ex. `0.1000` = 10 %). Codes : "
+        "`LOAN_INTEREST`, `SAVINGS_INTEREST_MONTHLY`, `RENEWAL_CASH`, "
+        "`RENEWAL_DEFERRED`, `LATE_PENALTY`."
+    ),
+    responses={200: OpenApiResponse(description="`{ 'LOAN_INTEREST': {libelle, valeur}, ... }`")},
+)
+@api_view(["GET"])
+@permission_classes([IsMember])
+def list_rates(request):
+    """Taux métier courants (RateParam.actif=True), indexés par code.
+
+    Lecture seule, exposée au portail/mobile pour afficher les pourcentages
+    réellement appliqués. L'admin les édite via les endpoints `admin/`.
+    """
+    rates = {
+        rate.code: {"libelle": rate.libelle, "valeur": str(rate.valeur)}
+        for rate in RateParam.objects.filter(actif=True)
+    }
+    return Response(rates)
+
+
+@extend_schema(
+    tags=["payments"],
+    summary="Config des coûts (admin) — frais + taux",
+    description=(
+        "Vue staff : retourne TOUS les `FeeType` et `RateParam` (actifs ou non) "
+        "pour l'écran d'édition des coûts. Alimente la page admin Next.js."
+    ),
+    responses={200: OpenApiResponse(description="`{ fees: FeeType[], rates: RateParam[] }`")},
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_config(request):
+    fees = [
+        {
+            "code": f.code,
+            "libelle": f.libelle,
+            "montant": str(f.montant),
+            "actif": f.actif,
+        }
+        for f in FeeType.objects.all()
+    ]
+    rates = [
+        {
+            "code": r.code,
+            "libelle": r.libelle,
+            "valeur": str(r.valeur),
+            "actif": r.actif,
+        }
+        for r in RateParam.objects.all()
+    ]
+    return Response({"fees": fees, "rates": rates})
+
+
+@extend_schema(
+    tags=["payments"],
+    summary="Éditer un frais (admin)",
+    description=(
+        "PATCH staff : met à jour le `montant` (≥ 0), et optionnellement "
+        "`libelle` / `actif`, d'un `FeeType` identifié par son code. Tracé en "
+        "audit (`config.fee_updated`)."
+    ),
+    responses={200: OpenApiResponse(description="Le FeeType mis à jour.")},
+)
+@api_view(["PATCH"])
+@permission_classes([IsStaff])
+def admin_update_fee(request, code: str):
+    try:
+        fee = FeeType.objects.get(code=code)
+    except FeeType.DoesNotExist:
+        return Response({"detail": f"Frais inconnu : {code}"}, status=status.HTTP_404_NOT_FOUND)
+
+    updated = []
+    if "montant" in request.data:
+        try:
+            montant = Decimal(str(request.data["montant"]))
+        except (InvalidOperation, TypeError):
+            return Response({"detail": "Montant invalide."}, status=status.HTTP_400_BAD_REQUEST)
+        if montant < 0:
+            return Response({"detail": "Le montant doit être ≥ 0."}, status=status.HTTP_400_BAD_REQUEST)
+        fee.montant = montant
+        updated.append("montant")
+    if "libelle" in request.data:
+        fee.libelle = str(request.data["libelle"])[:120]
+        updated.append("libelle")
+    if "actif" in request.data:
+        fee.actif = bool(request.data["actif"])
+        updated.append("actif")
+
+    if not updated:
+        return Response({"detail": "Rien à mettre à jour."}, status=status.HTTP_400_BAD_REQUEST)
+
+    fee.save(update_fields=[*updated, "updated_at"])
+    record_audit(
+        action="config.fee_updated",
+        entite_type="FeeType",
+        entite_id=fee.pk,
+        user=request.user,
+        details={"code": fee.code, "champs": updated, "montant": str(fee.montant)},
+        ip=client_ip(request),
+        user_agent=request.META.get("HTTP_USER_AGENT", ""),
+    )
+    return Response(
+        {"code": fee.code, "libelle": fee.libelle, "montant": str(fee.montant), "actif": fee.actif}
+    )
+
+
+@extend_schema(
+    tags=["payments"],
+    summary="Éditer un taux (admin)",
+    description=(
+        "PATCH staff : met à jour la `valeur` (ratio entre 0 et 1), et "
+        "optionnellement `libelle` / `actif`, d'un `RateParam` identifié par "
+        "son code. Tracé en audit (`config.rate_updated`)."
+    ),
+    responses={200: OpenApiResponse(description="Le RateParam mis à jour.")},
+)
+@api_view(["PATCH"])
+@permission_classes([IsStaff])
+def admin_update_rate(request, code: str):
+    try:
+        rate = RateParam.objects.get(code=code)
+    except RateParam.DoesNotExist:
+        return Response({"detail": f"Taux inconnu : {code}"}, status=status.HTTP_404_NOT_FOUND)
+
+    updated = []
+    if "valeur" in request.data:
+        try:
+            valeur = Decimal(str(request.data["valeur"]))
+        except (InvalidOperation, TypeError):
+            return Response({"detail": "Valeur invalide."}, status=status.HTTP_400_BAD_REQUEST)
+        if not (Decimal("0") <= valeur <= Decimal("1")):
+            return Response(
+                {"detail": "Le taux doit être un ratio entre 0 et 1 (ex. 0.10 = 10 %)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        rate.valeur = valeur
+        updated.append("valeur")
+    if "libelle" in request.data:
+        rate.libelle = str(request.data["libelle"])[:120]
+        updated.append("libelle")
+    if "actif" in request.data:
+        rate.actif = bool(request.data["actif"])
+        updated.append("actif")
+
+    if not updated:
+        return Response({"detail": "Rien à mettre à jour."}, status=status.HTTP_400_BAD_REQUEST)
+
+    rate.save(update_fields=[*updated, "updated_at"])
+    record_audit(
+        action="config.rate_updated",
+        entite_type="RateParam",
+        entite_id=rate.pk,
+        user=request.user,
+        details={"code": rate.code, "champs": updated, "valeur": str(rate.valeur)},
+        ip=client_ip(request),
+        user_agent=request.META.get("HTTP_USER_AGENT", ""),
+    )
+    return Response(
+        {"code": rate.code, "libelle": rate.libelle, "valeur": str(rate.valeur), "actif": rate.actif}
+    )
 
 
 # ---------------------------------------------------------------------------

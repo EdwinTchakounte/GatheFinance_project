@@ -3,9 +3,9 @@
 Couvre :
   - Service `request_loan_renewal` crée une `LoanRenewal(statut=demandee)`
   - Refus si statut Loan != actif/en_retard
-  - Refus si durée hors plage [3, 36]
+  - Durée toujours forcée à +1 mois (Article 10), toute autre valeur ignorée
   - Idempotence : 2 appels successifs renvoient la même LoanRenewal
-  - Endpoint HTTP returns 201 + body avec frais_a_payer
+  - Endpoint HTTP returns 201 SANS frais (reconduction sans frais)
 """
 from __future__ import annotations
 
@@ -50,10 +50,17 @@ def _build_active_loan(member) -> Loan:
 class TestRequestLoanRenewalService:
     def test_creates_renewal_for_active_loan(self, active_member):
         loan = _build_active_loan(active_member)
-        renewal = request_loan_renewal(loan, nouvelle_duree_mois=6)
+        renewal = request_loan_renewal(loan)
         assert renewal.statut == LoanRenewal.Statut.DEMANDEE
-        assert renewal.nouvelle_duree_mois == 6
+        # Article 10 : prorogation fixe de +1 mois, peu importe ce qui est demandé.
+        assert renewal.nouvelle_duree_mois == 1
         assert renewal.loan_id == loan.id
+
+    def test_duration_param_is_ignored_always_one_month(self, active_member):
+        """Toute durée passée est écrasée par +1 mois (Article 10)."""
+        loan = _build_active_loan(active_member)
+        renewal = request_loan_renewal(loan, nouvelle_duree_mois=12)
+        assert renewal.nouvelle_duree_mois == 1
 
     def test_rejects_closed_loan(self, active_member):
         loan = _build_active_loan(active_member)
@@ -83,7 +90,7 @@ class TestRequestLoanRenewalService:
 
 
 class TestRenewalEndpoint:
-    def test_endpoint_returns_201_with_fee(self, client, active_member):
+    def test_endpoint_returns_201_without_fee(self, client, active_member):
         loan = _build_active_loan(active_member)
         client.force_login(active_member.user)
         resp = client.post(
@@ -95,9 +102,10 @@ class TestRenewalEndpoint:
         body = resp.json()
         assert body["renewal"]["statut"] == "demandee"
         assert body["renewal"]["loan_id"] == loan.id
-        # FeeType RECONDUCTION est seed via la migration ; le test peut ne pas l'avoir
-        # → on accepte l'absence mais on vérifie que la clé existe.
-        assert "frais_a_payer" in body
+        # +1 mois forcé, peu importe la durée demandée.
+        assert body["renewal"]["nouvelle_duree_mois"] == 1
+        # Reconduction sans frais : aucune clé `frais_a_payer` dans la réponse.
+        assert "frais_a_payer" not in body
 
     def test_endpoint_404_on_foreign_loan(self, client, active_member):
         # Crée un Loan qui n'appartient PAS à active_member

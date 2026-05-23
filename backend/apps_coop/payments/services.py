@@ -251,6 +251,51 @@ def _hook_savings_deposit(payment: Payment, _raw: dict) -> None:
     )
 
 
+def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
+    """Dépôt validé sur le compte **épargne classique** (dissocié de la cotisation).
+
+    Atomique + idempotent (tourné dans la transaction de ``handle_webhook_event``).
+    Pas de règle de cut-off ici : c'est de l'épargne libre, pas la collecte
+    journalière. Le compte est créé à la volée au premier dépôt.
+    """
+    from apps_coop.savings.models import (
+        ClassicSavingsAccount,
+        ClassicSavingsTransaction,
+    )
+
+    # Création paresseuse puis verrou ligne pour sérialiser les dépôts concurrents.
+    ClassicSavingsAccount.objects.get_or_create(
+        member=payment.member,
+        defaults={"date_ouverture": timezone.localdate()},
+    )
+    account = ClassicSavingsAccount.objects.select_for_update().get(member=payment.member)
+
+    nouveau_solde = account.solde + payment.montant
+    account.solde = nouveau_solde
+    account.save(update_fields=["solde", "updated_at"])
+
+    ClassicSavingsTransaction.objects.create(
+        account=account,
+        payment=payment,
+        type_op=ClassicSavingsTransaction.TypeOp.DEPOT,
+        montant=payment.montant,
+        solde_apres=nouveau_solde,
+        date=payment.date_validation or timezone.now(),
+    )
+
+    record_audit(
+        action="classic_savings.deposit",
+        entite_type="ClassicSavingsAccount",
+        entite_id=account.id,
+        details={
+            "member_id": payment.member_id,
+            "payment_id": payment.id,
+            "montant": str(payment.montant),
+            "solde_apres": str(nouveau_solde),
+        },
+    )
+
+
 def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
     """UC3 step C — remboursement validé → imputation FIFO sur les échéances.
 
@@ -294,7 +339,10 @@ def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
     for inst in installments:
         if reste <= 0:
             break
-        du = Decimal(inst.montant_total) - Decimal(inst.montant_paye)
+        # Le dû inclut la pénalité Article 12 (si posée) : capital + intérêts
+        # + pénalité. L'échéance n'est soldée que pénalité comprise.
+        du_total = Decimal(inst.montant_total) + Decimal(inst.montant_penalite)
+        du = du_total - Decimal(inst.montant_paye)
         if du <= 0:
             continue
         impute = du if reste >= du else reste
@@ -305,7 +353,7 @@ def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
             date=payment.date_validation or timezone.now(),
         )
         inst.montant_paye = Decimal(inst.montant_paye) + impute
-        if Decimal(inst.montant_paye) >= Decimal(inst.montant_total):
+        if Decimal(inst.montant_paye) >= du_total:
             inst.statut = LoanInstallment.Statut.PAYEE
         else:
             inst.statut = LoanInstallment.Statut.PARTIELLE
@@ -454,66 +502,6 @@ def _hook_carnet_fees(payment: Payment, _raw: dict) -> None:
     )
 
 
-def _hook_loan_renewal_fees(payment: Payment, _raw: dict) -> None:
-    """Frais de reconduction réglés → lie le Payment à la `LoanRenewal` en cours.
-
-    Pré-condition : un admin a déjà créé une `LoanRenewal` (statut `demandee`)
-    pour un crédit du membre — typiquement parce que le crédit arrive à terme
-    et que le membre a demandé sa reconduction. Le membre paie ensuite les
-    frais via le portail (`?context=loan-renewal&renewal=<id>`).
-
-    Idempotent : si la LoanRenewal a déjà un `frais_reconduction_payment`,
-    on ne fait rien.
-    """
-    from apps_coop.loans.models import LoanRenewal
-
-    renewal = (
-        LoanRenewal.objects.select_for_update()
-        .filter(
-            loan__member=payment.member,
-            statut=LoanRenewal.Statut.DEMANDEE,
-            frais_reconduction_payment__isnull=True,
-        )
-        .order_by("-date_demande")
-        .first()
-    )
-    if renewal is None:
-        logger.warning(
-            "Payment #%s (frais_reconduction) validé mais aucune LoanRenewal "
-            "`demandee` sans paiement de frais trouvée pour le membre %s.",
-            payment.id,
-            payment.member_id,
-        )
-        return
-
-    renewal.frais_reconduction_payment = payment
-    renewal.save(update_fields=["frais_reconduction_payment", "updated_at"])
-
-    record_audit(
-        action="loan_renewal.fees_paid",
-        entite_type="LoanRenewal",
-        entite_id=renewal.id,
-        details={
-            "payment_id": payment.id,
-            "montant": str(payment.montant),
-            "loan_id": renewal.loan_id,
-        },
-    )
-    from apps_coop.notifications.services import send_template
-
-    send_template(
-        "loan_renewal.fees_paid",
-        to=payment.member.user.email,
-        member=payment.member,
-        context={
-            "prenom": payment.member.prenom,
-            "numero_dossier": renewal.loan.numero_dossier,
-            "montant": _fmt_xaf(payment.montant),
-            "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
-        },
-    )
-
-
 def _hook_decaissement(payment: Payment, _raw: dict) -> None:
     """Décaissement validé (payout Tara confirmé) → met le Loan en `actif`
     + date_decaissement = aujourd'hui.
@@ -573,9 +561,11 @@ _BUSINESS_HOOKS: dict[str, Callable[[Payment, dict], None]] = {
     Payment.Type.FRAIS_ADHESION: _hook_adhesion,
     Payment.Type.FRAIS_INSCRIPTION: _hook_adhesion,  # both activate the member
     Payment.Type.EPARGNE: _hook_savings_deposit,
+    Payment.Type.EPARGNE_CLASSIQUE: _hook_classic_savings_deposit,
     Payment.Type.FRAIS_DEMANDE_CREDIT: _hook_loan_request_fees,
     Payment.Type.REMBOURSEMENT: _hook_loan_repayment,
-    Payment.Type.FRAIS_RECONDUCTION: _hook_loan_renewal_fees,
+    # FRAIS_RECONDUCTION : volontairement non mappé — la reconduction n'engendre
+    # aucun frais (Règlement). Un paiement de ce type ne déclenche aucun hook.
     Payment.Type.FRAIS_CARNET: _hook_carnet_fees,
     Payment.Type.DECAISSEMENT: _hook_decaissement,
 }

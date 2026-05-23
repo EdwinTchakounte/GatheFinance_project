@@ -2371,6 +2371,36 @@ abstract class AppL10n {
   /// **'Suggestion : 1 000 FCFA. Tu restes libre du montant.'**
   String get dep_suggestion;
 
+  /// No description provided for @classic_dep_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Déposer sur l\'épargne'**
+  String get classic_dep_title;
+
+  /// No description provided for @classic_dep_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Épargne classique — montant libre, séparé de ta cotisation.'**
+  String get classic_dep_sub;
+
+  /// No description provided for @classic_card_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Épargne classique'**
+  String get classic_card_title;
+
+  /// No description provided for @classic_card_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mets de côté quand tu veux'**
+  String get classic_card_sub;
+
+  /// No description provided for @classic_card_cta.
+  ///
+  /// In fr, this message translates to:
+  /// **'Déposer'**
+  String get classic_card_cta;
+
   /// No description provided for @dep_confirm_default.
   ///
   /// In fr, this message translates to:
@@ -2569,16 +2599,16 @@ abstract class AppL10n {
   /// **'Crédit {dossier} — solde restant {amount}.'**
   String ren_subtitle(String dossier, String amount);
 
-  /// No description provided for @ren_new_duration.
+  /// No description provided for @ren_extra_month.
   ///
   /// In fr, this message translates to:
-  /// **'Nouvelle durée'**
-  String get ren_new_duration;
+  /// **'Prolongation : +1 mois'**
+  String get ren_extra_month;
 
   /// No description provided for @ren_fees_note.
   ///
   /// In fr, this message translates to:
-  /// **'Une fois la demande créée, tu seras invité(e) à régler les frais de reconduction.'**
+  /// **'La reconduction prolonge ton crédit d\'un mois. Aucun frais n\'est dû : seul le taux d\'intérêt est majoré. Ta demande sera soumise au comité pour validation.'**
   String get ren_fees_note;
 
   /// No description provided for @ren_submit.
@@ -2590,8 +2620,8 @@ abstract class AppL10n {
   /// No description provided for @ren_sent_body.
   ///
   /// In fr, this message translates to:
-  /// **'Ta demande de reconduction sur {n} mois\nest en attente de paiement des frais.'**
-  String ren_sent_body(String n);
+  /// **'Ta demande de reconduction (+1 mois) a bien été envoyée.\nElle est en attente de validation du comité.'**
+  String get ren_sent_body;
 
   /// No description provided for @lreq_installments.
   ///

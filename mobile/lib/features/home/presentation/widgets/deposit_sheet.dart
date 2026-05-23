@@ -8,6 +8,7 @@ import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/brand_loader.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../savings/presentation/state/classic_savings_notifier.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
 
 enum _Network { mtn, orange }
@@ -34,7 +35,11 @@ extension _NetworkX on _Network {
 ///   3. loading — BrandLoader + sub texte
 ///   4. success — check icon + sub + bouton fermer
 class DepositSheet extends ConsumerStatefulWidget {
-  const DepositSheet({super.key});
+  const DepositSheet({super.key, this.classic = false});
+
+  /// `true` → dépôt sur l'**épargne classique** (compte dissocié de la
+  /// cotisation). Démarre directement au formulaire (Mobile Money).
+  final bool classic;
 
   @override
   ConsumerState<DepositSheet> createState() => _DepositSheetState();
@@ -47,13 +52,15 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   final _phoneCtrl = TextEditingController(text: '699 11 22 33');
   _Network _network = _Network.mtn;
 
-  _Step _step = _Step.channelChoice;
+  late _Step _step;
   num? _committedAmount;
   late final AnimationController _checkCtrl;
 
   @override
   void initState() {
     super.initState();
+    // Cotisation : choix du canal d'abord. Épargne classique : formulaire direct.
+    _step = widget.classic ? _Step.form : _Step.channelChoice;
     _checkCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -77,14 +84,24 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
       _step = _Step.loading;
     });
 
-    await ref.read(savingsProvider.notifier).deposit(
-          amount: amount,
-          phone: _phoneCtrl.text,
-          network: _network == _Network.mtn ? 'MTN' : 'ORANGE',
-        );
+    final network = _network == _Network.mtn ? 'MTN' : 'ORANGE';
+    if (widget.classic) {
+      await ref.read(classicSavingsProvider.notifier).deposit(
+            amount: amount,
+            phone: _phoneCtrl.text,
+            network: network,
+          );
+    } else {
+      await ref.read(savingsProvider.notifier).deposit(
+            amount: amount,
+            phone: _phoneCtrl.text,
+            network: network,
+          );
+    }
     if (!mounted) return;
 
-    final result = ref.read(savingsProvider);
+    final result =
+        widget.classic ? ref.read(classicSavingsProvider) : ref.read(savingsProvider);
     result.when(
       data: (_) {
         setState(() => _step = _Step.success);
@@ -275,7 +292,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             const _Grabber(),
             const SizedBox(height: 18),
             Text(
-              l.dep_title,
+              widget.classic ? l.classic_dep_title : l.dep_title,
               style: const TextStyle(
                 color: PaColors.inkPrimary,
                 fontSize: 22,
@@ -284,7 +301,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             ),
             const SizedBox(height: 4),
             Text(
-              l.dep_suggestion,
+              widget.classic ? l.classic_dep_sub : l.dep_suggestion,
               style: const TextStyle(color: PaColors.inkMuted, fontSize: 13.5),
             ),
 

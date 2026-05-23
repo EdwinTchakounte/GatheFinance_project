@@ -207,7 +207,7 @@ EMAIL_BACKEND = env(
 ANYMAIL = {
     "BREVO_API_KEY": env("BREVO_API_KEY", default=""),
 }
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Gathe Finance <contact@gathe-finance.com>")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Gathé Finance <noreply@horus-lab.com>")
 # Inbox that receives contact messages / membership requests.
 CONTACT_NOTIFICATION_EMAIL = env(
     "CONTACT_NOTIFICATION_EMAIL", default="contact@gathe-finance.com"

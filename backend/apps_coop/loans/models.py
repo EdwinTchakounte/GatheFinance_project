@@ -157,6 +157,13 @@ class Loan(TimestampedModel):
 
     statut = models.CharField(max_length=12, choices=Statut.choices, default=Statut.ACTIF, db_index=True)
 
+    # Un crédit issu d'une reconduction ne peut pas être reconduit à son tour :
+    # la reconduction n'a lieu qu'une seule fois par crédit (règle coop).
+    issu_reconduction = models.BooleanField(
+        default=False,
+        help_text="True si ce crédit est né d'une reconduction — non reconductible à nouveau.",
+    )
+
     # Mise en demeure (Article 13) — émise par l'administration sur un crédit
     # en retard ou en contentieux, avant poursuites éventuelles.
     mise_en_demeure_at = models.DateTimeField(

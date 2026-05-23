@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
+from django.utils import timezone
 
 from apps_coop.loans.models import Loan, LoanInstallment, LoanRequest
 from apps_coop.loans.tasks import (
@@ -152,3 +153,63 @@ class TestSuiviRetardsCron:
         loan.refresh_from_db()
         # Un Loan clôturé reste clôturé même si une échéance traîne.
         assert loan.statut == Loan.Statut.CLOTURE
+
+    def test_penalty_added_to_solde_restant(self, active_member):
+        """A — la pénalité devient exigible : ajoutée au solde restant du crédit."""
+        loan = _build_loan(active_member, numero="GF-CR-LATE-SOLDE")
+        _build_installment(loan, days_late=10)  # pénalité = 3333 × 50 % = 1666.50
+
+        suivi_retards_quotidien()
+
+        loan.refresh_from_db()
+        # 110 000 + 1 666.50 = 111 666.50
+        assert loan.solde_restant == Decimal("111666.50")
+
+    def test_penalty_added_to_solde_once(self, active_member):
+        """Le 2e passage du cron ne re-gonfle pas le solde (pénalité posée 1×)."""
+        loan = _build_loan(active_member, numero="GF-CR-LATE-SOLDE2")
+        _build_installment(loan, days_late=10)
+
+        suivi_retards_quotidien()
+        suivi_retards_quotidien()
+
+        loan.refresh_from_db()
+        assert loan.solde_restant == Decimal("111666.50")
+
+
+class TestRepaymentCoversPenalty:
+    """A — une échéance n'est soldée que pénalité comprise."""
+
+    def test_installment_not_paid_until_penalty_covered(self, active_member):
+        from apps_coop.payments.models import Payment
+        from apps_coop.payments.services import handle_webhook_event
+
+        loan = _build_loan(active_member, numero="GF-CR-PEN-PAY")
+        inst = _build_installment(loan, days_late=10)  # pénalité 1666.50
+        suivi_retards_quotidien()
+        inst.refresh_from_db()
+        assert inst.montant_penalite == Decimal("1666.50")
+
+        def _pay(montant: Decimal) -> Payment:
+            p = Payment.objects.create(
+                member=active_member,
+                montant=montant,
+                type=Payment.Type.REMBOURSEMENT,
+                source=Payment.Source.MOBILE_MONEY,
+                statut=Payment.Statut.EN_ATTENTE,
+                provider_code="tara",
+                date_versement=timezone.now(),
+                loan=loan,
+            )
+            handle_webhook_event(p.idempotency_key, "valide", provider_reference="REF")
+            return p
+
+        # 1) Payer juste capital+intérêts (36 667) ne suffit pas : reste la pénalité.
+        _pay(Decimal("36667"))
+        inst.refresh_from_db()
+        assert inst.statut == LoanInstallment.Statut.PARTIELLE
+
+        # 2) Payer la pénalité restante (1 666.50) solde l'échéance.
+        _pay(Decimal("1666.50"))
+        inst.refresh_from_db()
+        assert inst.statut == LoanInstallment.Statut.PAYEE

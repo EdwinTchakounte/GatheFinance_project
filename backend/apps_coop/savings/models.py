@@ -68,6 +68,102 @@ class SavingsTransaction(TimestampedModel):
         return f"{self.type_op} {self.montant} → {self.solde_apres}"
 
 
+class ClassicSavingsConfig(TimestampedModel):
+    """Configuration (singleton) du produit **Épargne classique**, éditable par
+    l'admin — dissocié de la cotisation/collecte journalière (`SavingsAccount`).
+
+    Les règles métier précises (taux, plafonds, conditions de retrait) seront
+    affinées plus tard : on pose ici des paramètres **neutres par défaut**
+    (taux 0 %, pas de plafond) que l'admin ajustera.
+    """
+
+    SINGLETON_PK = 1
+
+    actif = models.BooleanField(default=True, help_text="Produit ouvert aux dépôts.")
+    libelle = models.CharField(max_length=120, default="Épargne classique")
+    taux_interet_mensuel = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        default=0,
+        help_text="Ratio mensuel (ex. 0.0100 = 1 %). 0 = pas d'intérêt (règles à définir).",
+    )
+    depot_min = money_field(default=ZERO, help_text="Montant minimum par dépôt.")
+    depot_max = money_field(
+        null=True, blank=True, help_text="Plafond par dépôt (vide = aucun plafond)."
+    )
+    retrait_validation_requise = models.BooleanField(
+        default=True, help_text="Retrait soumis à validation de l'administration."
+    )
+
+    class Meta:
+        verbose_name = "Configuration épargne classique"
+        verbose_name_plural = "Configuration épargne classique"
+
+    def __str__(self) -> str:
+        return f"Épargne classique · {self.libelle} · actif={self.actif}"
+
+    @classmethod
+    def get_solo(cls) -> "ClassicSavingsConfig":
+        """Retourne la config unique, la créant avec les défauts si absente."""
+        obj, _ = cls.objects.get_or_create(pk=cls.SINGLETON_PK)
+        return obj
+
+
+class ClassicSavingsAccount(TimestampedModel):
+    """Compte d'épargne classique d'un membre — distinct du compte de
+    cotisation/collecte journalière (`SavingsAccount`). Créé à la volée au
+    premier dépôt."""
+
+    member = models.OneToOneField(
+        Member,
+        on_delete=models.PROTECT,
+        related_name="classic_savings_account",
+    )
+    solde = money_field(default=ZERO)
+    date_ouverture = models.DateField()
+
+    class Meta:
+        verbose_name = "Compte épargne classique"
+        verbose_name_plural = "Comptes épargne classique"
+
+    def __str__(self) -> str:
+        return f"Épargne classique {self.member.numero_membre} · solde={self.solde}"
+
+
+class ClassicSavingsTransaction(TimestampedModel):
+    """Ledger append-only du compte d'épargne classique."""
+
+    class TypeOp(models.TextChoices):
+        DEPOT = "depot", "Dépôt"
+        RETRAIT = "retrait", "Retrait"
+        INTERET = "interet", "Intérêt"
+
+    account = models.ForeignKey(
+        ClassicSavingsAccount,
+        on_delete=models.PROTECT,
+        related_name="transactions",
+    )
+    payment = models.ForeignKey(
+        "payments.Payment",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="classic_savings_transactions",
+        help_text="Paiement à l'origine du dépôt ; null pour un intérêt système.",
+    )
+    type_op = models.CharField(max_length=10, choices=TypeOp.choices, db_index=True)
+    montant = money_field()
+    solde_apres = money_field(help_text="Solde du compte juste après cette opération.")
+    date = models.DateTimeField(db_index=True)
+
+    class Meta:
+        ordering = ["-date", "-id"]
+        indexes = [models.Index(fields=["account", "-date"])]
+
+    def __str__(self) -> str:
+        return f"{self.type_op} {self.montant} → {self.solde_apres}"
+
+
 class WithdrawalRequest(TimestampedModel):
     """Demande de retrait d'épargne par un membre.
 

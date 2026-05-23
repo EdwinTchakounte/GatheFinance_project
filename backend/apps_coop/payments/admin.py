@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import FeeType, Payment, PaymentProof
+from .models import FeeType, Payment, PaymentProof, RateParam
 
 
 class PaymentProofInline(admin.TabularInline):
@@ -11,6 +11,13 @@ class PaymentProofInline(admin.TabularInline):
 @admin.register(FeeType)
 class FeeTypeAdmin(admin.ModelAdmin):
     list_display = ("code", "libelle", "montant", "actif")
+    list_filter = ("actif",)
+    search_fields = ("code", "libelle")
+
+
+@admin.register(RateParam)
+class RateParamAdmin(admin.ModelAdmin):
+    list_display = ("code", "libelle", "valeur", "actif")
     list_filter = ("actif",)
     search_fields = ("code", "libelle")
 
