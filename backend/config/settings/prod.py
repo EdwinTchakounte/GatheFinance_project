@@ -80,5 +80,13 @@ if env("SENTRY_DSN", default=""):
 # Stricter API throttle in production.
 REST_FRAMEWORK = {
     **REST_FRAMEWORK,
-    "DEFAULT_THROTTLE_RATES": {"anon": "120/hour", "form-submit": "10/hour"},
+    # Tous les scopes utilisés par DEFAULT_THROTTLE_CLASSES doivent avoir un
+    # taux, sinon DRF lève ImproperlyConfigured ("No default throttle rate set
+    # for 'user' scope"). On garde `user` et `auth-login` de base.
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "120/hour",
+        "user": "2000/hour",
+        "form-submit": "10/hour",
+        "auth-login": "20/hour",
+    },
 }
