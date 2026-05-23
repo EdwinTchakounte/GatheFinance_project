@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Container, buttonClasses } from "@gathe/ui";
@@ -29,7 +29,7 @@ const IS_DEV = process.env.NODE_ENV !== "production";
 type Channel = "mobile" | "agency";
 
 
-export default function PortalDepositPage() {
+function DepositForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // Context :
@@ -418,5 +418,16 @@ export default function PortalDepositPage() {
         ) : null}
       </Container>
     </main>
+  );
+}
+
+
+// Wrapper Suspense — requis par Next 15 : useSearchParams() doit être sous une
+// frontière Suspense pour ne pas casser le prérendu statique au build.
+export default function PortalDepositPage() {
+  return (
+    <Suspense fallback={null}>
+      <DepositForm />
+    </Suspense>
   );
 }
