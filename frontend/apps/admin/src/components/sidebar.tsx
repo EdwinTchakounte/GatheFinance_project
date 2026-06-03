@@ -11,12 +11,22 @@ import {
   Users,
   SlidersHorizontal,
   LogOut,
+  FileCheck,
+  RefreshCw,
+  Settings2,
+  Megaphone,
+  Gavel,
+  ArrowDownToLine,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
 
 
-type QueueKey = "adhesions_en_attente" | "credits_en_instruction";
+type QueueKey =
+  | "adhesions_en_attente"
+  | "credits_en_instruction"
+  | "campaign_validation_pending"
+  | "escalades_ouvertes";
 
 type NavItem = {
   href: string;
@@ -31,8 +41,27 @@ const NAV: NavItem[] = [
   { href: "/loan-requests", label: "Demandes de crédit", icon: HandCoins, queueKey: "credits_en_instruction" },
   { href: "/loans", label: "Crédits", icon: Wallet },
   { href: "/payments", label: "Paiements", icon: Receipt },
+  { href: "/withdrawals", label: "Retraits épargne", icon: ArrowDownToLine },
   { href: "/members", label: "Membres", icon: Users },
+  // Refonte 2026 — LOT 1 + LOT 5 + LOT 16.
+  { href: "/brc", label: "Justificatifs BRC", icon: FileCheck },
+  { href: "/renewals", label: "Renouvellements épargne", icon: RefreshCw },
+  {
+    href: "/campaigns",
+    label: "Campagnes micro-crédit",
+    icon: Megaphone,
+    queueKey: "campaign_validation_pending",
+  },
+  {
+    href: "/escalations",
+    label: "Escalades judiciaires",
+    icon: Gavel,
+    queueKey: "escalades_ouvertes",
+  },
   { href: "/costs", label: "Coûts", icon: SlidersHorizontal },
+  // P2 — Tunables règlement 2026 (BRC, ancienneté, collecte, épargne,
+  // lender, funding, eligibility, seizure, judicial, campagne).
+  { href: "/app-settings", label: "Paramètres 2026", icon: Settings2 },
 ];
 
 
@@ -41,7 +70,12 @@ export function Sidebar({
   queues,
 }: {
   identity: Identity | null;
-  queues?: { adhesions_en_attente: number; credits_en_instruction: number };
+  queues?: {
+    adhesions_en_attente: number;
+    credits_en_instruction: number;
+    campaign_validation_pending?: number;
+    escalades_ouvertes?: number;
+  };
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -65,7 +99,10 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="space-y-0.5">
           {NAV.map(({ href, label, icon: Icon, queueKey }) => {
-            const active = pathname.startsWith(href);
+            // Match exact ou descendance par segment — évite que `/members`
+            // s'active sur `/membership-requests` (cas où un href est préfixe
+            // textuel d'un autre).
+            const active = pathname === href || pathname.startsWith(href + "/");
             const count = queueKey && queues ? queues[queueKey] : undefined;
             return (
               <li key={href}>

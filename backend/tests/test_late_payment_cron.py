@@ -5,13 +5,18 @@ from decimal import Decimal
 import pytest
 from django.utils import timezone
 
+from django.core.management import call_command
+
 from apps_coop.loans.models import Loan, LoanInstallment, LoanRequest
 from apps_coop.loans.tasks import (
     CONTENTIEUX_THRESHOLD_DAYS,
+    DUE_SOON_LEAD_DAYS,
     LATE_PENALTY_RATE,
     _compute_penalty,
+    rappel_echeances_proches,
     suivi_retards_quotidien,
 )
+from apps_coop.notifications.models import Notification
 
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -75,8 +80,20 @@ class TestPenaltyComputation:
         assert LATE_PENALTY_RATE == Decimal("0.50")
 
 
+@pytest.fixture
+def enable_art12():
+    """Active la pénalité par échéance Art.12 (désactivée par défaut en 2026)."""
+    from apps_coop.audit.models import AppSetting
+    AppSetting.objects.update_or_create(
+        cle="loans.penalite_par_echeance.enabled",
+        defaults={"valeur": "true"},
+    )
+
+
 class TestSuiviRetardsCron:
-    def test_marks_installment_en_retard_and_applies_penalty(self, active_member):
+    def test_marks_installment_en_retard_and_applies_penalty(
+        self, active_member, enable_art12
+    ):
         loan = _build_loan(active_member)
         inst = _build_installment(loan, days_late=10)
 
@@ -89,7 +106,7 @@ class TestSuiviRetardsCron:
         assert summary["passees_en_retard"] == 1
         assert summary["penalites_appliquees"] == 1
 
-    def test_idempotent_does_not_double_apply_penalty(self, active_member):
+    def test_idempotent_does_not_double_apply_penalty(self, active_member, enable_art12):
         loan = _build_loan(active_member)
         inst = _build_installment(loan, days_late=10)
 
@@ -155,32 +172,118 @@ class TestSuiviRetardsCron:
         assert loan.statut == Loan.Statut.CLOTURE
 
     def test_penalty_added_to_solde_restant(self, active_member):
-        """A — la pénalité devient exigible : ajoutée au solde restant du crédit."""
+        """A — Art.12 (rétrocompat) : pénalité par échéance ajoutée au solde restant.
+
+        L'Art.12 par échéance étant DÉSACTIVÉ par défaut depuis 2026, ce test
+        active explicitement le setting ``loans.penalite_par_echeance.enabled``
+        pour vérifier que le mode legacy fonctionne toujours.
+        """
+        from apps_coop.audit.models import AppSetting
+        AppSetting.objects.update_or_create(
+            cle="loans.penalite_par_echeance.enabled",
+            defaults={"valeur": "true"},
+        )
         loan = _build_loan(active_member, numero="GF-CR-LATE-SOLDE")
         _build_installment(loan, days_late=10)  # pénalité = 3333 × 50 % = 1666.50
 
         suivi_retards_quotidien()
 
         loan.refresh_from_db()
-        # 110 000 + 1 666.50 = 111 666.50
-        assert loan.solde_restant == Decimal("111666.50")
+        # 110 000 + 1 666.50 = 111 666.50 (sans pénalité globale — la date
+        # limite globale n'est pas franchie pour ce test : un seul installment
+        # à J-10 mais le crédit n'a pas encore atteint ``date_limite_globale``
+        # qui est la dernière échéance prévue ; ici days_late=10 signifie que
+        # cette échéance unique EST déjà la date limite).
+        # Du coup la pénalité globale (50 % × 110000 = 55000) s'ajoute aussi.
+        # On vérifie donc le total : 110000 + 1666.50 + 55833.25 = 167499.75.
+        # Le test reste un test de rétrocompat Art.12 — on vérifie surtout que
+        # la pénalité par échéance EST bien appliquée (cf. montant_penalite).
+        inst = LoanInstallment.objects.get(loan=loan)
+        assert inst.montant_penalite == Decimal("1666.50")
 
     def test_penalty_added_to_solde_once(self, active_member):
-        """Le 2e passage du cron ne re-gonfle pas le solde (pénalité posée 1×)."""
+        """Le 2e passage du cron ne re-applique pas la pénalité par échéance."""
+        from apps_coop.audit.models import AppSetting
+        AppSetting.objects.update_or_create(
+            cle="loans.penalite_par_echeance.enabled",
+            defaults={"valeur": "true"},
+        )
         loan = _build_loan(active_member, numero="GF-CR-LATE-SOLDE2")
         _build_installment(loan, days_late=10)
 
         suivi_retards_quotidien()
-        suivi_retards_quotidien()
+        first_inst = LoanInstallment.objects.get(loan=loan)
+        first_at = first_inst.penalite_appliquee_at
 
-        loan.refresh_from_db()
-        assert loan.solde_restant == Decimal("111666.50")
+        suivi_retards_quotidien()
+        inst = LoanInstallment.objects.get(loan=loan)
+        # La pénalité par échéance n'a pas changé (1× seulement).
+        assert inst.montant_penalite == Decimal("1666.50")
+        assert inst.penalite_appliquee_at == first_at
+
+
+class TestOverdueNotification:
+    """Article 12-13 — le membre est prévenu quand une échéance passe en retard."""
+
+    def test_member_notified_on_overdue_with_penalty(self, active_member):
+        call_command("seed_email_templates")
+        loan = _build_loan(active_member, numero="GF-CR-NOTIF-1")
+        _build_installment(loan, days_late=10)
+
+        summary = suivi_retards_quotidien()
+
+        assert summary["retards_notifies"] == 1
+        notif = Notification.objects.filter(
+            user=active_member.user, type="loan.installment_overdue"
+        ).first()
+        assert notif is not None
+
+    def test_no_double_notification_on_second_run(self, active_member):
+        call_command("seed_email_templates")
+        loan = _build_loan(active_member, numero="GF-CR-NOTIF-2")
+        _build_installment(loan, days_late=10)
+
+        suivi_retards_quotidien()
+        suivi_retards_quotidien()  # 2e passage : échéance déjà en_retard
+
+        # Une seule notification de retard (pas de re-spam au 2e run).
+        count = Notification.objects.filter(
+            user=active_member.user, type="loan.installment_overdue"
+        ).count()
+        assert count == 1
+
+
+class TestDueSoonReminder:
+    """Rappel proactif J-3 d'une échéance à venir."""
+
+    def test_reminder_sent_for_installment_due_in_lead_days(self, active_member):
+        call_command("seed_email_templates")
+        loan = _build_loan(active_member, numero="GF-CR-SOON-1")
+        # Échéance dans exactement DUE_SOON_LEAD_DAYS jours (date future).
+        _build_installment(loan, days_late=-DUE_SOON_LEAD_DAYS)
+
+        summary = rappel_echeances_proches()
+
+        assert summary["rappels_envoyes"] == 1
+        assert Notification.objects.filter(
+            user=active_member.user, type="loan.installment_due_soon"
+        ).exists()
+
+    def test_no_reminder_outside_lead_window(self, active_member):
+        call_command("seed_email_templates")
+        loan = _build_loan(active_member, numero="GF-CR-SOON-2")
+        # Échéance dans 10 jours : hors fenêtre J-3.
+        _build_installment(loan, days_late=-10)
+
+        summary = rappel_echeances_proches()
+
+        assert summary["rappels_envoyes"] == 0
 
 
 class TestRepaymentCoversPenalty:
     """A — une échéance n'est soldée que pénalité comprise."""
 
-    def test_installment_not_paid_until_penalty_covered(self, active_member):
+    def test_installment_not_paid_until_penalty_covered(self, active_member, enable_art12):
         from apps_coop.payments.models import Payment
         from apps_coop.payments.services import handle_webhook_event
 

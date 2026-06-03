@@ -12,6 +12,7 @@ import '../../../security/data/biometric_service.dart';
 import '../../../security/presentation/state/pin_notifier.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/logo_mark.dart';
+import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
@@ -728,6 +729,9 @@ class _MyInfoSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+      ),
       backgroundColor: PaColors.paper,
       barrierColor: PaColors.navy.withValues(alpha: 0.5),
       shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheet),
@@ -892,21 +896,10 @@ class _MyInfoSheetState extends ConsumerState<_MyInfoSheet> {
 
                 const SizedBox(height: AppSpacing.xl),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _saving ? null : _save,
-                    child: _saving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(l.common_save),
-                  ),
+                PaButton(
+                  label: l.common_save,
+                  loading: _saving,
+                  onPressed: _saving ? null : _save,
                 ),
                 const SizedBox(height: 6),
                 SizedBox(
@@ -939,6 +932,9 @@ class _PasswordSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+      ),
       backgroundColor: PaColors.paper,
       barrierColor: PaColors.navy.withValues(alpha: 0.5),
       shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheet),
@@ -1139,21 +1135,10 @@ class _PasswordSheetState extends ConsumerState<_PasswordSheet>
             ],
 
             const SizedBox(height: AppSpacing.xl),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text(l.common_modify),
-              ),
+            PaButton(
+              label: l.common_modify,
+              loading: _saving,
+              onPressed: _saving ? null : _save,
             ),
             const SizedBox(height: 6),
             SizedBox(
@@ -1200,12 +1185,9 @@ class _PasswordSheetState extends ConsumerState<_PasswordSheet>
             style: AppTypography.bodyMedium.copyWith(color: PaColors.inkSecondary),
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l.common_understood),
-            ),
+          PaButton(
+            label: l.common_understood,
+            onPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),

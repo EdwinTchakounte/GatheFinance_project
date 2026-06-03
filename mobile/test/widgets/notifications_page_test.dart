@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gathe_finance/core/di/providers.dart';
+import 'package:gathe_finance/l10n/gen/app_localizations.dart';
 import 'package:gathe_finance/features/notifications/data/datasources/notifications_remote_datasource.dart';
 import 'package:gathe_finance/features/notifications/domain/entities/app_notification.dart';
 import 'package:gathe_finance/features/notifications/presentation/pages/notifications_page.dart';
@@ -53,7 +54,12 @@ void main() {
   Widget app(Widget child, _ScriptedNotifsDs ds) {
     return ProviderScope(
       overrides: [notificationsDataSourceProvider.overrideWithValue(ds)],
-      child: MaterialApp(home: child),
+      child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        home: child,
+      ),
     );
   }
 

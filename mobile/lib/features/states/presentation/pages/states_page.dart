@@ -6,25 +6,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../app/theme/app_colors.dart';
-import '../../../../app/theme/app_radii.dart';
-import '../../../../app/theme/app_spacing.dart';
-import '../../../../app/theme/app_typography.dart';
+import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
-import '../../../../core/widgets/app_card.dart';
-import '../../../../core/widgets/app_pill.dart';
-import '../../../../core/widgets/brand_background.dart';
-import '../../../../core/widgets/eyebrow.dart';
+import '../../../../core/widgets/paysika/pa_button.dart';
+import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_error_state.dart';
+import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
-import '../../../../core/widgets/static_page_header.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../auth/domain/entities/member.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
 import '../../../contributions/presentation/state/contributions_notifier.dart';
+import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
 import '../../data/releve_pdf_service.dart';
 import 'releve_preview_page.dart';
 
+/// Page « Mes états » — style **Paysika**. Relevé synthèse + KPIs + détail
+/// épargne + export PDF.
 class StatesPage extends ConsumerWidget {
   const StatesPage({super.key});
 
@@ -35,23 +36,43 @@ class StatesPage extends ConsumerWidget {
     final contributions = ref.watch(contributionsProvider);
     final totalCotisations = ref.watch(totalContributionsValideesProvider);
     final l = AppL10n.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final locale = Localizations.localeOf(context).toLanguageTag();
 
     return Scaffold(
-      body: BrandBackground(
-        intensity: 0.55,
+      backgroundColor: PaColors.canvas,
+      body: PaPatternBackground(
         child: SafeArea(
           bottom: false,
           child: Column(
             children: [
-              StaticPageHeader(
-                eyebrow: l.profile_eyebrow,
-                title: l.states_title,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 16, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back_rounded,
+                          color: PaColors.inkPrimary),
+                      tooltip: l.common_back,
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(l.profile_eyebrow.toUpperCase(),
+                              style: PaText.eyebrow()),
+                          const SizedBox(height: 3),
+                          Text(l.states_title, style: PaText.heading(size: 22)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               Expanded(
                 child: RefreshIndicator.adaptive(
-                  color: scheme.primary,
+                  color: PaColors.teal,
                   onRefresh: () async {
                     await Future.wait([
                       ref.read(savingsProvider.notifier).refresh(),
@@ -60,266 +81,157 @@ class StatesPage extends ConsumerWidget {
                   },
                   child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.only(top: AppSpacing.l),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
                     children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.screenH),
-                  child: _ReleveCard(
-                    memberNumber:
-                        memberAsync.valueOrNull?.numeroMembre ?? '—',
-                    memberName: memberAsync.valueOrNull?.fullName ??
-                        l.profile_member_badge,
-                    dateAdhesion: memberAsync.valueOrNull?.dateAdhesion,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.screenH,
-                    0,
-                    AppSpacing.screenH,
-                    AppSpacing.m,
-                  ),
-                  child: Text(
-                    l.states_glance,
-                    style: AppTypography.labelLarge
-                        .copyWith(color: scheme.onSurface),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.screenH),
-                  child: GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisSpacing: AppSpacing.m,
-                    crossAxisSpacing: AppSpacing.m,
-                    childAspectRatio: 1.18,
-                    children: [
-                      savings.when(
-                        data: (d) => _KpiTile(
-                          icon: Icons.savings_outlined,
-                          tint: AppColors.emerald,
-                          label: l.states_kpi_savings,
-                          value: XAFFormatter.formatCompact(d.solde),
-                          full: XAFFormatter.format(d.solde),
-                        ),
-                        loading: () => const _KpiSkeleton(),
-                        error: (_, __) => _KpiTile(
-                          icon: Icons.savings_outlined,
-                          tint: AppColors.emerald,
-                          label: l.states_kpi_savings,
-                          value: '—',
-                          full: l.common_unavailable,
-                        ),
-                      ),
-                      _KpiTile(
-                        icon: Icons.account_balance_outlined,
-                        tint: AppColors.cobalt,
-                        label: l.states_kpi_credit,
-                        value: '0 XAF',
-                        full: l.states_no_active_credit,
-                      ),
-                      contributions.when(
-                        data: (_) => _KpiTile(
-                          icon: Icons.account_balance_wallet_outlined,
-                          tint: AppColors.terra,
-                          label: l.states_kpi_contributions,
-                          value:
-                              XAFFormatter.formatCompact(totalCotisations),
-                          full: XAFFormatter.format(totalCotisations),
-                        ),
-                        loading: () => const _KpiSkeleton(),
-                        error: (_, __) => _KpiTile(
-                          icon: Icons.account_balance_wallet_outlined,
-                          tint: AppColors.terra,
-                          label: l.states_kpi_contributions,
-                          value: '—',
-                          full: l.common_unavailable,
-                        ),
-                      ),
-                      _AncienneteTile(
+                      _ReleveCard(
+                        memberNumber:
+                            memberAsync.valueOrNull?.numeroMembre ?? '—',
+                        memberName: memberAsync.valueOrNull?.fullName ??
+                            l.profile_member_badge,
                         dateAdhesion: memberAsync.valueOrNull?.dateAdhesion,
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.screenH,
-                    0,
-                    AppSpacing.screenH,
-                    AppSpacing.m,
-                  ),
-                  child: Text(
-                    l.states_savings_detail,
-                    style: AppTypography.labelLarge
-                        .copyWith(color: scheme.onSurface),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.screenH),
-                  child: savings.when(
-                    data: (d) => _DetailCard(
-                      lines: [
-                        (l.states_balance_today, XAFFormatter.format(d.solde)),
-                        (
-                          l.states_interest_rate,
-                          '${(d.tauxInteret * 100).toStringAsFixed(2).replaceAll('.', ',')} %'
-                        ),
-                        (
-                          l.states_account_opened,
-                          DateFormat.yMMMMd(locale).format(d.dateOuverture)
-                        ),
-                        (l.states_movements, '${d.transactions.length}'),
-                      ],
-                    ),
-                    loading: () => const AppCard(
-                      padding: EdgeInsets.all(16),
-                      child: SkeletonList(lines: 4),
-                    ),
-                    error: (e, _) => AppCard(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        e.toString(),
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.terraDark,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.screenH),
-                  child: AppCard(
-                    padding: EdgeInsets.zero,
-                    onTap: () => context.push('/contributions'),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
-                      child: Row(
+                      const SizedBox(height: 22),
+                      Text(l.states_glance, style: PaText.label(size: 15)),
+                      const SizedBox(height: 12),
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 1.18,
                         children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: scheme.surfaceContainerHighest,
-                              borderRadius:
-                                  const BorderRadius.all(AppRadii.r12),
+                          savings.when(
+                            data: (d) => _KpiTile(
+                              icon: Icons.savings_outlined,
+                              tint: PaColors.teal,
+                              label: l.states_kpi_savings,
+                              value: XAFFormatter.formatCompact(d.solde),
+                              full: XAFFormatter.format(d.solde),
                             ),
-                            child: Icon(
-                              Icons.receipt_long_outlined,
-                              color: scheme.primary,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l.states_contrib_detail_title,
-                                  style: AppTypography.labelLarge
-                                      .copyWith(color: scheme.onSurface),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  l.states_contrib_detail_sub,
-                                  style: AppTypography.bodySmall.copyWith(
-                                    color: scheme.onSurface
-                                        .withValues(alpha: 0.55),
-                                  ),
-                                ),
-                              ],
+                            loading: () => const _KpiSkeleton(),
+                            error: (_, __) => _KpiTile(
+                              icon: Icons.savings_outlined,
+                              tint: PaColors.teal,
+                              label: l.states_kpi_savings,
+                              value: '—',
+                              full: l.common_unavailable,
                             ),
                           ),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            color: scheme.onSurface.withValues(alpha: 0.35),
+                          _KpiTile(
+                            icon: Icons.account_balance_outlined,
+                            tint: PaColors.blue,
+                            label: l.states_kpi_credit,
+                            value: '0 XAF',
+                            full: l.states_no_active_credit,
+                          ),
+                          contributions.when(
+                            data: (_) => _KpiTile(
+                              icon: Icons.account_balance_wallet_outlined,
+                              tint: PaColors.warning,
+                              label: l.states_kpi_contributions,
+                              value:
+                                  XAFFormatter.formatCompact(totalCotisations),
+                              full: XAFFormatter.format(totalCotisations),
+                            ),
+                            loading: () => const _KpiSkeleton(),
+                            error: (_, __) => _KpiTile(
+                              icon: Icons.account_balance_wallet_outlined,
+                              tint: PaColors.warning,
+                              label: l.states_kpi_contributions,
+                              value: '—',
+                              full: l.common_unavailable,
+                            ),
+                          ),
+                          _AncienneteTile(
+                            dateAdhesion:
+                                memberAsync.valueOrNull?.dateAdhesion,
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.screenH),
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      unawaited(HapticFeedback.lightImpact());
-                      final data = savings.valueOrNull;
-                      if (data == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(l.common_unavailable)),
-                        );
-                        return;
-                      }
-                      final member = memberAsync.valueOrNull;
-                      final df = DateFormat('dd/MM/yyyy');
-                      String txLabel(SavingsType t) => switch (t) {
-                            SavingsType.depot => l.tx_deposit,
-                            SavingsType.interet => l.tx_interest,
-                            SavingsType.retrait => l.tx_withdrawal,
-                          };
-                      final rows = [
-                        for (final t in data.transactions)
-                          [
-                            df.format(t.date),
-                            txLabel(t.type),
-                            '${t.type == SavingsType.retrait ? '- ' : '+ '}'
-                                '${XAFFormatter.format(t.montant)}',
+                      const SizedBox(height: 22),
+                      Text(l.states_savings_detail,
+                          style: PaText.label(size: 15)),
+                      const SizedBox(height: 12),
+                      savings.when(
+                        data: (d) => _DetailCard(
+                          lines: [
+                            (l.states_balance_today,
+                                XAFFormatter.format(d.solde)),
+                            (
+                              l.states_interest_rate,
+                              '${(d.tauxInteret * 100).toStringAsFixed(2).replaceAll('.', ',')} %'
+                            ),
+                            (
+                              l.states_account_opened,
+                              DateFormat.yMMMMd(locale).format(d.dateOuverture)
+                            ),
+                            (l.states_movements, '${d.transactions.length}'),
                           ],
-                      ];
-                      final pdfData = RelevePdfData(
-                        docTitle: l.releve_pdf_title,
-                        issuedOn:
-                            l.releve_pdf_issued_on(df.format(DateTime.now())),
-                        memberLabel: l.releve_pdf_member,
-                        memberName: member?.fullName ?? l.profile_member_badge,
-                        numberLabel: l.releve_pdf_number,
-                        memberNumber: member?.numeroMembre ?? '—',
-                        balanceLabel: l.releve_pdf_balance,
-                        balanceValue: XAFFormatter.format(data.solde),
-                        rateLabel: l.releve_pdf_rate,
-                        rateValue:
-                            '${(data.tauxInteret * 100).toStringAsFixed(0)} %',
-                        totalLabel: l.releve_pdf_total_contrib,
-                        totalValue: XAFFormatter.format(totalCotisations),
-                        txHeader: l.releve_pdf_tx_header,
-                        colDate: l.releve_pdf_col_date,
-                        colLabel: l.releve_pdf_col_label,
-                        colAmount: l.releve_pdf_col_amount,
-                        rows: rows,
-                        footer: l.releve_pdf_footer,
-                        fileName: l.releve_pdf_filename,
-                      );
-                      if (!context.mounted) return;
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => RelevePreviewPage(
-                            data: pdfData,
-                            title: l.releve_pdf_title,
+                        ),
+                        loading: () => const PaCard(
+                          padding: EdgeInsets.all(16),
+                          child: SkeletonList(lines: 4),
+                        ),
+                        error: (e, _) => PaErrorState(
+                          onRetry: () =>
+                              ref.read(savingsProvider.notifier).refresh(),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      PaCard(
+                        padding: EdgeInsets.zero,
+                        onTap: () => context.push('/contributions'),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: PaColors.tealSurface,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.receipt_long_outlined,
+                                  color: PaColors.teal,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(l.states_contrib_detail_title,
+                                        style: PaText.label(size: 14)),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      l.states_contrib_detail_sub,
+                                      style: PaText.body(
+                                          size: 12.5,
+                                          color: PaColors.inkMuted),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right_rounded,
+                                  color: PaColors.inkFaint),
+                            ],
                           ),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                    label: Text(
-                      l.states_download_pdf,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.huge),
+                      ),
+                      const SizedBox(height: 22),
+                      PaButton(
+                        label: l.states_download_pdf,
+                        icon: Icons.picture_as_pdf_outlined,
+                        variant: PaButtonVariant.outline,
+                        onPressed: () =>
+                            _exportPdf(context, ref, savings.valueOrNull,
+                                memberAsync.valueOrNull, totalCotisations, l),
+                      ),
                     ],
                   ),
                 ),
@@ -327,6 +239,66 @@ class StatesPage extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _exportPdf(
+    BuildContext context,
+    WidgetRef ref,
+    SavingsAccount? data,
+    Member? member,
+    num totalCotisations,
+    AppL10n l,
+  ) async {
+    unawaited(HapticFeedback.lightImpact());
+    if (data == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.common_unavailable)),
+      );
+      return;
+    }
+    final df = DateFormat('dd/MM/yyyy');
+    String txLabel(SavingsType t) => switch (t) {
+          SavingsType.depot => l.tx_deposit,
+          SavingsType.interet => l.tx_interest,
+          SavingsType.retrait => l.tx_withdrawal,
+        };
+    final rows = [
+      for (final t in data.transactions)
+        [
+          df.format(t.date),
+          txLabel(t.type),
+          '${t.type == SavingsType.retrait ? '- ' : '+ '}'
+              '${XAFFormatter.format(t.montant)}',
+        ],
+    ];
+    final pdfData = RelevePdfData(
+      docTitle: l.releve_pdf_title,
+      issuedOn: l.releve_pdf_issued_on(df.format(DateTime.now())),
+      memberLabel: l.releve_pdf_member,
+      memberName: member?.fullName ?? l.profile_member_badge,
+      numberLabel: l.releve_pdf_number,
+      memberNumber: member?.numeroMembre ?? '—',
+      balanceLabel: l.releve_pdf_balance,
+      balanceValue: XAFFormatter.format(data.solde),
+      rateLabel: l.releve_pdf_rate,
+      rateValue: '${(data.tauxInteret * 100).toStringAsFixed(0)} %',
+      totalLabel: l.releve_pdf_total_contrib,
+      totalValue: XAFFormatter.format(totalCotisations),
+      txHeader: l.releve_pdf_tx_header,
+      colDate: l.releve_pdf_col_date,
+      colLabel: l.releve_pdf_col_label,
+      colAmount: l.releve_pdf_col_amount,
+      rows: rows,
+      footer: l.releve_pdf_footer,
+      fileName: l.releve_pdf_filename,
+    );
+    if (!context.mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            RelevePreviewPage(data: pdfData, title: l.releve_pdf_title),
       ),
     );
   }
@@ -347,68 +319,77 @@ class _ReleveCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final locale = Localizations.localeOf(context).toLanguageTag();
     final today = DateFormat.yMMMMd(locale).format(DateTime.now());
 
-    return AppCard(
-      hero: true,
+    return PaCard(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Eyebrow(l.states_releve_eyebrow),
+              Text(l.states_releve_eyebrow.toUpperCase(),
+                  style: PaText.eyebrow()),
               const Spacer(),
-              AppPill(label: l.states_releve_official, tone: PillTone.info),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: PaColors.tealSurface,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  l.states_releve_official,
+                  style: PaText.label(size: 11, color: PaColors.teal),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
-          Text(
-            memberName,
-            style: AppTypography.headingMedium
-                .copyWith(color: scheme.onSurface),
-          ),
-          const SizedBox(height: 4),
-          Row(
+          Text(memberName, style: PaText.heading(size: 20)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 14,
+            runSpacing: 4,
             children: [
-              Icon(Icons.tag_rounded,
-                  size: 14, color: scheme.onSurface.withValues(alpha: 0.55)),
-              const SizedBox(width: 4),
-              Text(
-                memberNumber,
-                style: AppTypography.monoSmall.copyWith(
-                  color: scheme.onSurface.withValues(alpha: 0.7),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Icon(Icons.event_outlined,
-                  size: 14, color: scheme.onSurface.withValues(alpha: 0.55)),
-              const SizedBox(width: 4),
-              Text(
-                l.states_releve_on(today),
-                style: AppTypography.bodySmall.copyWith(
-                  color: scheme.onSurface.withValues(alpha: 0.7),
-                ),
-              ),
+              _MetaItem(icon: Icons.tag_rounded, text: memberNumber),
+              _MetaItem(
+                  icon: Icons.event_outlined, text: l.states_releve_on(today)),
             ],
           ),
           if (dateAdhesion != null) ...[
             const SizedBox(height: 14),
-            Container(height: 1, color: scheme.outline),
+            const Divider(height: 1, color: PaColors.line),
             const SizedBox(height: 14),
             Text(
               l.states_member_since(
                 DateFormat.yMMMMd(locale).format(dateAdhesion!),
               ),
-              style: AppTypography.bodyMedium.copyWith(
-                color: scheme.onSurface.withValues(alpha: 0.7),
-              ),
+              style: PaText.body(size: 14, color: PaColors.inkSecondary),
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+
+class _MetaItem extends StatelessWidget {
+  const _MetaItem({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: PaColors.inkMuted),
+        const SizedBox(width: 4),
+        Text(text, style: PaText.body(size: 12.5, color: PaColors.inkSecondary)),
+      ],
     );
   }
 }
@@ -431,8 +412,7 @@ class _KpiTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AppCard(
+    return PaCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,32 +422,19 @@ class _KpiTile extends StatelessWidget {
             height: 38,
             decoration: BoxDecoration(
               color: tint.withValues(alpha: 0.12),
-              borderRadius: const BorderRadius.all(AppRadii.r12),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: tint, size: 20),
           ),
           const Spacer(),
-          Text(
-            label,
-            style: AppTypography.bodySmall.copyWith(
-              color: scheme.onSurface.withValues(alpha: 0.55),
-            ),
-          ),
+          Text(label,
+              style: PaText.body(size: 12.5, color: PaColors.inkMuted)),
           const SizedBox(height: 2),
-          Text(
-            value,
-            style: AppTypography.headingSmall.copyWith(
-              color: scheme.onSurface,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
+          Text(value, style: PaText.amount(size: 17)),
           const SizedBox(height: 2),
           Text(
             full,
-            style: AppTypography.bodySmall.copyWith(
-              color: scheme.onSurface.withValues(alpha: 0.55),
-              fontSize: 11.5,
-            ),
+            style: PaText.body(size: 11.5, color: PaColors.inkMuted),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -488,7 +455,7 @@ class _AncienneteTile extends StatelessWidget {
     if (dateAdhesion == null) {
       return _KpiTile(
         icon: Icons.calendar_month_outlined,
-        tint: AppColors.cobaltLight,
+        tint: PaColors.navy,
         label: l.states_kpi_seniority,
         value: '—',
         full: l.common_unavailable,
@@ -501,7 +468,6 @@ class _AncienneteTile extends StatelessWidget {
     String value;
     String full;
     if (years >= 1) {
-      // FR pluriel : « 1 an », « 2 ans » — EN : « 1 year », « 2 years »
       value = l.states_years(years, years > 1 ? 's' : '');
       full = l.states_months_total(months);
     } else if (months >= 1) {
@@ -514,7 +480,7 @@ class _AncienneteTile extends StatelessWidget {
 
     return _KpiTile(
       icon: Icons.calendar_month_outlined,
-      tint: AppColors.cobaltLight,
+      tint: PaColors.navy,
       label: l.states_kpi_seniority,
       value: value,
       full: full,
@@ -528,7 +494,7 @@ class _KpiSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AppCard(
+    return const PaCard(
       padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -553,8 +519,7 @@ class _DetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AppCard(
+    return PaCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Column(
         children: [
@@ -564,25 +529,16 @@ class _DetailCard extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      lines[i].$1,
-                      style: AppTypography.bodyMedium.copyWith(
-                        color: scheme.onSurface.withValues(alpha: 0.7),
-                      ),
-                    ),
+                    child: Text(lines[i].$1,
+                        style: PaText.body(
+                            size: 14, color: PaColors.inkSecondary)),
                   ),
-                  Text(
-                    lines[i].$2,
-                    style: AppTypography.labelLarge.copyWith(
-                      color: scheme.onSurface,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
+                  Text(lines[i].$2, style: PaText.amount(size: 15)),
                 ],
               ),
             ),
             if (i < lines.length - 1)
-              Divider(height: 1, color: scheme.outline),
+              const Divider(height: 1, color: PaColors.line),
           ],
         ],
       ),

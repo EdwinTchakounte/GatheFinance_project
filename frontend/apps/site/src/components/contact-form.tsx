@@ -284,7 +284,7 @@ export function ContactForm({ endpoint, submitLabel }: { endpoint: Endpoint; sub
 
       <div>
         <label htmlFor="message" className={labelCls}>
-          {isAdhesion ? "Pourquoi rejoindre la coopérative ?" : t("message")}
+          {isAdhesion ? "Quelle est votre motivation ?" : t("message")}
         </label>
         <textarea id="message" name="message" rows={5} className={cn(inputCls, "resize-y")} />
       </div>

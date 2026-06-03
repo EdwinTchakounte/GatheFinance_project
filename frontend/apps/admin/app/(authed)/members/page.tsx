@@ -175,18 +175,41 @@ function Inner() {
                     ) : null}
                   </td>
                   <td>
-                    <span
-                      className={
-                        "pill " +
-                        (m.statut === "actif"
-                          ? "pill-success"
-                          : m.statut === "suspendu"
-                            ? "pill-warning"
-                            : "pill-muted")
-                      }
-                    >
-                      {m.statut_display}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span
+                        className={
+                          "pill " +
+                          (m.statut === "actif"
+                            ? "pill-success"
+                            : m.statut === "suspendu"
+                              ? "pill-warning"
+                              : "pill-muted")
+                        }
+                      >
+                        {m.statut_display}
+                      </span>
+                      {/* Refonte 2026 — badges BRC + ancienneté. */}
+                      {m.is_brc_member ? (
+                        <span
+                          className="pill pill-success"
+                          title={
+                            m.brc_validated_at
+                              ? `Validé le ${new Date(m.brc_validated_at).toLocaleDateString("fr-FR")}`
+                              : "Statut BRC validé"
+                          }
+                        >
+                          BRC
+                        </span>
+                      ) : null}
+                      {m.is_senior ? (
+                        <span
+                          className="pill pill-muted"
+                          title={`Ancienneté ${m.seniority_months ?? "?"} mois`}
+                        >
+                          Ancien
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="whitespace-nowrap text-sm text-ink-600">
                     {new Date(m.date_adhesion).toLocaleDateString("fr-FR", {
@@ -194,6 +217,11 @@ function Inner() {
                       month: "short",
                       year: "numeric",
                     })}
+                    {typeof m.seniority_months === "number" ? (
+                      <span className="ml-1 text-xs text-ink-400">
+                        ({m.seniority_months} m.)
+                      </span>
+                    ) : null}
                   </td>
                 </tr>
               ))}

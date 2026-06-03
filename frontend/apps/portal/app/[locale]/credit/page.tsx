@@ -163,6 +163,26 @@ export default function PortalCreditPage() {
                     Demander un crédit
                   </button>
                 )}
+                <p className="mt-4 text-xs text-ink-600">
+                  Tu es désigné(e) comme garant pour quelqu'un ?{" "}
+                  <button
+                    type="button"
+                    onClick={() => router.push("/credit/mandats-avaliste")}
+                    className="font-medium text-blue-700 underline-offset-2 hover:underline"
+                  >
+                    Voir mes mandats d'avaliste →
+                  </button>
+                </p>
+                <p className="mt-2 text-xs text-ink-600">
+                  Tu veux prêter ton épargne pour financer d'autres crédits ?{" "}
+                  <button
+                    type="button"
+                    onClick={() => router.push("/preteur")}
+                    className="font-medium text-blue-700 underline-offset-2 hover:underline"
+                  >
+                    Accéder à mon espace prêteur →
+                  </button>
+                </p>
               </>
             ) : (
               <>

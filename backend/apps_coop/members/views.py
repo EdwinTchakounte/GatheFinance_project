@@ -5,6 +5,7 @@ profile. Admin-facing list/detail endpoints come next.
 """
 from __future__ import annotations
 
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
@@ -13,10 +14,15 @@ from rest_framework.response import Response
 from apps_coop.audit.services import client_ip, record as record_audit
 
 from . import services
-from .models import Member, MembershipRequest
+from .models import BRCDocument, Member, MembershipRequest
 from .permissions import IsAdmin, IsMember, IsStaff
 from .serializers import (
+    BRCDocumentAdminReadSerializer,
+    BRCDocumentReadSerializer,
+    BRCDocumentRejectSerializer,
+    BRCDocumentUploadSerializer,
     MemberReadSerializer,
+    MemberReinscriptionConfirmSerializer,
     MembershipApproveSerializer,
     MembershipRejectSerializer,
     MembershipRequestReadSerializer,
@@ -215,6 +221,43 @@ def admin_approve_membership_request(request, pk: int):
         404: OpenApiResponse(description="Demande introuvable"),
     },
 )
+@extend_schema(
+    tags=["members"],
+    summary="🔒 Admin — confirmer la réinscription annuelle (A2)",
+    description=(
+        "Acte la re-souscription annuelle d'un `Member` : décale "
+        "`date_derniere_reinscription` à aujourd'hui (la prochaine échéance "
+        "passe à +12 mois). Best-effort : émet l'événement "
+        "`member.reinscription_confirmed`. Idempotent le même jour. "
+        "Permission : `IsAdmin`."
+    ),
+    request=MemberReinscriptionConfirmSerializer,
+    responses={
+        200: MemberReadSerializer,
+        404: OpenApiResponse(description="Membre introuvable."),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def admin_confirm_member_reinscription(request, pk: int):
+    try:
+        member = Member.objects.get(pk=pk)
+    except Member.DoesNotExist:
+        return Response({"detail": "Membre introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = MemberReinscriptionConfirmSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    services.confirm_member_reinscription(
+        member,
+        confirmed_by=request.user,
+        paid_amount=serializer.validated_data.get("paid_amount"),
+        note=serializer.validated_data.get("note", ""),
+    )
+    member.refresh_from_db()
+    return Response(MemberReadSerializer(member).data)
+
+
 @api_view(["POST"])
 @permission_classes([IsAdmin])
 def admin_reject_membership_request(request, pk: int):
@@ -244,20 +287,27 @@ _ADMIN_MEMBERS_PAGE_SIZE = 200
     summary="🔒 Admin — liste des membres",
     description=(
         "Annuaire des `Member`. Filtres : `?statut=actif|suspendu|radie`, "
-        "`?q=<nom|prenom|numero|email>`. Permission : `IsStaff`."
+        "`?q=<nom|prenom|numero|email>`, `?reinscription_overdue=true` "
+        "(membres dont l'anniversaire annuel est dépassé), "
+        "`?reinscription_due_soon=<jours>` (échéance dans N jours ou moins). "
+        "Permission : `IsStaff`."
     ),
     responses={200: OpenApiResponse(description="`{ count, results: Member[] }`")},
 )
 @api_view(["GET"])
 @permission_classes([IsStaff])
 def admin_list_members(request):
+    from datetime import timedelta
+
+    from django.db.models import Q
+    from django.utils import timezone
+
     qs = Member.objects.select_related("user").order_by("-date_adhesion")
     statut = request.query_params.get("statut")
     if statut:
         qs = qs.filter(statut=statut)
     q = (request.query_params.get("q") or "").strip()
     if q:
-        from django.db.models import Q
         qs = qs.filter(
             Q(numero_membre__icontains=q)
             | Q(nom__icontains=q)
@@ -265,6 +315,29 @@ def admin_list_members(request):
             | Q(phone__icontains=q)
             | Q(user__email__icontains=q)
         )
+
+    # A2 — Filtres de réinscription annuelle.
+    # ``date_derniere_reinscription + 365 j`` = prochaine échéance.
+    # Soit on filtre par ``date_derniere_reinscription <= today - 365`` (overdue),
+    # soit par ``today - 365 < date_derniere_reinscription <= today - (365 - lead)``
+    # (due soon, fenêtre d'alerte douce).
+    today = timezone.localdate()
+    if (request.query_params.get("reinscription_overdue") or "").lower() in {"1", "true", "yes"}:
+        qs = qs.filter(date_derniere_reinscription__lte=today - timedelta(days=365))
+    raw_lead = request.query_params.get("reinscription_due_soon")
+    if raw_lead:
+        try:
+            lead = int(raw_lead)
+        except (TypeError, ValueError):
+            lead = 0
+        if lead > 0:
+            anchor_lo = today - timedelta(days=365)
+            anchor_hi = today - timedelta(days=365 - lead)
+            qs = qs.filter(
+                date_derniere_reinscription__gt=anchor_lo,
+                date_derniere_reinscription__lte=anchor_hi,
+            )
+
     count = qs.count()
     rows = qs[:_ADMIN_MEMBERS_PAGE_SIZE]
     return Response(
@@ -272,6 +345,134 @@ def admin_list_members(request):
             "count": count,
             "results": MemberReadSerializer(rows, many=True).data,
         }
+    )
+
+
+# ---------------------------------------------------------------------------
+# BRC — Broad Range Consulting (LOT 1 refonte 2026)
+# ---------------------------------------------------------------------------
+
+
+@extend_schema(
+    tags=["members"],
+    summary="Mes justificatifs BRC (refonte 2026)",
+    description=(
+        "GET — liste des `BRCDocument` du membre connecté (historique des "
+        "uploads avec statut et motif de rejet éventuel). "
+        "POST — dépose un nouveau justificatif (PDF / image). "
+        "Permission : `IsMember`."
+    ),
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsMember])
+def brc_documents_me(request):
+    member = request.user.member
+    if request.method == "GET":
+        qs = BRCDocument.objects.filter(member=member).order_by("-created_at")
+        return Response(BRCDocumentReadSerializer(qs, many=True).data)
+
+    serializer = BRCDocumentUploadSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    fichier = serializer.validated_data["fichier"]
+    doc = services.upload_brc_document(
+        member=member,
+        fichier=fichier,
+        nom_original=serializer.validated_data.get("nom_original", "") or fichier.name,
+        taille=fichier.size,
+    )
+    return Response(
+        BRCDocumentReadSerializer(doc).data, status=status.HTTP_201_CREATED
+    )
+
+
+@extend_schema(
+    tags=["members"],
+    summary="🔒 Admin — liste des justificatifs BRC à valider",
+    description=(
+        "Liste des `BRCDocument`. Filtre `?statut=en_attente|valide|rejete`. "
+        "Permission : `IsStaff`."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_list_brc_documents(request):
+    qs = BRCDocument.objects.select_related("member").order_by("-created_at")
+    statut = request.query_params.get("statut")
+    if statut:
+        qs = qs.filter(statut=statut)
+    return Response(
+        BRCDocumentAdminReadSerializer(qs, many=True, context={"request": request}).data
+    )
+
+
+@extend_schema(
+    tags=["members"],
+    summary="🔒 Admin — valider un justificatif BRC",
+    description=(
+        "Pose `BRCDocument.statut = valide`, met à jour `Member.is_brc_member`. "
+        "Idempotent. Permission : `IsStaff`."
+    ),
+    responses={
+        200: BRCDocumentAdminReadSerializer,
+        400: OpenApiResponse(description="Document rejeté ou statut incompatible"),
+        404: OpenApiResponse(description="Document introuvable"),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_validate_brc_document(request, pk: int):
+    try:
+        doc = BRCDocument.objects.get(pk=pk)
+    except BRCDocument.DoesNotExist:
+        return Response(
+            {"detail": "Document introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+    try:
+        services.validate_brc_document(doc=doc, validated_by=request.user)
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    doc.refresh_from_db()
+    return Response(
+        BRCDocumentAdminReadSerializer(doc, context={"request": request}).data
+    )
+
+
+@extend_schema(
+    tags=["members"],
+    summary="🔒 Admin — rejeter un justificatif BRC",
+    description=(
+        "Pose `BRCDocument.statut = rejete` + `motif_rejet`. Le membre peut "
+        "re-uploader. Permission : `IsStaff`."
+    ),
+    request=BRCDocumentRejectSerializer,
+    responses={
+        200: BRCDocumentAdminReadSerializer,
+        400: OpenApiResponse(description="Motif vide ou statut incompatible"),
+        404: OpenApiResponse(description="Document introuvable"),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_reject_brc_document(request, pk: int):
+    try:
+        doc = BRCDocument.objects.get(pk=pk)
+    except BRCDocument.DoesNotExist:
+        return Response(
+            {"detail": "Document introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+    serializer = BRCDocumentRejectSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    try:
+        services.reject_brc_document(
+            doc=doc,
+            rejected_by=request.user,
+            motif=serializer.validated_data["motif"],
+        )
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    doc.refresh_from_db()
+    return Response(
+        BRCDocumentAdminReadSerializer(doc, context={"request": request}).data
     )
 
 
@@ -286,43 +487,159 @@ def admin_list_members(request):
 @api_view(["GET"])
 @permission_classes([IsStaff])
 def admin_dashboard_kpis(request):
+    from decimal import Decimal
+
     from django.db.models import Sum
 
-    from apps_coop.loans.models import Loan, LoanRequest
+    from apps_coop.loans.models import (
+        AvalisteConsent,
+        JudicialEscalation,
+        Loan,
+        LoanFundingRequest,
+        LoanRequest,
+        MicrocreditCampaign,
+    )
     from apps_coop.payments.models import Payment
     from apps_coop.payments.serializers import PaymentReadSerializer
-    from apps_coop.savings.models import SavingsAccount
+    from apps_coop.savings.models import (
+        ClassicSavingsAccount,
+        LenderConsent,
+        LenderTranche,
+        SavingsAccount,
+    )
 
+    # --- Membres ---------------------------------------------------------
     members_active = Member.objects.filter(statut=Member.Statut.ACTIF).count()
     members_suspended = Member.objects.filter(statut=Member.Statut.SUSPENDU).count()
+    members_temporaire = Member.objects.filter(
+        statut=Member.Statut.TEMPORAIRE
+    ).count()
+    members_brc_validated = Member.objects.filter(
+        statut=Member.Statut.ACTIF, is_brc_member=True
+    ).count()
+
+    # --- Files d'attente -------------------------------------------------
     pending_adhesions = MembershipRequest.objects.filter(
         statut=MembershipRequest.Statut.EN_ATTENTE
     ).count()
     loans_pending = LoanRequest.objects.filter(
         statut=LoanRequest.Statut.EN_INSTRUCTION
     ).count()
+    avaliste_pending = AvalisteConsent.objects.filter(
+        statut=AvalisteConsent.Statut.PENDING
+    ).count()
+    campaign_validation_pending = LoanRequest.objects.filter(
+        statut=LoanRequest.Statut.EN_VALIDATION_CAMPAGNE
+    ).count()
+
+    # --- Finance ---------------------------------------------------------
     encours = (
         Loan.objects.filter(statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD])
         .aggregate(total=Sum("solde_restant"))["total"]
-        or 0
+        or Decimal("0")
     )
-    epargne_total = (
-        SavingsAccount.objects.aggregate(total=Sum("solde"))["total"] or 0
+    epargne_collecte = (
+        SavingsAccount.objects.aggregate(total=Sum("solde"))["total"]
+        or Decimal("0")
     )
+    epargne_classique = (
+        ClassicSavingsAccount.objects.aggregate(total=Sum("solde"))["total"]
+        or Decimal("0")
+    )
+    epargne_total = Decimal(epargne_collecte) + Decimal(epargne_classique)
+
+    # --- Épargne classique — état du cycle anniversaire (LOT 5) ----------
+    classique_notifie = ClassicSavingsAccount.objects.filter(
+        statut_renouvellement=ClassicSavingsAccount.StatutRenouvellement.NOTIFIE
+    ).count()
+    classique_urgence = ClassicSavingsAccount.objects.filter(
+        statut_renouvellement=ClassicSavingsAccount.StatutRenouvellement.URGENCE
+    ).count()
+    classique_en_attente_paiement = ClassicSavingsAccount.objects.filter(
+        statut_renouvellement=ClassicSavingsAccount.StatutRenouvellement.EN_ATTENTE_PAIEMENT
+    ).count()
+
+    # --- Prêteurs / funding (LOT 7-8) ------------------------------------
+    lenders_active = LenderConsent.objects.filter(revoked_at__isnull=True).count()
+    tranches_disponible = (
+        LenderTranche.objects.filter(statut=LenderTranche.Statut.DISPONIBLE).aggregate(
+            total=Sum("montant")
+        )["total"]
+        or Decimal("0")
+    )
+    tranches_engagee = (
+        LenderTranche.objects.filter(statut=LenderTranche.Statut.ENGAGEE).aggregate(
+            total=Sum("montant")
+        )["total"]
+        or Decimal("0")
+    )
+    funding_in_progress = LoanFundingRequest.objects.filter(
+        statut__in=[
+            LoanFundingRequest.Statut.PENDING,
+            LoanFundingRequest.Statut.REALLOCATING,
+        ]
+    ).count()
+
+    # --- Campagnes micro-crédit (LOT 11) ---------------------------------
+    today = timezone.localdate()
+    campaigns_active = MicrocreditCampaign.objects.filter(
+        actif=True, date_debut__lte=today, date_fin__gte=today
+    ).count()
+
+    # --- Contentieux + escalades (LOT 13-14) -----------------------------
+    loans_contentieux = Loan.objects.filter(
+        statut=Loan.Statut.CONTENTIEUX
+    ).count()
+    loans_en_retard = Loan.objects.filter(statut=Loan.Statut.EN_RETARD).count()
+    judicial_open = JudicialEscalation.objects.filter(
+        statut__in=[
+            JudicialEscalation.Statut.EN_INSTANCE,
+            JudicialEscalation.Statut.DECISION_RENDUE,
+        ]
+    ).count()
+
     payments_recent = Payment.objects.filter(
         statut=Payment.Statut.VALIDE
     ).order_by("-date_validation")[:5]
 
     return Response(
         {
-            "members": {"actif": members_active, "suspendu": members_suspended},
+            "members": {
+                "actif": members_active,
+                "suspendu": members_suspended,
+                "temporaire": members_temporaire,
+                "brc_validated": members_brc_validated,
+            },
             "queues": {
                 "adhesions_en_attente": pending_adhesions,
                 "credits_en_instruction": loans_pending,
+                "avaliste_pending": avaliste_pending,
+                "campaign_validation_pending": campaign_validation_pending,
             },
             "finance": {
                 "encours_credit": str(encours),
                 "epargne_total": str(epargne_total),
+                "epargne_collecte": str(epargne_collecte),
+                "epargne_classique": str(epargne_classique),
+            },
+            "epargne_classique_cycle": {
+                "notifie": classique_notifie,
+                "urgence": classique_urgence,
+                "en_attente_paiement": classique_en_attente_paiement,
+            },
+            "lenders": {
+                "consents_actifs": lenders_active,
+                "tranches_disponible": str(tranches_disponible),
+                "tranches_engagee": str(tranches_engagee),
+                "funding_in_progress": funding_in_progress,
+            },
+            "campaigns": {
+                "actives": campaigns_active,
+            },
+            "contentieux": {
+                "loans_en_retard": loans_en_retard,
+                "loans_contentieux": loans_contentieux,
+                "escalades_ouvertes": judicial_open,
             },
             "recent_payments": PaymentReadSerializer(payments_recent, many=True).data,
         }

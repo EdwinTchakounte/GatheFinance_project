@@ -197,7 +197,20 @@ function Inner() {
                       {p.member.numero_membre}
                     </p>
                   </td>
-                  <td className="text-sm text-ink-700">{p.type_display}</td>
+                  <td className="text-sm text-ink-700">
+                    {p.type_display}
+                    {/* Refonte 2026 — multi-jours pré-payé sur la collecte. */}
+                    {p.type === "epargne" &&
+                    typeof p.nb_jours_couverts === "number" &&
+                    p.nb_jours_couverts > 1 ? (
+                      <span
+                        className="ml-1 inline-flex rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                        title={`Versement pour ${p.nb_jours_couverts} jours`}
+                      >
+                        × {p.nb_jours_couverts} j
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="text-right font-mono text-sm text-ink-900">
                     {Number(p.montant).toLocaleString("fr-FR")}
                     <span className="ml-1 text-xs text-ink-500">XAF</span>

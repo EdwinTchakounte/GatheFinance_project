@@ -51,11 +51,36 @@ def send_template(
     failure must not crash the webhook chain.
     """
     ctx = context or {}
+    # On distingue les deux cas (EXT-3) :
+    #   - template absent  → vrai bug de configuration → ``logger.error``
+    #   - template présent mais ``actif=False`` → kill-switch admin volontaire,
+    #     on trace en audit pour preuve mais on ne crie pas.
     try:
-        template = EmailTemplate.objects.get(code=code, actif=True)
+        template = EmailTemplate.objects.get(code=code)
     except EmailTemplate.DoesNotExist:
-        logger.error("EmailTemplate code=%r introuvable ou inactif", code)
-        # Pas d'EmailLog si le template lui-même est manquant — l'erreur est dans le log.
+        logger.error("EmailTemplate code=%r introuvable", code)
+        return None  # type: ignore[return-value]
+    if not template.actif:
+        try:
+            from apps_coop.audit.services import record as record_audit
+
+            record_audit(
+                action="notification.skipped",
+                entite_type="EmailTemplate",
+                entite_id=template.id,
+                user=getattr(member, "user", None) if member else None,
+                details={
+                    "code": code,
+                    "destinataire": to,
+                    "reason": "template_inactive",
+                },
+            )
+        except Exception:  # pragma: no cover — audit best-effort
+            logger.exception("Audit du skip notification a échoué")
+        logger.info(
+            "send_template skipped: template code=%r is inactive (admin kill-switch)",
+            code,
+        )
         return None  # type: ignore[return-value]
 
     subject = _render(template.objet, ctx)

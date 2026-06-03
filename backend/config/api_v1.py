@@ -16,6 +16,8 @@ urlpatterns = [
     # Admin — demandes de retrait (staff)
     path("admin/withdrawals/", savings_views.admin_list_withdrawals, name="admin-withdrawals-list"),
     path("admin/withdrawals/<int:pk>/decide/", savings_views.admin_decide_withdrawal, name="admin-withdrawals-decide"),
+    path("admin/withdrawals/<int:pk>/mark-paid/", savings_views.admin_mark_withdrawal_paid, name="admin-withdrawals-mark-paid"),
+    path("admin/withdrawals/<int:pk>/retry-payout/", savings_views.admin_retry_withdrawal_payout, name="admin-withdrawals-retry-payout"),
     path("loans/", include("apps_coop.loans.urls")),
     path("payments/", include("apps_coop.payments.urls")),
     path("notifications/", include("apps_coop.notifications.urls")),

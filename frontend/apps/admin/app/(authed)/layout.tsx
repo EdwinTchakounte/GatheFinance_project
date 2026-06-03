@@ -107,7 +107,17 @@ export default function AuthedLayout({
   return (
     <div className="flex h-svh bg-cream overflow-hidden">
       {/* Sidebar persistant : monté une seule fois, scroll interne si besoin. */}
-      <Sidebar identity={identity} queues={kpis?.queues} />
+      <Sidebar
+        identity={identity}
+        queues={
+          kpis
+            ? {
+                ...kpis.queues,
+                escalades_ouvertes: kpis.contentieux.escalades_ouvertes,
+              }
+            : undefined
+        }
+      />
 
       {/* Zone de contenu : seule cette partie scroll + change à la nav. */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden">

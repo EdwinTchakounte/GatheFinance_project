@@ -63,10 +63,10 @@ class LoansRepositoryImpl implements LoansRepository {
   @override
   Future<LoanRenewalEntity> requestRenewal({
     required int loanId,
-    required int nouvelleDureeMois,
+    required bool comptant,
   }) =>
       _run(() => _remote.requestRenewal(
             loanId: loanId,
-            nouvelleDureeMois: nouvelleDureeMois,
+            comptant: comptant,
           ));
 }

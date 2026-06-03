@@ -11,6 +11,7 @@ Every public function is atomic and idempotent: it can be re-run on the same
 from __future__ import annotations
 
 import logging
+import re
 import secrets
 import string
 from datetime import date
@@ -21,13 +22,76 @@ from django.contrib.auth.models import Group
 from django.db import transaction
 from django.utils import timezone
 
-from apps_coop.audit.services import record as record_audit
+from apps_coop.audit.services import (
+    get_str_setting,
+    record as record_audit,
+)
 from apps_coop.savings.models import SavingsAccount
 
-from .models import Member, MembershipRequest
+from .models import BRCDocument, Member, MembershipRequest
 
 
 logger = logging.getLogger(__name__)
+
+
+@transaction.atomic
+def confirm_member_reinscription(
+    member: Member,
+    *,
+    confirmed_by,
+    paid_amount=None,
+    note: str = "",
+) -> Member:
+    """A2 — Acte la re-souscription annuelle d'un membre (alerte douce + acte admin).
+
+    Met à jour ``date_derniere_reinscription`` à la date du jour, ce qui
+    décale la prochaine échéance de 12 mois. Ne charge **pas** automatiquement
+    les frais : l'admin enregistre le paiement séparément via le flow standard
+    (les frais 10 000 + 2 000 sont identiques à l'adhésion, on s'appuie sur le
+    catalogue ``FeeType`` existant).
+
+    Idempotent : si la dernière réinscription date d'aujourd'hui (cas double-clic),
+    on retourne sans rien refaire.
+    """
+    today = timezone.localdate()
+    if member.date_derniere_reinscription == today:
+        return member  # déjà confirmé aujourd'hui — idempotent
+
+    previous = member.date_derniere_reinscription
+    member.date_derniere_reinscription = today
+    member.save(update_fields=["date_derniere_reinscription", "updated_at"])
+
+    record_audit(
+        action="member.reinscription_confirmed",
+        entite_type="Member",
+        entite_id=member.id,
+        user=confirmed_by,
+        details={
+            "previous_anchor": previous.isoformat() if previous else None,
+            "new_anchor": today.isoformat(),
+            "paid_amount": str(paid_amount) if paid_amount is not None else None,
+            "note": note,
+        },
+    )
+
+    # Notif/email "réinscription confirmée" (event catalogable via EXT-5).
+    try:
+        from apps_coop.notifications.events import emit_event
+
+        emit_event(
+            "member.reinscription_confirmed",
+            member=member,
+            context={
+                "prenom": member.prenom,
+                "numero_membre": member.numero_membre,
+                "date_confirmation": today.isoformat(),
+                "prochaine_echeance": (member.prochaine_reinscription_due or today).isoformat(),
+            },
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("emit_event member.reinscription_confirmed failed", exc_info=True)
+
+    return member
 
 
 # ---------------------------------------------------------------------------
@@ -198,10 +262,12 @@ def _send_welcome_email(member: Member, to_email: str) -> None:
                 exc_info=True,
             )
 
-        send_template(
+        from apps_coop.notifications.events import emit_event
+
+        emit_event(
             "member.welcome",
-            to=to_email,
             member=member,
+            to_email=to_email,  # adresse de l'inscription, pas forcément user.email
             context={
                 "prenom": member.prenom,
                 "nom": member.nom,
@@ -253,7 +319,27 @@ def reject_membership_request(
         user=instructed_by,
         details={"motif": motif, "email": request_obj.email},
     )
-    # TODO(UC1 step 2): send "demande non retenue" email.
+    # Email « demande non retenue » (best-effort — ne bloque jamais le rejet).
+    if request_obj.email:
+        try:
+            from apps_coop.notifications.events import emit_event
+
+            emit_event(
+                "member.rejected",
+                to_email=request_obj.email,  # pas encore de Member créé
+                context={
+                    "prenom": request_obj.prenom,
+                    "nom": request_obj.nom,
+                    "motif": motif,
+                    "portal_url": getattr(
+                        settings, "FRONTEND_PUBLIC_URL", "http://localhost:3200"
+                    ),
+                },
+            )
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "member.rejected email skipped for %s", request_obj.email, exc_info=True
+            )
     return request_obj
 
 
@@ -262,26 +348,228 @@ def reject_membership_request(
 # ---------------------------------------------------------------------------
 
 
-def generate_numero_membre() -> str:
-    """Return a unique member number formatted ``GF-YYYY-NNNN``.
+_DEFAULT_ID_FORMAT = "GF-{year}-{seq:04d}"
 
-    We pick the sequence by counting all members created this year + 1, then
-    retry on collision (defensive against concurrent inserts in the same
-    second). Format is stable and human-readable; switch to a real sequence
-    table if we ever scale past ~10k members/year.
+
+def generate_numero_membre() -> str:
+    """Return a unique ``numero_membre`` (= numéro d'identification §2).
+
+    Format **configurable** via ``AppSetting member.id.format`` (refonte 2026).
+    Le placeholder ``{year}`` est obligatoire et ``{seq}`` (avec ou sans
+    padding ``{seq:04d}``) est obligatoire. Défaut ``GF-{year}-{seq:04d}``
+    → ``GF-2026-0001``, ``GF-2026-0002``, …
+
+    On résout le prochain ``seq`` en regardant le max existant pour le
+    préfixe rendu (tout ce qui précède ``{seq``). Format malformé → on
+    retombe sur le défaut pour ne jamais bloquer la création de membre.
     """
+    raw_fmt = get_str_setting("member.id.format", _DEFAULT_ID_FORMAT)
+    fmt = raw_fmt if "{seq" in raw_fmt and "{year}" in raw_fmt else _DEFAULT_ID_FORMAT
     year = date.today().year
-    base_prefix = f"GF-{year}-"
-    # Take the existing max for this year, fall back to 0.
-    qs = Member.objects.filter(numero_membre__startswith=base_prefix).values_list("numero_membre", flat=True)
+
+    try:
+        prefix_template = fmt[: fmt.index("{seq")]
+        prefix = prefix_template.format(year=year)
+    except (KeyError, ValueError, IndexError):
+        prefix = f"GF-{year}-"
+        fmt = _DEFAULT_ID_FORMAT
+
+    qs = (
+        Member.objects.filter(numero_membre__startswith=prefix)
+        .values_list("numero_membre", flat=True)
+    )
     max_seq = 0
-    for n in qs:
-        try:
-            seq = int(n.rsplit("-", 1)[-1])
-        except ValueError:
-            continue
-        max_seq = max(max_seq, seq)
-    return f"{base_prefix}{max_seq + 1:04d}"
+    for numero in qs:
+        rest = numero[len(prefix):]
+        match = re.match(r"^(\d+)", rest)
+        if match:
+            try:
+                max_seq = max(max_seq, int(match.group(1)))
+            except ValueError:
+                continue
+
+    next_seq = max_seq + 1
+    try:
+        return fmt.format(year=year, seq=next_seq)
+    except (KeyError, ValueError, IndexError):
+        return _DEFAULT_ID_FORMAT.format(year=year, seq=next_seq)
+
+
+# ---------------------------------------------------------------------------
+# BRC — Broad Range Consulting (LOT 1 refonte 2026)
+# ---------------------------------------------------------------------------
+
+
+@transaction.atomic
+def upload_brc_document(
+    *,
+    member: Member,
+    fichier,
+    nom_original: str = "",
+    taille: int = 0,
+) -> BRCDocument:
+    """Le membre dépose un justificatif BRC.
+
+    Crée un ``BRCDocument`` en statut ``EN_ATTENTE``. Le membre peut
+    re-uploader autant de fois qu'il veut (chaque ligne garde son
+    historique). L'admin gère la validation séparément.
+    """
+    doc = BRCDocument.objects.create(
+        member=member,
+        fichier=fichier,
+        nom_original=nom_original or getattr(fichier, "name", ""),
+        taille=taille or getattr(fichier, "size", 0),
+        statut=BRCDocument.Statut.EN_ATTENTE,
+    )
+    record_audit(
+        action="member.brc_document_uploaded",
+        entite_type="BRCDocument",
+        entite_id=doc.id,
+        user=member.user,
+        details={
+            "member_id": member.id,
+            "numero_membre": member.numero_membre,
+            "nom_original": doc.nom_original,
+            "taille": doc.taille,
+        },
+    )
+    _emit_brc_event(
+        "member.brc_document_uploaded",
+        member=member,
+        context={
+            "prenom": member.prenom,
+            "numero_membre": member.numero_membre,
+            "nom_original": doc.nom_original,
+        },
+    )
+    return doc
+
+
+@transaction.atomic
+def validate_brc_document(*, doc: BRCDocument, validated_by) -> BRCDocument:
+    """Admin valide un justificatif BRC → ``Member.is_brc_member = True``.
+
+    Idempotent : revalider un doc déjà ``VALIDE`` n'écrase rien. Tenter de
+    valider un doc ``REJETE`` lève ``ValueError`` — le membre doit en
+    déposer un nouveau.
+    """
+    if doc.statut == BRCDocument.Statut.VALIDE:
+        return doc
+    if doc.statut == BRCDocument.Statut.REJETE:
+        raise ValueError(
+            "Document déjà rejeté ; demander un nouvel upload au membre."
+        )
+
+    now = timezone.now()
+    doc.statut = BRCDocument.Statut.VALIDE
+    doc.validated_by = validated_by
+    doc.validated_at = now
+    doc.save(
+        update_fields=["statut", "validated_by", "validated_at", "updated_at"]
+    )
+
+    member = doc.member
+    member.is_brc_member = True
+    member.brc_validated_at = now
+    member.brc_validated_by = validated_by
+    member.save(
+        update_fields=[
+            "is_brc_member",
+            "brc_validated_at",
+            "brc_validated_by",
+            "updated_at",
+        ]
+    )
+
+    record_audit(
+        action="member.brc_validated",
+        entite_type="Member",
+        entite_id=member.id,
+        user=validated_by,
+        details={
+            "doc_id": doc.id,
+            "numero_membre": member.numero_membre,
+        },
+    )
+    _emit_brc_event(
+        "member.brc_validated",
+        member=member,
+        context={
+            "prenom": member.prenom,
+            "numero_membre": member.numero_membre,
+            "date_validation": now.date().isoformat(),
+        },
+    )
+    return doc
+
+
+@transaction.atomic
+def reject_brc_document(
+    *,
+    doc: BRCDocument,
+    rejected_by,
+    motif: str,
+) -> BRCDocument:
+    """Admin rejette un justificatif BRC avec motif obligatoire.
+
+    Ne touche PAS ``Member.is_brc_member`` (le membre peut avoir déjà été
+    validé via un autre doc — un rejet d'un doc plus ancien ne révoque pas
+    cet état).
+    """
+    if doc.statut == BRCDocument.Statut.REJETE:
+        return doc
+    if doc.statut == BRCDocument.Statut.VALIDE:
+        raise ValueError("Document déjà validé ; impossible de rejeter.")
+    motif_clean = (motif or "").strip()
+    if not motif_clean:
+        raise ValueError("Un motif de rejet est requis.")
+
+    now = timezone.now()
+    doc.statut = BRCDocument.Statut.REJETE
+    doc.motif_rejet = motif_clean
+    doc.validated_by = rejected_by
+    doc.validated_at = now
+    doc.save(
+        update_fields=[
+            "statut",
+            "motif_rejet",
+            "validated_by",
+            "validated_at",
+            "updated_at",
+        ]
+    )
+
+    record_audit(
+        action="member.brc_rejected",
+        entite_type="BRCDocument",
+        entite_id=doc.id,
+        user=rejected_by,
+        details={
+            "motif": motif_clean,
+            "member_id": doc.member.id,
+            "numero_membre": doc.member.numero_membre,
+        },
+    )
+    _emit_brc_event(
+        "member.brc_rejected",
+        member=doc.member,
+        context={
+            "prenom": doc.member.prenom,
+            "numero_membre": doc.member.numero_membre,
+            "motif": motif_clean,
+        },
+    )
+    return doc
+
+
+def _emit_brc_event(code: str, *, member: Member, context: dict) -> None:
+    """Best-effort event emission — never blocks the BRC workflow."""
+    try:
+        from apps_coop.notifications.events import emit_event
+
+        emit_event(code, member=member, context=context)
+    except Exception:  # noqa: BLE001
+        logger.warning("emit_event %s failed", code, exc_info=True)
 
 
 def _random_password(length: int = 24) -> str:

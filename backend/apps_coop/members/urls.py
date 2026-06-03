@@ -23,4 +23,25 @@ urlpatterns = [
     path("admin/membership-requests/<int:pk>/interview/", views.admin_record_interview, name="admin-membership-interview"),
     path("admin/membership-requests/<int:pk>/approve/", views.admin_approve_membership_request, name="admin-membership-approve"),
     path("admin/membership-requests/<int:pk>/reject/", views.admin_reject_membership_request, name="admin-membership-reject"),
+
+    # A2 — Réinscription annuelle (alerte douce + acte admin).
+    path(
+        "admin/members/<int:pk>/reinscription/confirm/",
+        views.admin_confirm_member_reinscription,
+        name="admin-member-reinscription-confirm",
+    ),
+
+    # LOT 1 (refonte 2026) — BRC justificatifs (membre upload, admin valide/rejette).
+    path("members/me/brc/", views.brc_documents_me, name="brc-me"),
+    path("admin/brc/", views.admin_list_brc_documents, name="admin-brc-list"),
+    path(
+        "admin/brc/<int:pk>/validate/",
+        views.admin_validate_brc_document,
+        name="admin-brc-validate",
+    ),
+    path(
+        "admin/brc/<int:pk>/reject/",
+        views.admin_reject_brc_document,
+        name="admin-brc-reject",
+    ),
 ]

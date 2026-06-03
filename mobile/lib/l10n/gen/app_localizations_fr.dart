@@ -36,6 +36,13 @@ class AppL10nFr extends AppL10n {
   String get common_required => 'Requis';
 
   @override
+  String get error_generic_title => 'Une erreur est survenue';
+
+  @override
+  String get error_generic_body =>
+      'Impossible de charger ces données pour le moment. Vérifie ta connexion et réessaie.';
+
+  @override
   String get nav_home => 'Accueil';
 
   @override
@@ -72,7 +79,7 @@ class AppL10nFr extends AppL10n {
   String get profile_tile_states_sub => 'Solde, encours, ancienneté.';
 
   @override
-  String get profile_tile_contributions => 'Mes cotisations';
+  String get profile_tile_contributions => 'Mon épargne';
 
   @override
   String get profile_tile_contributions_sub => 'Historique des frais versés.';
@@ -184,7 +191,7 @@ class AppL10nFr extends AppL10n {
   String get home_no_movement_week => 'Pas de mouvement cette semaine.';
 
   @override
-  String get home_deposit => 'Verser ma cotisation';
+  String get home_deposit => 'Verser mon épargne';
 
   @override
   String get home_history => 'Historique';
@@ -630,7 +637,7 @@ class AppL10nFr extends AppL10n {
   String get contrib_eyebrow => 'Profil';
 
   @override
-  String get contrib_title => 'Mes cotisations';
+  String get contrib_title => 'Mon épargne';
 
   @override
   String get contrib_total_label => 'Total versé à la coopérative';
@@ -665,14 +672,14 @@ class AppL10nFr extends AppL10n {
   }
 
   @override
-  String get contrib_empty_title => 'Aucune cotisation';
+  String get contrib_empty_title => 'Aucun versement';
 
   @override
   String get contrib_empty_sub =>
-      'Tes paiements de cotisation apparaîtront ici au fur et à mesure.';
+      'Tes versements d\'épargne apparaîtront ici au fur et à mesure.';
 
   @override
-  String get contrib_error_title => 'Cotisations indisponibles';
+  String get contrib_error_title => 'Épargne indisponible';
 
   @override
   String get states_title => 'Mes états';
@@ -706,7 +713,7 @@ class AppL10nFr extends AppL10n {
   String get states_no_active_credit => 'Aucun crédit actif';
 
   @override
-  String get states_kpi_contributions => 'Cotisations versées';
+  String get states_kpi_contributions => 'Versements effectués';
 
   @override
   String get states_kpi_seniority => 'Ancienneté';
@@ -727,7 +734,7 @@ class AppL10nFr extends AppL10n {
   String get states_movements => 'Mouvements enregistrés';
 
   @override
-  String get states_contrib_detail_title => 'Détail de mes cotisations';
+  String get states_contrib_detail_title => 'Détail de mon épargne';
 
   @override
   String get states_contrib_detail_sub =>
@@ -772,6 +779,9 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get help_eyebrow => 'Profil';
+
+  @override
+  String get help_copy_a11y => 'toucher pour copier';
 
   @override
   String get help_title => 'Aide & contact';
@@ -967,7 +977,12 @@ class AppL10nFr extends AppL10n {
   String get home_balance_label => 'Solde épargne';
 
   @override
-  String get carousel_save_title => 'Cotise chaque jour';
+  String home_delta_this_month(String value) {
+    return '$value ce mois';
+  }
+
+  @override
+  String get carousel_save_title => 'Épargne chaque jour';
 
   @override
   String get carousel_save_sub => '1 000 FCFA/jour rémunérés à 1 % par mois.';
@@ -1020,6 +1035,13 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get credit_next_due => 'Prochaine échéance';
+
+  @override
+  String get credit_penalty_title => 'Pénalité de retard exigible';
+
+  @override
+  String get credit_penalty_sub =>
+      '50 % des intérêts dus sur les échéances en retard (Article 12).';
 
   @override
   String get credit_empty_body =>
@@ -1159,7 +1181,7 @@ class AppL10nFr extends AppL10n {
   String get releve_pdf_rate => 'Taux d\'intérêt mensuel';
 
   @override
-  String get releve_pdf_total_contrib => 'Total cotisations validées';
+  String get releve_pdf_total_contrib => 'Total épargne validée';
 
   @override
   String get releve_pdf_tx_header => 'Opérations d\'épargne';
@@ -1205,7 +1227,7 @@ class AppL10nFr extends AppL10n {
   String get err_number_incomplete => 'Numéro incomplet.';
 
   @override
-  String get dep_title => 'Verser ma cotisation';
+  String get dep_title => 'Verser mon épargne';
 
   @override
   String get dep_how => 'Comment veux-tu verser aujourd\'hui ?';
@@ -1251,7 +1273,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get classic_dep_sub =>
-      'Épargne classique — montant libre, séparé de ta cotisation.';
+      'Épargne classique — montant libre, séparé de ton épargne journalière.';
 
   @override
   String get classic_card_title => 'Épargne classique';
@@ -1385,8 +1407,31 @@ class AppL10nFr extends AppL10n {
   String get ren_extra_month => 'Prolongation : +1 mois';
 
   @override
+  String get ren_mode_question => 'Comment règles-tu les intérêts ?';
+
+  @override
+  String get ren_mode_comptant => 'Au comptant — 10 %';
+
+  @override
+  String get ren_mode_comptant_sub =>
+      'Tu verses les intérêts maintenant. Taux réduit sur le capital restant.';
+
+  @override
+  String get ren_mode_reporte => 'Reportés — 15 %';
+
+  @override
+  String get ren_mode_reporte_sub =>
+      'Les intérêts sont reportés avec le capital. Taux majoré.';
+
+  @override
+  String get ren_recap_interest => 'Intérêts de reconduction';
+
+  @override
+  String get ren_recap_total => 'Nouveau total à rembourser';
+
+  @override
   String get ren_fees_note =>
-      'La reconduction prolonge ton crédit d\'un mois. Aucun frais n\'est dû : seul le taux d\'intérêt est majoré. Ta demande sera soumise au comité pour validation.';
+      'La reconduction prolonge ton crédit d\'un mois. Aucun frais de dossier n\'est dû : seuls les intérêts de reconduction, calculés sur le capital restant, s\'ajoutent. Ta demande sera soumise au comité pour validation.';
 
   @override
   String get ren_submit => 'Demander la reconduction';
@@ -1624,7 +1669,7 @@ class AppL10nFr extends AppL10n {
   String get mf_statut => 'Statut';
 
   @override
-  String get mf_motivation_q => 'Pourquoi rejoindre la coopérative ?';
+  String get mf_motivation_q => 'Quelle est votre motivation ?';
 
   @override
   String get mf_submit => 'Envoyer ma demande';

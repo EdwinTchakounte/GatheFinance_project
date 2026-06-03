@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gathe_finance/core/usecases/usecase.dart';
-import 'package:gathe_finance/features/auth/domain/entities/member.dart';
 import 'package:gathe_finance/features/auth/domain/repositories/auth_repository.dart';
 import 'package:gathe_finance/features/auth/domain/usecases/get_current_member.dart';
 import 'package:mocktail/mocktail.dart';

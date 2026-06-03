@@ -5,6 +5,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/eyebrow.dart';
+import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 
 /// Modale qui explique ce qu'est un **membre** et présente la marche à
@@ -155,15 +156,12 @@ class MemberInfoSheet extends StatelessWidget {
 
             const SizedBox(height: AppSpacing.xl),
 
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  if (onJoin != null) onJoin!();
-                },
-                child: Text(l.mi_submit),
-              ),
+            PaButton(
+              label: l.mi_submit,
+              onPressed: () {
+                Navigator.of(context).pop();
+                if (onJoin != null) onJoin!();
+              },
             ),
             const SizedBox(height: AppSpacing.s),
             SizedBox(

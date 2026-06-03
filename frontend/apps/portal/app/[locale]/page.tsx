@@ -167,7 +167,7 @@ export default function PortalDashboardPage() {
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm text-ink-700">
               Ta demande d'adhésion a été approuvée, mais ton compte reste
-              suspendu tant que tu n'as pas réglé ta 1<sup>re</sup> cotisation.
+              suspendu tant que tu n'as pas réglé tes frais d'adhésion.
               Une fois payée, tu accèdes à l'épargne, au crédit et à tous les
               services de la coopérative.
             </p>
@@ -175,7 +175,7 @@ export default function PortalDashboardPage() {
               onClick={() => router.push("/activation")}
               className={buttonClasses({ variant: "success", size: "lg" }) + " mt-6"}
             >
-              Payer la cotisation maintenant
+              Payer mes frais d'adhésion
             </button>
           </section>
         ) : null}
@@ -211,7 +211,7 @@ export default function PortalDashboardPage() {
               onClick={() => router.push("/epargne/depot")}
               className={buttonClasses({ variant: "success", size: "md", fullWidth: true }) + " mt-4"}
             >
-              Verser ma cotisation
+              Verser mon épargne
             </button>
             <button
               type="button"
@@ -220,8 +220,15 @@ export default function PortalDashboardPage() {
             >
               Mes crédits
             </button>
+            <button
+              type="button"
+              onClick={() => router.push("/epargne/retrait")}
+              className={buttonClasses({ variant: "ghost", size: "md", fullWidth: true }) + " mt-3"}
+            >
+              Demander un retrait
+            </button>
             <p className="mt-3 text-xs text-ink-600">
-              Déposer, demander un crédit, suivre tes échéances.
+              Déposer, demander un crédit, retirer ton épargne (Mobile Money ou en agence).
             </p>
           </div>
         </section>

@@ -45,26 +45,52 @@ LOAN_DURATION_TIERS: tuple[tuple[Decimal, Decimal | None, int], ...] = (
 MIN_LOAN_AMOUNT = LOAN_DURATION_TIERS[0][0]
 
 
+def _db_tiers() -> list[tuple[Decimal, Decimal | None, int]] | None:
+    """Lit les paliers depuis la table ``LoanDurationTier`` (EXT-2).
+
+    Retourne ``None`` si la table est absente / vide → le code retombe alors
+    sur ``LOAN_DURATION_TIERS`` (défaut réglementaire). Ne lève jamais.
+    """
+    try:
+        from .models import LoanDurationTier
+
+        rows = list(
+            LoanDurationTier.objects.filter(actif=True)
+            .order_by("ordering", "montant_min")
+            .values_list("montant_min", "montant_max", "duree_mois")
+        )
+    except Exception:  # noqa: BLE001 — table non migrée / DB indisponible
+        return None
+    if not rows:
+        return None
+    return [(Decimal(lo), None if hi is None else Decimal(hi), int(d)) for lo, hi, d in rows]
+
+
 def duration_months_for(montant: Decimal) -> int:
     """Renvoie la durée de remboursement (en mois) pour ``montant`` en FCFA.
 
-    Lève ``ValueError`` si le montant est en dessous du minimum réglementaire.
+    Lit en priorité les paliers admin via ``LoanDurationTier`` (EXT-2) ;
+    à défaut, retombe sur ``LOAN_DURATION_TIERS`` (Règlement Art. 7).
+
+    Lève ``ValueError`` si le montant est en dessous du minimum réglementaire
+    du palier le plus bas.
     """
+    tiers = _db_tiers() or list(LOAN_DURATION_TIERS)
+    min_amount = tiers[0][0]
     m = Decimal(montant)
-    if m < MIN_LOAN_AMOUNT:
+    if m < min_amount:
         raise ValueError(
             f"Montant {m} FCFA inférieur au minimum réglementaire "
-            f"({MIN_LOAN_AMOUNT} FCFA)."
+            f"({min_amount} FCFA)."
         )
-    for lo, hi, months in LOAN_DURATION_TIERS:
+    for lo, hi, months in tiers:
         if hi is None or m <= hi:
             if m >= lo:
                 return months
-            # Fallback : montant entre 2 paliers (ex. 50001 entre 50000 et 51000)
-            # → on prend le palier supérieur (plus de durée = plus de marge).
+            # Montant entre 2 paliers (ex. 50001 entre 50000 et 51000)
+            # → palier supérieur (plus de durée = plus de marge).
             return months
-    # Inatteignable car la dernière ligne a ``hi=None``.
-    return LOAN_DURATION_TIERS[-1][2]
+    return tiers[-1][2]
 
 
 # ---------------------------------------------------------------------------
@@ -97,12 +123,36 @@ class PaymentModality:
     }
 
 
-def n_installments(duree_mois: int, modalite: str) -> int:
-    """Nombre total d'échéances pour ``(durée, modalité)``."""
+def _db_modality_installments(code: str) -> int | None:
+    """Lit ``installments_per_month`` depuis ``PaymentModalityConfig`` (EXT-2).
+
+    Retourne ``None`` si introuvable / table absente → fallback Python.
+    """
     try:
-        per_month = PaymentModality.INSTALLMENTS_PER_MONTH[modalite]
-    except KeyError as exc:
-        raise ValueError(f"Modalité inconnue : {modalite!r}") from exc
+        from .models import PaymentModalityConfig
+
+        val = (
+            PaymentModalityConfig.objects.filter(code=code, actif=True)
+            .values_list("installments_per_month", flat=True)
+            .first()
+        )
+    except Exception:  # noqa: BLE001
+        return None
+    return int(val) if val is not None else None
+
+
+def n_installments(duree_mois: int, modalite: str) -> int:
+    """Nombre total d'échéances pour ``(durée, modalité)``.
+
+    Lit en priorité la cadence via ``PaymentModalityConfig`` (EXT-2) ;
+    à défaut, retombe sur ``PaymentModality.INSTALLMENTS_PER_MONTH``.
+    """
+    per_month = _db_modality_installments(modalite)
+    if per_month is None:
+        try:
+            per_month = PaymentModality.INSTALLMENTS_PER_MONTH[modalite]
+        except KeyError as exc:
+            raise ValueError(f"Modalité inconnue : {modalite!r}") from exc
     return duree_mois * per_month
 
 

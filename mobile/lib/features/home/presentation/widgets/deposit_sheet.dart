@@ -6,6 +6,7 @@ import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/brand_loader.dart';
+import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../savings/presentation/state/classic_savings_notifier.dart';
@@ -257,16 +258,18 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
           Row(
             children: [
               Expanded(
-                child: _OutlineButton(
+                child: PaButton(
                   label: l.common_back,
-                  onTap: () => setState(() => _step = _Step.channelChoice),
+                  variant: PaButtonVariant.outline,
+                  onPressed: () =>
+                      setState(() => _step = _Step.channelChoice),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _PrimaryButton(
+                child: PaButton(
                   label: l.common_understood,
-                  onTap: () => Navigator.of(context).pop(),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
             ],
@@ -283,13 +286,15 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
     final l = AppL10n.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 26),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _Grabber(),
+      // Scrollable → pas d'overflow quand le clavier monte ou en grande police.
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _Grabber(),
             const SizedBox(height: 18),
             Text(
               widget.classic ? l.classic_dep_title : l.dep_title,
@@ -470,8 +475,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
 
             const SizedBox(height: 28),
 
-            _PrimaryButton(label: _ctaLabel(), onTap: _submit),
-          ],
+            PaButton(label: _ctaLabel(), onPressed: _submit),
+            ],
+          ),
         ),
       ),
     );
@@ -591,9 +597,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             ),
           ),
           const SizedBox(height: 24),
-          _PrimaryButton(
+          PaButton(
             label: l.common_done,
-            onTap: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),
@@ -864,77 +870,3 @@ class _NetworkCard extends StatelessWidget {
 }
 
 
-class _PrimaryButton extends StatelessWidget {
-  const _PrimaryButton({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(999),
-          child: Container(
-            height: 52,
-            decoration: BoxDecoration(
-              gradient: PaGradients.ctaPill,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: PaColors.onTeal,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
-class _OutlineButton extends StatelessWidget {
-  const _OutlineButton({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: Material(
-        color: PaColors.paper,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
-          side: const BorderSide(color: PaColors.line, width: 1.2),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(999),
-          child: Container(
-            height: 52,
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: PaColors.inkPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

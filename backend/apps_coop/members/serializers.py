@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from .models import Member, MembershipRequest
+from .models import BRCDocument, Member, MembershipRequest
 
 # Re-export the captcha verifier so we keep abuse protection equivalent to the
 # legacy CMS form. The function is dependency-free and lives in apps_cms/forms
@@ -132,17 +132,99 @@ class MembershipRejectSerializer(serializers.Serializer):
     motif = serializers.CharField(max_length=2000)
 
 
+class MemberReinscriptionConfirmSerializer(serializers.Serializer):
+    """A2 — Body du POST admin pour acter la réinscription annuelle."""
+
+    paid_amount = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        help_text="Montant encaissé (info — l'enregistrement du paiement passe par le flow Tara classique).",
+    )
+    note = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
 class MemberReadSerializer(serializers.ModelSerializer):
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     email = serializers.CharField(source="user.email", read_only=True)
+    prochaine_reinscription_due = serializers.DateField(read_only=True)
+    # LOT 1 (refonte 2026) — éligibilité crédit "Senior + BRC" (§7.1).
+    seniority_months = serializers.IntegerField(read_only=True)
+    is_senior = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Member
         fields = (
             "id", "numero_membre", "prenom", "nom", "email", "phone",
             "statut", "statut_display", "date_adhesion",
+            "date_derniere_reinscription", "prochaine_reinscription_due",
+            "seniority_months", "is_senior",
+            "is_brc_member", "brc_validated_at",
         )
         read_only_fields = fields
+
+
+# --- BRC (Broad Range Consulting) — refonte 2026 ----------------------------
+
+
+class BRCDocumentReadSerializer(serializers.ModelSerializer):
+    """Vue membre d'un justificatif BRC (sans expose les liens internes)."""
+
+    statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+
+    class Meta:
+        model = BRCDocument
+        fields = (
+            "id", "statut", "statut_display",
+            "nom_original", "taille",
+            "motif_rejet", "validated_at", "created_at",
+        )
+        read_only_fields = fields
+
+
+class BRCDocumentAdminReadSerializer(serializers.ModelSerializer):
+    """Vue admin (enrichie avec infos membre pour le listing back-office)."""
+
+    statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    member_numero = serializers.CharField(source="member.numero_membre", read_only=True)
+    member_nom = serializers.CharField(source="member.nom", read_only=True)
+    member_prenom = serializers.CharField(source="member.prenom", read_only=True)
+    fichier_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BRCDocument
+        fields = (
+            "id", "member", "member_numero", "member_nom", "member_prenom",
+            "fichier_url", "nom_original", "taille",
+            "statut", "statut_display", "motif_rejet",
+            "validated_by", "validated_at", "created_at",
+        )
+        read_only_fields = fields
+
+    def get_fichier_url(self, obj: BRCDocument) -> str:
+        try:
+            url = obj.fichier.url
+        except (ValueError, AttributeError):
+            return ""
+        request = self.context.get("request")
+        # URL absolue (sinon le front sur :3202 essaie de résoudre /media/ chez lui → 404).
+        return request.build_absolute_uri(url) if request else url
+
+
+class BRCDocumentUploadSerializer(serializers.Serializer):
+    """Body du POST membre — upload d'un justificatif BRC."""
+
+    fichier = serializers.FileField()
+    nom_original = serializers.CharField(
+        max_length=255, required=False, allow_blank=True
+    )
+
+
+class BRCDocumentRejectSerializer(serializers.Serializer):
+    """Body du POST admin — rejet d'un justificatif BRC."""
+
+    motif = serializers.CharField(max_length=2000)
 
 
 class BookletOrderReadSerializer(serializers.ModelSerializer):

@@ -107,7 +107,7 @@ export default function PortalActivationPage() {
       setPayment(result.payment);
     } catch (err) {
       const apiErr = err as ApiError;
-      setError(apiErr.detail ?? "Impossible d'initier le paiement de cotisation.");
+      setError(apiErr.detail ?? "Impossible d'initier le paiement des frais d'adhésion.");
     } finally {
       setSubmitting(false);
     }
@@ -148,8 +148,7 @@ export default function PortalActivationPage() {
           </h1>
           <p className="mt-3 text-sm text-ink-600">
             Ta demande d'adhésion a été approuvée. Pour activer ton compte
-            membre et accéder à tous les services, paye ta 1<sup>re</sup>
-            cotisation.
+            membre et accéder à tous les services, règle tes frais d'adhésion.
           </p>
         </header>
 
@@ -221,7 +220,7 @@ export default function PortalActivationPage() {
               disabled={submitting}
               className={buttonClasses({ variant: "success", size: "lg", fullWidth: true }) + " mt-7"}
             >
-              {submitting ? "Initialisation…" : "Payer ma cotisation"}
+              {submitting ? "Initialisation…" : "Payer mes frais d'adhésion"}
             </button>
           </form>
         ) : null}
@@ -235,7 +234,7 @@ export default function PortalActivationPage() {
             <p className="mt-3 text-sm text-ink-600">
               Un code USSD vient d'être poussé sur ton téléphone{" "}
               <span className="font-mono">{form.phone}</span>. Saisis ton code
-              PIN MoMo pour valider la cotisation de{" "}
+              PIN MoMo pour valider le paiement de{" "}
               <strong>{Number(payment.montant).toLocaleString("fr-FR")} XAF</strong>.
             </p>
             <p className="mt-2 text-xs text-ink-600">
@@ -279,7 +278,7 @@ export default function PortalActivationPage() {
               ✓ Compte activé
             </p>
             <p className="mt-3 text-sm text-ink-700">
-              Ta cotisation a été reçue. Tu peux maintenant utiliser tous les
+              Ton paiement a été reçu. Tu peux maintenant utiliser tous les
               services de la coopérative — épargne, crédit, transferts.
             </p>
             <button

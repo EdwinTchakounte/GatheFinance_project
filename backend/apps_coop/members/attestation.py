@@ -136,8 +136,8 @@ def build_attestation_pdf(member) -> bytes:
     c.setFillColor(MUTED)
     c.setFont("Helvetica-Oblique", 9.5)
     for wrapped in _wrap(
-        "Le statut de membre devient pleinement actif après règlement de la "
-        "première cotisation (frais d'adhésion et d'inscription).",
+        "Le statut de membre devient pleinement actif après règlement "
+        "des frais d'adhésion et d'inscription.",
         c, "Helvetica-Oblique", 9.5, width - 2 * margin,
     ):
         c.drawString(margin, note_y, wrapped)

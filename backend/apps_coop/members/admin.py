@@ -14,7 +14,7 @@ from django.urls import path
 from django.utils.html import format_html
 
 from . import services
-from .models import BookletOrder, Document, Member, MembershipRequest
+from .models import BRCDocument, BookletOrder, Document, Member, MembershipRequest
 
 
 # ---------------------------------------------------------------------------
@@ -24,11 +24,36 @@ from .models import BookletOrder, Document, Member, MembershipRequest
 
 @admin.register(Member)
 class MemberAdmin(admin.ModelAdmin):
-    list_display = ("numero_membre", "prenom", "nom", "statut", "date_adhesion", "phone")
-    list_filter = ("statut", "date_adhesion")
+    list_display = (
+        "numero_membre", "prenom", "nom", "statut",
+        "is_brc_member", "date_adhesion", "phone",
+    )
+    list_filter = ("statut", "is_brc_member", "date_adhesion")
     search_fields = ("numero_membre", "prenom", "nom", "user__email", "phone")
-    autocomplete_fields = ("user",)
+    autocomplete_fields = ("user", "brc_validated_by")
+    readonly_fields = ("brc_validated_at",)
     date_hierarchy = "date_adhesion"
+
+
+# ---------------------------------------------------------------------------
+# BRCDocument — justificatif BRC (Broad Range Consulting)
+# ---------------------------------------------------------------------------
+
+
+@admin.register(BRCDocument)
+class BRCDocumentAdmin(admin.ModelAdmin):
+    list_display = ("member", "statut", "nom_original", "created_at", "validated_at")
+    list_filter = ("statut", "created_at")
+    search_fields = (
+        "member__numero_membre", "member__nom", "member__prenom", "nom_original",
+    )
+    autocomplete_fields = ("member", "validated_by")
+    readonly_fields = ("taille", "validated_at", "created_at", "updated_at")
+    fieldsets = (
+        ("Justificatif", {"fields": ("member", "fichier", "nom_original", "taille")}),
+        ("Décision admin", {"fields": ("statut", "motif_rejet", "validated_by", "validated_at")}),
+        ("Métadonnées", {"fields": ("created_at", "updated_at")}),
+    )
 
 
 # ---------------------------------------------------------------------------

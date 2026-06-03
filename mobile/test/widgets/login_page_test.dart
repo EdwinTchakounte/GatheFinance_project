@@ -5,6 +5,7 @@ import 'package:gathe_finance/core/di/providers.dart';
 import 'package:gathe_finance/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:gathe_finance/features/auth/domain/entities/member.dart';
 import 'package:gathe_finance/features/auth/presentation/pages/login_page.dart';
+import 'package:gathe_finance/l10n/gen/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import '../helpers/fixtures.dart';
@@ -45,7 +46,12 @@ void main() {
     );
     return ProviderScope(
       overrides: [authDataSourceProvider.overrideWithValue(ds)],
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('fr'),
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+      ),
     );
   }
 

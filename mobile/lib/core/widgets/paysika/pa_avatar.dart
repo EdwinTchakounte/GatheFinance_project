@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../app/theme/paysika/pa_colors.dart';
-
 /// Avatar génératif Paysika — gradient unique dérivé du nom du membre.
 ///
 /// Donne à chaque membre une identité chromatique personnelle (façon Notion /

@@ -152,7 +152,6 @@ def _reject(payment: Payment, *, raw: dict) -> Payment:
 def _hook_adhesion(payment: Payment, _raw: dict) -> None:
     """UC1 — 1re cotisation reçue → activate the Member."""
     from apps_coop.members.models import Member  # local import to avoid cycles
-    from apps_coop.notifications.services import send_template
 
     member = payment.member
     if member.statut == Member.Statut.ACTIF:
@@ -165,9 +164,10 @@ def _hook_adhesion(payment: Payment, _raw: dict) -> None:
         entite_id=member.id,
         details={"trigger": "payment.frais_adhesion", "payment_id": payment.id},
     )
-    send_template(
+    from apps_coop.notifications.events import emit_event
+
+    emit_event(
         "member.activated",
-        to=member.user.email,
         member=member,
         context={
             "prenom": member.prenom,
@@ -220,6 +220,8 @@ def _hook_savings_deposit(payment: Payment, _raw: dict) -> None:
         montant=payment.montant,
         solde_apres=nouveau_solde,
         date=valued_at,
+        # LOT 6 (refonte 2026) — propage le multi-jours pré-payé.
+        nb_jours_couverts=payment.nb_jours_couverts,
     )
 
     record_audit(
@@ -236,11 +238,10 @@ def _hook_savings_deposit(payment: Payment, _raw: dict) -> None:
             "value_date": value_date.isoformat(),
         },
     )
-    from apps_coop.notifications.services import send_template
+    from apps_coop.notifications.events import emit_event
 
-    send_template(
+    emit_event(
         "savings.deposit_confirmed",
-        to=payment.member.user.email,
         member=payment.member,
         context={
             "prenom": payment.member.prenom,
@@ -334,6 +335,12 @@ def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
         .order_by("date_echeance", "numero_echeance")
     )
 
+    # LOT 9 — import paresseux pour éviter le cycle loans <-> payments.
+    from apps_coop.loans.lender_payouts import (
+        distribute_interest_share,
+        release_loan_tranches,
+    )
+
     reste = Decimal(payment.montant)
     impacted = []
     for inst in installments:
@@ -358,6 +365,13 @@ def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
         else:
             inst.statut = LoanInstallment.Statut.PARTIELLE
         inst.save(update_fields=["montant_paye", "statut", "updated_at"])
+        # LOT 9 — Partage 50/50 des intérêts (no-op si crédit legacy sans
+        # LenderAllocation, ou si la portion intérêt de l'imputation = 0).
+        distribute_interest_share(
+            installment=inst,
+            payment=payment,
+            imputation=impute,
+        )
         impacted.append({"installment": inst.numero_echeance, "impute": str(impute), "statut": inst.statut})
         reste -= impute
 
@@ -368,12 +382,21 @@ def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
     all_paid = not all_installments.exclude(statut=LoanInstallment.Statut.PAYEE).exists()
     any_late = all_installments.filter(statut=LoanInstallment.Statut.EN_RETARD).exists()
 
+    just_closed = False
     if all_paid:
+        if loan.statut != Loan.Statut.CLOTURE:
+            just_closed = True
         loan.statut = Loan.Statut.CLOTURE
     elif loan.statut == Loan.Statut.EN_RETARD and not any_late:
         loan.statut = Loan.Statut.ACTIF
 
     loan.save(update_fields=["solde_restant", "statut", "updated_at"])
+
+    # LOT 9 — À la clôture intégrale, on libère les tranches engagées par les
+    # prêteurs (DISPONIBLE → ENGAGEE → LIBEREE). Idempotent : un déclenchement
+    # multiple par replay du webhook ne re-marque pas les tranches.
+    if just_closed:
+        release_loan_tranches(loan)
 
     record_audit(
         action="loan.repayment",
@@ -387,11 +410,10 @@ def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
             "new_statut": loan.statut,
         },
     )
-    from apps_coop.notifications.services import send_template
+    from apps_coop.notifications.events import emit_event
 
-    send_template(
+    emit_event(
         "loan.repayment_confirmed",
-        to=payment.member.user.email,
         member=payment.member,
         context={
             "prenom": payment.member.prenom,
@@ -441,11 +463,10 @@ def _hook_loan_request_fees(payment: Payment, _raw: dict) -> None:
             "new_statut": pending.statut,
         },
     )
-    from apps_coop.notifications.services import send_template
+    from apps_coop.notifications.events import emit_event
 
-    send_template(
+    emit_event(
         "loan_request.fees_paid",
-        to=payment.member.user.email,
         member=payment.member,
         context={
             "prenom": payment.member.prenom,
@@ -487,11 +508,10 @@ def _hook_carnet_fees(payment: Payment, _raw: dict) -> None:
         # Replay du webhook — ne renvoie pas un 2e email.
         return
 
-    from apps_coop.notifications.services import send_template
+    from apps_coop.notifications.events import emit_event
 
-    send_template(
+    emit_event(
         "booklet.ordered",
-        to=payment.member.user.email,
         member=payment.member,
         context={
             "prenom": payment.member.prenom,
@@ -503,25 +523,64 @@ def _hook_carnet_fees(payment: Payment, _raw: dict) -> None:
 
 
 def _hook_decaissement(payment: Payment, _raw: dict) -> None:
-    """Décaissement validé (payout Tara confirmé) → met le Loan en `actif`
-    + date_decaissement = aujourd'hui.
+    """Décaissement validé (payout Tara confirmé). Deux origines possibles :
 
-    Pré-condition : ``payment.loan_id`` est rempli au moment de l'init payout
-    par l'admin (cf. `loans.services.disburse_loan_via_tara`). L'idempotence
-    contre les rejeux est assurée par ``handle_webhook_event`` (le même
-    Payment ne déclenche pas 2× le hook).
+      1. **Crédit** → ``payment.loan_id`` rempli (cf. ``disburse_loan_via_tara``).
+         Met le Loan en ``actif`` + ``date_decaissement = aujourd'hui``.
+      2. **Retrait épargne** → reverse ``WithdrawalRequest`` via le OneToOne
+         (cf. ``savings.services._init_payout_for_withdrawal``). Marque la WR
+         en ``COMPLETEE`` + notifie le membre.
+
+    L'idempotence contre les rejeux est assurée par ``handle_webhook_event``
+    (le même Payment ne déclenche pas 2× le hook).
     """
     from apps_coop.loans.models import Loan
+    from apps_coop.savings.models import WithdrawalRequest
+
+    # Cas 2 : payout de retrait d'épargne.
+    wr = getattr(payment, "withdrawal_request", None)
+    if wr is not None:
+        wr.statut = WithdrawalRequest.Statut.COMPLETEE
+        wr.save(update_fields=["statut", "updated_at"])
+        record_audit(
+            action="withdrawal.payout_completed",
+            entite_type="WithdrawalRequest",
+            entite_id=wr.id,
+            details={
+                "payment_id": payment.id,
+                "montant": str(payment.montant),
+                "reference_externe": payment.reference_externe,
+            },
+        )
+        # Notif membre — best-effort, ne doit pas casser le webhook.
+        try:
+            from apps_coop.notifications.events import emit_event
+
+            emit_event(
+                "withdrawal.completed",
+                member=payment.member,
+                context={
+                    "prenom": payment.member.prenom,
+                    "montant": _fmt_xaf(payment.montant),
+                    "mode_paiement": wr.get_mode_paiement_display(),
+                    "portal_url": getattr(
+                        settings, "FRONTEND_BASE_URL", "http://localhost:3200"
+                    ),
+                },
+            )
+        except Exception:  # noqa: BLE001
+            logger.warning("withdrawal.completed notification skipped", exc_info=True)
+        return
 
     if payment.loan_id is None:
         logger.error(
-            "Payment #%s (decaissement) sans loan_id — impossible de marquer le crédit.",
+            "Payment #%s (decaissement) sans loan_id ni withdrawal_request — orphelin.",
             payment.id,
         )
         return
 
     loan = Loan.objects.select_for_update().get(pk=payment.loan_id)
-    loan.date_decaissement = timezone.now().date()
+    loan.date_decaissement = timezone.localdate()
     loan.statut = Loan.Statut.ACTIF
     loan.save(update_fields=["date_decaissement", "statut", "updated_at"])
 
@@ -535,11 +594,10 @@ def _hook_decaissement(payment: Payment, _raw: dict) -> None:
             "numero_dossier": loan.numero_dossier,
         },
     )
-    from apps_coop.notifications.services import send_template
+    from apps_coop.notifications.events import emit_event
 
-    send_template(
+    emit_event(
         "loan.disbursed",
-        to=payment.member.user.email,
         member=payment.member,
         context={
             "prenom": payment.member.prenom,

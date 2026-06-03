@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gathe_finance/core/error/failures.dart';
 import 'package:gathe_finance/features/loans/domain/repositories/loans_repository.dart';
 import 'package:gathe_finance/features/loans/domain/usecases/request_loan_renewal.dart';
 import 'package:mocktail/mocktail.dart';
@@ -17,41 +16,31 @@ void main() {
     useCase = RequestLoanRenewal(repo);
   });
 
-  test('refuse durée < 3 mois', () {
-    expect(
-      () => useCase.call(const RequestLoanRenewalParams(
-        loanId: 1,
-        nouvelleDureeMois: 2,
-      )),
-      throwsA(isA<ValidationFailure>()),
-    );
-    verifyZeroInteractions(repo);
-  });
+  // Article 10 : la prorogation est fixe (+1 mois), pas de durée à valider.
+  // Le membre choisit seulement le mode (Article 11).
 
-  test('refuse durée > 36 mois', () {
-    expect(
-      () => useCase.call(const RequestLoanRenewalParams(
-        loanId: 1,
-        nouvelleDureeMois: 40,
-      )),
-      throwsA(isA<ValidationFailure>()),
-    );
-  });
-
-  test('délègue au repo pour une durée valide', () async {
+  test('délègue au repo en mode comptant (10 %)', () async {
     final renewal = Fixtures.loanRenewal();
-    when(() => repo.requestRenewal(
-          loanId: 1,
-          nouvelleDureeMois: 6,
-        )).thenAnswer((_) async => renewal);
+    when(() => repo.requestRenewal(loanId: 1, comptant: true))
+        .thenAnswer((_) async => renewal);
 
-    final result = await useCase.call(const RequestLoanRenewalParams(
-      loanId: 1,
-      nouvelleDureeMois: 6,
-    ));
+    final result = await useCase.call(
+      const RequestLoanRenewalParams(loanId: 1, comptant: true),
+    );
 
     expect(result.id, renewal.id);
-    verify(() => repo.requestRenewal(loanId: 1, nouvelleDureeMois: 6))
-        .called(1);
+    verify(() => repo.requestRenewal(loanId: 1, comptant: true)).called(1);
+  });
+
+  test('délègue au repo en mode reporté (15 %)', () async {
+    final renewal = Fixtures.loanRenewal();
+    when(() => repo.requestRenewal(loanId: 1, comptant: false))
+        .thenAnswer((_) async => renewal);
+
+    await useCase.call(
+      const RequestLoanRenewalParams(loanId: 1, comptant: false),
+    );
+
+    verify(() => repo.requestRenewal(loanId: 1, comptant: false)).called(1);
   });
 }

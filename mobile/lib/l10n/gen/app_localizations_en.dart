@@ -36,6 +36,13 @@ class AppL10nEn extends AppL10n {
   String get common_required => 'Required';
 
   @override
+  String get error_generic_title => 'Something went wrong';
+
+  @override
+  String get error_generic_body =>
+      'We couldn\'t load this data right now. Check your connection and try again.';
+
+  @override
   String get nav_home => 'Home';
 
   @override
@@ -72,7 +79,7 @@ class AppL10nEn extends AppL10n {
   String get profile_tile_states_sub => 'Balance, outstanding, seniority.';
 
   @override
-  String get profile_tile_contributions => 'My contributions';
+  String get profile_tile_contributions => 'My savings';
 
   @override
   String get profile_tile_contributions_sub => 'History of paid fees.';
@@ -184,7 +191,7 @@ class AppL10nEn extends AppL10n {
   String get home_no_movement_week => 'No movement this week.';
 
   @override
-  String get home_deposit => 'Pay my contribution';
+  String get home_deposit => 'Deposit my savings';
 
   @override
   String get home_history => 'History';
@@ -629,7 +636,7 @@ class AppL10nEn extends AppL10n {
   String get contrib_eyebrow => 'Profile';
 
   @override
-  String get contrib_title => 'My contributions';
+  String get contrib_title => 'My savings';
 
   @override
   String get contrib_total_label => 'Total paid to the cooperative';
@@ -664,14 +671,14 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String get contrib_empty_title => 'No contribution';
+  String get contrib_empty_title => 'No payment yet';
 
   @override
   String get contrib_empty_sub =>
-      'Your contribution payments will show up here as they come.';
+      'Your payments will show up here as they come.';
 
   @override
-  String get contrib_error_title => 'Contributions unavailable';
+  String get contrib_error_title => 'Savings unavailable';
 
   @override
   String get states_title => 'My statements';
@@ -705,7 +712,7 @@ class AppL10nEn extends AppL10n {
   String get states_no_active_credit => 'No active loan';
 
   @override
-  String get states_kpi_contributions => 'Contributions paid';
+  String get states_kpi_contributions => 'Payments made';
 
   @override
   String get states_kpi_seniority => 'Seniority';
@@ -770,6 +777,9 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get help_eyebrow => 'Profile';
+
+  @override
+  String get help_copy_a11y => 'tap to copy';
 
   @override
   String get help_title => 'Help & contact';
@@ -964,6 +974,11 @@ class AppL10nEn extends AppL10n {
   String get home_balance_label => 'Savings balance';
 
   @override
+  String home_delta_this_month(String value) {
+    return '$value this month';
+  }
+
+  @override
   String get carousel_save_title => 'Save every day';
 
   @override
@@ -1017,6 +1032,13 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get credit_next_due => 'Next instalment';
+
+  @override
+  String get credit_penalty_title => 'Late penalty due';
+
+  @override
+  String get credit_penalty_sub =>
+      '50% of the interest due on overdue instalments (Article 12).';
 
   @override
   String get credit_empty_body =>
@@ -1380,8 +1402,31 @@ class AppL10nEn extends AppL10n {
   String get ren_extra_month => 'Extension: +1 month';
 
   @override
+  String get ren_mode_question => 'How will you settle the interest?';
+
+  @override
+  String get ren_mode_comptant => 'Upfront — 10%';
+
+  @override
+  String get ren_mode_comptant_sub =>
+      'You pay the interest now. Reduced rate on the remaining principal.';
+
+  @override
+  String get ren_mode_reporte => 'Deferred — 15%';
+
+  @override
+  String get ren_mode_reporte_sub =>
+      'Interest is carried over with the principal. Increased rate.';
+
+  @override
+  String get ren_recap_interest => 'Renewal interest';
+
+  @override
+  String get ren_recap_total => 'New total to repay';
+
+  @override
   String get ren_fees_note =>
-      'Renewal extends your loan by one month. No fee is charged — only the interest rate is increased. Your request will be submitted to the committee for approval.';
+      'Renewal extends your loan by one month. No processing fee is charged — only the renewal interest, computed on the remaining principal, is added. Your request will be submitted to the committee for approval.';
 
   @override
   String get ren_submit => 'Request renewal';
@@ -1614,7 +1659,7 @@ class AppL10nEn extends AppL10n {
   String get mf_statut => 'Status';
 
   @override
-  String get mf_motivation_q => 'Why join the cooperative?';
+  String get mf_motivation_q => 'What is your motivation?';
 
   @override
   String get mf_submit => 'Send my request';

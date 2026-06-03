@@ -62,16 +62,6 @@ export default async function LocaleLayout(props: {
 
   return (
     <html lang={locale} className={`${jakarta.variable} ${inter.variable} ${lora.variable} ${syne.variable} ${dmSans.variable}`} suppressHydrationWarning>
-      <head>
-        {/* Thème : clair par défaut ; sombre opt-in (persisté). Appliqué avant
-            le paint pour éviter tout flash. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "try{if(localStorage.getItem('gathe-theme')==='dark'){document.documentElement.dataset.theme='dark';document.documentElement.classList.add('dark');}}catch(e){}",
-          }}
-        />
-      </head>
       <body>
         {/* Orbes ambiantes — visibles uniquement en thème sombre (CSS). */}
         <div aria-hidden="true" className="dark-orb dark-orb--green" />

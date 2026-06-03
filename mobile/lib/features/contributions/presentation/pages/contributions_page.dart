@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../app/theme/app_colors.dart';
-import '../../../../app/theme/app_radii.dart';
-import '../../../../app/theme/app_spacing.dart';
-import '../../../../app/theme/app_typography.dart';
+import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
-import '../../../../core/widgets/app_card.dart';
-import '../../../../core/widgets/brand_background.dart';
+import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_error_state.dart';
+import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
-import '../../../../core/widgets/static_page_header.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/contribution.dart';
 import '../state/contributions_notifier.dart';
 
+/// Page « Mes cotisations » — style **Paysika** (palette teal/navy, cards soft,
+/// fond doodle). Timeline chronologique des frais payés.
 class ContributionsPage extends ConsumerWidget {
   const ContributionsPage({super.key});
 
@@ -23,75 +23,97 @@ class ContributionsPage extends ConsumerWidget {
     final async = ref.watch(contributionsProvider);
     final total = ref.watch(totalContributionsValideesProvider);
     final l = AppL10n.of(context);
-    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: BrandBackground(
-        intensity: 0.55,
+      backgroundColor: PaColors.canvas,
+      body: PaPatternBackground(
         child: SafeArea(
           bottom: false,
           child: Column(
             children: [
-              StaticPageHeader(
-                eyebrow: l.contrib_eyebrow,
-                title: l.contrib_title,
+              // Header inline Paysika (back + eyebrow + titre)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 16, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back_rounded,
+                          color: PaColors.inkPrimary),
+                      tooltip: l.common_back,
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(l.contrib_eyebrow.toUpperCase(),
+                              style: PaText.eyebrow()),
+                          const SizedBox(height: 3),
+                          Text(l.contrib_title,
+                              style: PaText.heading(size: 22)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               Expanded(
                 child: RefreshIndicator.adaptive(
-                  color: scheme.primary,
+                  color: PaColors.teal,
                   onRefresh: () =>
                       ref.read(contributionsProvider.notifier).refresh(),
                   child: CustomScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.screenH,
-                    AppSpacing.m,
-                    AppSpacing.screenH,
-                    AppSpacing.xl,
-                  ),
-                  sliver: SliverToBoxAdapter(child: _TotalCard(total: total)),
-                ),
-                async.when(
-                  data: (items) {
-                    if (items.isEmpty) {
-                      return const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _EmptyState(),
-                      );
-                    }
-                    final sorted = [...items]
-                      ..sort((a, b) => b.date.compareTo(a.date));
-                    return SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.screenH,
-                        0,
-                        AppSpacing.screenH,
-                        AppSpacing.huge,
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                        sliver:
+                            SliverToBoxAdapter(child: _TotalCard(total: total)),
                       ),
-                      sliver: SliverList.builder(
-                        itemCount: sorted.length,
-                        itemBuilder: (context, i) => _TimelineRow(
-                          contribution: sorted[i],
-                          isFirst: i == 0,
-                          isLast: i == sorted.length - 1,
+                      async.when(
+                        data: (items) {
+                          if (items.isEmpty) {
+                            return const SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: _EmptyState(),
+                            );
+                          }
+                          final sorted = [...items]
+                            ..sort((a, b) => b.date.compareTo(a.date));
+                          return SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+                            sliver: SliverList.builder(
+                              itemCount: sorted.length,
+                              itemBuilder: (context, i) => _TimelineRow(
+                                contribution: sorted[i],
+                                isFirst: i == 0,
+                                isLast: i == sorted.length - 1,
+                              ),
+                            ),
+                          );
+                        },
+                        loading: () => const SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            child: PaCard(
+                              padding: EdgeInsets.all(18),
+                              child: SkeletonList(lines: 5),
+                            ),
+                          ),
+                        ),
+                        error: (e, _) => SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                          sliver: SliverToBoxAdapter(
+                            child: PaErrorState(
+                              onRetry: () => ref
+                                  .read(contributionsProvider.notifier)
+                                  .refresh(),
+                            ),
+                          ),
                         ),
                       ),
-                    );
-                  },
-                  loading: () => const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: AppSpacing.screenH, vertical: 20),
-                      child: SkeletonList(lines: 5),
-                    ),
-                  ),
-                  error: (e, _) => SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _ErrorState(message: e.toString()),
-                  ),
-                ),
                     ],
                   ),
                 ),
@@ -112,22 +134,20 @@ class _TotalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return AppCard(
-      hero: true,
+    return PaCard(
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
-              color: scheme.primary.withValues(alpha: 0.12),
-              borderRadius: const BorderRadius.all(AppRadii.r16),
+              color: PaColors.tealSurface,
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.account_balance_wallet_outlined,
-              color: scheme.primary,
+              color: PaColors.teal,
               size: 26,
             ),
           ),
@@ -136,19 +156,12 @@ class _TotalCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  l.contrib_total_label,
-                  style: AppTypography.bodySmall.copyWith(
-                    color: scheme.onSurface.withValues(alpha: 0.7),
-                  ),
-                ),
+                Text(l.contrib_total_label,
+                    style: PaText.body(size: 13, color: PaColors.inkSecondary)),
                 const SizedBox(height: 4),
                 Text(
                   XAFFormatter.format(total),
-                  style: AppTypography.headingMedium.copyWith(
-                    color: scheme.primary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                  style: PaText.amount(size: 22, color: PaColors.navyDeep),
                 ),
               ],
             ),
@@ -174,7 +187,6 @@ class _TimelineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final meta = _metaFor(contribution.type, l);
 
     return IntrinsicHeight(
@@ -187,25 +199,11 @@ class _TimelineRow extends StatelessWidget {
               alignment: Alignment.topCenter,
               children: [
                 Positioned(
-                  top: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 2,
-                    color: scheme.outline,
-                  ),
+                  top: isFirst ? 22 : 0,
+                  bottom: isLast ? null : 0,
+                  height: isLast ? 22 : null,
+                  child: Container(width: 2, color: PaColors.line),
                 ),
-                if (isFirst)
-                  Positioned(
-                    top: 0,
-                    height: 18,
-                    child: Container(width: 2, color: Colors.transparent),
-                  ),
-                if (isLast)
-                  Positioned(
-                    bottom: 0,
-                    height: 18,
-                    child: Container(width: 2, color: Colors.transparent),
-                  ),
                 Positioned(
                   top: 22,
                   child: Container(
@@ -214,7 +212,7 @@ class _TimelineRow extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: meta.tint,
                       shape: BoxShape.circle,
-                      border: Border.all(color: scheme.surface, width: 3),
+                      border: Border.all(color: PaColors.canvas, width: 3),
                     ),
                   ),
                 ),
@@ -224,8 +222,8 @@ class _TimelineRow extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.m),
-              child: AppCard(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: PaCard(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,11 +233,8 @@ class _TimelineRow extends StatelessWidget {
                         Icon(meta.icon, size: 18, color: meta.tint),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            meta.label,
-                            style: AppTypography.labelLarge
-                                .copyWith(color: scheme.onSurface),
-                          ),
+                          child: Text(meta.label,
+                              style: PaText.label(size: 14)),
                         ),
                         _StatusBadge(status: contribution.statut),
                       ],
@@ -249,17 +244,13 @@ class _TimelineRow extends StatelessWidget {
                       children: [
                         Text(
                           XAFFormatter.format(contribution.montant),
-                          style: AppTypography.headingSmall.copyWith(
-                            color: scheme.onSurface,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
+                          style: PaText.amount(size: 17),
                         ),
                         const Spacer(),
                         Text(
                           AppDateFormatter.long(contribution.date),
-                          style: AppTypography.bodySmall.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.55),
-                          ),
+                          style: PaText.body(
+                              size: 12.5, color: PaColors.inkMuted),
                         ),
                       ],
                     ),
@@ -267,18 +258,16 @@ class _TimelineRow extends StatelessWidget {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.confirmation_number_outlined,
                             size: 13,
-                            color: scheme.onSurface.withValues(alpha: 0.55),
+                            color: PaColors.inkMuted,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             l.contrib_ref(contribution.reference!),
-                            style: AppTypography.monoSmall.copyWith(
-                              color: scheme.onSurface.withValues(alpha: 0.55),
-                              fontSize: 11.5,
-                            ),
+                            style: PaText.body(
+                                size: 11.5, color: PaColors.inkMuted),
                           ),
                         ],
                       ),
@@ -299,31 +288,31 @@ class _TimelineRow extends StatelessWidget {
       case ContributionType.fraisInscription:
         return (
           icon: Icons.how_to_reg_outlined,
-          tint: AppColors.emerald,
+          tint: PaColors.success,
           label: l.contrib_type_inscription,
         );
       case ContributionType.fraisAdhesion:
         return (
           icon: Icons.diversity_3_rounded,
-          tint: AppColors.cobalt,
+          tint: PaColors.teal,
           label: l.contrib_type_adhesion,
         );
       case ContributionType.fraisDemandeCredit:
         return (
           icon: Icons.account_balance_outlined,
-          tint: AppColors.cobaltLight,
+          tint: PaColors.blue,
           label: l.contrib_type_credit_request,
         );
       case ContributionType.fraisReconduction:
         return (
           icon: Icons.refresh_rounded,
-          tint: AppColors.terra,
+          tint: PaColors.warning,
           label: l.contrib_type_renewal,
         );
       case ContributionType.fraisCarnet:
         return (
           icon: Icons.menu_book_outlined,
-          tint: AppColors.terraDark,
+          tint: PaColors.navy,
           label: l.contrib_type_booklet,
         );
     }
@@ -341,18 +330,18 @@ class _StatusBadge extends StatelessWidget {
     final (label, bg, fg) = switch (status) {
       ContributionStatus.valide => (
           l.contrib_status_validated,
-          AppColors.emeraldSurface,
-          AppColors.emeraldDark,
+          PaColors.successSurface,
+          PaColors.success,
         ),
       ContributionStatus.enAttente => (
           l.contrib_status_pending,
-          AppColors.cobaltSurface,
-          AppColors.cobalt,
+          PaColors.warningSurface,
+          PaColors.warning,
         ),
       ContributionStatus.echec => (
           l.contrib_status_failed,
-          AppColors.dangerSurface,
-          AppColors.danger,
+          PaColors.dangerSurface,
+          PaColors.danger,
         ),
     };
     return Container(
@@ -381,14 +370,8 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.huge,
-        AppSpacing.screenH,
-        AppSpacing.huge,
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 60, 24, 60),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -396,74 +379,23 @@ class _EmptyState extends StatelessWidget {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest,
-              borderRadius: const BorderRadius.all(AppRadii.r24),
+              color: PaColors.tealSurface,
+              borderRadius: BorderRadius.circular(24),
             ),
             alignment: Alignment.center,
-            child: Icon(
+            child: const Icon(
               Icons.receipt_long_outlined,
-              color: scheme.primary,
+              color: PaColors.teal,
               size: 32,
             ),
           ),
           const SizedBox(height: 18),
-          Text(
-            l.contrib_empty_title,
-            style: AppTypography.headingSmall.copyWith(color: scheme.onSurface),
-          ),
+          Text(l.contrib_empty_title, style: PaText.heading(size: 17)),
           const SizedBox(height: 6),
           Text(
             l.contrib_empty_sub,
             textAlign: TextAlign.center,
-            style: AppTypography.bodyMedium.copyWith(
-              color: scheme.onSurface.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message});
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.huge,
-        AppSpacing.screenH,
-        AppSpacing.huge,
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.cloud_off_outlined,
-            color: AppColors.terraDark,
-            size: 36,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            l.contrib_error_title,
-            textAlign: TextAlign.center,
-            style: AppTypography.headingSmall.copyWith(
-              color: AppColors.terraDark,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: AppTypography.bodySmall.copyWith(
-              color: scheme.onSurface.withValues(alpha: 0.55),
-            ),
+            style: PaText.body(size: 14, color: PaColors.inkSecondary),
           ),
         ],
       ),

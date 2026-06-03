@@ -27,6 +27,9 @@ class MembershipFormSheet extends StatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+      ),
       backgroundColor: PaColors.canvas,
       barrierColor: PaColors.navyDeep.withValues(alpha: 0.55),
       shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheet),

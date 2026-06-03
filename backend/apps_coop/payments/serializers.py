@@ -33,6 +33,20 @@ class PaymentInitSerializer(serializers.Serializer):
     # Optional links — only meaningful for remboursement / fees tied to a loan
     loan_id = serializers.IntegerField(required=False, allow_null=True)
     loan_installment_id = serializers.IntegerField(required=False, allow_null=True)
+    # LOT 6 (refonte 2026) — multi-jours pré-payé sur la collecte journalière.
+    # N = 1 : versement classique d'1 jour, montant libre ≥ collecte.min_per_day.
+    # N > 1 : mode multi-jours, montant doit valoir EXACTEMENT
+    #         N × collecte.min_per_day (validation côté view).
+    # Plafond N ≤ collecte.prepay.max_days (défaut 30).
+    nb_jours_couverts = serializers.IntegerField(
+        required=False,
+        min_value=1,
+        default=1,
+        help_text=(
+            "Nombre de jours couverts par le versement (multi-jours pré-payé). "
+            "Défaut 1. > 1 → montant figé à N × collecte.min_per_day."
+        ),
+    )
 
     def validate_network(self, value: str) -> str:
         upper = value.upper()
@@ -71,5 +85,7 @@ class PaymentReadSerializer(serializers.ModelSerializer):
             "date_validation",
             "motif_rejet",
             "created_at",
+            # LOT 6 (refonte 2026) — multi-jours pré-payé.
+            "nb_jours_couverts",
         )
         read_only_fields = fields

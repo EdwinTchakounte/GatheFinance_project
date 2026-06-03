@@ -43,16 +43,16 @@ class LoansNotifier extends AsyncNotifier<List<Loan>> {
     return updated;
   }
 
-  /// Demande la reconduction d'un crédit.
+  /// Demande la reconduction d'un crédit (Articles 9-11).
   Future<LoanRenewalEntity> requestRenewal({
     required int loanId,
-    required int nouvelleDureeMois,
+    required bool comptant,
   }) async {
     final useCase = ref.read(requestLoanRenewalUseCaseProvider);
     final renewal = await useCase.call(
       RequestLoanRenewalParams(
         loanId: loanId,
-        nouvelleDureeMois: nouvelleDureeMois,
+        comptant: comptant,
       ),
     );
     await refresh();

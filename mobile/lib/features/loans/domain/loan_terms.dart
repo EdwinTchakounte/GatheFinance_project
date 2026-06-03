@@ -42,12 +42,17 @@ const List<(num, num?, int)> kLoanDurationTiers = [
 ];
 
 /// Renvoie la durée de remboursement (mois) pour [montant] (Article 7).
+///
+/// Si [montant] tombe dans un « trou » entre deux paliers (ex. 50 500, entre
+/// 5 000–50 000 et 51 000–200 000), on retient le palier SUPÉRIEUR — la durée
+/// la plus longue protège l'emprunteur.
 int durationMonthsFor(num montant) {
-  for (final (lo, hi, months) in kLoanDurationTiers) {
-    if (hi == null || montant <= hi) {
-      if (montant >= lo) return months;
-      return months; // entre 2 paliers → palier supérieur
-    }
+  for (final (_, hi, months) in kLoanDurationTiers) {
+    // Dès que le montant est sous (ou dans) le plafond du palier courant, ce
+    // palier le couvre — y compris s'il tombe dans un « trou » sous la borne
+    // basse, auquel cas le plafond du palier précédent est déjà dépassé et
+    // c'est bien le palier supérieur (le courant) qui s'applique.
+    if (hi == null || montant <= hi) return months;
   }
   return kLoanDurationTiers.last.$3;
 }
@@ -110,3 +115,33 @@ const double kSavingsMonthlyRate = 0.01;
 
 /// Cotisation journalière suggérée (Article 4).
 const num kDailyContribution = 1000;
+
+// === Reconduction (Articles 10-11) ========================================
+
+/// Prorogation fixe accordée à la reconduction (Article 10) — +1 mois.
+const int kRenewalExtraMonths = 1;
+
+/// Taux de reconduction AVEC versement des intérêts au comptant (Article 11).
+const double kRenewalRateComptant = 0.10;
+
+/// Taux de reconduction SANS versement (intérêts reportés, Article 11).
+const double kRenewalRateReporte = 0.15;
+
+/// Intérêts de reconduction = taux × capital restant (Article 11).
+///
+/// Le taux porte UNIQUEMENT sur le capital restant dû : pas d'intérêt sur les
+/// intérêts déjà courus (« pas d'intérêt sur intérêt »).
+num renewalInterest(num capitalRestant, {required bool comptant}) {
+  final taux = comptant ? kRenewalRateComptant : kRenewalRateReporte;
+  return (capitalRestant * taux).roundToDouble();
+}
+
+// === Pénalité de retard (Article 12) ======================================
+
+/// Taux de pénalité sur versement partiel manqué (Article 12) — 50 %.
+const double kLatePenaltyRate = 0.50;
+
+/// Pénalité de retard = 50 % des intérêts dus sur la somme non versée
+/// (Article 12). [interetsDus] = part d'intérêts de l'échéance en retard.
+num latePenalty(num interetsDus) =>
+    (interetsDus * kLatePenaltyRate).roundToDouble();

@@ -3,16 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../app/theme/app_colors.dart';
-import '../../../../app/theme/app_radii.dart';
-import '../../../../app/theme/app_spacing.dart';
-import '../../../../app/theme/app_typography.dart';
-import '../../../../core/widgets/app_card.dart';
-import '../../../../core/widgets/brand_background.dart';
-import '../../../../core/widgets/static_page_header.dart';
+import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../../app/theme/paysika/pa_typography.dart';
+import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 
-/// Aide & contact.
+/// Aide & contact — style **Paysika**.
 ///
 /// **Coordonnées verbatim** récupérées depuis le site vitrine
 /// (`frontend/apps/site/src/lib/site-config.ts`). Aucune invention.
@@ -33,145 +30,147 @@ class HelpContactPage extends StatelessWidget {
     final faq = <_FaqItem>[
       _FaqItem(
         icon: Icons.savings_outlined,
-        tint: AppColors.emerald,
+        tint: PaColors.teal,
         question: l.help_faq1_q,
         answer: l.help_faq1_a,
       ),
       _FaqItem(
         icon: Icons.account_balance_outlined,
-        tint: AppColors.cobalt,
+        tint: PaColors.blue,
         question: l.help_faq2_q,
         answer: l.help_faq2_a,
       ),
       _FaqItem(
         icon: Icons.refresh_rounded,
-        tint: AppColors.cobaltLight,
+        tint: PaColors.navy,
         question: l.help_faq3_q,
         answer: l.help_faq3_a,
       ),
       _FaqItem(
         icon: Icons.menu_book_outlined,
-        tint: AppColors.terra,
+        tint: PaColors.warning,
         question: l.help_faq4_q,
         answer: l.help_faq4_a,
       ),
       _FaqItem(
         icon: Icons.lock_outline_rounded,
-        tint: AppColors.terraDark,
+        tint: PaColors.success,
         question: l.help_faq5_q,
         answer: l.help_faq5_a,
       ),
     ];
 
     return Scaffold(
-      body: BrandBackground(
-        intensity: 0.55,
+      backgroundColor: PaColors.canvas,
+      body: PaPatternBackground(
         child: SafeArea(
           bottom: false,
           child: Column(
             children: [
-              StaticPageHeader(
-                eyebrow: l.help_eyebrow,
-                title: l.help_title,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 16, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back_rounded,
+                          color: PaColors.inkPrimary),
+                      tooltip: l.common_back,
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(l.help_eyebrow.toUpperCase(),
+                              style: PaText.eyebrow()),
+                          const SizedBox(height: 3),
+                          Text(l.help_title, style: PaText.heading(size: 22)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               Expanded(
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.screenH,
-                    AppSpacing.m,
-                    AppSpacing.screenH,
-                    AppSpacing.huge,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
                   children: [
                     const _IntroCard(),
-                    const SizedBox(height: AppSpacing.l),
-
+                    const SizedBox(height: 18),
                     _SectionLabel(l.help_faq_section),
-                    const SizedBox(height: AppSpacing.s),
-                    AppCard(
-                      variant: AppCardVariant.glass,
+                    const SizedBox(height: 8),
+                    PaCard(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 4,
-                      ),
+                          horizontal: 6, vertical: 4),
                       child: Column(
                         children: [
                           for (int i = 0; i < faq.length; i++) ...[
                             _FaqTile(item: faq[i]),
                             if (i != faq.length - 1)
-                              Divider(
-                                height: 1,
-                                color: Theme.of(context).colorScheme.outline,
-                              ),
+                              const Divider(height: 1, color: PaColors.line),
                           ],
                         ],
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.l),
-
+                    const SizedBox(height: 18),
                     _SectionLabel(l.help_contact_section),
-                    const SizedBox(height: AppSpacing.s),
-                    AppCard(
-                      variant: AppCardVariant.glass,
+                    const SizedBox(height: 8),
+                    PaCard(
                       padding: EdgeInsets.zero,
-                      child: Builder(
-                        builder: (context) {
-                          final scheme = Theme.of(context).colorScheme;
-                          return Column(
-                            children: [
-                              _ContactTile(
-                                icon: Icons.chat_outlined,
-                                tint: const Color(0xFF25D366),
-                                label: l.help_contact_whatsapp,
-                                value: _whatsapp,
-                                copyLabel: l.help_copied_whatsapp,
-                              ),
-                              Divider(height: 1, color: scheme.outline),
-                              _ContactTile(
-                                icon: Icons.call_outlined,
-                                tint: AppColors.cobalt,
-                                label: l.help_contact_phone,
-                                value: _phone,
-                                copyLabel: l.help_copied_phone,
-                              ),
-                              Divider(height: 1, color: scheme.outline),
-                              _ContactTile(
-                                icon: Icons.phone_in_talk_outlined,
-                                tint: AppColors.cobaltLight,
-                                label: l.help_contact_landline,
-                                value: _landline,
-                                copyLabel: l.help_copied_landline,
-                              ),
-                              Divider(height: 1, color: scheme.outline),
-                              _ContactTile(
-                                icon: Icons.mail_outline_rounded,
-                                tint: AppColors.emerald,
-                                label: l.help_contact_email,
-                                value: _email,
-                                copyLabel: l.help_copied_email,
-                              ),
-                              Divider(height: 1, color: scheme.outline),
-                              _ContactTile(
-                                icon: Icons.location_on_outlined,
-                                tint: AppColors.terra,
-                                label: l.help_contact_agency,
-                                value: _agence,
-                                copyLabel: l.help_copied_agency,
-                                multiline: true,
-                              ),
-                              Divider(height: 1, color: scheme.outline),
-                              _ContactTile(
-                                icon: Icons.schedule_outlined,
-                                tint: AppColors.terraDark,
-                                label: l.help_contact_hours,
-                                value: _hours,
-                                copyLabel: '',
-                                copyable: false,
-                              ),
-                            ],
-                          );
-                        },
+                      child: Column(
+                        children: [
+                          _ContactTile(
+                            icon: Icons.chat_outlined,
+                            tint: const Color(0xFF25D366),
+                            label: l.help_contact_whatsapp,
+                            value: _whatsapp,
+                            copyLabel: l.help_copied_whatsapp,
+                          ),
+                          const Divider(height: 1, color: PaColors.line),
+                          _ContactTile(
+                            icon: Icons.call_outlined,
+                            tint: PaColors.blue,
+                            label: l.help_contact_phone,
+                            value: _phone,
+                            copyLabel: l.help_copied_phone,
+                          ),
+                          const Divider(height: 1, color: PaColors.line),
+                          _ContactTile(
+                            icon: Icons.phone_in_talk_outlined,
+                            tint: PaColors.navy,
+                            label: l.help_contact_landline,
+                            value: _landline,
+                            copyLabel: l.help_copied_landline,
+                          ),
+                          const Divider(height: 1, color: PaColors.line),
+                          _ContactTile(
+                            icon: Icons.mail_outline_rounded,
+                            tint: PaColors.teal,
+                            label: l.help_contact_email,
+                            value: _email,
+                            copyLabel: l.help_copied_email,
+                          ),
+                          const Divider(height: 1, color: PaColors.line),
+                          _ContactTile(
+                            icon: Icons.location_on_outlined,
+                            tint: PaColors.warning,
+                            label: l.help_contact_agency,
+                            value: _agence,
+                            copyLabel: l.help_copied_agency,
+                            multiline: true,
+                          ),
+                          const Divider(height: 1, color: PaColors.line),
+                          _ContactTile(
+                            icon: Icons.schedule_outlined,
+                            tint: PaColors.inkMuted,
+                            label: l.help_contact_hours,
+                            value: _hours,
+                            copyLabel: '',
+                            copyable: false,
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -192,9 +191,7 @@ class _IntroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return AppCard(
-      variant: AppCardVariant.glass,
+    return PaCard(
       padding: const EdgeInsets.all(18),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,12 +200,12 @@ class _IntroCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.emerald.withValues(alpha: 0.12),
-              borderRadius: const BorderRadius.all(AppRadii.r12),
+              color: PaColors.tealSurface,
+              borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
               Icons.support_agent_outlined,
-              color: AppColors.emerald,
+              color: PaColors.teal,
               size: 22,
             ),
           ),
@@ -217,17 +214,11 @@ class _IntroCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  l.help_intro_title,
-                  style: AppTypography.labelLarge
-                      .copyWith(color: scheme.onSurface),
-                ),
+                Text(l.help_intro_title, style: PaText.label(size: 14)),
                 const SizedBox(height: 4),
                 Text(
                   l.help_intro_sub,
-                  style: AppTypography.bodySmall.copyWith(
-                    color: scheme.onSurface.withValues(alpha: 0.7),
-                  ),
+                  style: PaText.body(size: 13, color: PaColors.inkSecondary),
                 ),
               ],
             ),
@@ -245,18 +236,9 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(left: 2),
-      child: Text(
-        text.toUpperCase(),
-        style: AppTypography.labelMedium.copyWith(
-          color: scheme.onSurface.withValues(alpha: 0.55),
-          letterSpacing: 1.4,
-          fontWeight: FontWeight.w700,
-          fontSize: 11.5,
-        ),
-      ),
+      child: Text(text.toUpperCase(), style: PaText.eyebrow()),
     );
   }
 }
@@ -284,17 +266,15 @@ class _FaqTile extends StatefulWidget {
   State<_FaqTile> createState() => _FaqTileState();
 }
 
-class _FaqTileState extends State<_FaqTile>
-    with SingleTickerProviderStateMixin {
+class _FaqTileState extends State<_FaqTile> {
   bool _open = false;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: const BorderRadius.all(AppRadii.r12),
+        borderRadius: BorderRadius.circular(12),
         onTap: () {
           unawaited(HapticFeedback.selectionClick());
           setState(() => _open = !_open);
@@ -311,30 +291,22 @@ class _FaqTileState extends State<_FaqTile>
                     height: 36,
                     decoration: BoxDecoration(
                       color: widget.item.tint.withValues(alpha: 0.12),
-                      borderRadius: const BorderRadius.all(AppRadii.r12),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
-                      widget.item.icon,
-                      size: 18,
-                      color: widget.item.tint,
-                    ),
+                    child: Icon(widget.item.icon,
+                        size: 18, color: widget.item.tint),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      widget.item.question,
-                      style: AppTypography.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: scheme.onSurface,
-                      ),
-                    ),
+                    child: Text(widget.item.question,
+                        style: PaText.label(size: 14)),
                   ),
                   AnimatedRotation(
                     turns: _open ? 0.5 : 0,
                     duration: const Duration(milliseconds: 180),
-                    child: Icon(
+                    child: const Icon(
                       Icons.keyboard_arrow_down_rounded,
-                      color: scheme.onSurface.withValues(alpha: 0.7),
+                      color: PaColors.inkSecondary,
                       size: 22,
                     ),
                   ),
@@ -346,17 +318,12 @@ class _FaqTileState extends State<_FaqTile>
                 alignment: Alignment.topCenter,
                 child: _open
                     ? Padding(
-                        padding: const EdgeInsets.only(
-                          left: 48,
-                          top: 10,
-                          right: 4,
-                        ),
+                        padding:
+                            const EdgeInsets.only(left: 48, top: 10, right: 4),
                         child: Text(
                           widget.item.answer,
-                          style: AppTypography.bodySmall.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.7),
-                            height: 1.5,
-                          ),
+                          style: PaText.body(
+                              size: 13, color: PaColors.inkSecondary),
                         ),
                       )
                     : const SizedBox.shrink(),
@@ -391,7 +358,7 @@ class _ContactTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final l = AppL10n.of(context);
     final body = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       child: Row(
@@ -402,7 +369,7 @@ class _ContactTile extends StatelessWidget {
             height: 36,
             decoration: BoxDecoration(
               color: tint.withValues(alpha: 0.12),
-              borderRadius: const BorderRadius.all(AppRadii.r12),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, size: 18, color: tint),
           ),
@@ -411,34 +378,21 @@ class _ContactTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: AppTypography.labelMedium.copyWith(
-                    color: scheme.onSurface.withValues(alpha: 0.55),
-                    letterSpacing: 0.4,
-                    fontSize: 11.5,
-                  ),
-                ),
-                const SizedBox(height: 2),
+                Text(label,
+                    style: PaText.eyebrow(color: PaColors.inkMuted)),
+                const SizedBox(height: 3),
                 Text(
                   value,
                   maxLines: multiline ? 3 : 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: scheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: PaText.label(size: 14),
                 ),
               ],
             ),
           ),
           if (copyable) ...[
             const SizedBox(width: 8),
-            Icon(
-              Icons.copy_rounded,
-              size: 16,
-              color: scheme.onSurface.withValues(alpha: 0.4),
-            ),
+            const Icon(Icons.copy_rounded, size: 16, color: PaColors.inkFaint),
           ],
         ],
       ),
@@ -446,24 +400,28 @@ class _ContactTile extends StatelessWidget {
 
     if (!copyable) return body;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () async {
-          await Clipboard.setData(ClipboardData(text: value));
-          unawaited(HapticFeedback.lightImpact());
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(
-                content: Text(copyLabel),
-                behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-        },
-        child: body,
+    return Semantics(
+      button: true,
+      label: '$label — ${l.help_copy_a11y}',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            await Clipboard.setData(ClipboardData(text: value));
+            unawaited(HapticFeedback.lightImpact());
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(copyLabel),
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+          },
+          child: body,
+        ),
       ),
     );
   }

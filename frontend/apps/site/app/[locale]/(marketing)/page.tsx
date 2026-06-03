@@ -8,11 +8,12 @@ import { ArticleCard } from "@/components/article-card";
 import { InstitutionalDecor } from "@/components/institutional-decor";
 import { CtaBand } from "@/components/cta-band";
 import { CurveDivider } from "@/components/curve-divider";
+import { KeyFiguresBand } from "@/components/key-figures-band";
 import { Reveal } from "@/components/reveal";
 import { SectionHeading } from "@/components/section-heading";
 import { Hero } from "@/sections/hero";
 import { AboutSection } from "@/sections/about";
-import { servicePillars, siteConfig } from "@/lib/site-config";
+import { servicePillars } from "@/lib/site-config";
 import { getBlogPosts } from "@/lib/wagtail";
 
 type Params = { params: Promise<{ locale: string }> };
@@ -28,7 +29,6 @@ export default async function HomePage({ params }: Params) {
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "home" });
   const tc = await getTranslations({ locale, namespace: "common" });
-  const ta = await getTranslations({ locale, namespace: "about" });
   const ts = await getTranslations({ locale, namespace: "services" });
   const tn = await getTranslations({ locale, namespace: "nav" });
   const posts = await getBlogPosts(locale, 3);
@@ -39,26 +39,11 @@ export default async function HomePage({ params }: Params) {
 
       <CurveDivider from="navy" to="cream" height={70} />
 
-      {/* ===== Trust strip — clean BRC ecosystem signature ===== */}
-      <div className="bg-cream">
-        <Container className="flex items-center justify-center py-4 text-center text-sm text-ink-600">
-          <span>
-            {ta("initiativeOf")}{" "}
-            <a
-              href={siteConfig.brc.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-ink-900 underline decoration-terra-400 underline-offset-2 transition-colors hover:decoration-terra-600"
-            >
-              {siteConfig.brc.name}
-            </a>
-          </span>
-        </Container>
-      </div>
-
       {/* ===== MANIFESTO — institutional dark band ===== */}
       <AboutSection locale={locale} />
 
+      {/* ===== KEY FIGURES — 4 stats du Règlement Intérieur 2025 ===== */}
+      <KeyFiguresBand />
 
       {/* ===== SERVICES — 4 cards (matches the reference site) ===== */}
       <section className="relative isolate overflow-hidden section-pad bg-paper">
@@ -72,19 +57,20 @@ export default async function HomePage({ params }: Params) {
           />
 
           {/* Bento asymmetric — 1 big tall card on the left, 2 stacked cards
-              on the right, 1 wide horizontal card below. Cleanly degrades to
-              a single column on mobile. */}
-          <div className="mt-14 grid grid-cols-1 gap-5 md:grid-cols-12 md:gap-6 lg:mt-16">
+              on the right, 1 wide horizontal card below. Reste en 1 colonne
+              jusqu'à `lg:` (≥ 1024 px) — sur tablette (md, 768-1023 px) la
+              grille bento ferait des cartes inégales en hauteur. */}
+          <div className="mt-14 grid grid-cols-1 gap-5 lg:mt-16 lg:grid-cols-12 lg:gap-6">
             {servicePillars
               .filter((p) => HOME_PILLAR_KEYS.includes(p.key as (typeof HOME_PILLAR_KEYS)[number]))
               .map((pillar, i, arr) => {
                 const isBig = i === 0;
                 const isWide = i === arr.length - 1;
                 const spanClass = isBig
-                  ? "md:col-span-7 md:row-span-2"
+                  ? "lg:col-span-7 lg:row-span-2"
                   : isWide
-                    ? "md:col-span-12"
-                    : "md:col-span-5";
+                    ? "lg:col-span-12"
+                    : "lg:col-span-5";
 
                 return (
                   <Reveal
@@ -95,16 +81,16 @@ export default async function HomePage({ params }: Params) {
                       "group relative flex overflow-hidden rounded-md border border-line-200/70 bg-cream/35 backdrop-blur-sm",
                       "transition-shadow duration-500 hover:shadow-[var(--shadow-md)]",
                       spanClass,
-                      isWide ? "flex-col md:flex-row md:items-stretch" : "flex-col",
+                      isWide ? "flex-col lg:flex-row lg:items-stretch" : "flex-col",
                     )}
                   >
                     <div
                       className={cn(
                         "relative shrink-0 overflow-hidden",
                         isWide
-                          ? "aspect-[16/9] md:aspect-auto md:w-[52%] md:min-h-[260px]"
+                          ? "aspect-[16/9] lg:aspect-auto lg:w-[52%] lg:min-h-[260px]"
                           : isBig
-                            ? "aspect-[4/4.4] md:aspect-[4/4.6]"
+                            ? "aspect-[4/4.4] lg:aspect-[4/4.6]"
                             : "aspect-[16/10]",
                       )}
                     >
@@ -114,10 +100,10 @@ export default async function HomePage({ params }: Params) {
                         fill
                         sizes={
                           isBig
-                            ? "(min-width: 768px) 58vw, 92vw"
+                            ? "(min-width: 1024px) 58vw, 92vw"
                             : isWide
-                              ? "(min-width: 768px) 50vw, 92vw"
-                              : "(min-width: 768px) 42vw, 92vw"
+                              ? "(min-width: 1024px) 50vw, 92vw"
+                              : "(min-width: 1024px) 42vw, 92vw"
                         }
                         className="object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]"
                       />
@@ -137,7 +123,7 @@ export default async function HomePage({ params }: Params) {
                       className={cn(
                         "flex flex-1 flex-col p-5 lg:p-6",
                         isBig && "lg:p-8",
-                        isWide && "md:justify-center md:p-8 lg:p-10",
+                        isWide && "lg:justify-center lg:p-8 xl:p-10",
                       )}
                     >
                       <h3

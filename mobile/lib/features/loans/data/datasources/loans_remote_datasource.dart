@@ -25,6 +25,6 @@ abstract class LoansRemoteDataSource {
 
   Future<LoanRenewalEntity> requestRenewal({
     required int loanId,
-    required int nouvelleDureeMois,
+    required bool comptant,
   });
 }

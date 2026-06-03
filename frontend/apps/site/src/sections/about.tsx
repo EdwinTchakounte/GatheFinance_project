@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 
 import { buttonClasses, Container } from "@gathe/ui";
 import { Link } from "@/i18n/navigation";
-import { images, siteConfig } from "@/lib/site-config";
+import { images } from "@/lib/site-config";
 import { Reveal } from "@/components/reveal";
 import { SectionHeading } from "@/components/section-heading";
 
@@ -49,17 +49,6 @@ export async function AboutSection({ locale }: { locale: string }) {
               <Link href="/a-propos" className={buttonClasses({ variant: "success" })}>
                 {t("about.cta")} <ArrowRight aria-hidden="true" className="size-4" />
               </Link>
-              <span className="text-sm text-ink-500">
-                {ta("initiativeOf")}{" "}
-                <a
-                  href={siteConfig.brc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-blue-700 underline decoration-emerald/50 underline-offset-2 transition-colors hover:decoration-emerald"
-                >
-                  {siteConfig.brc.name}
-                </a>
-              </span>
             </Reveal>
           </div>
 

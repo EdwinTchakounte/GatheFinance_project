@@ -151,6 +151,18 @@ abstract class AppL10n {
   /// **'Requis'**
   String get common_required;
 
+  /// No description provided for @error_generic_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une erreur est survenue'**
+  String get error_generic_title;
+
+  /// No description provided for @error_generic_body.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de charger ces données pour le moment. Vérifie ta connexion et réessaie.'**
+  String get error_generic_body;
+
   /// No description provided for @nav_home.
   ///
   /// In fr, this message translates to:
@@ -226,7 +238,7 @@ abstract class AppL10n {
   /// No description provided for @profile_tile_contributions.
   ///
   /// In fr, this message translates to:
-  /// **'Mes cotisations'**
+  /// **'Mon épargne'**
   String get profile_tile_contributions;
 
   /// No description provided for @profile_tile_contributions_sub.
@@ -442,7 +454,7 @@ abstract class AppL10n {
   /// No description provided for @home_deposit.
   ///
   /// In fr, this message translates to:
-  /// **'Verser ma cotisation'**
+  /// **'Verser mon épargne'**
   String get home_deposit;
 
   /// No description provided for @home_history.
@@ -1246,7 +1258,7 @@ abstract class AppL10n {
   /// No description provided for @contrib_title.
   ///
   /// In fr, this message translates to:
-  /// **'Mes cotisations'**
+  /// **'Mon épargne'**
   String get contrib_title;
 
   /// No description provided for @contrib_total_label.
@@ -1312,19 +1324,19 @@ abstract class AppL10n {
   /// No description provided for @contrib_empty_title.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune cotisation'**
+  /// **'Aucun versement'**
   String get contrib_empty_title;
 
   /// No description provided for @contrib_empty_sub.
   ///
   /// In fr, this message translates to:
-  /// **'Tes paiements de cotisation apparaîtront ici au fur et à mesure.'**
+  /// **'Tes versements d\'épargne apparaîtront ici au fur et à mesure.'**
   String get contrib_empty_sub;
 
   /// No description provided for @contrib_error_title.
   ///
   /// In fr, this message translates to:
-  /// **'Cotisations indisponibles'**
+  /// **'Épargne indisponible'**
   String get contrib_error_title;
 
   /// No description provided for @states_title.
@@ -1384,7 +1396,7 @@ abstract class AppL10n {
   /// No description provided for @states_kpi_contributions.
   ///
   /// In fr, this message translates to:
-  /// **'Cotisations versées'**
+  /// **'Versements effectués'**
   String get states_kpi_contributions;
 
   /// No description provided for @states_kpi_seniority.
@@ -1426,7 +1438,7 @@ abstract class AppL10n {
   /// No description provided for @states_contrib_detail_title.
   ///
   /// In fr, this message translates to:
-  /// **'Détail de mes cotisations'**
+  /// **'Détail de mon épargne'**
   String get states_contrib_detail_title;
 
   /// No description provided for @states_contrib_detail_sub.
@@ -1494,6 +1506,12 @@ abstract class AppL10n {
   /// In fr, this message translates to:
   /// **'Profil'**
   String get help_eyebrow;
+
+  /// No description provided for @help_copy_a11y.
+  ///
+  /// In fr, this message translates to:
+  /// **'toucher pour copier'**
+  String get help_copy_a11y;
 
   /// No description provided for @help_title.
   ///
@@ -1849,10 +1867,16 @@ abstract class AppL10n {
   /// **'Solde épargne'**
   String get home_balance_label;
 
+  /// No description provided for @home_delta_this_month.
+  ///
+  /// In fr, this message translates to:
+  /// **'{value} ce mois'**
+  String home_delta_this_month(String value);
+
   /// No description provided for @carousel_save_title.
   ///
   /// In fr, this message translates to:
-  /// **'Cotise chaque jour'**
+  /// **'Épargne chaque jour'**
   String get carousel_save_title;
 
   /// No description provided for @carousel_save_sub.
@@ -1950,6 +1974,18 @@ abstract class AppL10n {
   /// In fr, this message translates to:
   /// **'Prochaine échéance'**
   String get credit_next_due;
+
+  /// No description provided for @credit_penalty_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pénalité de retard exigible'**
+  String get credit_penalty_title;
+
+  /// No description provided for @credit_penalty_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'50 % des intérêts dus sur les échéances en retard (Article 12).'**
+  String get credit_penalty_sub;
 
   /// No description provided for @credit_empty_body.
   ///
@@ -2206,7 +2242,7 @@ abstract class AppL10n {
   /// No description provided for @releve_pdf_total_contrib.
   ///
   /// In fr, this message translates to:
-  /// **'Total cotisations validées'**
+  /// **'Total épargne validée'**
   String get releve_pdf_total_contrib;
 
   /// No description provided for @releve_pdf_tx_header.
@@ -2296,7 +2332,7 @@ abstract class AppL10n {
   /// No description provided for @dep_title.
   ///
   /// In fr, this message translates to:
-  /// **'Verser ma cotisation'**
+  /// **'Verser mon épargne'**
   String get dep_title;
 
   /// No description provided for @dep_how.
@@ -2380,7 +2416,7 @@ abstract class AppL10n {
   /// No description provided for @classic_dep_sub.
   ///
   /// In fr, this message translates to:
-  /// **'Épargne classique — montant libre, séparé de ta cotisation.'**
+  /// **'Épargne classique — montant libre, séparé de ton épargne journalière.'**
   String get classic_dep_sub;
 
   /// No description provided for @classic_card_title.
@@ -2605,10 +2641,52 @@ abstract class AppL10n {
   /// **'Prolongation : +1 mois'**
   String get ren_extra_month;
 
+  /// No description provided for @ren_mode_question.
+  ///
+  /// In fr, this message translates to:
+  /// **'Comment règles-tu les intérêts ?'**
+  String get ren_mode_question;
+
+  /// No description provided for @ren_mode_comptant.
+  ///
+  /// In fr, this message translates to:
+  /// **'Au comptant — 10 %'**
+  String get ren_mode_comptant;
+
+  /// No description provided for @ren_mode_comptant_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tu verses les intérêts maintenant. Taux réduit sur le capital restant.'**
+  String get ren_mode_comptant_sub;
+
+  /// No description provided for @ren_mode_reporte.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reportés — 15 %'**
+  String get ren_mode_reporte;
+
+  /// No description provided for @ren_mode_reporte_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les intérêts sont reportés avec le capital. Taux majoré.'**
+  String get ren_mode_reporte_sub;
+
+  /// No description provided for @ren_recap_interest.
+  ///
+  /// In fr, this message translates to:
+  /// **'Intérêts de reconduction'**
+  String get ren_recap_interest;
+
+  /// No description provided for @ren_recap_total.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nouveau total à rembourser'**
+  String get ren_recap_total;
+
   /// No description provided for @ren_fees_note.
   ///
   /// In fr, this message translates to:
-  /// **'La reconduction prolonge ton crédit d\'un mois. Aucun frais n\'est dû : seul le taux d\'intérêt est majoré. Ta demande sera soumise au comité pour validation.'**
+  /// **'La reconduction prolonge ton crédit d\'un mois. Aucun frais de dossier n\'est dû : seuls les intérêts de reconduction, calculés sur le capital restant, s\'ajoutent. Ta demande sera soumise au comité pour validation.'**
   String get ren_fees_note;
 
   /// No description provided for @ren_submit.
@@ -3040,7 +3118,7 @@ abstract class AppL10n {
   /// No description provided for @mf_motivation_q.
   ///
   /// In fr, this message translates to:
-  /// **'Pourquoi rejoindre la coopérative ?'**
+  /// **'Quelle est votre motivation ?'**
   String get mf_motivation_q;
 
   /// No description provided for @mf_submit.

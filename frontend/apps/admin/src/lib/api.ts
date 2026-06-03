@@ -31,7 +31,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method || "GET").toUpperCase();
   const headers = new Headers(init.headers);
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
-  if (init.body && !headers.has("Content-Type")) {
+  // FormData : laisser le navigateur poser Content-Type avec son boundary.
+  const isFormData =
+    typeof FormData !== "undefined" && init.body instanceof FormData;
+  if (init.body && !isFormData && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
   if (method !== "GET" && method !== "HEAD") {
@@ -63,9 +66,43 @@ export type Identity = {
 };
 
 export type DashboardKpis = {
-  members: { actif: number; suspendu: number };
-  queues: { adhesions_en_attente: number; credits_en_instruction: number };
-  finance: { encours_credit: string; epargne_total: string };
+  members: {
+    actif: number;
+    suspendu: number;
+    temporaire: number;
+    brc_validated: number;
+  };
+  queues: {
+    adhesions_en_attente: number;
+    credits_en_instruction: number;
+    avaliste_pending: number;
+    campaign_validation_pending: number;
+  };
+  finance: {
+    encours_credit: string;
+    epargne_total: string;
+    epargne_collecte: string;
+    epargne_classique: string;
+  };
+  epargne_classique_cycle: {
+    notifie: number;
+    urgence: number;
+    en_attente_paiement: number;
+  };
+  lenders: {
+    consents_actifs: number;
+    tranches_disponible: string;
+    tranches_engagee: string;
+    funding_in_progress: number;
+  };
+  campaigns: {
+    actives: number;
+  };
+  contentieux: {
+    loans_en_retard: number;
+    loans_contentieux: number;
+    escalades_ouvertes: number;
+  };
   recent_payments: Array<{
     id: number;
     montant: string;
@@ -151,6 +188,50 @@ export type Member = {
   statut: "actif" | "suspendu" | "radie";
   statut_display: string;
   date_adhesion: string;
+  // Refonte 2026 — LOT 1 (BRC + ancienneté).
+  is_brc_member?: boolean;
+  brc_validated_at?: string | null;
+  seniority_months?: number;
+  is_senior?: boolean;
+};
+
+// Refonte 2026 — LOT 1 BRC.
+export type BRCDocument = {
+  id: number;
+  member: number;
+  member_numero: string;
+  member_nom: string;
+  member_prenom: string;
+  fichier_url: string;
+  nom_original: string;
+  taille: number;
+  statut: "en_attente" | "valide" | "rejete";
+  statut_display: string;
+  motif_rejet: string;
+  validated_by: number | null;
+  validated_at: string | null;
+  created_at: string;
+};
+
+// Refonte 2026 — LOT 5 Renouvellements épargne classique.
+export type RenewalRow = {
+  id: number;
+  member_id: number;
+  member_numero: string;
+  member_nom: string;
+  member_prenom: string;
+  member_email: string;
+  solde: string;
+  cycle_courant: number;
+  date_ouverture: string;
+  date_prochaine_maturite: string | null;
+  statut_renouvellement:
+    | "actif"
+    | "notifie"
+    | "urgence"
+    | "en_attente_paiement"
+    | "archive";
+  statut_display: string;
 };
 
 export type PaymentRow = {
@@ -167,6 +248,8 @@ export type PaymentRow = {
   date_validation: string | null;
   motif_rejet: string;
   created_at: string;
+  // LOT 6 — multi-jours pré-payé (collecte journalière).
+  nb_jours_couverts?: number;
   member: {
     id: number;
     numero_membre: string;
@@ -191,7 +274,174 @@ export type RateConfig = {
 
 export type CostsConfig = { fees: FeeConfig[]; rates: RateConfig[] };
 
+// P2 — AppSettings tunables (refonte 2026).
+export type AppSettingType = "int" | "decimal" | "bool" | "str" | "csv" | "enum";
+
+export type AppSettingRow = {
+  key: string;
+  group: string;
+  label: string;
+  description: string;
+  type: AppSettingType;
+  default: string;
+  value: string;
+  is_admin_edited: boolean;
+  choices?: string[];
+  min?: number;
+  max?: number;
+};
+
+export type AppSettingGroup = { key: string; label: string };
+
+export type AppSettingsResponse = {
+  groups: AppSettingGroup[];
+  settings: AppSettingRow[];
+};
+
 export type Paginated<T> = { count: number; results: T[] };
+
+// Refonte 2026 — Retraits épargne avec canal MOMO/présentiel + payout Tara.
+export type WithdrawalStatut =
+  | "en_attente"
+  | "approuvee"
+  | "en_payout"
+  | "completee"
+  | "payout_failed"
+  | "rejetee";
+
+export type WithdrawalRow = {
+  id: number;
+  numero_membre: string;
+  member_nom: string;
+  montant: string;
+  motif: string;
+  statut: WithdrawalStatut;
+  statut_display: string;
+  mode_paiement: "momo" | "presentiel";
+  mode_paiement_display: string;
+  recipient_phone_masked: string;
+  network: "" | "MTN" | "ORANGE" | "WAVE" | "AIRTEL";
+  motif_rejet: string;
+  date_demande: string;
+  date_decision: string | null;
+  handed_over_at: string | null;
+  can_mark_paid: boolean;
+  can_retry_payout: boolean;
+};
+
+// LOT 16 — Campagnes micro-crédit (voie 3).
+export type MicrocampaignRow = {
+  id: number;
+  nom: string;
+  profil_cible: string;
+  date_debut: string;
+  date_fin: string;
+  montant_min: string;
+  montant_max: string;
+  taux_interet: string;
+  nb_jours_recouvrement: number;
+  plafond_beneficiaires: number | null;
+  actif: boolean;
+  is_open: boolean;
+  closed_at: string | null;
+  close_reason: string;
+  beneficiaires_count: number;
+  targeted_count: number;
+  flyer_url: string | null;
+  created_at: string;
+  created_by_id: number;
+};
+
+export type MicrocampaignTargetedMember = {
+  id: number;
+  numero_membre: string;
+  nom: string;
+  prenom: string;
+  statut: string;
+};
+
+export type MicrocampaignPendingRequest = {
+  id: number;
+  member_id: number;
+  member_nom: string;
+  member_numero: string;
+  montant_demande: string;
+  duree_mois: number;
+  motif: string;
+  date_soumission: string;
+};
+
+export type MicrocampaignBeneficiaire = {
+  id: number;
+  numero_membre: string;
+  nom: string;
+  prenom: string;
+  statut: string;
+  date_adhesion: string;
+};
+
+export type MicrocampaignDetail = MicrocampaignRow & {
+  pending_requests: MicrocampaignPendingRequest[];
+  pending_count: number;
+  beneficiaires: MicrocampaignBeneficiaire[];
+  targeted_members: MicrocampaignTargetedMember[];
+};
+
+export type MicrocampaignTargetedAddResponse = {
+  campaign: MicrocampaignRow;
+  added_count: number;
+  not_found: { member_ids: number[]; numeros_membre: string[] };
+  targeted_members: MicrocampaignTargetedMember[];
+};
+
+// LOT 17 — Escalades judiciaires (phase D/E contentieux).
+export type JudicialBien = {
+  description: string;
+  valeur_estimee: string | null;
+};
+
+export type JudicialStatut =
+  | "en_instance"
+  | "decision_rendue"
+  | "executee"
+  | "classee_sans_suite";
+
+export type JudicialEscalationRow = {
+  id: number;
+  loan_id: number;
+  loan_numero_dossier: string;
+  member_id: number;
+  member_numero: string;
+  member_nom: string;
+  statut: JudicialStatut;
+  statut_display: string;
+  declenche_at: string;
+  declenche_par_id: number | null;
+  declenche_mode: string;
+  motif: string;
+  documents_attaches: unknown[];
+  decision_date: string | null;
+  biens_saisissables: JudicialBien[];
+  execution_date: string | null;
+  montant_recouvre: string;
+  biens_saisis: JudicialBien[];
+  closed_at: string | null;
+  close_reason: string;
+  loan_solde_restant: string;
+  loan_statut: string;
+};
+
+export type MicrocampaignCreateInput = {
+  nom: string;
+  profil_cible: string;
+  date_debut: string;
+  date_fin: string;
+  montant_min: string | number;
+  montant_max: string | number;
+  taux_interet: string | number;
+  nb_jours_recouvrement: number;
+  plafond_beneficiaires?: number | null;
+};
 
 function qs(params: Record<string, string | undefined>): string {
   const entries = Object.entries(params).filter(
@@ -273,9 +523,181 @@ export const adminApi = {
       request<Paginated<Member>>(`/admin/members/${qs(params)}`),
   },
 
+  withdrawals: {
+    list: (statut?: WithdrawalStatut) =>
+      request<{ results: WithdrawalRow[] }>(
+        `/admin/withdrawals/${statut ? `?statut=${statut}` : ""}`,
+      ),
+    decide: (id: number, payload: { decision: "approuvee" | "rejetee"; motif_rejet?: string }) =>
+      request<WithdrawalRow>(`/admin/withdrawals/${id}/decide/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    markPaid: (id: number, note?: string) =>
+      request<WithdrawalRow>(`/admin/withdrawals/${id}/mark-paid/`, {
+        method: "POST",
+        body: JSON.stringify({ note: note ?? "" }),
+      }),
+    retryPayout: (id: number) =>
+      request<WithdrawalRow>(`/admin/withdrawals/${id}/retry-payout/`, {
+        method: "POST",
+      }),
+  },
+
   payments: {
     list: (params: { statut?: string; type?: string; q?: string } = {}) =>
       request<Paginated<PaymentRow>>(`/payments/admin/${qs(params)}`),
+  },
+
+  // Refonte 2026 LOT 1 — Justificatifs BRC.
+  brc: {
+    list: (statut?: string) =>
+      request<BRCDocument[]>(
+        `/admin/brc/${statut ? `?statut=${statut}` : ""}`,
+      ),
+    validate: (id: number) =>
+      request<BRCDocument>(`/admin/brc/${id}/validate/`, { method: "POST" }),
+    reject: (id: number, motif: string) =>
+      request<BRCDocument>(`/admin/brc/${id}/reject/`, {
+        method: "POST",
+        body: JSON.stringify({ motif }),
+      }),
+  },
+
+  // Refonte 2026 LOT 5 — Renouvellements épargne classique.
+  renewals: {
+    list: (statut: string = "en_attente_paiement") =>
+      request<Paginated<RenewalRow>>(`/savings/admin/renewals/?statut=${statut}`),
+    process: (id: number, paid_amount?: number) =>
+      request<{
+        id: number;
+        cycle_courant: number;
+        statut_renouvellement: string;
+        date_prochaine_maturite: string | null;
+      }>(`/savings/admin/renewals/${id}/process/`, {
+        method: "POST",
+        body: JSON.stringify(paid_amount !== undefined ? { paid_amount } : {}),
+      }),
+  },
+
+  // P2 — Tunables AppSettings refonte 2026 (BRC, ancienneté, eligibility,
+  // seizure, judicial, etc.). Catalogue côté serveur (audit/tunables.py).
+  appSettings: {
+    list: () => request<AppSettingsResponse>("/audit/admin/settings/"),
+    update: (key: string, value: string | number | boolean) =>
+      request<AppSettingRow>(
+        `/audit/admin/settings/${encodeURIComponent(key)}/`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ value }),
+        },
+      ),
+  },
+
+  // LOT 16 — Campagnes micro-crédit (voie 3).
+  campaigns: {
+    list: (
+      params: { actif?: "true" | "false"; profil_cible?: string; is_open?: "true" } = {},
+    ) =>
+      request<Paginated<MicrocampaignRow>>(`/loans/admin/campaigns/${qs(params)}`),
+    create: (payload: MicrocampaignCreateInput, flyer?: File | null) => {
+      if (flyer) {
+        const form = new FormData();
+        Object.entries(payload).forEach(([k, v]) => {
+          if (v !== undefined && v !== null) form.append(k, String(v));
+        });
+        form.append("flyer", flyer);
+        return request<MicrocampaignRow>("/loans/admin/campaigns/", {
+          method: "POST",
+          body: form,
+        });
+      }
+      return request<MicrocampaignRow>("/loans/admin/campaigns/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+    addTargeted: (
+      campaignId: number,
+      payload: { member_ids?: number[]; numeros_membre?: string[] },
+    ) =>
+      request<MicrocampaignTargetedAddResponse>(
+        `/loans/admin/campaigns/${campaignId}/targeted/`,
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
+    removeTargeted: (campaignId: number, memberId: number) =>
+      request<{ removed: boolean; targeted_count: number }>(
+        `/loans/admin/campaigns/${campaignId}/targeted/${memberId}/`,
+        { method: "DELETE" },
+      ),
+    detail: (id: number) =>
+      request<MicrocampaignDetail>(`/loans/admin/campaigns/${id}/`),
+    close: (id: number, reason?: string) =>
+      request<MicrocampaignRow>(`/loans/admin/campaigns/${id}/close/`, {
+        method: "PATCH",
+        body: JSON.stringify(reason ? { reason } : {}),
+      }),
+    decideRequest: (
+      requestId: number,
+      payload: { decision: "valide" } | { decision: "rejete"; motif_rejet: string },
+    ) =>
+      request<{
+        id: number;
+        statut: string;
+        campaign_id: number | null;
+        motif_rejet?: string;
+        message: string;
+      }>(`/loans/admin/requests/${requestId}/campaign-decide/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+  },
+
+  // LOT 17 — Escalades judiciaires (phase D/E contentieux).
+  escalations: {
+    list: (
+      params: {
+        statut?: JudicialStatut;
+        open?: "true";
+        member?: string;
+        q?: string;
+      } = {},
+    ) =>
+      request<Paginated<JudicialEscalationRow>>(
+        `/loans/admin/escalations/${qs(params as Record<string, string | undefined>)}`,
+      ),
+    detail: (id: number) =>
+      request<JudicialEscalationRow>(`/loans/admin/escalations/${id}/`),
+    open: (loanId: number, payload: { motif: string; mode?: string }) =>
+      request<JudicialEscalationRow>(
+        `/loans/admin/loans/${loanId}/escalation/`,
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
+    decision: (
+      id: number,
+      payload: { decision_date: string; biens_saisissables: JudicialBien[] },
+    ) =>
+      request<JudicialEscalationRow>(
+        `/loans/admin/escalations/${id}/decision/`,
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
+    execution: (
+      id: number,
+      payload: {
+        execution_date: string;
+        montant_recouvre: string | number;
+        biens_saisis: JudicialBien[];
+      },
+    ) =>
+      request<JudicialEscalationRow>(
+        `/loans/admin/escalations/${id}/execution/`,
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
+    classer: (id: number, motif: string) =>
+      request<JudicialEscalationRow>(
+        `/loans/admin/escalations/${id}/classer/`,
+        { method: "POST", body: JSON.stringify({ motif }) },
+      ),
   },
 
   // Coûts modifiables — frais (FCFA) + taux (ratio) en base (BR2/BR3).

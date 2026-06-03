@@ -8,7 +8,6 @@ import { images, mainNav, siteConfig } from "@/lib/site-config";
 import { NavMenu, type NavEntry } from "./nav-menu";
 import { LocaleSwitcher } from "./locale-switcher";
 import { MobileNav } from "./mobile-nav";
-import { ThemeToggle } from "./theme-toggle";
 
 export async function SiteHeader() {
   const t = await getTranslations("nav");
@@ -129,9 +128,8 @@ export async function SiteHeader() {
             <NavMenu items={navItems} />
           </div>
 
-          {/* Right — theme toggle + locale switcher + member space + join button */}
+          {/* Right — locale switcher + member space + join button */}
           <div className="flex items-center gap-2.5">
-            <ThemeToggle />
             <LocaleSwitcher className="hidden sm:flex" />
             {/* Portail membre — surface séparée (apps/portal) → URL absolue. */}
             <a

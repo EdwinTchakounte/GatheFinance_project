@@ -222,26 +222,36 @@ class LoansMockDataSource implements LoansRemoteDataSource {
   @override
   Future<LoanRenewalEntity> requestRenewal({
     required int loanId,
-    required int nouvelleDureeMois,
+    required bool comptant,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 500));
     final loan = _activeLoans.firstWhere(
       (l) => l.id == loanId,
       orElse: () => throw const ServerException('Crédit introuvable', 404),
     );
-    // Idempotence : une renewal déjà demandée pour ce loan ?
-    LoanRenewalEntity? existing;
-    for (final r in _renewals) {
-      if (r.loanId == loan.id && r.statut == LoanRenewalStatus.demandee) {
-        existing = r;
-        break;
-      }
+    // Article 11 : une seule reconduction par crédit, bloquée même à la
+    // soumission. On rejette si le crédit est déjà marqué reconduit OU si une
+    // demande non rejetée existe déjà.
+    final dejaReconduit = loan.dejaReconduit ||
+        _renewals.any((r) =>
+            r.loanId == loan.id && r.statut != LoanRenewalStatus.rejetee);
+    if (dejaReconduit) {
+      throw const ServerException(
+        'Ce crédit a déjà fait l’objet d’une reconduction. '
+        'Une seule reconduction est autorisée par crédit (Article 11).',
+        409,
+      );
     }
-    if (existing != null) return existing;
+    // Article 11 : intérêts = taux × capital restant (pas d'intérêt sur
+    // intérêt). 10 % au comptant, 15 % si reportés.
+    final capitalRestant = loan.capitalRestant;
+    final interets = renewalInterest(capitalRestant, comptant: comptant);
     final renewal = LoanRenewalEntity(
       id: _nextRenewalId++,
       loanId: loan.id,
-      nouvelleDureeMois: nouvelleDureeMois,
+      comptant: comptant,
+      capitalRestant: capitalRestant,
+      interetsReconduction: interets,
       statut: LoanRenewalStatus.demandee,
       dateDemande: DateTime.now(),
     );

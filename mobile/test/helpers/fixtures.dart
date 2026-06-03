@@ -103,7 +103,9 @@ class Fixtures {
   static LoanRenewalEntity loanRenewal() => LoanRenewalEntity(
         id: 200,
         loanId: 1,
-        nouvelleDureeMois: 6,
+        comptant: true,
+        capitalRestant: 60000,
+        interetsReconduction: 6000,
         statut: LoanRenewalStatus.demandee,
         dateDemande: DateTime(2026, 5, 1),
       );

@@ -30,9 +30,11 @@ abstract class LoansRepository {
     required String network,
   });
 
-  /// Demande la reconduction d'un crédit en cours.
+  /// Demande la reconduction d'un crédit en cours (Articles 9-11).
+  /// [comptant] = true → intérêts versés au comptant (10 %), sinon reportés
+  /// (15 %). Lève `BusinessFailure` si le crédit a déjà été reconduit.
   Future<LoanRenewalEntity> requestRenewal({
     required int loanId,
-    required int nouvelleDureeMois,
+    required bool comptant,
   });
 }

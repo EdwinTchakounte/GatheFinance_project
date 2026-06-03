@@ -8,6 +8,14 @@ Dépôts/retraits transitent par /api/v1/payments/init/ (cf. apps_coop.payments)
 from django.urls import path
 
 from . import views
+from .lender_views import (
+    lender_add_tranche,
+    lender_cancel_tranche,
+    lender_funding_respond,
+    lender_me,
+    lender_opt_in,
+    lender_revoke,
+)
 from .views import (
     SavingsAccountMeView,
     SavingsInfoView,
@@ -27,4 +35,26 @@ urlpatterns = [
     # Épargne classique (dissociée de la cotisation) — dépôt via /payments/init/
     path("classic/me/", views.classic_savings_me, name="classic-me"),
     path("classic/config/", views.classic_savings_config, name="classic-config"),
+    # LOT 7-admin (refonte 2026) — Renouvellements épargne classique.
+    path("admin/renewals/", views.admin_list_renewals, name="admin-renewals-list"),
+    path(
+        "admin/renewals/<int:pk>/process/",
+        views.admin_process_renewal,
+        name="admin-renewal-process",
+    ),
+    # LOT 19 (refonte 2026) — Espace prêteur (consent + tranches + funding 24h).
+    path("me/lender/", lender_me, name="lender-me"),
+    path("me/lender/opt-in/", lender_opt_in, name="lender-opt-in"),
+    path("me/lender/revoke/", lender_revoke, name="lender-revoke"),
+    path("me/lender/tranches/", lender_add_tranche, name="lender-add-tranche"),
+    path(
+        "me/lender/tranches/<int:pk>/cancel/",
+        lender_cancel_tranche,
+        name="lender-cancel-tranche",
+    ),
+    path(
+        "me/lender/funding-requests/<int:pk>/respond/",
+        lender_funding_respond,
+        name="lender-funding-respond",
+    ),
 ]

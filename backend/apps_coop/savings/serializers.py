@@ -94,24 +94,70 @@ class ClassicSavingsAccountReadSerializer(serializers.ModelSerializer):
 
 
 class WithdrawalRequestCreateSerializer(serializers.Serializer):
-    """Body de POST /api/v1/savings/withdrawal/ — membre actif."""
+    """Body de POST /api/v1/savings/withdrawal/ — membre actif.
+
+    Le membre choisit son canal :
+      • ``mode_paiement = momo`` → fournir ``recipient_phone`` + ``network``
+      • ``mode_paiement = presentiel`` → retrait espèces à l'agence
+    """
 
     montant = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=1)
     motif = serializers.CharField(max_length=2000, required=False, allow_blank=True)
+    mode_paiement = serializers.ChoiceField(
+        choices=WithdrawalRequest.ModePaiement.choices,
+        default=WithdrawalRequest.ModePaiement.PRESENTIEL,
+    )
+    recipient_phone = serializers.CharField(
+        max_length=32, required=False, allow_blank=True,
+        help_text="Numéro Mobile Money — requis si mode_paiement = momo.",
+    )
+    network = serializers.ChoiceField(
+        choices=WithdrawalRequest.Network.choices,
+        required=False, allow_blank=True,
+        help_text="Réseau MOMO — requis si mode_paiement = momo.",
+    )
+
+    def validate(self, attrs):
+        mode = attrs.get("mode_paiement", WithdrawalRequest.ModePaiement.PRESENTIEL)
+        if mode == WithdrawalRequest.ModePaiement.MOMO:
+            if not (attrs.get("recipient_phone") or "").strip():
+                raise serializers.ValidationError(
+                    {"recipient_phone": "Requis pour un retrait Mobile Money."}
+                )
+            if not attrs.get("network"):
+                raise serializers.ValidationError(
+                    {"network": "Réseau requis pour un retrait Mobile Money."}
+                )
+        return attrs
 
 
 class WithdrawalRequestReadSerializer(serializers.ModelSerializer):
     """Vue compacte d'une demande de retrait."""
 
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    mode_paiement_display = serializers.CharField(
+        source="get_mode_paiement_display", read_only=True,
+    )
+    recipient_phone_masked = serializers.SerializerMethodField()
 
     class Meta:
         model = WithdrawalRequest
         fields = (
-            "id", "montant", "motif", "statut", "statut_display",
-            "motif_rejet", "date_demande", "date_decision",
+            "id", "montant", "motif",
+            "statut", "statut_display",
+            "mode_paiement", "mode_paiement_display",
+            "recipient_phone_masked", "network",
+            "motif_rejet",
+            "date_demande", "date_decision",
+            "handed_over_at",
         )
         read_only_fields = fields
+
+    def get_recipient_phone_masked(self, obj: WithdrawalRequest) -> str:
+        p = obj.recipient_phone or ""
+        if len(p) < 6:
+            return ""
+        return p[:4] + "***" + p[-2:]
 
 
 class WithdrawalDecideSerializer(serializers.Serializer):
@@ -124,3 +170,10 @@ class WithdrawalDecideSerializer(serializers.Serializer):
         if attrs["decision"] == "rejetee" and not (attrs.get("motif_rejet") or "").strip():
             raise serializers.ValidationError({"motif_rejet": "Requis pour rejeter."})
         return attrs
+
+
+class WithdrawalHandoverSerializer(serializers.Serializer):
+    """Body de POST /api/v1/admin/withdrawals/<id>/mark-paid/ — staff confirme
+    qu'il a remis les espèces au membre (retrait présentiel)."""
+
+    note = serializers.CharField(max_length=1000, required=False, allow_blank=True)

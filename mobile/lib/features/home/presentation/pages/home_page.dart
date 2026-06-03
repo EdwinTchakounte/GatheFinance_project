@@ -70,16 +70,24 @@ class HomePage extends ConsumerWidget {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
                   child: savings.when(
-                    data: (data) => PaHeroBalance(
-                      amount: data.solde,
-                      label: l.home_balance_label,
-                      ctaLabel: l.home_action_deposit,
-                      onDeposit: () => _openDeposit(context),
-                      pendingLabel: _pendingLabel(data),
-                      onPendingTap: () => context.push('/savings/history'),
-                      onRequestReveal: () =>
-                          PinPromptSheet.show(context),
-                    ),
+                    data: (data) {
+                      final trend = _balanceTrend(data);
+                      final delta = _monthDelta(trend);
+                      return PaHeroBalance(
+                        amount: data.solde,
+                        label: l.home_balance_label,
+                        ctaLabel: l.home_action_deposit,
+                        onDeposit: () => _openDeposit(context),
+                        pendingLabel: _pendingLabel(data),
+                        onPendingTap: () => context.push('/savings/history'),
+                        onRequestReveal: () => PinPromptSheet.show(context),
+                        trend: trend,
+                        deltaLabel: delta == null
+                            ? null
+                            : l.home_delta_this_month(delta.$1),
+                        deltaPositive: delta?.$2 ?? true,
+                      );
+                    },
                     loading: () => const _HeroSkeleton(),
                     error: (e, _) => _HeroError(message: e.toString()),
                   ),
@@ -238,6 +246,9 @@ class HomePage extends ConsumerWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+      ),
       backgroundColor: PaColors.paper,
       barrierColor: PaColors.navyDeep.withValues(alpha: 0.55),
       enableDrag: true,
@@ -250,12 +261,37 @@ class HomePage extends ConsumerWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+      ),
       backgroundColor: PaColors.paper,
       barrierColor: PaColors.navyDeep.withValues(alpha: 0.55),
       enableDrag: true,
       shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheet),
       builder: (_) => const DepositSheet(classic: true),
     );
+  }
+
+  /// Série des soldes (ancien → récent, max 8 points) pour la mini-courbe.
+  static List<num>? _balanceTrend(SavingsAccount data) {
+    final txs = [...data.transactions]
+      ..sort((a, b) => a.date.compareTo(b.date));
+    if (txs.length < 2) return null;
+    final series = txs.map((t) => t.soldeApres).toList();
+    return series.length > 8 ? series.sublist(series.length - 8) : series;
+  }
+
+  /// Variation sur la fenêtre de tendance : (label formaté, positif).
+  static (String, bool)? _monthDelta(List<num>? trend) {
+    if (trend == null || trend.length < 2) return null;
+    final first = trend.first.toDouble();
+    final last = trend.last.toDouble();
+    if (first <= 0) return null;
+    final pct = (last - first) / first * 100;
+    final positive = pct >= 0;
+    final formatted =
+        '${positive ? '+' : ''}${pct.toStringAsFixed(1).replaceAll('.', ',')} %';
+    return (formatted, positive);
   }
 
   /// Calcule le label "X opération(s) en attente" si pertinent, ou null.

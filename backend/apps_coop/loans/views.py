@@ -95,32 +95,137 @@ def loan_eligibility(request):
         503: OpenApiResponse(description="FeeType DEMANDE_CREDIT non configuré"),
     },
 )
+def _universal_blockers(member) -> list[str]:
+    """Pré-checks communs aux 3 voies (refonte 2026 LOT 15).
+
+    Ce qui était dans ``compute_eligibility`` mais qui s'applique
+    indépendamment de la voie :
+      - statut membre ACTIF ou TEMPORAIRE (les TEMPORAIRE sont les
+        bénéficiaires d'une campagne en cours, pas autorisés à empiler).
+      - pas de crédit ACTIF / EN_RETARD / CONTENTIEUX
+      - pas de demande en cours (legacy + nouveaux statuts 2026)
+
+    Le check "solde ≥ 100 XAF" est volontairement omis : il appartient à
+    la voie 1 (SENIOR_BRC) qui implicite une épargne minimale. Voies 2/3
+    n'ont pas ce critère.
+    """
+    from apps_coop.members.models import Member
+
+    blockers: list[str] = []
+    if member.statut not in {Member.Statut.ACTIF, Member.Statut.TEMPORAIRE}:
+        blockers.append("Compte membre non actif.")
+    active_loans = Loan.objects.filter(
+        member=member,
+        statut__in=[
+            Loan.Statut.ACTIF,
+            Loan.Statut.EN_RETARD,
+            Loan.Statut.CONTENTIEUX,
+        ],
+    ).count()
+    if active_loans:
+        blockers.append(
+            f"Vous avez déjà {active_loans} crédit(s) en cours. "
+            "Terminez-les avant d'en demander un nouveau."
+        )
+    pending = LoanRequest.objects.filter(
+        member=member,
+        statut__in=[
+            LoanRequest.Statut.EN_ATTENTE,
+            LoanRequest.Statut.EN_INSTRUCTION,
+            LoanRequest.Statut.EN_ATTENTE_ACCEPTATION_MEMBRE,
+            LoanRequest.Statut.EN_ATTENTE_AVALISTE,
+            LoanRequest.Statut.EN_VALIDATION_CAMPAGNE,
+        ],
+    ).count()
+    if pending:
+        blockers.append(
+            "Vous avez déjà une demande de crédit en cours. "
+            "Attendez la décision avant d'en soumettre une nouvelle."
+        )
+    return blockers
+
+
 @api_view(["POST"])
 @permission_classes([IsActiveMember])
 def loan_request_create(request):
+    """Soumission d'une demande de crédit (refonte 2026 LOT 15).
+
+    Pipeline :
+      1. Pré-checks universels (statut, crédit en cours, demande en cours).
+      2. Routage 3 voies via ``evaluate_routes`` (LOT 12) :
+         - SENIOR_BRC → plafond legacy (solde × 10) → statut EN_ATTENTE
+         - AVALISTE   → ``request_avaliste_consent`` → statut EN_ATTENTE_AVALISTE
+         - CAMPAIGN   → FK ``microcampaign`` posée → statut EN_VALIDATION_CAMPAGNE
+         - NONE       → 403 avec motifs cumulés
+    """
     member = request.user.member
-    eligibility = compute_eligibility(member)
-    if not eligibility.eligible:
-        return Response(
-            {"detail": "Non éligible.", "motifs": eligibility.motifs},
-            status=status.HTTP_403_FORBIDDEN,
-        )
+    from .eligibility_routing import EligibilityRoute, evaluate_routes
+    from .models import MicrocreditCampaign
 
     serializer = LoanRequestSubmitSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
 
-    # The plafond is recomputed server-side — frontend value is informational.
-    if data["montant_demande"] > eligibility.plafond_max:
+    # 1) Pré-checks universels — communs aux 3 voies.
+    blockers = _universal_blockers(member)
+    if blockers:
+        record_audit(
+            action="loan_request.refused_universal",
+            entite_type="Member",
+            entite_id=member.id,
+            user=request.user,
+            details={"motifs": blockers},
+            ip=client_ip(request),
+        )
+        return Response(
+            {"detail": "Vous ne pouvez pas soumettre de demande.", "motifs": blockers},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # 2) Routage 3 voies.
+    route_eval = evaluate_routes(
+        member,
+        montant=data["montant_demande"],
+        avaliste_numero=data.get("avaliste_numero") or None,
+        avaliste_nom=data.get("avaliste_nom") or None,
+        campaign_id=data.get("campaign_id"),
+        profil_cible=data.get("profil_cible") or None,
+    )
+
+    if not route_eval.eligible:
+        record_audit(
+            action="loan_request.refused_no_route",
+            entite_type="Member",
+            entite_id=member.id,
+            user=request.user,
+            details={
+                "motifs": route_eval.motifs,
+                "suggested_campaigns": route_eval.suggested_campaigns,
+            },
+            ip=client_ip(request),
+        )
         return Response(
             {
-                "detail": (
-                    f"Montant demandé ({data['montant_demande']} XAF) supérieur "
-                    f"au plafond éligible ({eligibility.plafond_max} XAF)."
-                )
+                "detail": "Aucune voie d'éligibilité ne s'applique à votre demande.",
+                "motifs": route_eval.motifs,
+                "suggested_campaigns": route_eval.suggested_campaigns,
             },
-            status=status.HTTP_400_BAD_REQUEST,
+            status=status.HTTP_403_FORBIDDEN,
         )
+
+    # 3) Voie-spécifique : plafond pour SENIOR_BRC uniquement.
+    if route_eval.route == EligibilityRoute.SENIOR_BRC:
+        eligibility = compute_eligibility(member)
+        if data["montant_demande"] > eligibility.plafond_max:
+            return Response(
+                {
+                    "detail": (
+                        f"Montant demandé ({data['montant_demande']} XAF) supérieur "
+                        f"au plafond éligible ({eligibility.plafond_max} XAF)."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     # Lookup the current adhesion fee from FeeType — admin-editable.
     try:
@@ -133,17 +238,35 @@ def loan_request_create(request):
         )
 
     with transaction.atomic():
+        # Statut initial + FK selon la voie.
+        if route_eval.route == EligibilityRoute.CAMPAIGN:
+            initial_statut = LoanRequest.Statut.EN_VALIDATION_CAMPAGNE
+            campaign_fk = MicrocreditCampaign.objects.get(
+                pk=route_eval.details["campaign_id"]
+            )
+        else:
+            initial_statut = LoanRequest.Statut.EN_ATTENTE
+            campaign_fk = None
+
         loan_request = LoanRequest.objects.create(
             member=member,
             montant_demande=data["montant_demande"],
             duree_mois=data["duree_mois"],
             motif=data["motif"],
-            statut=LoanRequest.Statut.EN_ATTENTE,
+            statut=initial_statut,
+            microcampaign=campaign_fk,
         )
-        # Frais de dossier — Payment row created in 'en_attente'. Le membre
-        # devra ensuite passer par le flow 01 (/payments/init/) pour confirmer.
-        # On garde la création séparée pour rester aligné sur le pattern
-        # « init/ déclenche la gateway ». Ici on ne crée rien côté Tara.
+
+        # Voie AVALISTE : pose AvalisteConsent + LR → EN_ATTENTE_AVALISTE.
+        if route_eval.route == EligibilityRoute.AVALISTE:
+            from .avaliste_services import request_avaliste_consent
+
+            request_avaliste_consent(
+                loan_request,
+                numero_identification=data["avaliste_numero"],
+                nom=data["avaliste_nom"],
+            )
+
         record_audit(
             action="loan_request.submitted",
             entite_type="LoanRequest",
@@ -152,14 +275,43 @@ def loan_request_create(request):
             details={
                 "montant_demande": str(loan_request.montant_demande),
                 "duree_mois": loan_request.duree_mois,
+                "route": route_eval.route,
+                "route_details": route_eval.details,
                 "frais_a_payer": str(frais_montant),
             },
             ip=client_ip(request),
         )
 
+    # Accusé de réception (best-effort — ne bloque pas la création).
+    if getattr(member.user, "email", None):
+        try:
+            from django.conf import settings as dj_settings
+
+            from apps_coop.notifications.events import emit_event
+
+            emit_event(
+                "loan_request.submitted",
+                member=member,
+                context={
+                    "prenom": member.prenom,
+                    "montant": f"{int(loan_request.montant_demande):,}".replace(",", " "),
+                    "frais_montant": f"{int(frais_montant):,}".replace(",", " "),
+                    "portal_url": getattr(
+                        dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"
+                    ),
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
+    # Re-charge pour récupérer le statut potentiellement modifié par la
+    # voie AVALISTE (request_avaliste_consent passe en EN_ATTENTE_AVALISTE).
+    loan_request.refresh_from_db()
     return Response(
         {
             "loan_request": LoanRequestReadSerializer(loan_request).data,
+            "route": route_eval.route,
+            "route_details": route_eval.details,
             "frais_a_payer": {
                 "code": "DEMANDE_CREDIT",
                 "libelle": "Frais de demande de crédit",
@@ -417,6 +569,28 @@ def loan_renewal_request(request, pk: int):
         ip=client_ip(request),
     )
 
+    # Accusé de réception de la demande de reconduction (best-effort).
+    if getattr(member.user, "email", None):
+        try:
+            from django.conf import settings as dj_settings
+
+            from apps_coop.notifications.events import emit_event
+
+            emit_event(
+                "loan_renewal.requested",
+                member=member,
+                context={
+                    "prenom": member.prenom,
+                    "numero_dossier": loan.numero_dossier,
+                    "duree_mois": renewal.nouvelle_duree_mois,
+                    "portal_url": getattr(
+                        dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"
+                    ),
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
     # Aucun frais : la reconduction n'engendre qu'une majoration de taux.
     # La demande part directement en décision comité.
     payload = LoanRenewalReadSerializer({
@@ -611,14 +785,13 @@ def loan_notice(request, pk: int):
 
     from django.conf import settings as dj_settings
 
-    from apps_coop.notifications.services import send_template
+    from apps_coop.notifications.events import emit_event
 
     member = loan.member
     if getattr(member.user, "email", None):
         try:
-            send_template(
+            emit_event(
                 "loan.notice",
-                to=member.user.email,
                 member=member,
                 context={
                     "prenom": member.prenom,

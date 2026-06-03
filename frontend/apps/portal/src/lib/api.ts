@@ -128,13 +128,100 @@ export type LoanRequest = {
     | "en_instruction"
     | "en_attente_acceptation_membre"
     | "approuvee"
-    | "rejetee";
+    | "rejetee"
+    | "en_attente_avaliste"
+    | "rejetee_avaliste"
+    | "en_validation_campagne"
+    | "rejetee_campagne";
   statut_display: string;
   motif_rejet: string;
   montant_revise: string | null;
   duree_revisee: number | null;
   date_soumission: string;
   date_decision: string | null;
+};
+
+// Refonte 2026 LOT 19 — Espace prêteur (épargne-prêteur).
+export type LenderConsent = {
+  id: number;
+  is_global: boolean;
+  is_active: boolean;
+  convention_signed_at: string;
+  revoked_at: string | null;
+};
+
+export type LenderTranche = {
+  id: number;
+  montant: string;
+  statut: "disponible" | "engagee" | "liberee" | "annulee";
+  statut_display: string;
+  engaged_in_loan_id: number | null;
+  engaged_at: string | null;
+  released_at: string | null;
+  created_at: string;
+};
+
+export type LenderPendingFunding = {
+  id: number;
+  statut: string;
+  montant_propose: string;
+  deadline: string;
+  funding_request_id: number;
+  wave_number: number;
+  loan: {
+    id: number;
+    numero_dossier: string;
+    montant_total: string;
+    duree_mois: number;
+  };
+  borrower: {
+    id: number;
+    numero_membre: string;
+    prenom: string;
+    nom: string;
+  };
+};
+
+export type LenderState = {
+  consent: LenderConsent | null;
+  tranches: LenderTranche[];
+  totals: {
+    disponible: string;
+    engagee: string;
+    liberee: string;
+    annulee: string;
+  };
+  pending_funding_requests: LenderPendingFunding[];
+  pending_count: number;
+};
+
+// Refonte 2026 LOT 18 — Mandats d'avaliste (côté garant).
+export type AvalisteMandat = {
+  id: number;
+  statut: "pending" | "accepted" | "refused";
+  statut_display: string;
+  responded_at: string | null;
+  refus_motif: string;
+  created_at: string;
+  demandeur: {
+    id: number;
+    numero_membre: string;
+    prenom: string;
+    nom: string;
+  };
+  loan_request: {
+    id: number;
+    montant_demande: string;
+    duree_mois: number;
+    motif: string;
+    statut: string;
+    date_soumission: string;
+  };
+  couverture: {
+    epargne_borrower: string;
+    epargne_avaliste: string;
+    ratio: string;
+  };
 };
 
 export type LoanInstallment = {
@@ -180,6 +267,32 @@ export type PaymentInitResponse = {
   instructions: string;
 };
 
+// Refonte 2026 — Retrait avec choix MOMO/présentiel
+export type WithdrawalModePaiement = "momo" | "presentiel";
+export type WithdrawalNetwork = "MTN" | "ORANGE" | "WAVE" | "AIRTEL";
+
+export type WithdrawalRead = {
+  id: number;
+  montant: string;
+  motif: string;
+  statut:
+    | "en_attente"
+    | "approuvee"
+    | "en_payout"
+    | "completee"
+    | "payout_failed"
+    | "rejetee";
+  statut_display: string;
+  mode_paiement: WithdrawalModePaiement;
+  mode_paiement_display: string;
+  recipient_phone_masked: string;
+  network: "" | WithdrawalNetwork;
+  motif_rejet: string;
+  date_demande: string;
+  date_decision: string | null;
+  handed_over_at: string | null;
+};
+
 export const portalApi = {
   primeCsrf: () => request<{ csrfToken: string }>("/auth/csrf/"),
   login: (email: string, password: string) =>
@@ -190,6 +303,56 @@ export const portalApi = {
   logout: () => request<void>("/auth/logout/", { method: "POST" }),
   me: () => request<Identity>("/auth/me/"),
   savings: () => request<SavingsSnapshot>("/savings/me/"),
+
+  withdrawals: {
+    listMine: () =>
+      request<{ results: WithdrawalRead[] }>("/savings/withdrawals/me/"),
+    create: (payload: {
+      montant: number;
+      motif?: string;
+      mode_paiement: WithdrawalModePaiement;
+      recipient_phone?: string;
+      network?: WithdrawalNetwork;
+    }) =>
+      request<WithdrawalRead>("/savings/withdrawal/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+  },
+  // Refonte 2026 LOT 19 — Espace prêteur (épargne-prêteur).
+  lender: {
+    me: () => request<LenderState>("/savings/me/lender/"),
+    optIn: (is_global: boolean) =>
+      request<LenderState>("/savings/me/lender/opt-in/", {
+        method: "POST",
+        body: JSON.stringify({ is_global }),
+      }),
+    revoke: () =>
+      request<LenderState>("/savings/me/lender/revoke/", { method: "POST" }),
+    addTranche: (montant: number) =>
+      request<LenderTranche>("/savings/me/lender/tranches/", {
+        method: "POST",
+        body: JSON.stringify({ montant }),
+      }),
+    cancelTranche: (id: number) =>
+      request<LenderTranche>(`/savings/me/lender/tranches/${id}/cancel/`, {
+        method: "POST",
+      }),
+    respondFunding: (
+      id: number,
+      payload: { accept: boolean; motif?: string },
+    ) =>
+      request<{
+        id: number;
+        statut: string;
+        responded_at: string | null;
+        refus_motif: string;
+        message: string;
+      }>(`/savings/me/lender/funding-requests/${id}/respond/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+  },
   loans: {
     eligibility: () =>
       request<{
@@ -201,11 +364,35 @@ export const portalApi = {
       }>("/loans/me/eligibility/"),
     listMine: () => request<LoanRequest[]>("/loans/me/requests/"),
     activeMine: () => request<Loan[]>("/loans/me/active/"),
-    create: (data: { montant_demande: number; duree_mois: number; motif: string }) =>
-      request<{ loan_request: LoanRequest; frais_a_payer: { code: string; libelle: string; montant: string } }>(
-        "/loans/requests/",
-        { method: "POST", body: JSON.stringify(data) },
-      ),
+    create: (data: {
+      montant_demande: number;
+      duree_mois: number;
+      motif: string;
+      avaliste_numero?: string;
+      avaliste_nom?: string;
+      campaign_id?: number;
+      profil_cible?: string;
+    }) =>
+      request<{
+        loan_request: LoanRequest;
+        route: "senior_brc" | "avaliste" | "campaign" | "none";
+        route_details: Record<string, unknown>;
+        frais_a_payer: { code: string; libelle: string; montant: string };
+      }>("/loans/requests/", { method: "POST", body: JSON.stringify(data) }),
+    // Refonte 2026 LOT 18 — Mandats d'avaliste (côté garant).
+    avalisteMandats: {
+      list: (statut?: "pending" | "accepted" | "refused") =>
+        request<{
+          count: number;
+          pending: number;
+          results: AvalisteMandat[];
+        }>(`/loans/me/avaliste-mandats/${statut ? `?statut=${statut}` : ""}`),
+      respond: (id: number, payload: { accept: boolean; motif?: string }) =>
+        request<AvalisteMandat>(
+          `/loans/me/avaliste-mandats/${id}/respond/`,
+          { method: "POST", body: JSON.stringify(payload) },
+        ),
+    },
     // Reconduction = +1 mois fixe, SANS frais (seul le taux est majoré).
     // Le corps est optionnel : la durée éventuelle est ignorée côté backend.
     requestRenewal: (loanId: number, data: { nouvelle_duree_mois?: number } = {}) =>

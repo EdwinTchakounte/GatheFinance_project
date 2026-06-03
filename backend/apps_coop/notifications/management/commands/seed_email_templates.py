@@ -17,7 +17,7 @@ TEMPLATES = [
         "corps_html": (
             "<p>Bonjour <strong>{prenom} {nom}</strong>,</p>"
             "<p>Ta demande d'adhésion a été approuvée. Pour activer ton compte membre, "
-            "il te reste à régler ta première cotisation de <strong>{frais_montant} XAF</strong>.</p>"
+            "il te reste à régler tes frais d'adhésion de <strong>{frais_montant} XAF</strong>.</p>"
             "<p>Connecte-toi à ton espace pour payer en quelques clics :<br>"
             "<a href=\"{portal_url}/portal/activation\">{portal_url}/portal/activation</a></p>"
             "<p>Numéro de membre : <strong>{numero_membre}</strong></p>"
@@ -30,7 +30,7 @@ TEMPLATES = [
         "objet": "Ton compte Gathe Finance est actif",
         "corps_html": (
             "<p>Bonjour {prenom},</p>"
-            "<p>Ta cotisation de <strong>{montant} XAF</strong> a été reçue, "
+            "<p>Ton paiement de <strong>{montant} XAF</strong> a été reçu, "
             "ton compte membre (n° <strong>{numero_membre}</strong>) est désormais "
             "<strong>actif</strong>.</p>"
             "<p>Tu peux maintenant utiliser tous les services : épargne, crédit, transferts.<br>"
@@ -206,6 +206,199 @@ TEMPLATES = [
             "<p><a href=\"{portal_url}/credit\">Régler mon échéance</a></p>"
         ),
         "variables": ["prenom", "numero_dossier", "solde_restant", "count", "portal_url"],
+    },
+    {
+        # members/services.py — reject_membership_request (Articles 1-3).
+        "code": "member.rejected",
+        "objet": "Ta demande d'adhésion à Gathe Finance — non retenue",
+        "corps_html": (
+            "<p>Bonjour {prenom} {nom},</p>"
+            "<p>Après étude de ton dossier, le comité n'a pas retenu ta demande "
+            "d'adhésion à la coopérative Gathe Finance.</p>"
+            "<p>Motif communiqué : <em>{motif}</em></p>"
+            "<p>Tu peux soumettre une nouvelle demande ultérieurement en complétant "
+            "ton dossier.<br><a href=\"{portal_url}\">En savoir plus</a></p>"
+            "<p>L'équipe Gathe Finance</p>"
+        ),
+        "variables": ["prenom", "nom", "motif", "portal_url"],
+    },
+    {
+        # loans/views.py — loan_request_create (accusé de réception, Article 7).
+        "code": "loan_request.submitted",
+        "objet": "Demande de crédit reçue : {montant} XAF",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Nous avons bien reçu ta demande de crédit de "
+            "<strong>{montant} XAF</strong>.</p>"
+            "<p>Pour la mettre en instruction, il te reste à régler les frais de "
+            "dossier de <strong>{frais_montant} XAF</strong> depuis ton espace.</p>"
+            "<p><a href=\"{portal_url}/portal/credit\">Régler et suivre ma demande</a></p>"
+        ),
+        "variables": ["prenom", "montant", "frais_montant", "portal_url"],
+    },
+    {
+        # loans/services.py — reject_loan_request (Article 6-7).
+        "code": "loan_request.rejected",
+        "objet": "Ta demande de crédit — non retenue",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Le comité a étudié ta demande de crédit et ne l'a pas retenue.</p>"
+            "<p>Motif communiqué : <em>{motif}</em></p>"
+            "<p>Tu peux soumettre une nouvelle demande ultérieurement.<br>"
+            "<a href=\"{portal_url}/portal/credit\">Mon espace crédit</a></p>"
+        ),
+        "variables": ["prenom", "motif", "portal_url"],
+    },
+    {
+        # savings/services.py — request_withdrawal (accusé de réception).
+        "code": "withdrawal.requested",
+        "objet": "Demande de retrait reçue : {montant} XAF",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Ta demande de retrait de <strong>{montant} XAF</strong> a bien été "
+            "enregistrée. Elle est en attente de la décision de l'administration ; "
+            "aucun montant n'a encore été débité.</p>"
+            "<p>Tu recevras un email dès qu'une décision sera prise.<br>"
+            "<a href=\"{portal_url}/portal\">Voir mon espace</a></p>"
+        ),
+        "variables": ["prenom", "montant", "portal_url"],
+    },
+    {
+        # loans/views.py — loan_renewal_request (accusé de réception, Article 10).
+        "code": "loan_renewal.requested",
+        "objet": "Demande de reconduction reçue — crédit {numero_dossier}",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Ta demande de reconduction du crédit <strong>{numero_dossier}</strong> "
+            "(prorogation de <strong>{duree_mois} mois</strong>, Article 10) a bien "
+            "été enregistrée et part en décision du comité.</p>"
+            "<p>Tu recevras un email dès que le comité aura statué.<br>"
+            "<a href=\"{portal_url}/portal/credit\">Suivre ma demande</a></p>"
+        ),
+        "variables": ["prenom", "numero_dossier", "duree_mois", "portal_url"],
+    },
+    {
+        # loans/tasks.py — suivi_retards_quotidien, échéance passée en retard
+        # + pénalité 50 % (Articles 12-13).
+        "code": "loan.installment_overdue",
+        "objet": "Échéance en retard — crédit {numero_dossier}",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>L'échéance n° <strong>{numero_echeance}</strong> de ton crédit "
+            "<strong>{numero_dossier}</strong> (<strong>{montant_du} XAF</strong>) "
+            "est arrivée à échéance sans règlement complet.</p>"
+            "<p>Conformément à l'Article 12 du Règlement, une pénalité de retard de "
+            "<strong>{penalite} XAF</strong> (50 % des intérêts dus) a été appliquée.</p>"
+            "<p>Merci de régulariser au plus vite pour éviter d'autres pénalités.<br>"
+            "<a href=\"{portal_url}/portal/credit\">Régler mon échéance</a></p>"
+        ),
+        "variables": [
+            "prenom", "numero_dossier", "numero_echeance", "montant_du",
+            "penalite", "portal_url",
+        ],
+    },
+    {
+        # loans/tasks.py — rappel_echeances_proches (rappel J-3, proactif).
+        "code": "loan.installment_due_soon",
+        "objet": "Rappel : échéance le {date_echeance} — crédit {numero_dossier}",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Un petit rappel amical : l'échéance de ton crédit "
+            "<strong>{numero_dossier}</strong> d'un montant de "
+            "<strong>{montant_echeance} XAF</strong> est attendue le "
+            "<strong>{date_echeance}</strong>.</p>"
+            "<p>Pense à provisionner ton règlement pour éviter toute pénalité de "
+            "retard.<br><a href=\"{portal_url}/portal/credit\">Régler maintenant</a></p>"
+        ),
+        "variables": [
+            "prenom", "numero_dossier", "montant_echeance", "date_echeance", "portal_url",
+        ],
+    },
+    {
+        # A2 — Alerte douce J-N avant l'anniversaire annuel d'adhésion.
+        "code": "member.reinscription_due",
+        "objet": "Réinscription annuelle — bientôt {date_anniversaire}",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Ton anniversaire d'adhésion à Gathé Finance approche : "
+            "<strong>{date_anniversaire}</strong> (dans {lead_days} jours).</p>"
+            "<p>Pour rester à jour, pense à confirmer ta réinscription auprès "
+            "de l'agence ou via le portail.</p>"
+            "<p>Numéro membre : <strong>{numero_membre}</strong></p>"
+        ),
+        "variables": [
+            "prenom", "numero_membre", "date_anniversaire", "lead_days",
+        ],
+    },
+    {
+        # A2 — Confirmation par l'admin que la réinscription a été actée.
+        "code": "member.reinscription_confirmed",
+        "objet": "Réinscription confirmée — merci {prenom}",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Ta réinscription annuelle a bien été enregistrée le "
+            "<strong>{date_confirmation}</strong>.</p>"
+            "<p>La prochaine échéance est désormais fixée au "
+            "<strong>{prochaine_echeance}</strong>.</p>"
+            "<p>Numéro membre : <strong>{numero_membre}</strong></p>"
+        ),
+        "variables": [
+            "prenom", "numero_membre", "date_confirmation", "prochaine_echeance",
+        ],
+    },
+    {
+        # Cycle contentieux — pénalité globale appliquée (J = date limite globale).
+        "code": "loan.penalite_globale_appliquee",
+        "objet": "Pénalité appliquée — crédit {numero_dossier}",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>La date limite de remboursement de ton crédit "
+            "<strong>{numero_dossier}</strong> a été franchie sans que le solde "
+            "ne soit régularisé.</p>"
+            "<p>Une pénalité de <strong>{penalite} XAF</strong> a été ajoutée à "
+            "ton solde, qui est désormais de <strong>{nouveau_solde} XAF</strong>.</p>"
+            "<p><strong>Tu disposes de {delai_grace_jours} jours</strong> pour "
+            "régulariser, faute de quoi le solde sera prélevé automatiquement "
+            "sur ton épargne.</p>"
+        ),
+        "variables": [
+            "prenom", "numero_dossier", "penalite", "nouveau_solde", "delai_grace_jours",
+        ],
+    },
+    {
+        # Cycle contentieux — saisie épargne automatique (R1) effectuée.
+        "code": "loan.savings_seized",
+        "objet": "Prélèvement automatique sur ton épargne — crédit {numero_dossier}",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Conformément aux conditions de ton crédit "
+            "<strong>{numero_dossier}</strong>, la cooperative a prélevé "
+            "<strong>{montant_saisi} XAF</strong> sur ton compte d'épargne "
+            "pour couvrir le solde restant impayé.</p>"
+            "<p>Solde restant à payer après prélèvement : "
+            "<strong>{solde_restant_apres} XAF</strong>.</p>"
+            "<p>Si ce montant est non nul, le dossier est transmis au "
+            "recouvrement contentieux.</p>"
+        ),
+        "variables": [
+            "prenom", "numero_dossier", "montant_saisi", "solde_restant_apres",
+        ],
+    },
+    {
+        # Cycle contentieux — poursuites engagées (épargne insuffisante).
+        "code": "loan.poursuite_engaged",
+        "objet": "Recouvrement contentieux — crédit {numero_dossier}",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Suite au prélèvement sur ton épargne, un reliquat de "
+            "<strong>{reliquat} XAF</strong> reste dû au titre du crédit "
+            "<strong>{numero_dossier}</strong>.</p>"
+            "<p>Le dossier est désormais transmis à notre service "
+            "contentieux/juridique pour recouvrement.</p>"
+            "<p>Tu peux à tout moment contacter l'agence pour proposer un "
+            "plan d'apurement amiable.</p>"
+        ),
+        "variables": ["prenom", "numero_dossier", "reliquat"],
     },
 ]
 

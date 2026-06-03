@@ -317,15 +317,21 @@ def approve_loan_request(
     # Flat interest (Article 5) : intérêts_totaux = montant × taux.
     montant_total_du = _q(montant + (montant * taux))
 
+    # EXT-versioning : on FIGE le taux de pénalité au décaissement (le membre
+    # signe un contrat avec ce taux — un changement admin ultérieur ne doit
+    # pas s'appliquer rétroactivement).
+    taux_penalite_fige = get_rate(RateParam.Code.LATE_PENALTY)
+
     loan = Loan.objects.create(
         loan_request=loan_request,
         member=loan_request.member,
         numero_dossier=_next_numero_dossier(),
         montant=montant,
         taux_interet=taux,
+        taux_penalite=taux_penalite_fige,
         duree_mois=duree,
         modalite_paiement=modalite,
-        date_decaissement=timezone.now().date(),
+        date_decaissement=timezone.localdate(),
         date_premiere_echeance=date_premiere_echeance,
         montant_total_du=montant_total_du,
         solde_restant=montant_total_du,
@@ -361,12 +367,11 @@ def approve_loan_request(
 
     from django.conf import settings as dj_settings
 
-    from apps_coop.notifications.services import send_template
+    from apps_coop.notifications.events import emit_event
 
     member = loan_request.member
-    send_template(
+    emit_event(
         "loan.approved",
-        to=member.user.email,
         member=member,
         context={
             "prenom": member.prenom,
@@ -562,6 +567,28 @@ def reject_loan_request(loan_request: LoanRequest, *, decided_by, motif: str) ->
         user=decided_by,
         details={"motif": motif},
     )
+
+    # Email « demande non retenue » (best-effort — ne bloque pas le rejet).
+    from django.conf import settings as dj_settings
+
+    from apps_coop.notifications.events import emit_event
+
+    member = loan_request.member
+    if getattr(member.user, "email", None):
+        try:
+            emit_event(
+                "loan_request.rejected",
+                member=member,
+                context={
+                    "prenom": member.prenom,
+                    "motif": motif,
+                    "portal_url": getattr(
+                        dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"
+                    ),
+                },
+            )
+        except Exception:  # noqa: BLE001
+            logger.warning("loan_request.rejected email skipped", exc_info=True)
     return loan_request
 
 
@@ -609,8 +636,12 @@ def request_loan_renewal(
             "la reconduction n'a lieu qu'une seule fois par crédit."
         )
 
-    # Durée non négociable : +1 mois (Article 10). On ignore toute autre valeur.
-    duree = RENEWAL_EXTRA_MONTHS
+    # Durée par défaut : +1 mois (Article 10) ; modifiable via AppSetting
+    # ``loans.renewal.extra_months`` (EXT-1). On ignore toute valeur reçue
+    # côté API : la durée reste pilotée centralement.
+    from apps_coop.audit.services import get_int_setting
+
+    duree = get_int_setting("loans.renewal.extra_months", RENEWAL_EXTRA_MONTHS)
 
     existing = (
         LoanRenewal.objects.select_for_update()
@@ -746,12 +777,17 @@ def approve_loan_renewal(
     #    ``montant`` = base reportée (capital+intérêts restants) ; les intérêts
     #    de reconduction sont calculés sur le capital seul (cf. interets_reconduction).
     #    ``issu_reconduction`` empêche une 2ᵉ reconduction de ce crédit.
+    # EXT-versioning : reconduction = nouveau contrat → on re-fige le taux
+    # de pénalité courant (peut différer de l'ancien crédit).
+    taux_penalite_fige = get_rate(RateParam.Code.LATE_PENALTY)
+
     nouveau_loan = Loan.objects.create(
         loan_request=synth_request,
         member=member,
         numero_dossier=_next_numero_dossier(),
         montant=base,
         taux_interet=taux_annuel,
+        taux_penalite=taux_penalite_fige,
         duree_mois=renewal.nouvelle_duree_mois,
         modalite_paiement=old_loan.modalite_paiement,
         date_decaissement=date.today(),
@@ -789,11 +825,10 @@ def approve_loan_renewal(
         },
     )
 
-    from apps_coop.notifications.services import send_template
+    from apps_coop.notifications.events import emit_event
 
-    send_template(
+    emit_event(
         "loan_renewal.approved",
-        to=member.user.email,
         member=member,
         context={
             "prenom": member.prenom,
@@ -833,12 +868,11 @@ def reject_loan_renewal(renewal: LoanRenewal, *, decided_by, motif: str) -> Loan
         user=decided_by,
         details={"motif": motif, "loan_id": renewal.loan_id},
     )
-    from apps_coop.notifications.services import send_template
+    from apps_coop.notifications.events import emit_event
     from django.conf import settings as dj_settings
 
-    send_template(
+    emit_event(
         "loan_renewal.rejected",
-        to=renewal.loan.member.user.email,
         member=renewal.loan.member,
         context={
             "prenom": renewal.loan.member.prenom,
@@ -848,3 +882,94 @@ def reject_loan_renewal(renewal: LoanRenewal, *, decided_by, motif: str) -> Loan
         },
     )
     return renewal
+
+
+# ---------------------------------------------------------------------------
+# Cycle contentieux (nouveau) — pénalité globale + saisie épargne automatique
+# ---------------------------------------------------------------------------
+
+
+def _quantize(x: Decimal) -> Decimal:
+    return x.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+@transaction.atomic
+def apply_global_penalty(loan: Loan, *, taux: Decimal | None = None) -> Decimal:
+    """Applique la pénalité globale ``taux × solde_restant`` au crédit.
+
+    Idempotent : si la pénalité a déjà été appliquée (champ
+    ``penalite_globale_appliquee_at`` non NULL), retourne ``Decimal("0")``.
+    Sinon :
+      - calcule ``penalite = taux × solde_restant``
+      - l'ajoute au ``solde_restant``
+      - marque l'application avec la date courante
+      - retourne le montant de pénalité appliqué
+
+    ``taux`` par défaut = ``RateParam.LATE_PENALTY`` (50 %, modifiable via
+    l'admin). Le crédit doit avoir un ``solde_restant > 0`` (sinon
+    ``Decimal("0")``).
+    """
+    # Re-fetch sous verrou (race contre un remboursement concurrent qui
+    # solderait le crédit).
+    locked = Loan.objects.select_for_update().get(pk=loan.pk)
+    if locked.penalite_globale_appliquee_at is not None:
+        return Decimal("0")
+    if Decimal(locked.solde_restant) <= 0:
+        # Déjà soldé entre-temps — aucune pénalité.
+        return Decimal("0")
+
+    if taux is None:
+        taux = get_rate(RateParam.Code.LATE_PENALTY)
+
+    penalite = _quantize(Decimal(locked.solde_restant) * Decimal(taux))
+    nouveau_solde = Decimal(locked.solde_restant) + penalite
+    now = timezone.now()
+
+    locked.solde_restant = nouveau_solde
+    locked.penalite_globale_appliquee_at = now
+    locked.penalite_globale_montant = penalite
+    if locked.statut == Loan.Statut.ACTIF:
+        locked.statut = Loan.Statut.EN_RETARD
+    locked.save(
+        update_fields=[
+            "solde_restant",
+            "penalite_globale_appliquee_at",
+            "penalite_globale_montant",
+            "statut",
+            "updated_at",
+        ]
+    )
+
+    record_audit(
+        action="loan.penalite_globale_appliquee",
+        entite_type="Loan",
+        entite_id=locked.id,
+        details={
+            "taux": str(taux),
+            "penalite": str(penalite),
+            "nouveau_solde": str(nouveau_solde),
+        },
+    )
+    return penalite
+
+
+def seize_member_savings_for_loan(loan: Loan) -> dict:
+    """R1 — Prélève l'épargne du membre pour solder un crédit en contentieux.
+
+    Refonte 2026 (LOT 13) : façade vers ``seizure_services.seize_for_loan``,
+    qui balaie plusieurs sources dans un ordre admin-configurable (épargne
+    classique + collecte, débiteur puis avaliste), exclut les
+    ``LenderTranche.ENGAGEE`` (Q5), et inclut l'épargne avaliste si
+    ``LoanRequest.avaliste`` est posé (§9.2 / Q9.4).
+
+    Tunables : ``loans.seizure.source_order``,
+    ``loans.seizure.include_avaliste``, ``loans.seizure.exclude_engaged_tranches``.
+
+    Idempotent. Renvoie le summary dict legacy compatible :
+    ``{saisie, epargne_apres, solde_restant_apres, poursuite, no_op}`` +
+    nouveaux champs ``saisie_borrower``, ``saisie_avaliste``, ``legs[]``.
+    """
+    from .seizure_services import seize_for_loan
+
+    result = seize_for_loan(loan)
+    return result.to_summary()

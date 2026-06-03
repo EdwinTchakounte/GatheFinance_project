@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../app/theme/app_colors.dart';
-import '../../../../app/theme/app_radii.dart';
-import '../../../../app/theme/app_spacing.dart';
-import '../../../../app/theme/app_typography.dart';
-import '../../../../core/widgets/app_card.dart';
-import '../../../../core/widgets/brand_background.dart';
+import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../../app/theme/paysika/pa_typography.dart';
+import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_error_state.dart';
+import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
-import '../../../../core/widgets/static_page_header.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/notification_prefs.dart';
 import '../state/notification_prefs_notifier.dart';
 
+/// Préférences de notifications — style **Paysika**. Une carte par catégorie,
+/// 3 canaux (push / email / sms) togglables.
 class NotificationsPreferencesPage extends ConsumerWidget {
   const NotificationsPreferencesPage({super.key});
 
@@ -22,68 +22,70 @@ class NotificationsPreferencesPage extends ConsumerWidget {
     final l = AppL10n.of(context);
 
     return Scaffold(
-      body: BrandBackground(
-        intensity: 0.55,
+      backgroundColor: PaColors.canvas,
+      body: PaPatternBackground(
         child: SafeArea(
           bottom: false,
           child: Column(
             children: [
-              StaticPageHeader(
-                eyebrow: l.notifprefs_eyebrow,
-                title: l.notifprefs_title,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 16, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back_rounded,
+                          color: PaColors.inkPrimary),
+                      tooltip: l.common_back,
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(l.notifprefs_eyebrow.toUpperCase(),
+                              style: PaText.eyebrow()),
+                          const SizedBox(height: 3),
+                          Text(l.notifprefs_title,
+                              style: PaText.heading(size: 22)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               Expanded(
-                child: CustomScrollView(
+                child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-              const SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpacing.screenH,
-                  AppSpacing.m,
-                  AppSpacing.screenH,
-                  AppSpacing.xl,
-                ),
-                sliver: SliverToBoxAdapter(child: _IntroCard()),
-              ),
-              async.when(
-                data: (prefs) => SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.screenH,
-                    0,
-                    AppSpacing.screenH,
-                    AppSpacing.huge,
-                  ),
-                  sliver: SliverList.builder(
-                    itemCount: NotifCategory.values.length,
-                    itemBuilder: (context, i) {
-                      final cat = NotifCategory.values[i];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.m),
-                        child: _CategoryCard(
-                          category: cat,
-                          prefs: prefs,
-                          onToggle: (chan, value) => ref
-                              .read(notificationPrefsProvider.notifier)
-                              .toggle(cat, chan, value),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                loading: () => const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: AppSpacing.screenH,
-                      vertical: 20,
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+                  children: [
+                    const _IntroCard(),
+                    const SizedBox(height: 18),
+                    async.when(
+                      data: (prefs) => Column(
+                        children: [
+                          for (final cat in NotifCategory.values)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _CategoryCard(
+                                category: cat,
+                                prefs: prefs,
+                                onToggle: (chan, value) => ref
+                                    .read(notificationPrefsProvider.notifier)
+                                    .toggle(cat, chan, value),
+                              ),
+                            ),
+                        ],
+                      ),
+                      loading: () => const PaCard(
+                        padding: EdgeInsets.all(18),
+                        child: SkeletonList(lines: 5),
+                      ),
+                      error: (e, _) => PaErrorState(
+                        onRetry: () =>
+                            ref.invalidate(notificationPrefsProvider),
+                      ),
                     ),
-                    child: SkeletonList(lines: 5),
-                  ),
-                ),
-                error: (e, _) => SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _ErrorState(message: e.toString()),
-                ),
-              ),
                   ],
                 ),
               ),
@@ -134,9 +136,7 @@ class _IntroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return AppCard(
-      variant: AppCardVariant.glass,
+    return PaCard(
       padding: const EdgeInsets.all(18),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,12 +145,12 @@ class _IntroCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: scheme.primary.withValues(alpha: 0.12),
-              borderRadius: const BorderRadius.all(AppRadii.r12),
+              color: PaColors.tealSurface,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.notifications_active_outlined,
-              color: scheme.primary,
+              color: PaColors.teal,
               size: 22,
             ),
           ),
@@ -159,17 +159,11 @@ class _IntroCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  l.notifprefs_intro_title,
-                  style: AppTypography.labelLarge
-                      .copyWith(color: scheme.onSurface),
-                ),
+                Text(l.notifprefs_intro_title, style: PaText.label(size: 14)),
                 const SizedBox(height: 4),
                 Text(
                   l.notifprefs_intro_sub,
-                  style: AppTypography.bodySmall.copyWith(
-                    color: scheme.onSurface.withValues(alpha: 0.7),
-                  ),
+                  style: PaText.body(size: 13, color: PaColors.inkSecondary),
                 ),
               ],
             ),
@@ -194,11 +188,9 @@ class _CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final meta = _metaFor(category);
 
-    return AppCard(
-      variant: AppCardVariant.glass,
+    return PaCard(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,34 +202,23 @@ class _CategoryCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  gradient: meta.gradient,
-                  borderRadius: const BorderRadius.all(AppRadii.r12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: meta.glow.withValues(alpha: 0.20),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  color: meta.tint.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(meta.icon, color: Colors.white, size: 20),
+                child: Icon(meta.icon, color: meta.tint, size: 20),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _catLabel(context, category),
-                      style: AppTypography.labelLarge
-                          .copyWith(color: scheme.onSurface),
-                    ),
+                    Text(_catLabel(context, category),
+                        style: PaText.label(size: 14)),
                     const SizedBox(height: 2),
                     Text(
                       _catSubtitle(context, category),
-                      style: AppTypography.bodySmall.copyWith(
-                        color: scheme.onSurface.withValues(alpha: 0.7),
-                      ),
+                      style: PaText.body(
+                          size: 12.5, color: PaColors.inkSecondary),
                     ),
                   ],
                 ),
@@ -245,7 +226,7 @@ class _CategoryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Divider(height: 1, color: scheme.outline),
+          const Divider(height: 1, color: PaColors.line),
           ...NotifChannel.values.map((chan) {
             final enabled = prefs.isEnabled(category, chan);
             return _ChannelRow(
@@ -259,49 +240,29 @@ class _CategoryCard extends StatelessWidget {
     );
   }
 
-  ({IconData icon, LinearGradient gradient, Color glow}) _metaFor(
-    NotifCategory c,
-  ) {
-    switch (c) {
-      case NotifCategory.epargne:
-        return (
+  ({IconData icon, Color tint}) _metaFor(NotifCategory c) {
+    return switch (c) {
+      NotifCategory.epargne => (
           icon: Icons.savings_outlined,
-          gradient: AppCardGradients.emeraldFresh,
-          glow: AppColors.emerald,
-        );
-      case NotifCategory.credit:
-        return (
+          tint: PaColors.teal,
+        ),
+      NotifCategory.credit => (
           icon: Icons.account_balance_outlined,
-          gradient: AppCardGradients.cobaltDeep,
-          glow: AppColors.cobalt,
-        );
-      case NotifCategory.carnet:
-        return (
+          tint: PaColors.blue,
+        ),
+      NotifCategory.carnet => (
           icon: Icons.menu_book_outlined,
-          gradient: AppCardGradients.terraWarm,
-          glow: AppColors.terra,
-        );
-      case NotifCategory.reconduction:
-        return (
+          tint: PaColors.navy,
+        ),
+      NotifCategory.reconduction => (
           icon: Icons.refresh_rounded,
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF6B7BD6), Color(0xFF3B4FB3)],
-          ),
-          glow: AppColors.cobalt,
-        );
-      case NotifCategory.securite:
-        return (
+          tint: PaColors.warning,
+        ),
+      NotifCategory.securite => (
           icon: Icons.shield_outlined,
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFD45B5B), Color(0xFFA13838)],
-          ),
-          glow: AppColors.danger,
-        );
-    }
+          tint: PaColors.danger,
+        ),
+    };
   }
 }
 
@@ -319,7 +280,6 @@ class _ChannelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final icon = switch (channel) {
       NotifChannel.push => Icons.notifications_outlined,
       NotifChannel.email => Icons.mail_outline_rounded,
@@ -330,76 +290,24 @@ class _ChannelRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 18,
-            color: enabled
-                ? scheme.primary
-                : scheme.onSurface.withValues(alpha: 0.5),
-          ),
+          Icon(icon,
+              size: 18, color: enabled ? PaColors.teal : PaColors.inkMuted),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               _chanLabel(context, channel),
-              style: AppTypography.bodyMedium.copyWith(
-                color: enabled
-                    ? scheme.onSurface
-                    : scheme.onSurface.withValues(alpha: 0.7),
-                fontWeight: enabled ? FontWeight.w600 : FontWeight.w500,
+              style: PaText.body(
+                size: 14,
+                weight: enabled ? FontWeight.w600 : FontWeight.w500,
+                color: enabled ? PaColors.inkPrimary : PaColors.inkSecondary,
               ),
             ),
           ),
           Switch.adaptive(
             value: enabled,
             onChanged: onChanged,
-            activeThumbColor: AppColors.emerald,
-            activeTrackColor: AppColors.emeraldSurface,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message});
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.huge,
-        AppSpacing.screenH,
-        AppSpacing.huge,
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.cloud_off_outlined,
-            color: AppColors.terraDark,
-            size: 36,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            l.notifprefs_unavailable,
-            textAlign: TextAlign.center,
-            style: AppTypography.headingSmall.copyWith(
-              color: AppColors.terraDark,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: AppTypography.bodySmall.copyWith(
-              color: scheme.onSurface.withValues(alpha: 0.55),
-            ),
+            activeThumbColor: PaColors.teal,
+            activeTrackColor: PaColors.tealSurface,
           ),
         ],
       ),

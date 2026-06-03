@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gathe_finance/l10n/gen/app_localizations.dart';
 import 'package:gathe_finance/core/di/providers.dart';
+import 'package:gathe_finance/core/widgets/paysika/pa_button.dart';
 import 'package:gathe_finance/features/home/presentation/widgets/deposit_sheet.dart';
 import 'package:gathe_finance/features/savings/data/datasources/savings_remote_datasource.dart';
 import 'package:gathe_finance/features/savings/domain/entities/savings_account.dart';
@@ -44,6 +46,9 @@ void main() {
         savingsDataSourceProvider.overrideWithValue(ds),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
         home: Scaffold(body: child),
       ),
     );
@@ -79,9 +84,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining("On te garde une place"), findsOneWidget);
-    expect(find.text('Bien noté'), findsOneWidget);
-    // Pas de formulaire — donc pas de bouton "Confirmer le dépôt".
-    expect(find.text('Confirmer le dépôt'), findsNothing);
+    expect(find.text('Compris'), findsOneWidget);
+    // Pas de formulaire — donc pas de bouton "Confirmer le versement".
+    expect(find.text('Confirmer le versement'), findsNothing);
     expect(ds.depositCalls, 0);
   });
 
@@ -93,7 +98,7 @@ void main() {
 
     // Vider le champ montant
     await tester.enterText(find.byType(TextFormField).first, '');
-    await tester.tap(find.byType(FilledButton).last);
+    await tester.tap(find.byType(PaButton).last);
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Saisis un montant'), findsOneWidget);
@@ -107,7 +112,7 @@ void main() {
     await pickMobileChannel(tester);
 
     await tester.enterText(find.byType(TextFormField).first, '50');
-    await tester.tap(find.byType(FilledButton).last);
+    await tester.tap(find.byType(PaButton).last);
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Minimum'), findsOneWidget);
@@ -138,7 +143,7 @@ void main() {
     await tester.enterText(find.byType(TextFormField).first, '10000');
     await tester.pump();
 
-    await tester.tap(find.byType(FilledButton).last);
+    await tester.tap(find.byType(PaButton).last);
     // Attend la résolution complète (delay 1900ms mock + anim).
     // On ne vérifie pas l'étape "loading" intermédiaire — le sheet utilise un
     // AnimatedSize dont la résolution multi-frames rend l'assertion flaky.
@@ -147,7 +152,7 @@ void main() {
     // Le datasource a été appelé exactement une fois
     expect(ds.depositCalls, 1);
     // Étape success affichée
-    expect(find.text('Dépôt confirmé'), findsOneWidget);
+    expect(find.text('Versement confirmé'), findsOneWidget);
     expect(find.text('Terminé'), findsOneWidget);
   });
 }

@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gathe_finance/core/widgets/transaction_tile.dart';
 import 'package:gathe_finance/features/savings/domain/entities/savings_transaction.dart';
+import 'package:gathe_finance/l10n/gen/app_localizations.dart';
 
 void main() {
   Future<void> pump(WidgetTester tester, Widget child) async {
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: child)));
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fr'),
+      localizationsDelegates: AppL10n.localizationsDelegates,
+      supportedLocales: AppL10n.supportedLocales,
+      home: Scaffold(body: child),
+    ));
   }
 
   testWidgets('TransactionTile — dépôt : libellé + signe + (positif)',

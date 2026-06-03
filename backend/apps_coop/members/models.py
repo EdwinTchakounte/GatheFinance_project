@@ -20,6 +20,11 @@ class Member(TimestampedModel):
         ACTIF = "actif", "Actif"
         SUSPENDU = "suspendu", "Suspendu"
         RADIE = "radie", "Radié"
+        # Refonte 2026 (LOT 11 / §8) — Bénéficiaire micro-crédit campagne :
+        # accès au crédit campagne uniquement, pas d'épargne, pas de saisie
+        # possible. Peut basculer ``ACTIF`` après paiement des frais
+        # d'inscription (Q15).
+        TEMPORAIRE = "temporaire", "Temporaire (micro-crédit campagne)"
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -36,12 +41,163 @@ class Member(TimestampedModel):
     statut = models.CharField(max_length=12, choices=Statut.choices, default=Statut.ACTIF, db_index=True)
     date_adhesion = models.DateField()
 
+    # A2 — Réinscription annuelle (alerte douce, non bloquante).
+    # ``date_derniere_reinscription`` est la date à partir de laquelle on
+    # compte les 12 mois jusqu'à la prochaine échéance. Initialement =
+    # ``date_adhesion`` (cf. migration de backfill 0004).
+    date_derniere_reinscription = models.DateField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=(
+            "Date de référence pour le calcul de l'anniversaire annuel. "
+            "Mise à jour à chaque re-souscription confirmée par l'admin."
+        ),
+    )
+
+    # LOT 1 (refonte 2026) — BRC validation
+    # Sécurité crédit (§7.1 BUSINESS_RULES_2026) : un membre ancien peut
+    # emprunter "sans doute et garantie" UNIQUEMENT si son statut BRC
+    # (Broad Range Consulting) a été validé par un admin sur la base d'un
+    # justificatif uploadé. Le flag est posé par
+    # ``services.validate_brc_document`` une fois le doc validé.
+    is_brc_member = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="True si le justificatif BRC a été validé par un admin.",
+    )
+    brc_validated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date de validation du statut BRC (par admin).",
+    )
+    brc_validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="brc_validations",
+        help_text="Admin ayant validé le statut BRC du membre.",
+    )
+
+    # LOT 11 (refonte 2026) — Voie 3 MICROCAMPAIGN.
+    # Posé à la création d'un Member ``TEMPORAIRE`` issu d'une campagne
+    # micro-crédit. String ref pour éviter un cycle loans ↔ members.
+    microcampaign = models.ForeignKey(
+        "loans.MicrocreditCampaign",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="beneficiaires",
+        help_text=(
+            "Campagne d'origine pour un Member TEMPORAIRE (§8 BUSINESS_RULES_2026). "
+            "NULL pour les adhérents standards."
+        ),
+    )
+
     class Meta:
         ordering = ["-date_adhesion"]
         indexes = [models.Index(fields=["statut", "-date_adhesion"])]
 
     def __str__(self) -> str:
         return f"{self.numero_membre} · {self.prenom} {self.nom}"
+
+    @property
+    def seniority_months(self) -> int:
+        """Nombre de mois écoulés depuis ``date_adhesion`` (entier, plancher 0).
+
+        Utilisé pour vérifier l'éligibilité "Ancien" (§3 BUSINESS_RULES_2026).
+        Calcul déterministe à base de ``timezone.localdate()`` — pas de
+        ``relativedelta`` pour rester hors-fuseau.
+        """
+        from django.utils import timezone
+
+        if not self.date_adhesion:
+            return 0
+        today = timezone.localdate()
+        delta = (today.year - self.date_adhesion.year) * 12 + (
+            today.month - self.date_adhesion.month
+        )
+        # Si on n'a pas encore atteint le jour-anniversaire du mois, on
+        # décrémente d'un mois pour rester strict.
+        if today.day < self.date_adhesion.day:
+            delta -= 1
+        return max(0, delta)
+
+    @property
+    def is_senior(self) -> bool:
+        """True si l'ancienneté ≥ ``seniority.threshold_months`` (défaut 12).
+
+        Critère "Ancien" (§3) qui débloque les voies d'éligibilité crédit
+        direct (avec BRC) ou rôle d'avaliste pour un nouvel adhérent.
+        Le seuil est tunable via AppSetting — pas de hardcode.
+        """
+        from apps_coop.audit.services import get_int_setting
+
+        threshold = get_int_setting("seniority.threshold_months", 12)
+        return self.seniority_months >= threshold
+
+    @property
+    def is_lender(self) -> bool:
+        """True si le membre a une convention prêteur active (refonte 2026 §6)."""
+        try:
+            consent = self.lender_consent  # noqa: F841 (raises if absent)
+        except Exception:  # noqa: BLE001 — pas de consent posé
+            return False
+        return consent.revoked_at is None
+
+    @property
+    def capacite_pretable(self):
+        """Capacité prêtable du membre (refonte 2026 §6 — Épargne-prêteur).
+
+        Retourne ``Decimal(0)`` si pas de consentement actif. Sinon :
+          • Mode A (global) : ``solde_epargne_classique - tranches_engagees``
+          • Mode B (tranches) : somme des tranches en statut ``DISPONIBLE``
+
+        Note : on lit l'épargne **classique** (``classic_savings_account``),
+        pas la collecte journalière (qui est restituée fin de mois).
+        """
+        from decimal import Decimal
+
+        from django.db.models import Sum
+
+        if not self.is_lender:
+            return Decimal("0.00")
+
+        from apps_coop.savings.models import LenderTranche
+
+        consent = self.lender_consent
+        if consent.is_global:
+            try:
+                solde = Decimal(self.classic_savings_account.solde)
+            except Exception:  # noqa: BLE001 — pas de compte épargne classique
+                return Decimal("0.00")
+            engaged = LenderTranche.objects.filter(
+                member=self,
+                statut=LenderTranche.Statut.ENGAGEE,
+            ).aggregate(s=Sum("montant"))["s"] or Decimal("0.00")
+            return max(Decimal("0.00"), solde - Decimal(engaged))
+        # Mode B — somme des tranches disponibles
+        dispo = LenderTranche.objects.filter(
+            member=self,
+            statut=LenderTranche.Statut.DISPONIBLE,
+        ).aggregate(s=Sum("montant"))["s"] or Decimal("0.00")
+        return Decimal(dispo)
+
+    @property
+    def prochaine_reinscription_due(self):
+        """Date à laquelle la prochaine réinscription est exigible (anniversaire).
+
+        Retourne ``None`` si ``date_derniere_reinscription`` n'est pas définie
+        (cas legacy avant migration). Le calcul utilise +365 jours (et non
+        ``relativedelta(years=1)``) pour rester déterministe et hors-fuseau.
+        """
+        from datetime import timedelta
+
+        base = self.date_derniere_reinscription
+        if base is None:
+            return None
+        return base + timedelta(days=365)
 
 
 class MembershipRequest(TimestampedModel):
@@ -206,6 +362,73 @@ class BookletOrder(TimestampedModel):
 
     def __str__(self) -> str:
         return f"Carnet {self.member.numero_membre} · {self.statut}"
+
+
+class BRCDocument(TimestampedModel):
+    """Justificatif BRC (Broad Range Consulting) uploadé par un membre.
+
+    Refonte 2026 (§7.1 BUSINESS_RULES_2026) : pour pouvoir emprunter des
+    grosses sommes "sans doute et garantie", un membre ancien doit prouver
+    qu'il est client BRC (le cabinet de fiscalité partenaire). Le flow :
+
+      1. Membre upload un justificatif (PDF / image) via le portail/mobile
+         → ``BRCDocument`` créé en ``EN_ATTENTE``
+      2. Admin examine le doc dans le back-office
+      3. Admin **valide** → ``Member.is_brc_member = True``
+         OU admin **rejette** avec motif → membre peut re-uploader
+
+    Modèle dédié (vs réutiliser ``Document``) car on garde l'historique :
+    un membre peut avoir plusieurs ``BRCDocument`` (1 rejeté + 1 validé),
+    et chaque ligne porte sa propre piste audit (qui, quand, motif).
+    """
+
+    class Statut(models.TextChoices):
+        EN_ATTENTE = "en_attente", "En attente de validation"
+        VALIDE = "valide", "Validé"
+        REJETE = "rejete", "Rejeté"
+
+    member = models.ForeignKey(
+        "Member",
+        on_delete=models.CASCADE,
+        related_name="brc_documents",
+    )
+    fichier = models.FileField(upload_to="coop/brc/%Y/%m/")
+    nom_original = models.CharField(max_length=255, blank=True)
+    taille = models.PositiveIntegerField(default=0, help_text="Taille du fichier en octets.")
+
+    statut = models.CharField(
+        max_length=12,
+        choices=Statut.choices,
+        default=Statut.EN_ATTENTE,
+        db_index=True,
+    )
+    motif_rejet = models.TextField(
+        blank=True,
+        help_text="Motif fourni par l'admin en cas de rejet du justificatif.",
+    )
+
+    validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="brc_documents_decided",
+        help_text="Admin ayant validé ou rejeté le document.",
+    )
+    validated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date de la décision admin (validation ou rejet).",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Justificatif BRC"
+        verbose_name_plural = "Justificatifs BRC"
+        indexes = [models.Index(fields=["member", "statut"])]
+
+    def __str__(self) -> str:
+        return f"BRC {self.member.numero_membre} · {self.statut}"
 
 
 class Document(TimestampedModel):

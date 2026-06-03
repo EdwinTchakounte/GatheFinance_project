@@ -46,7 +46,10 @@ class IsMember(BasePermission):
 class IsActiveMember(BasePermission):
     """User has a member profile **and** the member is ``actif``."""
 
-    message = "Compte membre suspendu — paye ta 1re cotisation pour l'activer."
+    message = (
+        "Compte membre suspendu — règle tes frais d'adhésion + d'inscription "
+        "pour activer ton compte."
+    )
 
     def has_permission(self, request, view) -> bool:
         u = request.user

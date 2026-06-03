@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gathe_finance/features/loans/domain/entities/loan_installment.dart';
 import 'package:gathe_finance/features/loans/presentation/widgets/installment_tile.dart';
+import 'package:gathe_finance/l10n/gen/app_localizations.dart';
 
 void main() {
   Future<void> pump(WidgetTester tester, Widget child) async {
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: child)));
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fr'),
+      localizationsDelegates: AppL10n.localizationsDelegates,
+      supportedLocales: AppL10n.supportedLocales,
+      home: Scaffold(body: child),
+    ));
   }
 
   testWidgets('InstallmentTile — payée affiche le pill success', (tester) async {

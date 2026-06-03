@@ -52,6 +52,14 @@ class _GatheAppState extends ConsumerState<GatheApp>
       theme: AppTheme.light,
       themeMode: ThemeMode.light,
       routerConfig: router,
+      // Borne le grossissement de police système : au-delà de 1.15 les layouts
+      // denses (hero, montants 44pt, sheets) débordent. Accessibilité préservée
+      // (jusqu'à +15 %) sans casser le rendu.
+      builder: (context, child) => MediaQuery.withClampedTextScaling(
+        minScaleFactor: 0.9,
+        maxScaleFactor: 1.15,
+        child: child!,
+      ),
       locale: locale,
       supportedLocales: AppL10n.supportedLocales,
       localizationsDelegates: const [

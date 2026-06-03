@@ -40,7 +40,6 @@ export function organizationJsonLd(siteUrl: string) {
         closes: "17:00",
       },
     ],
-    parentOrganization: { "@type": "Organization", name: siteConfig.brc.name, url: siteConfig.brc.url },
     sameAs: [siteConfig.social.facebook, siteConfig.social.linkedin],
   };
 }

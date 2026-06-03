@@ -7,9 +7,9 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
-import '../../../../core/widgets/brand_loader.dart';
 import '../../../../core/widgets/eyebrow.dart';
 import '../../../../core/widgets/logo_mark.dart';
+import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../state/auth_notifier.dart';
 import '../widgets/membership_form_sheet.dart';
@@ -195,26 +195,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: AppSpacing.xl),
 
                     // CTA principal
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: loading ? null : _submit,
-                        child: loading
-                            ? const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: BrandPulseDots(
-                                      size: 5,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Text(l.login_submit),
-                      ),
+                    PaButton(
+                      label: l.login_submit,
+                      loading: loading,
+                      onPressed: loading ? null : _submit,
                     ),
 
                     const SizedBox(height: AppSpacing.l),
@@ -240,18 +224,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: AppSpacing.l),
 
                     // Secondary CTA — ouvre la modale d'explication + flow
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: loading
-                            ? null
-                            : () => MemberInfoSheet.show(
-                                  context,
-                                  onJoin: () =>
-                                      MembershipFormSheet.show(context),
-                                ),
-                        child: Text(l.login_become_member),
-                      ),
+                    PaButton(
+                      label: l.login_become_member,
+                      variant: PaButtonVariant.outline,
+                      onPressed: loading
+                          ? null
+                          : () => MemberInfoSheet.show(
+                                context,
+                                onJoin: () =>
+                                    MembershipFormSheet.show(context),
+                              ),
                     ),
 
                     const SizedBox(height: AppSpacing.xxl),

@@ -7,6 +7,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/brand_loader.dart';
+import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../state/booklet_notifier.dart';
 
@@ -20,6 +21,9 @@ class OrderBookletSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+      ),
       backgroundColor: Theme.of(context).colorScheme.surface,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheet),
@@ -196,13 +200,7 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
 
             const SizedBox(height: AppSpacing.xl),
 
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _submit,
-                child: Text(l.bko_pay),
-              ),
-            ),
+            PaButton(label: l.bko_pay, onPressed: _submit),
           ],
         ),
       ),
@@ -277,12 +275,9 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
             ),
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l.common_understood),
-            ),
+          PaButton(
+            label: l.common_understood,
+            onPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),

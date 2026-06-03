@@ -144,11 +144,15 @@ class CreditPage extends ConsumerWidget {
       floatingActionButton: Consumer(
         builder: (context, ref, _) {
           final eligibility = ref.watch(eligibilityProvider).valueOrNull;
+          final isLoading = eligibility == null;
+          final isBlocked = eligibility != null && !eligibility.eligible;
           return _NewRequestFab(
-            onPressed: eligibility == null
+            onPressed: isLoading
                 ? null
-                : () => LoanRequestSheet.show(context, eligibility),
-            disabled: eligibility == null,
+                : isBlocked
+                    ? () => _showIneligibilityDialog(context, eligibility.motifs)
+                    : () => LoanRequestSheet.show(context, eligibility),
+            disabled: isLoading || isBlocked,
           );
         },
       ),
@@ -169,45 +173,90 @@ class _NewRequestFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        gradient: PaGradients.ctaPill,
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: PaColors.teal.withValues(alpha: 0.30),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
+    return Opacity(
+      opacity: disabled ? 0.55 : 1.0,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: PaGradients.ctaPill,
           borderRadius: BorderRadius.circular(999),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.add_rounded, color: PaColors.onTeal, size: 20),
-                const SizedBox(width: 6),
-                Text(
-                  l.credit_new_request,
-                  style: const TextStyle(
-                    color: PaColors.onTeal,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
+          boxShadow: [
+            BoxShadow(
+              color: PaColors.teal.withValues(alpha: 0.30),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(999),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add_rounded, color: PaColors.onTeal, size: 20),
+                  const SizedBox(width: 6),
+                  Text(
+                    l.credit_new_request,
+                    style: const TextStyle(
+                      color: PaColors.onTeal,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+
+// Dialog présenté au tap du FAB quand le membre n'est pas éligible à une
+// nouvelle demande (typiquement : un crédit en cours non soldé — Règle 2 de
+// compute_eligibility côté backend). Affiche les motifs renvoyés par l'API.
+void _showIneligibilityDialog(BuildContext context, List<String> motifs) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text("Demande de crédit indisponible"),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Tu ne peux pas demander un nouveau crédit pour le moment :",
+            style: TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 12),
+          ...motifs.map(
+            (m) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("• ", style: TextStyle(fontWeight: FontWeight.w700)),
+                  Expanded(child: Text(m, style: const TextStyle(fontSize: 13.5))),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text("J'ai compris"),
+        ),
+      ],
+    ),
+  );
 }
 
 
@@ -225,6 +274,7 @@ class _LoanCard extends StatelessWidget {
     final next = loan.nextDue;
     final progression = loan.progression;
     final tauxPct = (loan.tauxInteret * 100).toStringAsFixed(0);
+    final penalty = loan.penaltyDue(DateTime.now()); // Article 12
 
     final statusColor = switch (loan.statut) {
       LoanStatus.actif => PaColors.success,
@@ -345,6 +395,63 @@ class _LoanCard extends StatelessWidget {
                             color: PaColors.inkPrimary,
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Pénalité de retard (Article 12) — visible seulement si exigible.
+          if (penalty > 0) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: PaColors.dangerSurface,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.gavel_rounded,
+                      color: PaColors.danger, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              l.credit_penalty_title,
+                              style: const TextStyle(
+                                color: PaColors.danger,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              XAFFormatter.format(penalty),
+                              style: const TextStyle(
+                                color: PaColors.danger,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          l.credit_penalty_sub,
+                          style: const TextStyle(
+                            color: PaColors.inkSecondary,
+                            fontSize: 11.5,
+                            height: 1.4,
                           ),
                         ),
                       ],

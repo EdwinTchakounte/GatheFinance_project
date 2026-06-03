@@ -8,6 +8,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/brand_loader.dart';
+import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/eligibility.dart';
 import '../../domain/loan_terms.dart';
@@ -25,6 +26,12 @@ class LoanRequestSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      // Plafonne le sheet pour qu'il flotte avec une marge sous la status bar
+      // (corners arrondis visibles) au lieu de grimper plein écran. Le contenu
+      // scrolle à l'intérieur si besoin.
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+      ),
       backgroundColor: Theme.of(context).colorScheme.surface,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheet),
@@ -250,13 +257,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
 
             const SizedBox(height: AppSpacing.xl),
 
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _submit,
-                child: Text(l.lreq_submit),
-              ),
-            ),
+            PaButton(label: l.lreq_submit, onPressed: _submit),
           ],
         ),
       ),
@@ -315,12 +316,9 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
             ),
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l.common_understood),
-            ),
+          PaButton(
+            label: l.common_understood,
+            onPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),

@@ -92,8 +92,8 @@ def init_payment(request):
         return Response(
             {
                 "detail": (
-                    "Compte membre suspendu — seule la 1re cotisation "
-                    "(frais_adhesion ou frais_inscription) est autorisée."
+                    "Compte membre suspendu — seuls les frais d'adhésion + "
+                    "d'inscription sont autorisés tant que l'activation n'est pas faite."
                 )
             },
             status=status.HTTP_403_FORBIDDEN,
@@ -133,6 +133,47 @@ def init_payment(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    # LOT 6 (refonte 2026) — multi-jours pré-payé sur la collecte journalière.
+    # On valide ici car la sérialisation n'a pas accès aux AppSettings.
+    nb_jours = data.get("nb_jours_couverts", 1) or 1
+    if data["type"] == Payment.Type.EPARGNE and nb_jours != 1:
+        from apps_coop.audit.services import get_int_setting
+
+        min_per_day = get_int_setting("collecte.min_per_day", 1000)
+        max_days = get_int_setting("collecte.prepay.max_days", 30)
+        if nb_jours > max_days:
+            return Response(
+                {
+                    "detail": (
+                        f"Mode multi-jours plafonné à {max_days} jours "
+                        f"(reçu {nb_jours})."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        expected = nb_jours * min_per_day
+        if data["montant"] != expected:
+            return Response(
+                {
+                    "detail": (
+                        f"Mode multi-jours : montant attendu "
+                        f"{nb_jours} × {min_per_day} = {expected} FCFA "
+                        f"(reçu {int(data['montant'])})."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    elif data["type"] != Payment.Type.EPARGNE and nb_jours != 1:
+        return Response(
+            {
+                "detail": (
+                    "nb_jours_couverts > 1 n'est valide que pour le type "
+                    "'epargne' (collecte journalière)."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     # Épargne classique : produit dissocié de la cotisation, piloté par une
     # config admin (ouverture + bornes de dépôt). Règles fines à venir.
     if data["type"] == Payment.Type.EPARGNE_CLASSIQUE:
@@ -165,6 +206,7 @@ def init_payment(request):
         date_versement=timezone.now(),
         loan_id=data.get("loan_id"),
         loan_installment_id=data.get("loan_installment_id"),
+        nb_jours_couverts=nb_jours,
     )
 
     try:

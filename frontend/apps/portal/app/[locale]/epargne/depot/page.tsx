@@ -157,14 +157,14 @@ function DepositForm() {
               ? "Payer les frais de dossier"
               : isLoanRepayment
                 ? "Rembourser mon crédit"
-                : "Verser ma cotisation"}
+                : "Verser mon épargne"}
           </h1>
           <p className="mt-2 text-sm text-ink-600">
             {isCreditFees
               ? "Règle les frais de demande de crédit pour que ta demande passe en instruction."
               : isLoanRepayment
                 ? "Le montant sera imputé en FIFO sur tes échéances (plus anciennes d'abord)."
-                : "Cotisation journalière suggérée : 1 000 FCFA. Tu restes libre de modifier."}
+                : "Épargne journalière suggérée : 1 000 FCFA. Tu restes libre de modifier."}
           </p>
         </header>
 

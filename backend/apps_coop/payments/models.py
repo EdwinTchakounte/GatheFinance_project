@@ -158,6 +158,19 @@ class Payment(TimestampedModel):
     gateway_initiated_at = models.DateTimeField(null=True, blank=True)
     motif_rejet = models.TextField(blank=True)
 
+    # LOT 2 (refonte 2026) — multi-jours pré-payé sur la collecte journalière.
+    # Pertinent uniquement pour ``type = EPARGNE`` (collecte) ; ignoré sinon.
+    # 1 = paiement standard d'1 jour. N > 1 = paiement couvrant N jours
+    # (ex. 5000 FCFA pour 5 jours à 1000/j). Plafonné côté UI à
+    # ``collecte.prepay.max_days`` (défaut 30).
+    nb_jours_couverts = models.PositiveSmallIntegerField(
+        default=1,
+        help_text=(
+            "Multi-jours pré-payé pour la collecte (refonte 2026). "
+            "Défaut 1 = paiement standard."
+        ),
+    )
+
     class Meta:
         ordering = ["-date_versement", "-id"]
         indexes = [

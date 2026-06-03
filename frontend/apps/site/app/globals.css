@@ -352,6 +352,33 @@ body::before {
   padding-left: 1.25rem;
 }
 
+/* Editorial lead paragraph with drop cap (lettrine) on the first letter.
+   Responsive : taille réduite sur mobile pour ne pas écraser le paragraphe,
+   puis remontée à 3.6rem à partir de md (≥ 768 px). */
+.lead-with-cap::first-letter {
+  float: left;
+  font-family: var(--font-editorial);
+  font-size: 2.4rem;
+  line-height: 0.9;
+  color: var(--blue-700, #1f76ce);
+  font-weight: 500;
+  padding-right: 0.4rem;
+  padding-top: 0.25rem;
+}
+@media (min-width: 768px) {
+  .lead-with-cap::first-letter {
+    font-size: 3.2rem;
+    padding-right: 0.5rem;
+    padding-top: 0.3rem;
+  }
+}
+@media (min-width: 1024px) {
+  .lead-with-cap::first-letter {
+    font-size: 3.6rem;
+    padding-right: 0.55rem;
+  }
+}
+
 /* Bands — claires sur fond crème, immersives en sombre. */
 .bg-band-dark {
   background-color: var(--skin-band-strong-bg);

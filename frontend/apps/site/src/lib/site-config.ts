@@ -32,7 +32,7 @@ export const images = {
   family: "/images/family.jpg",
   businesswoman: "/images/businesswoman.jpg",
   entrepreneurFamily: "/images/entrepreneur-family.jpg",
-  fcfaBills: "/images/fcfa-bills.jpg",
+  fcfaBills: "/images/cemac-bills-2022.jpg",
   fatherDaughterSaving: "/images/father-daughter-saving.jpg",
   cooperativeInvestment: "/images/cooperative-investment.jpg",
   trainingWorkshop: "/images/training-workshop.jpg",

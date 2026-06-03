@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { ArrowRight, BadgePercent, Briefcase, ChevronDown, Coins } from "lucide-react";
+import { ArrowRight, Briefcase, ChevronDown, Coins } from "lucide-react";
 
 import { buttonClasses, Container } from "@gathe/ui";
 import { Link } from "@/i18n/navigation";
@@ -113,7 +113,7 @@ export async function Hero({ locale }: { locale: string }) {
           height reduction (≈ 36-44px overall). Labels are folded into a single
           line next to the value, separated by a hairline em-dash. */}
       <div className="border-t border-white/15 bg-blue-950/90 backdrop-blur-sm">
-        <Container className="grid grid-cols-3 items-center gap-2 py-1.5 sm:gap-5 sm:py-2 lg:py-2.5">
+        <Container className="grid grid-cols-2 items-center gap-2 py-1.5 sm:gap-5 sm:py-2 lg:py-2.5">
           <div className="flex items-center gap-1.5 sm:gap-2.5">
             <Briefcase aria-hidden="true" className="size-3.5 shrink-0 text-emerald sm:size-[18px]" />
             <p className="flex min-w-0 items-baseline gap-1.5 truncate font-display text-[0.78rem] leading-none text-white sm:text-[0.95rem]">
@@ -134,12 +134,6 @@ export async function Hero({ locale }: { locale: string }) {
               <span className="hidden text-[0.7rem] font-normal text-blue-200/75 sm:inline">
                 · {t("stats.fundedLabel")}
               </span>
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 border-l border-white/12 pl-2 sm:gap-2.5 sm:pl-4 lg:pl-6">
-            <BadgePercent aria-hidden="true" className="size-3.5 shrink-0 text-emerald sm:size-[18px]" />
-            <p className="truncate font-display text-[0.78rem] font-semibold leading-none tracking-tight text-emerald sm:text-[0.95rem]">
-              {ta("zeroInterestBadge")}
             </p>
           </div>
         </Container>

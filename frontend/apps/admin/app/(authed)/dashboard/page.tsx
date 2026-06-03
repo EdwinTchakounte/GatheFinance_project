@@ -1,7 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Wallet, Users, ClipboardCheck, AlertCircle } from "lucide-react";
+import {
+  ArrowUpRight,
+  Wallet,
+  Users,
+  ClipboardCheck,
+  AlertCircle,
+  PiggyBank,
+  HandCoins,
+  Megaphone,
+  ShieldAlert,
+  Gavel,
+  UserCheck,
+} from "lucide-react";
 
 import { adminApi, type DashboardKpis } from "@/lib/api";
 
@@ -44,11 +56,11 @@ function DashboardContent() {
     );
   }
 
-  const cards: KpiCardProps[] = [
+  const generalCards: KpiCardProps[] = [
     {
       label: "Membres actifs",
       value: kpis.members.actif,
-      hint: `${kpis.members.suspendu} suspendu(s)`,
+      hint: `${kpis.members.suspendu} suspendu(s) · ${kpis.members.temporaire} temporaire(s)`,
       icon: Users,
       tone: "emerald",
     },
@@ -78,6 +90,98 @@ function DashboardContent() {
     },
   ];
 
+  const refonteCards: KpiCardProps[] = [
+    {
+      label: "Avalistes en attente",
+      value: kpis.queues.avaliste_pending,
+      hint: "réponse attendue (Q13 non-rétractable)",
+      icon: UserCheck,
+      tone: "terra",
+    },
+    {
+      label: "Campagnes validations",
+      value: kpis.queues.campaign_validation_pending,
+      hint: `${kpis.campaigns.actives} campagne(s) active(s)`,
+      icon: Megaphone,
+      tone: "terra",
+    },
+    {
+      label: "Prêteurs actifs",
+      value: kpis.lenders.consents_actifs,
+      hint: `Dispo : ${formatXAF(kpis.lenders.tranches_disponible)} · Engagé : ${formatXAF(kpis.lenders.tranches_engagee)}`,
+      icon: HandCoins,
+      tone: "blue",
+      large: true,
+    },
+    {
+      label: "Funding en cours",
+      value: kpis.lenders.funding_in_progress,
+      hint: "PENDING + REALLOCATING",
+      icon: HandCoins,
+      tone: "blue",
+    },
+  ];
+
+  const epargneCards: KpiCardProps[] = [
+    {
+      label: "Épargne collecte",
+      value: formatXAF(kpis.finance.epargne_collecte),
+      hint: "comptes journaliers",
+      icon: PiggyBank,
+      tone: "emerald",
+      large: true,
+    },
+    {
+      label: "Épargne classique",
+      value: formatXAF(kpis.finance.epargne_classique),
+      hint: "contrats 12 mois",
+      icon: PiggyBank,
+      tone: "emerald",
+      large: true,
+    },
+    {
+      label: "Cycle anniversaire",
+      value: kpis.epargne_classique_cycle.en_attente_paiement,
+      hint: `${kpis.epargne_classique_cycle.notifie} notifié(s) · ${kpis.epargne_classique_cycle.urgence} urgence(s)`,
+      icon: AlertCircle,
+      tone: "terra",
+      href: "/renewals",
+    },
+    {
+      label: "BRC validés",
+      value: kpis.members.brc_validated,
+      hint: "voie crédit directe débloquée",
+      icon: ShieldAlert,
+      tone: "emerald",
+      href: "/brc",
+    },
+  ];
+
+  const risqueCards: KpiCardProps[] = [
+    {
+      label: "Crédits en retard",
+      value: kpis.contentieux.loans_en_retard,
+      hint: "rappels graduellement envoyés",
+      icon: AlertCircle,
+      tone: "terra",
+    },
+    {
+      label: "Crédits contentieux",
+      value: kpis.contentieux.loans_contentieux,
+      hint: "saisie épargne déclenchée",
+      icon: ShieldAlert,
+      tone: "terra",
+    },
+    {
+      label: "Escalades judiciaires",
+      value: kpis.contentieux.escalades_ouvertes,
+      hint: "EN_INSTANCE + DECISION_RENDUE",
+      icon: Gavel,
+      tone: "terra",
+      large: true,
+    },
+  ];
+
   return (
     <div className="px-8 py-8 lg:px-12 lg:py-10">
       <header className="mb-8">
@@ -92,11 +196,47 @@ function DashboardContent() {
         </p>
       </header>
 
-      {/* KPI cards */}
+      {/* Général */}
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {cards.map((c) => (
+        {generalCards.map((c) => (
           <KpiCard key={c.label} {...c} />
         ))}
+      </section>
+
+      {/* Refonte 2026 — éligibilité + prêteurs */}
+      <section className="mt-10">
+        <h2 className="mb-3 font-display text-xs font-semibold uppercase tracking-wider text-ink-500">
+          Éligibilité 3 voies &amp; prêteurs (refonte 2026)
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {refonteCards.map((c) => (
+            <KpiCard key={c.label} {...c} />
+          ))}
+        </div>
+      </section>
+
+      {/* Épargne — collecte + classique */}
+      <section className="mt-10">
+        <h2 className="mb-3 font-display text-xs font-semibold uppercase tracking-wider text-ink-500">
+          Épargne &amp; cycles
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {epargneCards.map((c) => (
+            <KpiCard key={c.label} {...c} />
+          ))}
+        </div>
+      </section>
+
+      {/* Risque — retards + contentieux + judiciaire */}
+      <section className="mt-10">
+        <h2 className="mb-3 font-display text-xs font-semibold uppercase tracking-wider text-ink-500">
+          Risque &amp; contentieux
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {risqueCards.map((c) => (
+            <KpiCard key={c.label} {...c} />
+          ))}
+        </div>
       </section>
 
       {/* Recent payments */}

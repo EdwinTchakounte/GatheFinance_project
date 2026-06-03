@@ -8,6 +8,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/brand_loader.dart';
+import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/loan.dart';
 import '../state/loans_notifier.dart';
@@ -25,6 +26,11 @@ class RepaymentSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      // Plafonne le sheet pour qu'il flotte avec une marge sous la status bar
+      // au lieu de grimper plein écran ; scroll interne si le contenu dépasse.
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+      ),
       backgroundColor: Theme.of(context).colorScheme.surface,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheet),
@@ -122,7 +128,8 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
     final l = AppL10n.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-      child: Form(
+      child: SingleChildScrollView(
+        child: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -283,15 +290,10 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
 
             const SizedBox(height: AppSpacing.xxl),
 
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _submit,
-                child: Text(l.rep_confirm),
-              ),
-            ),
+            PaButton(label: l.rep_confirm, onPressed: _submit),
           ],
         ),
+      ),
       ),
     );
   }
@@ -369,12 +371,9 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
             ),
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l.common_done),
-            ),
+          PaButton(
+            label: l.common_done,
+            onPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),

@@ -20,7 +20,7 @@ from apps_coop.audit.services import client_ip, record as record_audit
 from apps_coop.members.permissions import IsActiveMember, IsMember, IsStaff
 
 from .cutoff import COLLECTION_LOCATION, DAILY_CUTOFF_HOUR
-from .models import SavingsAccount, SavingsTransaction
+from .models import ClassicSavingsAccount, SavingsAccount, SavingsTransaction
 from .serializers import SavingsAccountReadSerializer, SavingsTransactionReadSerializer
 
 
@@ -111,6 +111,7 @@ class SavingsInfoView(APIView):
     def get(self, request):
         # Taux et frais lus en base (modifiables côté admin, BR2) avec fallback
         # réglementaire.
+        from apps_coop.audit.services import get_int_setting, get_str_setting
         from apps_coop.payments.models import FeeType, RateParam
         from apps_coop.payments.rates import get_rate
 
@@ -120,9 +121,16 @@ class SavingsInfoView(APIView):
             .values_list("montant", flat=True)
             .first()
         )
+
+        # LOT 6 (refonte 2026) — paramètres collecte / multi-jours pré-payé.
+        min_per_day = get_int_setting("collecte.min_per_day", 1000)
+        prepay_max_days = get_int_setting("collecte.prepay.max_days", 30)
+        commission_rate = get_str_setting("collecte.monthly.commission_rate", "0.01")
+        end_of_month_default = get_str_setting("collecte.monthly.default_action", "cash")
+
         return Response(
             {
-                "suggested_daily_amount_xaf": 1000,
+                "suggested_daily_amount_xaf": min_per_day,
                 "min_amount_xaf": 100,
                 "cutoff_hour": DAILY_CUTOFF_HOUR,
                 "cutoff_label": f"{DAILY_CUTOFF_HOUR}h00",
@@ -146,8 +154,13 @@ class SavingsInfoView(APIView):
                         "hours": "Lun–Ven · 08h00 – 17h00",
                     },
                 ],
-                "interest_rate_monthly": str(taux_mensuel),  # défaut 1 % (Article 4)
+                "interest_rate_monthly": str(taux_mensuel),  # LEGACY 2025 — neutralisé en 2026
                 "booklet_fee_xaf": int(carnet) if carnet is not None else 1000,
+                # Refonte 2026 — collecte journalière.
+                "collecte_min_per_day_xaf": min_per_day,
+                "collecte_prepay_max_days": prepay_max_days,
+                "collecte_monthly_commission_rate": commission_rate,
+                "collecte_end_of_month_default": end_of_month_default,
             }
         )
 
@@ -239,6 +252,9 @@ def request_withdrawal_view(request):
             account,
             montant=s.validated_data["montant"],
             motif=s.validated_data.get("motif", ""),
+            mode_paiement=s.validated_data.get("mode_paiement"),
+            recipient_phone=s.validated_data.get("recipient_phone", ""),
+            network=s.validated_data.get("network", ""),
         )
     except ValueError as exc:
         return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -287,6 +303,15 @@ def admin_list_withdrawals(request):
         row = WithdrawalRequestReadSerializer(wr).data
         row["numero_membre"] = wr.account.member.numero_membre
         row["member_nom"] = f"{wr.account.member.prenom} {wr.account.member.nom}".strip()
+        # Hint UI for action buttons
+        row["can_mark_paid"] = (
+            wr.mode_paiement == WithdrawalRequest.ModePaiement.PRESENTIEL
+            and wr.statut == WithdrawalRequest.Statut.APPROUVEE
+        )
+        row["can_retry_payout"] = (
+            wr.mode_paiement == WithdrawalRequest.ModePaiement.MOMO
+            and wr.statut == WithdrawalRequest.Statut.PAYOUT_FAILED
+        )
         data.append(row)
     return Response({"results": data})
 
@@ -294,7 +319,16 @@ def admin_list_withdrawals(request):
 @extend_schema(
     tags=["savings"],
     summary="🔒 Admin — décider d'une demande de retrait",
-    description="Approuve (débite le solde) ou rejette une demande de retrait.",
+    description=(
+        "Approuve ou rejette une demande de retrait.\n\n"
+        "**À l'approbation** : le solde est débité, puis selon le canal choisi "
+        "par le membre :\n"
+        "  • `mode_paiement = momo` → init payout Tara automatique. Statut "
+        "passe à `en_payout` puis `completee` après confirmation webhook (ou "
+        "`payout_failed` si Tara KO).\n"
+        "  • `mode_paiement = presentiel` → statut `approuvee` (attente de "
+        "remise espèces). L'admin appellera ensuite `/mark-paid/` pour clôturer."
+    ),
 )
 @api_view(["POST"])
 @permission_classes([IsStaff])
@@ -319,3 +353,153 @@ def admin_decide_withdrawal(request, pk: int):
     except ValueError as exc:
         return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
     return Response(WithdrawalRequestReadSerializer(wr).data)
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="🔒 Admin — confirmer remise espèces (retrait présentiel)",
+    description=(
+        "Marque un retrait `approuvee` en `completee` après remise effective "
+        "des espèces au membre. Réservé aux retraits `mode_paiement = presentiel`. "
+        "Idempotent : un retrait déjà `completee` renvoie 200."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_mark_withdrawal_paid(request, pk: int):
+    from .models import WithdrawalRequest
+    from .serializers import WithdrawalHandoverSerializer, WithdrawalRequestReadSerializer
+    from .services import mark_withdrawal_paid
+
+    s = WithdrawalHandoverSerializer(data=request.data)
+    s.is_valid(raise_exception=True)
+    try:
+        wr = WithdrawalRequest.objects.get(pk=pk)
+    except WithdrawalRequest.DoesNotExist:
+        return Response({"detail": "Demande introuvable."}, status=status.HTTP_404_NOT_FOUND)
+    try:
+        wr = mark_withdrawal_paid(
+            wr, agent=request.user, note=s.validated_data.get("note", ""),
+        )
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(WithdrawalRequestReadSerializer(wr).data)
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="🔒 Admin — réessayer un payout MOMO échoué",
+    description=(
+        "Relance un init payout Tara pour un retrait `payout_failed`. "
+        "Réutilise la même WithdrawalRequest (solde déjà débité), nouveau "
+        "Payment + nouvelle idempotency_key côté Tara."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_retry_withdrawal_payout(request, pk: int):
+    from .models import WithdrawalRequest
+    from .serializers import WithdrawalRequestReadSerializer
+    from .services import retry_withdrawal_payout
+
+    try:
+        wr = WithdrawalRequest.objects.get(pk=pk)
+    except WithdrawalRequest.DoesNotExist:
+        return Response({"detail": "Demande introuvable."}, status=status.HTTP_404_NOT_FOUND)
+    try:
+        wr = retry_withdrawal_payout(wr, agent=request.user)
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(WithdrawalRequestReadSerializer(wr).data)
+
+
+# ===========================================================================
+# LOT 7-admin (refonte 2026) — Renouvellements épargne classique
+# ===========================================================================
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="🔒 Admin — liste des comptes épargne en attente de renouvellement",
+    description=(
+        "Renvoie les ClassicSavingsAccount dont le statut de renouvellement "
+        "nécessite une action de la coop. Filtre par défaut : "
+        "``en_attente_paiement`` (maturité atteinte). "
+        "Filtres : ``?statut=actif|notifie|urgence|en_attente_paiement|archive``."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_list_renewals(request):
+    statut = request.query_params.get("statut", "en_attente_paiement")
+    qs = (
+        ClassicSavingsAccount.objects
+        .select_related("member", "member__user")
+        .filter(statut_renouvellement=statut)
+        .order_by("date_prochaine_maturite")
+    )
+    rows = [
+        {
+            "id": acc.id,
+            "member_id": acc.member_id,
+            "member_numero": acc.member.numero_membre,
+            "member_nom": acc.member.nom,
+            "member_prenom": acc.member.prenom,
+            "member_email": getattr(acc.member.user, "email", "") or "",
+            "solde": str(acc.solde),
+            "cycle_courant": acc.cycle_courant,
+            "date_ouverture": acc.date_ouverture.isoformat(),
+            "date_prochaine_maturite": (
+                acc.date_prochaine_maturite.isoformat()
+                if acc.date_prochaine_maturite else None
+            ),
+            "statut_renouvellement": acc.statut_renouvellement,
+            "statut_display": acc.get_statut_renouvellement_display(),
+        }
+        for acc in qs[:200]
+    ]
+    return Response({"count": len(rows), "results": rows})
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="🔒 Admin — encaisser les frais et renouveler un compte épargne",
+    description=(
+        "Acte le renouvellement annuel : avance ``cycle_courant``, pose une "
+        "nouvelle ``date_prochaine_maturite``, écrit la ligne FRAIS_RENOUVELLEMENT "
+        "dans le ledger et restaure ``statut_renouvellement = ACTIF``. "
+        "Refusé si le compte est ARCHIVE."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_process_renewal(request, pk: int):
+    from .services import renew_classic_savings_account
+
+    try:
+        account = ClassicSavingsAccount.objects.get(pk=pk)
+    except ClassicSavingsAccount.DoesNotExist:
+        return Response(
+            {"detail": "Compte introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+    paid_amount_raw = request.data.get("paid_amount")
+    try:
+        paid_amount = None if paid_amount_raw is None else paid_amount_raw
+        account = renew_classic_savings_account(
+            account=account,
+            paid_by=request.user,
+            paid_amount=paid_amount,
+        )
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        {
+            "id": account.id,
+            "cycle_courant": account.cycle_courant,
+            "statut_renouvellement": account.statut_renouvellement,
+            "date_prochaine_maturite": (
+                account.date_prochaine_maturite.isoformat()
+                if account.date_prochaine_maturite else None
+            ),
+        }
+    )

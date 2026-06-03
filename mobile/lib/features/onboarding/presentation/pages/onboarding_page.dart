@@ -9,6 +9,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../state/onboarding_notifier.dart';
 
@@ -183,18 +184,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   children: [
                     _RailIndicator(count: slides.length, current: _index),
                     const SizedBox(height: AppSpacing.xl),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: () => _next(isLast: isLast),
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 220),
-                          child: Text(
-                            isLast ? l.onb_start : l.onb_continue,
-                            key: ValueKey(isLast),
-                          ),
-                        ),
-                      ),
+                    PaButton(
+                      label: isLast ? l.onb_start : l.onb_continue,
+                      onPressed: () => _next(isLast: isLast),
                     ),
                     const SizedBox(height: AppSpacing.s),
                     AnimatedOpacity(
@@ -265,12 +257,16 @@ class _SlideView extends StatelessWidget {
             AppSpacing.screenH,
             AppSpacing.l,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Hero image — vignette + filtre accent + badge pill
-              AspectRatio(
-                aspectRatio: 1.05,
+          // Scrollable → aucun overflow possible même avec une police agrandie
+          // ou un texte long (slide coopérative). Reste statique si ça tient.
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Hero image — vignette + filtre accent + badge pill
+                AspectRatio(
+                  aspectRatio: 1.2,
                 child: Transform.scale(
                   scale: imageScale,
                   child: ClipRRect(
@@ -356,7 +352,7 @@ class _SlideView extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: AppSpacing.xxl),
+              const SizedBox(height: AppSpacing.l),
 
               // Bloc texte : fade + slide vertical synchronisés
               Opacity(
@@ -390,7 +386,8 @@ class _SlideView extends StatelessWidget {
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         );
       },

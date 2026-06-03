@@ -41,13 +41,29 @@ def _next_business_day(d: date) -> date:
 def compute_value_date(now: datetime) -> date:
     """Date de valeur pour un versement effectué à ``now``.
 
-    - Si ``now`` ≤ 17h00 ET ``now`` est un jour ouvré → date du jour.
+    - Si ``now`` ≤ cut-off horaire (défaut 17h00) ET ``now`` est un jour ouvré
+      → date du jour.
     - Sinon → prochain jour ouvré.
+
+    L'heure de cut-off est lue depuis l'AppSetting ``savings.cutoff.hour``
+    (EXT-1) ; à défaut, on retombe sur ``DAILY_CUTOFF_HOUR`` (17 — Article 4).
     """
+    from apps_coop.audit.services import get_int_setting
+
     today = now.date()
     is_business_day = today.weekday() < 5
-    before_cutoff = now.time() < time(DAILY_CUTOFF_HOUR, 0)
+    cutoff_hour = get_int_setting("savings.cutoff.hour", DAILY_CUTOFF_HOUR)
+    before_cutoff = now.time() < time(cutoff_hour, 0)
 
     if is_business_day and before_cutoff:
         return today
     return _next_business_day(today)
+
+
+def get_collection_location() -> str:
+    """Lieu d'agence affiché aux membres — modifiable via AppSetting
+    ``savings.collection_location`` (EXT-1). À défaut, valeur réglementaire.
+    """
+    from apps_coop.audit.services import get_str_setting
+
+    return get_str_setting("savings.collection_location", COLLECTION_LOCATION)

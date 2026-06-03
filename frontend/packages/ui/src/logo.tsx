@@ -2,12 +2,12 @@ import type { ImgHTMLAttributes } from "react";
 import { cn } from "./cn";
 
 /**
- * Gathe Finance wordmark — official downloaded JPG (`/images/logo.jpg`,
- * byte-identical to the upstream gathe-finance.com asset). Height is set by
- * the parent via className (e.g. `h-14 w-auto`).
+ * Gathe Finance wordmark — transparent PNG (`/images/logo.png`, derived from
+ * the official JPG with the white background made transparent so the mark
+ * blends with any surface). Height is set by the parent via className.
  *
  * The variant prop is kept for API compatibility with the previous SVG
- * implementation; the rendered asset is always the same JPG.
+ * implementation; the rendered asset is always the same PNG.
  */
 export type LogoVariant = "color" | "light" | "dark";
 
@@ -16,7 +16,7 @@ export interface LogoProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "sr
   title?: string;
 }
 
-const LOGO_SRC = "/images/logo.jpg";
+const LOGO_SRC = "/images/logo.png";
 
 export function Logo({
   variant: _variant,

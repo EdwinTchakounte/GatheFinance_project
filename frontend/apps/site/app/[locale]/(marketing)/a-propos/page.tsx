@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/page-shell";
 import { CtaBand } from "@/components/cta-band";
 import { InstitutionalDecor } from "@/components/institutional-decor";
 import { Reveal } from "@/components/reveal";
+import { AnchorStrip } from "@/components/anchor-strip";
 import { images, siteConfig } from "@/lib/site-config";
 
 type Params = { params: Promise<{ locale: string }> };
@@ -21,16 +22,6 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 const rich = {
   strong: (chunks: React.ReactNode) => <strong className="text-ink-900">{chunks}</strong>,
-  brclink: (chunks: React.ReactNode) => (
-    <a
-      href={siteConfig.brc.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="font-medium text-blue-700 underline decoration-terra-400 underline-offset-2 hover:decoration-terra-600"
-    >
-      {chunks}
-    </a>
-  ),
 };
 
 export default async function AboutPage({ params }: Params) {
@@ -51,6 +42,14 @@ export default async function AboutPage({ params }: Params) {
         image={images.brcTeamGroup}
       />
 
+      <AnchorStrip
+        anchors={[
+          { id: "mission", label: t("missionTitle") },
+          { id: "equipe", label: tn("aboutTeam") },
+          { id: "agences", label: t("agenciesTitle") },
+        ]}
+      />
+
       {/* ===== Mission ===== */}
       <section id="mission" className="relative isolate overflow-hidden section-pad bg-paper">
         <InstitutionalDecor variant="nodes" />
@@ -61,7 +60,7 @@ export default async function AboutPage({ params }: Params) {
               <h2 className="mt-4 font-editorial text-section font-medium text-ink-900">
                 {t("missionTitle")}
               </h2>
-              <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink-600">
+              <p className="lead-with-cap mt-6 max-w-2xl text-lg leading-relaxed text-ink-600">
                 {t.rich("intro", rich)}
               </p>
 
@@ -71,11 +70,6 @@ export default async function AboutPage({ params }: Params) {
                     <span aria-hidden="true" className="absolute -left-[27px] top-2 size-1.5 rounded-full bg-terra-500" />
                     <p className="text-[0.98rem] leading-relaxed text-ink-700">
                       {item}
-                      {i === 2 ? (
-                        <span className="ml-2 inline-block rounded-sm bg-emerald/10 px-2 py-0.5 align-middle text-[0.68rem] font-semibold uppercase tracking-wider text-green-700">
-                          {t("zeroInterestBadge")}
-                        </span>
-                      ) : null}
                     </p>
                   </Reveal>
                 ))}
@@ -99,17 +93,6 @@ export default async function AboutPage({ params }: Params) {
                 />
               </div>
 
-              <div className="border-t border-line-200 pt-5">
-                <span className="label-num">{t("initiativeOf")}</span>
-                <a
-                  href={siteConfig.brc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-block font-editorial text-xl font-medium text-ink-900 transition-colors hover:text-blue-700"
-                >
-                  {siteConfig.brc.name}
-                </a>
-              </div>
             </Reveal>
           </div>
         </Container>
@@ -118,28 +101,16 @@ export default async function AboutPage({ params }: Params) {
       {/* ===== Key figures ===== */}
       <section className="border-y border-line-200 bg-cream py-12 lg:py-16">
         <Container>
-          <dl className="grid grid-cols-2 gap-10 lg:grid-cols-4">
+          <dl className="grid grid-cols-1 gap-10 sm:grid-cols-2">
             <div>
               <dt className="stat-label">{th("stats.projectsLabel")}</dt>
               <dd className="stat-num mt-2 text-[clamp(2rem,3.4vw,3rem)]">{th("stats.projectsValue")}</dd>
             </div>
-            <div className="lg:border-l lg:border-line-200 lg:pl-10">
+            <div className="sm:border-l sm:border-line-200 sm:pl-10">
               <dt className="stat-label">{th("stats.fundedLabel")}</dt>
               <dd className="stat-num mt-2 text-[clamp(2rem,3.4vw,3rem)]">
                 {th("stats.fundedValue")}{" "}
                 <span className="text-emerald">{th("stats.fundedSuffix")}</span>
-              </dd>
-            </div>
-            <div className="lg:border-l lg:border-line-200 lg:pl-10">
-              <dt className="stat-label">{t("missionTitle")}</dt>
-              <dd className="mt-2 font-editorial italic text-[clamp(1.2rem,1.8vw,1.6rem)] text-green-700">
-                {t("zeroInterestBadge")}
-              </dd>
-            </div>
-            <div className="lg:border-l lg:border-line-200 lg:pl-10">
-              <dt className="stat-label">{t("initiativeOf")}</dt>
-              <dd className="mt-2 font-editorial text-[clamp(1.05rem,1.4vw,1.3rem)] font-medium text-ink-900">
-                {siteConfig.brc.name}
               </dd>
             </div>
           </dl>
@@ -160,11 +131,15 @@ export default async function AboutPage({ params }: Params) {
                 {tn("contact")}
               </Link>
             </div>
-            <div className="border-l border-line-200 pl-8 lg:pl-12">
-              <p className="font-editorial italic text-[1.1rem] leading-relaxed text-ink-700">
-                {t.rich("callout", rich)}
-              </p>
-            </div>
+            <Reveal className="relative aspect-[4/3] overflow-hidden rounded-md">
+              <Image
+                src={images.entrepreneurFamily}
+                alt="Entrepreneurs camerounais accompagnés par la coopérative"
+                fill
+                sizes="(min-width: 1024px) 45vw, 90vw"
+                className="object-cover"
+              />
+            </Reveal>
           </div>
         </Container>
       </section>

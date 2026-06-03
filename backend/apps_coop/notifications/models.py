@@ -95,3 +95,115 @@ class Notification(TimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.type} → {self.user_id}"
+
+
+# ---------------------------------------------------------------------------
+# EXT-5 — Moteur d'événements métier (définition ↔ exécution dissociées).
+# ---------------------------------------------------------------------------
+#
+# Idée : chaque action métier (adhésion approuvée, retard détecté, retrait
+# demandé…) émet un **événement nommé** via ``emit_event(code, …)``. La
+# décision « envoyer quoi à qui » vit en base (EventConfig + EventHook), pas
+# dans le code appelant. Un admin peut couper / activer / brancher de
+# nouvelles actions sans déploiement.
+
+
+class EventConfig(TimestampedModel):
+    """Catalogue des événements métier émis par l'application.
+
+    Chaque ligne décrit **un type d'événement** (ex. ``loan.installment_overdue``)
+    et son comportement par défaut. Les *actions* à exécuter quand l'événement
+    arrive sont définies dans la table liée ``EventHook``.
+
+    Le ``status`` pilote l'effet du kill-switch admin :
+      - ``REQUIRED`` : toujours actif, l'admin **ne peut pas** couper
+        (réservé aux actes à valeur juridique : activation, retard, contentieux).
+      - ``OPTIONAL`` : actif si ``active=True``, désactivable.
+      - ``BLOCKED`` : forcé OFF (kill-switch immédiat).
+
+    ``sensitive`` est un flag d'UX : l'admin doit confirmer dans une modale
+    avant de désactiver/bloquer (pas un verrou — l'admin reste souverain).
+    """
+
+    class Status(models.TextChoices):
+        REQUIRED = "REQUIRED", "Requis (toujours actif)"
+        OPTIONAL = "OPTIONAL", "Optionnel (activable)"
+        BLOCKED = "BLOCKED", "Bloqué (kill-switch)"
+
+    code = models.CharField(max_length=64, unique=True, db_index=True)
+    label = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.OPTIONAL,
+        db_index=True,
+    )
+    active = models.BooleanField(
+        default=True,
+        help_text="Effectif uniquement quand status=OPTIONAL.",
+    )
+    sensitive = models.BooleanField(
+        default=False,
+        help_text="Si vrai, l'admin doit confirmer avant de couper "
+        "(événement à impact légal ou opérationnel fort).",
+    )
+
+    class Meta:
+        ordering = ["code"]
+        verbose_name = "Configuration d'événement"
+        verbose_name_plural = "Configurations d'événements"
+
+    def __str__(self) -> str:
+        return f"{self.code} · {self.status}"
+
+    @property
+    def is_effective(self) -> bool:
+        """Faut-il exécuter les hooks de cet événement ?
+
+        REQUIRED → toujours ; OPTIONAL → selon ``active`` ; BLOCKED → jamais.
+        """
+        if self.status == self.Status.BLOCKED:
+            return False
+        if self.status == self.Status.REQUIRED:
+            return True
+        return bool(self.active)
+
+
+class EventHook(TimestampedModel):
+    """Action à exécuter lorsqu'un événement est émis.
+
+    Plusieurs hooks peuvent être branchés sur un même événement (ex. envoyer
+    un e-mail au membre **et** créer une notification in-app — déjà géré par
+    ``send_template`` aujourd'hui, donc un seul hook EMAIL suffit en général).
+    """
+
+    class ActionType(models.TextChoices):
+        EMAIL = "EMAIL", "E-mail (template)"
+        AUDIT_ONLY = "AUDIT_ONLY", "Audit seulement (silencieux)"
+
+    event = models.ForeignKey(
+        EventConfig,
+        on_delete=models.CASCADE,
+        related_name="hooks",
+    )
+    action_type = models.CharField(
+        max_length=16,
+        choices=ActionType.choices,
+        default=ActionType.EMAIL,
+    )
+    target_template_code = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Code EmailTemplate à rendre. Si vide, on utilise event.code.",
+    )
+    active = models.BooleanField(default=True, db_index=True)
+    ordering = models.PositiveSmallIntegerField(default=100)
+
+    class Meta:
+        ordering = ["event", "ordering"]
+        verbose_name = "Hook d'événement"
+        verbose_name_plural = "Hooks d'événements"
+
+    def __str__(self) -> str:
+        return f"{self.event.code} → {self.action_type}"

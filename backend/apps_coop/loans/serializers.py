@@ -17,7 +17,13 @@ MIN_MONTANT_XAF = 5000
 
 
 class LoanRequestSubmitSerializer(serializers.Serializer):
-    """Body of ``POST /api/v1/loans/requests/``."""
+    """Body of ``POST /api/v1/loans/requests/``.
+
+    Refonte 2026 (LOT 15) : champs optionnels pour les voies AVALISTE et
+    CAMPAIGN. Si le demandeur est senior+BRC, ces champs sont ignorés (voie
+    1 directe). Sinon, le routeur ``evaluate_routes`` cherche la voie qui
+    matche les champs fournis.
+    """
 
     montant_demande = serializers.DecimalField(
         max_digits=14,
@@ -29,6 +35,20 @@ class LoanRequestSubmitSerializer(serializers.Serializer):
         max_value=MAX_DUREE_MOIS,
     )
     motif = serializers.CharField(max_length=2000, allow_blank=False)
+
+    # Voie AVALISTE — optionnel (§7.2 BUSINESS_RULES_2026).
+    avaliste_numero = serializers.CharField(
+        max_length=32, required=False, allow_blank=True
+    )
+    avaliste_nom = serializers.CharField(
+        max_length=200, required=False, allow_blank=True
+    )
+
+    # Voie CAMPAIGN — optionnel (§8 BUSINESS_RULES_2026).
+    campaign_id = serializers.IntegerField(required=False, allow_null=True)
+    profil_cible = serializers.CharField(
+        max_length=64, required=False, allow_blank=True
+    )
 
 
 class LoanRequestReadSerializer(serializers.ModelSerializer):
