@@ -19,6 +19,7 @@ import {
   ArrowDownToLine,
   Clock,
   FileText,
+  BellRing,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
@@ -68,6 +69,8 @@ const NAV: NavItem[] = [
   { href: "/cron-schedules", label: "Planification (cron)", icon: Clock },
   // Documents officiels (règlement intérieur PDF joint au mail de bienvenue).
   { href: "/cooperative-asset", label: "Documents officiels", icon: FileText },
+  // Annonces broadcast — message libre admin → membres (Notification in-app).
+  { href: "/announcements", label: "Annonces", icon: BellRing },
 ];
 
 

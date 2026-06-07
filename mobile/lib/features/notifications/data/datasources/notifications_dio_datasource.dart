@@ -51,13 +51,32 @@ class NotificationsDioDataSource implements NotificationsRemoteDataSource {
 AppNotification _parseNotification(Map<String, dynamic> json) {
   final type = (json['type'] as String?) ?? '';
   final message = (json['message'] as String?) ?? '';
-  // Backend renvoie un seul `message` — on dérive title/body : le titre = type
-  // formaté lisible, le body = le message complet.
+  // Backend renvoie un seul `message` — on dérive title/body :
+  //   - cas général : titre = type formaté lisible, body = message complet ;
+  //   - cas `type=="annonce"` : le backend prefixe le corps par le titre
+  //     saisi par l'admin (broadcast), au format "TITRE\n\nCORPS" — on extrait
+  //     proprement les 2 parties pour les afficher en hiérarchie naturelle.
+  String title;
+  String body;
+  if (type == 'annonce') {
+    final split = message.split(RegExp(r'\n\n+'));
+    if (split.length >= 2 && split.first.trim().isNotEmpty) {
+      title = split.first.trim();
+      body = split.sublist(1).join('\n\n').trim();
+    } else {
+      title = 'Annonce';
+      body = message;
+    }
+  } else {
+    title = _titleFromType(type);
+    body = message;
+  }
+
   return AppNotification(
     id: (json['id'] as num).toInt(),
     kind: _kindFromType(type),
-    title: _titleFromType(type),
-    body: message,
+    title: title,
+    body: body,
     createdAt: _date(json['created_at']),
     read: (json['lue'] as bool?) ?? false,
   );

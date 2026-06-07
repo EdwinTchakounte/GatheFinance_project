@@ -287,6 +287,35 @@ export type CronScheduleRow = {
   is_admin_edited: boolean;
 };
 
+// Annonces broadcast — diffusion admin → membres (Notification in-app).
+export type AnnouncementAudience = "all" | "actifs" | "suspendus" | "selection";
+
+export type AnnouncementRow = {
+  id: number;
+  titre: string;
+  corps: string;
+  audience: AnnouncementAudience;
+  audience_display: string;
+  audience_member_ids: number[];
+  lien: string;
+  author: number | null;
+  author_email: string | null;
+  published_at: string | null;
+  expires_at: string | null;
+  recipients_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AnnouncementCreatePayload = {
+  titre: string;
+  corps: string;
+  audience: AnnouncementAudience;
+  audience_member_ids?: number[];
+  lien?: string;
+  expires_at?: string | null;
+};
+
 // P2 — AppSettings tunables (refonte 2026).
 export type AppSettingType = "int" | "decimal" | "bool" | "str" | "csv" | "enum";
 
@@ -783,6 +812,24 @@ export const adminApi = {
       if (!res.ok) throw await readError(res);
       return res.json();
     },
+  },
+
+  // Annonces broadcast — admin diffuse un message libre aux membres,
+  // matérialisé en Notification in-app par cible.
+  announcements: {
+    list: () =>
+      request<{ results: AnnouncementRow[] }>(
+        "/notifications/admin/announcements/",
+      ),
+    create: (payload: AnnouncementCreatePayload) =>
+      request<AnnouncementRow>(
+        "/notifications/admin/announcements/create/",
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
+    remove: (id: number) =>
+      request<void>(`/notifications/admin/announcements/${id}/`, {
+        method: "DELETE",
+      }),
   },
 
   // Coûts modifiables — frais (FCFA) + taux (ratio) en base (BR2/BR3).

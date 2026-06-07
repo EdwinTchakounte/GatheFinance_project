@@ -207,3 +207,70 @@ class EventHook(TimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.event.code} → {self.action_type}"
+
+
+class Announcement(TimestampedModel):
+    """Annonce diffusée à un groupe de membres (broadcast).
+
+    L'admin saisit titre + corps + audience, puis le service
+    ``broadcast_announcement`` matérialise une ``Notification`` in-app par
+    membre cible. Le mobile/portail les reçoit via l'endpoint notifications
+    déjà existant (type = ``"annonce"``).
+    """
+
+    class Audience(models.TextChoices):
+        ALL = "all", "Tous les membres"
+        ACTIFS = "actifs", "Membres actifs uniquement"
+        SUSPENDUS = "suspendus", "Membres suspendus uniquement"
+        SELECTION = "selection", "Sélection manuelle (ids)"
+
+    titre = models.CharField(max_length=200)
+    corps = models.TextField(
+        help_text="Texte libre (multi-lignes). Le mobile l'affiche tel quel.",
+    )
+    audience = models.CharField(
+        max_length=12,
+        choices=Audience.choices,
+        default=Audience.ALL,
+        db_index=True,
+    )
+    audience_member_ids = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Utilisé uniquement quand audience=selection.",
+    )
+    lien = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Lien interne optionnel (ex: /campaigns/42) repris sur la notif.",
+    )
+
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="announcements_authored",
+    )
+    published_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Horodatage de diffusion effective (null = pas encore diffusée).",
+    )
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Optionnel : date à laquelle l'annonce devient obsolète.",
+    )
+    recipients_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Nombre de Notifications créées au moment du broadcast.",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Annonce"
+        verbose_name_plural = "Annonces"
+
+    def __str__(self) -> str:
+        return f"{self.titre} ({self.audience})"

@@ -146,6 +146,62 @@ def create_notification(*, user, type: str, message: str, lien: str = "") -> Not
     )
 
 
+def broadcast_announcement(announcement) -> int:
+    """Matérialise une ``Notification`` in-app par membre cible.
+
+    Idempotent : appelée 2× pour la même annonce, ne re-crée pas de doublons
+    (on filtre les users qui ont déjà une Notification avec lien = ``ann:<id>``).
+    Retourne le nombre de notifications **créées** (pas le total cible).
+    """
+    from apps_coop.members.models import Member
+    from .models import Announcement, Notification
+
+    if announcement.audience == Announcement.Audience.ALL:
+        members = Member.objects.exclude(user__isnull=True)
+    elif announcement.audience == Announcement.Audience.ACTIFS:
+        members = Member.objects.filter(statut=Member.Statut.ACTIF).exclude(
+            user__isnull=True
+        )
+    elif announcement.audience == Announcement.Audience.SUSPENDUS:
+        members = Member.objects.filter(statut=Member.Statut.SUSPENDU).exclude(
+            user__isnull=True
+        )
+    elif announcement.audience == Announcement.Audience.SELECTION:
+        ids = announcement.audience_member_ids or []
+        members = Member.objects.filter(id__in=ids).exclude(user__isnull=True)
+    else:
+        members = Member.objects.none()
+
+    tag = f"ann:{announcement.id}"
+    already_notified_user_ids = set(
+        Notification.objects.filter(lien=tag).values_list("user_id", flat=True)
+    )
+
+    to_create = []
+    for m in members.select_related("user").only("user_id"):
+        if m.user_id in already_notified_user_ids:
+            continue
+        # Le mobile dérive son `title` du `type` ("annonce" → "Annonce") ;
+        # on préfixe donc le corps par le titre de l'annonce pour que celui-ci
+        # reste visible côté membre. Format : "TITRE\n\nCORPS".
+        body = (
+            f"{announcement.titre}\n\n{announcement.corps}"
+            if announcement.titre
+            else announcement.corps
+        )
+        to_create.append(
+            Notification(
+                user_id=m.user_id,
+                type="annonce",
+                message=body,
+                lien=announcement.lien or tag,
+                lue=False,
+            )
+        )
+    Notification.objects.bulk_create(to_create, batch_size=500)
+    return len(to_create)
+
+
 def _strip_html(html: str) -> str:
     """Tiny HTML → plain-text fallback (good enough for transactional emails)."""
     import re

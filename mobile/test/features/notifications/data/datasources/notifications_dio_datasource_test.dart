@@ -96,6 +96,46 @@ void main() {
     expect(post.method, 'POST');
   });
 
+  test(
+      'type=annonce → title extrait du préfixe "TITRE\\n\\nCORPS"',
+      () async {
+    final adapter = ScriptedAdapter()
+      ..on('/notifications/',
+          method: 'GET',
+          status: 200,
+          body: {
+            'results': [
+              {
+                'id': 7,
+                'type': 'annonce',
+                'message':
+                    'Fermeture exceptionnelle\n\nLa coopérative sera fermée vendredi 12 juin pour formation.',
+                'lien': '',
+                'lue': false,
+                'created_at': '2026-06-07T10:00:00Z',
+              },
+              // Cas dégradé : pas de double-saut, on bascule sur "Annonce".
+              {
+                'id': 8,
+                'type': 'annonce',
+                'message': 'Message sans titre détectable',
+                'lien': '',
+                'lue': false,
+                'created_at': '2026-06-07T10:01:00Z',
+              },
+            ],
+          });
+    final ds = NotificationsDioDataSource(_client(adapter));
+    final list = await ds.list();
+    expect(list[0].title, 'Fermeture exceptionnelle');
+    expect(
+      list[0].body,
+      'La coopérative sera fermée vendredi 12 juin pour formation.',
+    );
+    expect(list[1].title, 'Annonce');
+    expect(list[1].body, 'Message sans titre détectable');
+  });
+
   test('Title dérivé du type (type.subtype → "Type Subtype")', () async {
     final adapter = ScriptedAdapter()
       ..on('/notifications/',
