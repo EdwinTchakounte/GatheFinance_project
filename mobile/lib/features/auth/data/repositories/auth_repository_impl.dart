@@ -35,4 +35,42 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> signOut() => _remote.signOut();
+
+  @override
+  Future<Member> updateProfile({
+    required String prenom,
+    required String nom,
+    required String phone,
+  }) async {
+    try {
+      return await _remote.updateProfile(
+        prenom: prenom,
+        nom: nom,
+        phone: phone,
+      );
+    } on CredentialsException catch (e) {
+      throw AuthFailure(e.message);
+    } on NetworkException catch (e) {
+      throw NetworkFailure(e.message);
+    } on ServerException catch (e) {
+      throw ValidationFailure(e.message);
+    }
+  }
+
+  @override
+  Future<String?> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      return await _remote.changePassword(
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+      );
+    } on NetworkException catch (e) {
+      throw NetworkFailure(e.message);
+    } on ServerException catch (e) {
+      throw UnexpectedFailure(e.message);
+    }
+  }
 }

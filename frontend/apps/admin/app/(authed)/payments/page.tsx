@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
+import { ExportMenu } from "@/components/export-menu";
+import type { ExportColumn } from "@/lib/export";
 import { adminApi, type ApiError, type PaymentRow } from "@/lib/api";
 
 
@@ -16,6 +18,39 @@ type TypeFilter =
   | "frais_reconduction"
   | "frais_carnet"
   | "remboursement";
+
+
+const paymentsExportColumns: ExportColumn<PaymentRow>[] = [
+  { key: "id", label: "ID", value: (r) => r.id },
+  {
+    key: "membre",
+    label: "Membre",
+    value: (r) => `${r.member.prenom} ${r.member.nom}`,
+  },
+  {
+    key: "numero_membre",
+    label: "N° membre",
+    value: (r) => r.member.numero_membre,
+  },
+  { key: "type", label: "Type", value: (r) => r.type_display },
+  { key: "montant", label: "Montant", value: (r) => r.montant },
+  { key: "source", label: "Source", value: (r) => r.source },
+  { key: "statut", label: "Statut", value: (r) => r.statut_display },
+  { key: "ref", label: "Référence", value: (r) => r.reference_externe },
+  { key: "provider", label: "Provider", value: (r) => r.provider_code },
+  {
+    key: "nb_jours",
+    label: "Jours couverts",
+    value: (r) => r.nb_jours_couverts ?? "",
+  },
+  { key: "versement", label: "Versement", value: (r) => r.date_versement },
+  {
+    key: "validation",
+    label: "Validation",
+    value: (r) => r.date_validation ?? "",
+  },
+  { key: "motif_rejet", label: "Motif rejet", value: (r) => r.motif_rejet },
+];
 
 
 export default function PaymentsPage() {
@@ -91,6 +126,19 @@ function Inner() {
             {totalValide.toLocaleString("fr-FR")}
           </span>
           <span>XAF validés (vue actuelle)</span>
+          <ExportMenu
+            filenamePrefix="paiements"
+            title="Suivi des paiements — Gathé Finance"
+            subtitle={[
+              statut && `statut : ${statut}`,
+              typeFilter && `type : ${typeFilter}`,
+              q && `recherche : ${q}`,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "tous"}
+            columns={paymentsExportColumns}
+            rows={items}
+          />
         </div>
       </header>
 

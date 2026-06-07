@@ -38,4 +38,36 @@ class AuthMockDataSource implements AuthRemoteDataSource {
   Future<void> signOut() async {
     _session = null;
   }
+
+  @override
+  Future<Member> updateProfile({
+    required String prenom,
+    required String nom,
+    required String phone,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    final current = _session ?? _fixtureMember;
+    _session = current.copyWith(
+      prenom: prenom.trim(),
+      nom: nom.trim(),
+      phone: phone.trim(),
+    );
+    return _session!;
+  }
+
+  @override
+  Future<String?> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    // Convention historique du mock : ancien mot de passe attendu = 'test1234'.
+    if (oldPassword != 'test1234') {
+      return 'Ancien mot de passe incorrect.';
+    }
+    if (newPassword.length < 8) {
+      return 'Le nouveau mot de passe doit faire au moins 8 caractères.';
+    }
+    return null;
+  }
 }

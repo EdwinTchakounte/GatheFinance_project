@@ -503,3 +503,51 @@ def admin_process_renewal(request, pk: int):
             ),
         }
     )
+
+
+# ---------------------------------------------------------------------------
+# Cron intérêts épargne — déclenchement manuel admin (recette)
+# ---------------------------------------------------------------------------
+
+
+@extend_schema(
+    tags=["admin"],
+    summary="Déclencher le crédit d'intérêts mensuel pour une période",
+    description=(
+        "Joue ``crediter_interets_mensuels`` pour le mois ciblé. Bypass le "
+        "kill-switch ``savings.monthly_interest.enabled`` (force=true). "
+        "Body : ``{period: 'YYYY-MM'}`` (défaut = mois courant). "
+        "Émet les notifications normalement (l'admin valide ainsi le flow "
+        "intérêts + email). Idempotent : ne crédite pas 2× le même mois."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_run_monthly_interest(request):
+    from datetime import datetime
+
+    from django.utils import timezone as dj_tz
+
+    from .tasks import crediter_interets_mensuels
+
+    period_raw = (request.data.get("period") or "").strip()
+    target = None
+    if period_raw:
+        try:
+            year_s, month_s = period_raw.split("-")
+            target = datetime(int(year_s), int(month_s), 1, tzinfo=dj_tz.get_current_timezone())
+        except (ValueError, AttributeError):
+            return Response(
+                {"detail": "period doit être au format YYYY-MM (ex. 2026-05)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    summary = crediter_interets_mensuels(target_month=target, force=True)
+    record_audit(
+        action="admin.savings_interest.manual_run",
+        entite_type="cron",
+        user=request.user,
+        details={"period": summary.get("period"), "summary": summary},
+        ip=client_ip(request),
+    )
+    return Response(summary)

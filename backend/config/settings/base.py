@@ -52,6 +52,17 @@ TARA_API_KEY = env("TARA_API_KEY", default="")
 TARA_BUSINESS_ID = env("TARA_BUSINESS_ID", default="")
 TARA_WEBHOOK_SECRET = env("TARA_WEBHOOK_SECRET", default="")
 
+# Mode "test paiements auto-validés" — recette des flows métier de bout en
+# bout sans dépendre du webhook Tara. Quand True :
+#   • POST /payments/init/        → Payment créé puis IMMÉDIATEMENT validé
+#     (hook `_hook_*` joué, solde épargne crédité, échéances imputées, etc.)
+#   • payout MOMO (retrait épargne) → idem côté décaissement, WithdrawalRequest
+#     passe direct EN_PAYOUT → COMPLETEE.
+# À NE JAMAIS activer en prod : voir ``PAYMENTS_TEST_AUTO_VALIDATE`` dans
+# `.env.prod`. Validé par défaut False, pousser à True via env uniquement
+# sur les environnements de recette/staging.
+PAYMENTS_TEST_AUTO_VALIDATE = env.bool("PAYMENTS_TEST_AUTO_VALIDATE", default=False)
+
 # --- Applications -----------------------------------------------------------
 
 INSTALLED_APPS = [
@@ -341,7 +352,11 @@ WAGTAILSEARCH_BACKENDS = {
 
 # --- Security (sane defaults; tightened further in prod.py) ------------------
 
-X_FRAME_OPTIONS = "DENY"
+# SAMEORIGIN (pas DENY) pour permettre les <iframe> de prévisualisation PDF
+# / images servies via /media/* (BRC, flyers campagne, règlement intérieur)
+# depuis l'admin Next.js qui proxifie /media/* vers le backend. Les contenus
+# restent non-iframable depuis une origine tierce — sécurité préservée.
+X_FRAME_OPTIONS = "SAMEORIGIN"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # Session cookies — HttpOnly always, Secure in prod (overridden in prod.py),

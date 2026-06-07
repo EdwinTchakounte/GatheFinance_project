@@ -42,6 +42,12 @@ urlpatterns = [
         views.admin_process_renewal,
         name="admin-renewal-process",
     ),
+    # Admin — déclenchement manuel du cron intérêts mensuel (recette).
+    path(
+        "admin/cron/monthly-interest/",
+        views.admin_run_monthly_interest,
+        name="admin-cron-monthly-interest",
+    ),
     # LOT 19 (refonte 2026) — Espace prêteur (consent + tranches + funding 24h).
     path("me/lender/", lender_me, name="lender-me"),
     path("me/lender/opt-in/", lender_opt_in, name="lender-opt-in"),

@@ -480,6 +480,28 @@ def disburse_loan_via_tara(
             "network": network,
         },
     )
+
+    # Mode recette flows complets — auto-validate (cf. settings.PAYMENTS_TEST_AUTO_VALIDATE).
+    # Joue le webhook DECAISSEMENT "valide" immédiatement. Le hook
+    # `_hook_decaissement` basculera le Loan en `actif` et fixera
+    # `date_decaissement = today`.
+    from django.conf import settings as dj_settings
+
+    if getattr(dj_settings, "PAYMENTS_TEST_AUTO_VALIDATE", False):
+        from apps_coop.payments.services import handle_webhook_event
+
+        handle_webhook_event(
+            payment.idempotency_key,
+            "valide",
+            provider_reference=payment.reference_externe,
+            raw_payload={
+                "auto_validate": True,
+                "mode": "test",
+                "kind": "loan_disburse",
+            },
+        )
+        payment.refresh_from_db()
+
     return payment
 
 

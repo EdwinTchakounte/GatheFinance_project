@@ -12,4 +12,17 @@ abstract class AuthRepository {
 
   /// Détruit la session locale.
   Future<void> signOut();
+
+  /// Édite prenom/nom/phone du membre — renvoie l'entité à jour.
+  Future<Member> updateProfile({
+    required String prenom,
+    required String nom,
+    required String phone,
+  });
+
+  /// Change le mot de passe ; `null` = succès, sinon message d'erreur affiché.
+  Future<String?> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  });
 }

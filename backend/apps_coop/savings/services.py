@@ -354,6 +354,21 @@ def _init_payout_for_withdrawal(wr: WithdrawalRequest, *, decided_by) -> None:
         },
     )
 
+    # Mode recette flows complets — auto-validate (cf. settings.PAYMENTS_TEST_AUTO_VALIDATE).
+    # Joue le webhook DECAISSEMENT "valide" immédiatement, le hook
+    # `_hook_decaissement` basculera la WR en COMPLETEE.
+    from django.conf import settings as dj_settings
+
+    if getattr(dj_settings, "PAYMENTS_TEST_AUTO_VALIDATE", False):
+        from apps_coop.payments.services import handle_webhook_event
+
+        handle_webhook_event(
+            payment.idempotency_key,
+            "valide",
+            provider_reference=payment.reference_externe,
+            raw_payload={"auto_validate": True, "mode": "test", "kind": "payout"},
+        )
+
 
 @transaction.atomic
 def mark_withdrawal_paid(

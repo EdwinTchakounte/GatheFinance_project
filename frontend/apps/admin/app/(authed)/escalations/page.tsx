@@ -13,7 +13,9 @@ import {
 
 import { buttonClasses } from "@gathe/ui";
 
+import { ExportMenu } from "@/components/export-menu";
 import { Modal } from "@/components/modal";
+import type { ExportColumn } from "@/lib/export";
 import {
   adminApi,
   type ApiError,
@@ -21,6 +23,39 @@ import {
   type JudicialEscalationRow,
   type JudicialStatut,
 } from "@/lib/api";
+
+
+const escalationsExportColumns: ExportColumn<JudicialEscalationRow>[] = [
+  { key: "id", label: "ID", value: (r) => r.id },
+  { key: "dossier", label: "N° dossier", value: (r) => r.loan_numero_dossier },
+  { key: "membre", label: "Membre", value: (r) => r.member_nom },
+  { key: "numero_membre", label: "N° membre", value: (r) => r.member_numero },
+  { key: "statut", label: "Statut", value: (r) => r.statut_display },
+  { key: "motif", label: "Motif", value: (r) => r.motif },
+  { key: "mode", label: "Mode", value: (r) => r.declenche_mode },
+  { key: "declenche_at", label: "Déclenchée le", value: (r) => r.declenche_at },
+  {
+    key: "decision_at",
+    label: "Décision le",
+    value: (r) => r.decision_date ?? "",
+  },
+  {
+    key: "execution_at",
+    label: "Exécution le",
+    value: (r) => r.execution_date ?? "",
+  },
+  {
+    key: "montant_recouvre",
+    label: "Recouvré",
+    value: (r) => r.montant_recouvre,
+  },
+  {
+    key: "closed_at",
+    label: "Classée le",
+    value: (r) => r.closed_at ?? "",
+  },
+  { key: "close_reason", label: "Motif clôture", value: (r) => r.close_reason },
+];
 
 
 /**
@@ -68,15 +103,24 @@ function Inner() {
 
   return (
     <main className="space-y-6 p-8">
-      <header className="space-y-1">
-        <h1 className="font-display text-2xl text-ink-900">
-          Escalades judiciaires
-        </h1>
-        <p className="text-sm text-ink-500">
-          Phase D/E du contentieux 2026 — instruction huissier, décision rendue,
-          exécution saisie biens. Le crédit doit avoir une saisie épargne (R1)
-          déjà tentée et un reliquat &gt; 0.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="font-display text-2xl text-ink-900">
+            Escalades judiciaires
+          </h1>
+          <p className="text-sm text-ink-500">
+            Phase D/E du contentieux 2026 — instruction huissier, décision rendue,
+            exécution saisie biens. Le crédit doit avoir une saisie épargne (R1)
+            déjà tentée et un reliquat &gt; 0.
+          </p>
+        </div>
+        <ExportMenu
+          filenamePrefix="escalades-judiciaires"
+          title="Escalades judiciaires — Gathé Finance"
+          subtitle={`Filtre : ${filter}`}
+          columns={escalationsExportColumns}
+          rows={items}
+        />
       </header>
 
       <div className="flex flex-wrap items-center gap-2">

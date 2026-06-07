@@ -25,6 +25,7 @@ import { Modal } from "@/components/modal";
 import {
   adminApi,
   type ApiError,
+  type MicrocampaignBeneficiaire,
   type MicrocampaignCreateInput,
   type MicrocampaignDetail,
   type MicrocampaignPendingRequest,
@@ -872,6 +873,9 @@ function DetailModal({
             )}
           </section>
 
+          {/* Bénéficiaires — souscriptions acceptées + suivi du remboursement */}
+          <BeneficiairesSection beneficiaires={detail.beneficiaires} />
+
           {/* Audience — membres ciblés (M2M) */}
           <AudienceSection
             campaignId={detail.id}
@@ -881,6 +885,133 @@ function DetailModal({
         </div>
       )}
     </Modal>
+  );
+}
+
+
+function BeneficiairesSection({
+  beneficiaires,
+}: {
+  beneficiaires: MicrocampaignBeneficiaire[];
+}) {
+  if (beneficiaires.length === 0) {
+    return (
+      <section>
+        <h3 className="mb-2 font-display text-sm font-semibold text-ink-900">
+          Bénéficiaires (0)
+        </h3>
+        <p className="rounded-md border border-dashed border-line-200 px-4 py-6 text-center text-sm text-ink-500">
+          Aucune souscription validée pour le moment. Les bénéficiaires apparaissent
+          ici dès qu&apos;une demande passe en statut « approuvée ».
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="font-display text-sm font-semibold text-ink-900">
+          Bénéficiaires ({beneficiaires.length}) — suivi des remboursements
+        </h3>
+      </div>
+      <ul className="divide-y divide-line-200 overflow-hidden rounded-lg border border-line-200">
+        {beneficiaires.map((b) => (
+          <li key={b.id} className="bg-paper p-3 text-sm">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-medium text-ink-900">
+                  {b.prenom} {b.nom}
+                </p>
+                <p className="text-[11px] text-ink-500">
+                  {b.numero_membre} ·{" "}
+                  <span className="capitalize">{b.statut}</span>
+                  {" · adhésion "}
+                  {formatDate(b.date_adhesion)}
+                </p>
+              </div>
+              {b.loan ? (
+                <BeneficiaireLoanBadge loan={b.loan} />
+              ) : (
+                <span className="rounded-full bg-cream px-2.5 py-0.5 text-[11px] font-semibold text-ink-500">
+                  Pas encore décaissé
+                </span>
+              )}
+            </div>
+            {b.loan && (
+              <BeneficiaireLoanProgress loan={b.loan} />
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+
+function BeneficiaireLoanBadge({
+  loan,
+}: {
+  loan: NonNullable<MicrocampaignBeneficiaire["loan"]>;
+}) {
+  const tone = (() => {
+    switch (loan.statut) {
+      case "cloture":
+        return "bg-emerald/15 text-emerald-900";
+      case "en_retard":
+        return "bg-amber-100 text-amber-900";
+      case "contentieux":
+        return "bg-red-100 text-red-900";
+      case "actif":
+      default:
+        return "bg-blue-100 text-blue-900";
+    }
+  })();
+  return (
+    <span
+      className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${tone}`}
+    >
+      {loan.statut_display}
+    </span>
+  );
+}
+
+
+function BeneficiaireLoanProgress({
+  loan,
+}: {
+  loan: NonNullable<MicrocampaignBeneficiaire["loan"]>;
+}) {
+  const pct = Math.max(0, Math.min(100, loan.pct_rembourse ?? 0));
+  return (
+    <div className="mt-2 space-y-1">
+      <div className="flex items-center justify-between text-[11px] text-ink-600">
+        <span>
+          Dossier <span className="font-mono">{loan.numero_dossier}</span> ·{" "}
+          {formatXaf(loan.montant)} décaissés
+          {loan.date_decaissement
+            ? ` le ${formatDate(loan.date_decaissement)}`
+            : ""}
+        </span>
+        <span>
+          <strong className="text-ink-900">{pct.toFixed(0)}%</strong>{" "}
+          remboursé · reste {formatXaf(loan.solde_restant)}
+        </span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-cream">
+        <div
+          className={`h-full transition-all ${
+            loan.statut === "en_retard"
+              ? "bg-amber-500"
+              : loan.statut === "contentieux"
+                ? "bg-red-600"
+                : loan.statut === "cloture"
+                  ? "bg-emerald"
+                  : "bg-blue-700"
+          }`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
   );
 }
 

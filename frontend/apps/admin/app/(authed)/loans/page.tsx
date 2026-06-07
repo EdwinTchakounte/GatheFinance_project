@@ -3,10 +3,35 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
+import { ExportMenu } from "@/components/export-menu";
+import type { ExportColumn } from "@/lib/export";
 import { adminApi, type AdminLoanRow, type ApiError } from "@/lib/api";
 
 
 type StatutFilter = "" | "actif" | "en_retard" | "cloture" | "contentieux";
+
+
+const loansExportColumns: ExportColumn<AdminLoanRow>[] = [
+  { key: "dossier", label: "N° dossier", value: (r) => r.numero_dossier },
+  {
+    key: "membre",
+    label: "Membre",
+    value: (r) => `${r.member.prenom} ${r.member.nom}`,
+  },
+  {
+    key: "numero_membre",
+    label: "N° membre",
+    value: (r) => r.member.numero_membre,
+  },
+  { key: "montant", label: "Montant", value: (r) => r.montant },
+  { key: "total_du", label: "Total dû", value: (r) => r.montant_total_du },
+  { key: "solde", label: "Solde restant", value: (r) => r.solde_restant },
+  { key: "taux", label: "Taux", value: (r) => r.taux_interet },
+  { key: "duree", label: "Durée (mois)", value: (r) => r.duree_mois },
+  { key: "decais", label: "Décaissement", value: (r) => r.date_decaissement },
+  { key: "echeance1", label: "1re échéance", value: (r) => r.date_premiere_echeance },
+  { key: "statut", label: "Statut", value: (r) => r.statut_display },
+];
 
 
 export default function LoansPage() {
@@ -80,6 +105,13 @@ function Inner() {
             {totalEncours.toLocaleString("fr-FR")}
           </span>
           <span>XAF d'encours (vue actuelle)</span>
+          <ExportMenu
+            filenamePrefix="credits"
+            title="Portefeuille des crédits — Gathé Finance"
+            subtitle={`Filtre : ${statut || "tous"}${q ? ` · recherche : ${q}` : ""}`}
+            columns={loansExportColumns}
+            rows={items}
+          />
         </div>
       </header>
 

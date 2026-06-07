@@ -105,14 +105,18 @@ class LoanRequestCampaignDecisionSerializer(serializers.Serializer):
 
 
 def _flyer_url(c: MicrocreditCampaign, request=None) -> str | None:
-    """URL absolue du flyer (ou None si absent)."""
+    """URL **relative** du flyer (ou None si absent).
+
+    NB : on renvoie volontairement le chemin relatif `/media/...`. Le front
+    (admin :3202) proxifie /media/* vers le backend interne — c'est ce qui
+    permet d'afficher le flyer dans <img> ou <iframe>. Renvoyer une absolute
+    URL ici embarquerait l'host interne `backend:8000` (non résoluble côté
+    navigateur).
+    """
     try:
-        url = c.flyer.url if c.flyer else None
+        return c.flyer.url if c.flyer else None
     except (ValueError, AttributeError):
         return None
-    if not url:
-        return None
-    return request.build_absolute_uri(url) if request else url
 
 
 def _row(
@@ -280,18 +284,52 @@ def admin_campaign_detail(request, pk: int):
         for lr in pending
     ]
 
+    # Bénéficiaires — membres TEMPORAIRE/ADHERENT créés via la campagne,
+    # enrichis avec leur crédit issu de la campagne (souscription + état du
+    # remboursement) pour un vrai suivi côté admin.
+    from .models import Loan
+
     beneficiaires = c.beneficiaires.select_related("user").order_by("date_adhesion")
-    benef_rows = [
-        {
-            "id": m.id,
-            "numero_membre": m.numero_membre,
-            "nom": m.nom,
-            "prenom": m.prenom,
-            "statut": m.statut,
-            "date_adhesion": m.date_adhesion.isoformat(),
-        }
-        for m in beneficiaires
-    ]
+    benef_rows = []
+    for m in beneficiaires:
+        # Loan créé via une LoanRequest de cette campagne. On prend le plus
+        # récent — en pratique 1 seul par membre tant que pas remboursé.
+        loan = (
+            Loan.objects.filter(
+                member=m,
+                loan_request__microcampaign=c,
+            )
+            .order_by("-date_decaissement", "-id")
+            .first()
+        )
+        loan_info = None
+        if loan is not None:
+            montant = float(loan.montant or 0)
+            solde = float(loan.solde_restant or 0)
+            pct = round((montant - solde) / montant * 100, 1) if montant > 0 else 0
+            loan_info = {
+                "id": loan.id,
+                "numero_dossier": loan.numero_dossier,
+                "montant": str(loan.montant),
+                "solde_restant": str(loan.solde_restant),
+                "statut": loan.statut,
+                "statut_display": loan.get_statut_display(),
+                "date_decaissement": loan.date_decaissement.isoformat()
+                if loan.date_decaissement
+                else None,
+                "pct_rembourse": pct,
+            }
+        benef_rows.append(
+            {
+                "id": m.id,
+                "numero_membre": m.numero_membre,
+                "nom": m.nom,
+                "prenom": m.prenom,
+                "statut": m.statut,
+                "date_adhesion": m.date_adhesion.isoformat(),
+                "loan": loan_info,
+            }
+        )
 
     # Audience — membres explicitement ciblés (M2M, peuvent être différents
     # des bénéficiaires, qui ne se matérialisent qu'après acceptation du LR).

@@ -247,17 +247,36 @@ def _send_welcome_email(member: Member, to_email: str) -> None:
 
         # Attestation d'adhésion (PDF) — jointe si la génération réussit, sinon
         # on n'empêche pas l'envoi de l'e-mail.
-        attachments = None
+        attachments: list[tuple[str, bytes, str]] = []
         try:
             from .attestation import build_attestation_pdf
 
             pdf_bytes = build_attestation_pdf(member)
-            attachments = [
-                ("attestation_adhesion.pdf", pdf_bytes, "application/pdf"),
-            ]
+            attachments.append(
+                ("attestation_adhesion.pdf", pdf_bytes, "application/pdf")
+            )
         except Exception:  # noqa: BLE001
             logger.warning(
                 "attestation PDF generation failed for %s — sending email without it",
+                member.numero_membre,
+                exc_info=True,
+            )
+
+        # Règlement intérieur (CooperativeAsset singleton) — joint si uploadé
+        # par l'admin via /api/v1/audit/admin/cooperative-asset/reglement/.
+        try:
+            from apps_coop.audit.models import CooperativeAsset
+
+            asset = CooperativeAsset.get_solo()
+            if asset.reglement_interieur:
+                with asset.reglement_interieur.open("rb") as f:
+                    regl_bytes = f.read()
+                attachments.append(
+                    ("reglement_interieur.pdf", regl_bytes, "application/pdf")
+                )
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "reglement PDF attach failed for %s — sending email without it",
                 member.numero_membre,
                 exc_info=True,
             )
@@ -275,7 +294,7 @@ def _send_welcome_email(member: Member, to_email: str) -> None:
                 "frais_montant": frais_montant,
                 "portal_url": getattr(settings, "FRONTEND_PUBLIC_URL", "http://localhost:3200"),
             },
-            attachments=attachments,
+            attachments=attachments or None,
         )
     except Exception:  # noqa: BLE001
         logger.warning("member.welcome email skipped for %s", to_email, exc_info=True)

@@ -30,6 +30,23 @@ class _ScriptedAuthDs implements AuthRemoteDataSource {
 
   @override
   Future<void> signOut() async => session = null;
+
+  @override
+  Future<Member> updateProfile({
+    required String prenom,
+    required String nom,
+    required String phone,
+  }) async {
+    session = (session ?? Fixtures.member())
+        .copyWith(prenom: prenom, nom: nom, phone: phone);
+    return session!;
+  }
+
+  @override
+  Future<String?> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async => null;
 }
 
 void main() {

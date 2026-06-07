@@ -1,0 +1,204 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:gathe_finance/core/network/api_client.dart';
+import 'package:gathe_finance/features/loans/data/datasources/loans_dio_datasource.dart';
+import 'package:gathe_finance/features/loans/domain/entities/loan.dart';
+import 'package:gathe_finance/features/loans/domain/entities/loan_installment.dart';
+import 'package:gathe_finance/features/loans/domain/entities/loan_renewal.dart';
+import 'package:gathe_finance/features/loans/domain/entities/loan_request.dart';
+
+import '../../../../helpers/dio_test_adapter.dart';
+
+ApiClient _client(ScriptedAdapter adapter) {
+  final dio = Dio(BaseOptions(baseUrl: 'http://test.local/api/v1'))
+    ..httpClientAdapter = adapter;
+  return ApiClient.forTest(dio: dio);
+}
+
+Map<String, dynamic> _loanPayload({
+  int id = 1,
+  String statut = 'actif',
+}) {
+  return {
+    'id': id,
+    'numero_dossier': 'GF-CR-2026-000$id',
+    'montant': '500000.00',
+    'taux_interet': '0.10',
+    'duree_mois': 6,
+    'date_decaissement': '2026-04-01',
+    'date_premiere_echeance': '2026-05-01',
+    'montant_total_du': '550000.00',
+    'solde_restant': '300000.00',
+    'statut': statut,
+    'statut_display': statut,
+    'installments': [
+      {
+        'id': 10,
+        'numero_echeance': 1,
+        'date_echeance': '2026-05-01',
+        'montant_capital': '83333',
+        'montant_interets': '8333',
+        'montant_total': '91666',
+        'montant_paye': '91666',
+        'statut': 'payee',
+        'statut_display': 'Payée',
+      },
+      {
+        'id': 11,
+        'numero_echeance': 2,
+        'date_echeance': '2026-06-01',
+        'montant_capital': '83333',
+        'montant_interets': '8333',
+        'montant_total': '91666',
+        'montant_paye': '0',
+        'statut': 'a_venir',
+        'statut_display': 'À venir',
+      },
+    ],
+  };
+}
+
+void main() {
+  group('LoansDioDataSource — reads', () {
+    test('eligibility parse motifs + plafond', () async {
+      final adapter = ScriptedAdapter()
+        ..on('/loans/me/eligibility/',
+            method: 'GET',
+            status: 200,
+            body: {
+              'eligible': false,
+              'plafond_max': '2000000',
+              'motifs_ineligibilite': ['Un crédit est déjà en cours.'],
+              'solde_epargne': '50000',
+              'ratio_garantie': '0.1',
+            });
+      final ds = LoansDioDataSource(_client(adapter));
+      final e = await ds.eligibility();
+      expect(e.eligible, isFalse);
+      expect(e.plafondMax, 2000000);
+      expect(e.motifs, contains('Un crédit est déjà en cours.'));
+    });
+
+    test('myActiveLoans parse Loan + installments', () async {
+      final adapter = ScriptedAdapter()
+        ..on('/loans/me/active/',
+            method: 'GET', status: 200, body: [_loanPayload()]);
+      final ds = LoansDioDataSource(_client(adapter));
+      final loans = await ds.myActiveLoans();
+      expect(loans, hasLength(1));
+      expect(loans.first.id, 1);
+      expect(loans.first.statut, LoanStatus.actif);
+      expect(loans.first.installments, hasLength(2));
+      expect(loans.first.installments[0].statut, InstallmentStatus.payee);
+      expect(loans.first.installments[1].statut, InstallmentStatus.aVenir);
+    });
+
+    test('myRequests parse status mappings', () async {
+      final adapter = ScriptedAdapter()
+        ..on('/loans/me/requests/',
+            method: 'GET',
+            status: 200,
+            body: [
+              {
+                'id': 1,
+                'montant_demande': '200000',
+                'duree_mois': 6,
+                'motif': 'Test',
+                'statut': 'en_attente_avaliste',
+                'date_soumission': '2026-06-01T08:00:00Z',
+              },
+              {
+                'id': 2,
+                'montant_demande': '100000',
+                'duree_mois': 4,
+                'motif': 'Test2',
+                'statut': 'rejetee_campagne',
+                'date_soumission': '2026-06-02T08:00:00Z',
+              },
+            ]);
+      final ds = LoansDioDataSource(_client(adapter));
+      final reqs = await ds.myRequests();
+      expect(reqs, hasLength(2));
+      // statut_routing variants collapse en master enum
+      expect(reqs[0].statut, LoanRequestStatus.enAttente);
+      expect(reqs[1].statut, LoanRequestStatus.rejetee);
+    });
+  });
+
+  group('LoansDioDataSource — writes', () {
+    test('submitRequest unwrap loan_request key', () async {
+      final adapter = ScriptedAdapter()
+        ..on('/auth/csrf/', method: 'GET', status: 200)
+        ..on('/loans/requests/',
+            method: 'POST',
+            status: 200,
+            body: {
+              'loan_request': {
+                'id': 42,
+                'montant_demande': '150000',
+                'duree_mois': 4,
+                'motif': 'Test',
+                'statut': 'en_attente',
+                'date_soumission': '2026-06-01T08:00:00Z',
+              },
+              'route': 'senior_brc',
+            });
+      final ds = LoansDioDataSource(_client(adapter));
+      final r = await ds.submitRequest(
+        montantDemande: 150000,
+        dureeMois: 4,
+        motif: 'Test',
+      );
+      expect(r.id, 42);
+      expect(r.statut, LoanRequestStatus.enAttente);
+    });
+
+    test('repay POST /payments/init/ type=remboursement + loan_id', () async {
+      final adapter = ScriptedAdapter()
+        ..on('/auth/csrf/', method: 'GET', status: 200)
+        ..on('/payments/init/',
+            method: 'POST',
+            status: 200,
+            body: {'payment': {'id': 1}})
+        ..on('/loans/me/active/',
+            method: 'GET', status: 200, body: [_loanPayload(id: 7)]);
+      final ds = LoansDioDataSource(_client(adapter));
+      await ds.repay(
+        loanId: 7,
+        montant: 10000,
+        phone: '+237699112233',
+        network: 'MTN',
+      );
+      final init = adapter.recorded
+          .firstWhere((r) => r.path.contains('/payments/init/'));
+      expect(init.body, contains('"type":"remboursement"'));
+      expect(init.body, contains('"loan_id":7'));
+    });
+
+    test('requestRenewal envoie interets_au_comptant', () async {
+      final adapter = ScriptedAdapter()
+        ..on('/auth/csrf/', method: 'GET', status: 200)
+        ..on('/loans/7/renewal/',
+            method: 'POST',
+            status: 200,
+            body: {
+              'renewal': {
+                'id': 1,
+                'loan_id': 7,
+                'nouvelle_duree_mois': 7,
+                'statut': 'demandee',
+                'date_demande': '2026-06-01T08:00:00Z',
+                'frais_reconduction_payment_id': null,
+              }
+            });
+      final ds = LoansDioDataSource(_client(adapter));
+      final r = await ds.requestRenewal(loanId: 7, comptant: true);
+      expect(r.statut, LoanRenewalStatus.demandee);
+      expect(r.loanId, 7);
+      expect(r.comptant, isTrue);
+      final post = adapter.recorded
+          .firstWhere((req) => req.path.contains('renewal'));
+      expect(post.body, contains('"interets_au_comptant":true'));
+    });
+  });
+}

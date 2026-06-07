@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
@@ -9,6 +10,7 @@ import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../avaliste/presentation/state/avaliste_notifier.dart';
 import '../../../loans/domain/entities/loan.dart';
 import '../../../loans/domain/entities/loan_request.dart';
 import '../../../loans/presentation/state/loans_notifier.dart';
@@ -52,6 +54,11 @@ class CreditPage extends ConsumerWidget {
                   Text(l.credit_title, style: PaText.heading(size: 22)),
                 ],
               ),
+            ),
+            // ── Accès Mandats avaliste (LOT 21) ──────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: _AvalisteEntryTile(),
             ),
             Expanded(
               child: RefreshIndicator.adaptive(
@@ -785,6 +792,85 @@ class _ErrorBox extends StatelessWidget {
             message,
             style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tuile d'accès aux mandats d'avaliste — badge avec compteur pending.
+class _AvalisteEntryTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncMandats = ref.watch(avalisteProvider);
+    final pendingCount = asyncMandats.maybeWhen(
+      data: (d) => d.pendingCount,
+      orElse: () => 0,
+    );
+    final hasPending = pendingCount > 0;
+    return PaCard(
+      onTap: () => context.push('/avaliste/mandats'),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: (hasPending ? Colors.orange : PaColors.teal)
+                  .withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(
+              Icons.handshake_outlined,
+              size: 22,
+              color: hasPending ? Colors.orange.shade800 : PaColors.teal,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Mes mandats d\'avaliste',
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: PaColors.inkPrimary,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Réponds aux demandes où tu es désigné garant.',
+                  style: TextStyle(fontSize: 12, color: PaColors.inkMuted),
+                ),
+              ],
+            ),
+          ),
+          if (hasPending)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade700,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '$pendingCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            )
+          else
+            const Icon(
+              Icons.chevron_right,
+              size: 22,
+              color: PaColors.inkMuted,
+            ),
         ],
       ),
     );

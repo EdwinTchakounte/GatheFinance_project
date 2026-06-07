@@ -1,8 +1,10 @@
 import '../domain/entities/contribution.dart';
+import 'contributions_remote_datasource.dart';
 
 /// Source mock — renvoie l'historique des cotisations d'un membre.
-/// Le backend exposera plus tard `GET /api/v1/payments/me/?kind=cotisations`.
-class ContributionsMockDataSource {
+/// Réelle source : `GET /api/v1/payments/me/?type=...` (cf. `ContributionsDioDataSource`).
+class ContributionsMockDataSource implements ContributionsRemoteDataSource {
+  @override
   Future<List<Contribution>> fetchMine() async {
     await Future<void>.delayed(const Duration(milliseconds: 280));
     final now = DateTime.now();

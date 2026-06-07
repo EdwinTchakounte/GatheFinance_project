@@ -20,7 +20,7 @@ from drf_spectacular.utils import OpenApiResponse, extend_schema
 
 from apps_coop.members.permissions import IsStaff
 
-from .models import AppSetting
+from .models import AppSetting, CooperativeAsset
 from .services import client_ip, record as record_audit
 from .tunables import (
     CATALOG,
@@ -148,3 +148,100 @@ def admin_settings_update(request, key: str):
     return Response(
         _serialize_entry(entry, current_value=new_value, is_admin_edited=True)
     )
+
+
+# ---------------------------------------------------------------------------
+# CooperativeAsset — règlement intérieur PDF (singleton)
+# ---------------------------------------------------------------------------
+
+
+def _serialize_asset(asset: CooperativeAsset) -> dict:
+    f = asset.reglement_interieur
+    return {
+        "reglement_interieur": {
+            "uploaded": bool(f),
+            "url": f.url if f else None,
+            "name": f.name.rsplit("/", 1)[-1] if f else None,
+            "size": f.size if f else 0,
+            "uploaded_at": asset.reglement_uploaded_at.isoformat()
+            if asset.reglement_uploaded_at
+            else None,
+            "uploaded_by": (
+                asset.reglement_uploaded_by.username
+                if asset.reglement_uploaded_by
+                else None
+            ),
+        }
+    }
+
+
+@extend_schema(
+    tags=["admin"],
+    summary="Asset coopérative (singleton) — règlement intérieur",
+    description=(
+        "GET retourne l'état du règlement intérieur (URL, taille, métadonnées). "
+        "Le PDF est joint automatiquement au mail de bienvenue UC1 quand il existe."
+    ),
+    responses={200: OpenApiResponse(description="Asset payload")},
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_cooperative_asset_get(request):
+    asset = CooperativeAsset.get_solo()
+    return Response(_serialize_asset(asset))
+
+
+@extend_schema(
+    tags=["admin"],
+    summary="Uploader/remplacer le règlement intérieur PDF",
+    description=(
+        "POST multipart : field name `file` — PDF du règlement intérieur. "
+        "Limite : 10 Mo. Replacement complet (l'ancien fichier reste sur disque "
+        "mais n'est plus référencé). Trace l'action dans l'audit log."
+    ),
+    request={"multipart/form-data": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}},
+    responses={200: OpenApiResponse(description="OK, asset mis à jour")},
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_cooperative_asset_upload_reglement(request):
+    from django.utils import timezone
+
+    f = request.FILES.get("file")
+    if f is None:
+        return Response(
+            {"detail": "Champ `file` requis (multipart)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    max_size = 10 * 1024 * 1024  # 10 Mo
+    if f.size > max_size:
+        return Response(
+            {"detail": "Fichier trop volumineux (max 10 Mo)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not f.name.lower().endswith(".pdf"):
+        return Response(
+            {"detail": "Format PDF requis."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    asset = CooperativeAsset.get_solo()
+    asset.reglement_interieur = f
+    asset.reglement_uploaded_by = request.user
+    asset.reglement_uploaded_at = timezone.now()
+    asset.save()
+
+    record_audit(
+        action="config.reglement_uploaded",
+        entite_type="CooperativeAsset",
+        entite_id=asset.pk,
+        user=request.user,
+        details={
+            "filename": f.name,
+            "size": f.size,
+        },
+        ip=client_ip(request),
+        user_agent=request.META.get("HTTP_USER_AGENT", ""),
+    )
+    return Response(_serialize_asset(asset))

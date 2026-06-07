@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/state/auth_notifier.dart';
+import '../../features/avaliste/presentation/pages/avaliste_mandats_page.dart';
 import '../../features/booklet/presentation/pages/booklet_page.dart';
 import '../../features/contributions/presentation/pages/contributions_page.dart';
 import '../../features/credit/presentation/pages/credit_page.dart';
@@ -167,6 +168,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'help',
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const HelpContactPage()),
+      ),
+
+      // Mandats d'avaliste — pushée depuis la page Crédit.
+      GoRoute(
+        path: '/avaliste/mandats',
+        name: 'avaliste-mandats',
+        pageBuilder: (context, state) =>
+            _paSlideFadePage(state, const AvalisteMandatsPage()),
       ),
 
       // Shell racine — 4 branches avec état indépendant.

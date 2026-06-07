@@ -3,10 +3,41 @@
 import { useEffect, useState } from "react";
 import { Mail, Phone, Search } from "lucide-react";
 
+import { ExportMenu } from "@/components/export-menu";
+import type { ExportColumn } from "@/lib/export";
 import { adminApi, type ApiError, type Member } from "@/lib/api";
 
 
 type StatutFilter = "" | "actif" | "suspendu" | "radie";
+
+
+const membersExportColumns: ExportColumn<Member>[] = [
+  { key: "numero", label: "N° membre", value: (r) => r.numero_membre },
+  { key: "prenom", label: "Prénom", value: (r) => r.prenom },
+  { key: "nom", label: "Nom", value: (r) => r.nom },
+  { key: "email", label: "Email", value: (r) => r.email },
+  { key: "phone", label: "Téléphone", value: (r) => r.phone },
+  { key: "statut", label: "Statut", value: (r) => r.statut_display },
+  { key: "adhesion", label: "Adhésion", value: (r) => r.date_adhesion },
+  {
+    key: "anciennete",
+    label: "Ancienneté (mois)",
+    value: (r) => r.seniority_months ?? "",
+  },
+  {
+    key: "senior",
+    label: "Sénior",
+    value: (r) => (r.is_senior ? "oui" : "non"),
+  },
+  {
+    key: "brc",
+    label: "BRC validé",
+    value: (r) =>
+      r.is_brc_member
+        ? r.brc_validated_at?.slice(0, 10) ?? "oui"
+        : "non",
+  },
+];
 
 
 export default function MembersPage() {
@@ -67,6 +98,13 @@ function Inner() {
         <div className="flex items-center gap-3 text-sm text-ink-600">
           <span className="font-mono text-ink-900 font-medium">{count}</span>
           <span>membre{count > 1 ? "s" : ""} (vue actuelle)</span>
+          <ExportMenu
+            filenamePrefix="membres"
+            title="Annuaire des membres — Gathé Finance"
+            subtitle={`Filtre : ${statut || "tous"}${q ? ` · recherche : ${q}` : ""}`}
+            columns={membersExportColumns}
+            rows={items}
+          />
         </div>
       </header>
 

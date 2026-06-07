@@ -204,12 +204,14 @@ class BRCDocumentAdminReadSerializer(serializers.ModelSerializer):
 
     def get_fichier_url(self, obj: BRCDocument) -> str:
         try:
-            url = obj.fichier.url
+            return obj.fichier.url
         except (ValueError, AttributeError):
             return ""
-        request = self.context.get("request")
-        # URL absolue (sinon le front sur :3202 essaie de résoudre /media/ chez lui → 404).
-        return request.build_absolute_uri(url) if request else url
+        # NB : on renvoie l'URL **relative** (`/media/...`). Le front l'utilise
+        # comme src d'<img>/iframe ; next.js (admin :3202) proxifie /media/*
+        # vers le backend interne. Renvoyer une absolute_uri ici embarquerait
+        # l'host Docker interne (`backend:8000`) qui n'est pas résoluble par
+        # le navigateur.
 
 
 class BRCDocumentUploadSerializer(serializers.Serializer):

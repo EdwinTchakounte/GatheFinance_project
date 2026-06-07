@@ -47,6 +47,8 @@ def _user_payload(user) -> dict:
                 "nom": member.nom,
                 "prenom": member.prenom,
                 "statut": member.statut,
+                "phone": member.phone,
+                "date_adhesion": member.date_adhesion.isoformat(),
             }
             if member is not None
             else None

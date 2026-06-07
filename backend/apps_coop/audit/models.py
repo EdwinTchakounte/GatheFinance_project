@@ -56,3 +56,46 @@ class AppSetting(TimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.cle} = {self.valeur}"
+
+
+class CooperativeAsset(TimestampedModel):
+    """Documents officiels de la coopérative — singleton (1 ligne, pk=1).
+
+    Pour l'instant porte uniquement le **règlement intérieur (PDF)** qui est
+    joint au mail de bienvenue UC1 (cf. ``_send_welcome_email``). L'admin met
+    à jour le fichier via l'endpoint dédié :
+    ``POST /api/v1/admin/cooperative-asset/reglement/`` (multipart).
+
+    Pattern singleton : on récupère TOUJOURS la ligne via ``get_solo()`` —
+    pas d'index, pas de pluriel.
+    """
+
+    reglement_interieur = models.FileField(
+        upload_to="coop/assets/",
+        null=True,
+        blank=True,
+        help_text=(
+            "PDF du règlement intérieur — joint au mail de bienvenue UC1. "
+            "Si vide, le mail part sans pièce jointe (attestation seule)."
+        ),
+    )
+    reglement_uploaded_by = models.ForeignKey(
+        "auth.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    reglement_uploaded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Asset coopérative"
+        verbose_name_plural = "Assets coopérative"
+
+    def __str__(self) -> str:
+        return "Assets coopérative (singleton)"
+
+    @classmethod
+    def get_solo(cls) -> "CooperativeAsset":
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

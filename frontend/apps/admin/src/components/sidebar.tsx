@@ -17,6 +17,8 @@ import {
   Megaphone,
   Gavel,
   ArrowDownToLine,
+  Clock,
+  FileText,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
@@ -62,6 +64,10 @@ const NAV: NavItem[] = [
   // P2 — Tunables règlement 2026 (BRC, ancienneté, collecte, épargne,
   // lender, funding, eligibility, seizure, judicial, campagne).
   { href: "/app-settings", label: "Paramètres 2026", icon: Settings2 },
+  // Recette — éditer la cadence des cron + run-now (django-q schedules).
+  { href: "/cron-schedules", label: "Planification (cron)", icon: Clock },
+  // Documents officiels (règlement intérieur PDF joint au mail de bienvenue).
+  { href: "/cooperative-asset", label: "Documents officiels", icon: FileText },
 ];
 
 

@@ -216,6 +216,18 @@ def init_payment(request):
             network=data["network"],
         )
         payment.save(update_fields=["reference_externe", "gateway_initiated_at", "updated_at"])
+        # Mode recette flows complets — auto-validate (cf. settings).
+        # Bypass de Tara : on joue immédiatement le webhook "valide" en local
+        # afin que les hooks métier (`_hook_savings_deposit`, `_hook_remboursement`,
+        # etc.) tournent et que l'UI voie la transaction reflétée.
+        if getattr(settings, "PAYMENTS_TEST_AUTO_VALIDATE", False):
+            handle_webhook_event(
+                payment.idempotency_key,
+                "valide",
+                provider_reference=provider_reference,
+                raw_payload={"auto_validate": True, "mode": "test"},
+            )
+            payment.refresh_from_db()
     except ProviderError as exc:
         payment.statut = Payment.Statut.REJETE
         payment.motif_rejet = str(exc)[:500]
@@ -278,6 +290,36 @@ def payment_detail(request, pk: int):
     except Payment.DoesNotExist:
         return Response({"detail": "Paiement introuvable."}, status=status.HTTP_404_NOT_FOUND)
     return Response(PaymentReadSerializer(payment).data)
+
+
+# ---------------------------------------------------------------------------
+# 2b. GET /api/v1/payments/me/  — historique des paiements du membre
+#     (page « Mes cotisations » côté portail + mobile)
+# ---------------------------------------------------------------------------
+
+
+@extend_schema(
+    tags=["payments"],
+    summary="Mes paiements (historique membre)",
+    description=(
+        "Renvoie les paiements du membre connecté, les plus récents d'abord. "
+        "Filtre optionnel `?type=` (epargne / frais_adhesion / frais_inscription / "
+        "frais_demande_credit / frais_reconduction / frais_carnet / remboursement). "
+        "Limité aux 100 dernières lignes."
+    ),
+    responses={200: PaymentReadSerializer(many=True)},
+)
+@api_view(["GET"])
+@permission_classes([IsMember])
+def payments_me(request):
+    qs = Payment.objects.filter(member=request.user.member).order_by(
+        "-date_versement", "-id"
+    )
+    type_filter = (request.query_params.get("type") or "").strip()
+    if type_filter:
+        qs = qs.filter(type=type_filter)
+    qs = qs[:100]  # garde-fou identique à notifications
+    return Response({"results": PaymentReadSerializer(qs, many=True).data})
 
 
 # ---------------------------------------------------------------------------

@@ -41,7 +41,11 @@ def _q(x: Decimal) -> Decimal:
     return x.quantize(_TWO_DP, rounding=ROUND_HALF_UP)
 
 
-def crediter_interets_mensuels() -> dict:
+def crediter_interets_mensuels(
+    *,
+    target_month: "datetime | None" = None,
+    force: bool = False,
+) -> dict:
     """Crédite le taux d'épargne mensuel sur chaque compte d'épargne actif.
 
     ⚠️ **LEGACY 2025** — désactivé par défaut depuis la refonte 2026
@@ -49,6 +53,13 @@ def crediter_interets_mensuels() -> dict:
     Le LOT 4 livrera ``collecte_fin_de_mois`` (commission 1% prélevée vs
     crédit 1% versé) qui prendra le relais ; en attendant, le cron tourne
     à blanc et trace seulement un summary "skipped".
+
+    Arguments :
+        target_month: si fourni (ex. ``datetime(2026, 5, 1)``), force la
+            période ciblée ET stamppe la SavingsTransaction.date au 1er du mois.
+            Permet de rejouer un mois antérieur depuis l'admin (recette).
+        force: bypass du kill-switch ``savings.monthly_interest.enabled``.
+            À utiliser uniquement via le déclenchement manuel admin.
 
     Le taux est lu depuis ``RateParam.SAVINGS_INTEREST_MONTHLY`` (modifiable
     côté admin, BR2) avec fallback sur le défaut réglementaire (1 %, Article 4).
@@ -61,12 +72,14 @@ def crediter_interets_mensuels() -> dict:
     from apps_coop.payments.rates import get_rate
     from apps_coop.savings.models import SavingsAccount, SavingsTransaction
 
-    now = timezone.now()
+    now = target_month or timezone.now()
     period = f"{now.year}-{now.month:02d}"
 
     # LOT 3 (refonte 2026) — kill-switch : désactivé par défaut.
+    # `force=True` (déclenchement manuel admin) bypass le kill-switch.
     enabled = (
-        get_str_setting("savings.monthly_interest.enabled", "false").lower()
+        force
+        or get_str_setting("savings.monthly_interest.enabled", "false").lower()
         in {"true", "1", "yes"}
     )
     if not enabled:

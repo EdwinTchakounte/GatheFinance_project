@@ -274,6 +274,19 @@ export type RateConfig = {
 
 export type CostsConfig = { fees: FeeConfig[]; rates: RateConfig[] };
 
+// Cron schedules (django-q).
+export type CronScheduleRow = {
+  id: number;
+  name: string;
+  func: string;
+  schedule_type: string;
+  cron: string;
+  repeats: number;
+  next_run: string | null;
+  default_cron: string | null;
+  is_admin_edited: boolean;
+};
+
 // P2 — AppSettings tunables (refonte 2026).
 export type AppSettingType = "int" | "decimal" | "bool" | "str" | "csv" | "enum";
 
@@ -378,6 +391,18 @@ export type MicrocampaignBeneficiaire = {
   prenom: string;
   statut: string;
   date_adhesion: string;
+  // Crédit issu de la campagne — null tant que pas décaissé. Permet le suivi
+  // du remboursement (montant, solde restant, % remboursé, statut).
+  loan: {
+    id: number;
+    numero_dossier: string;
+    montant: string;
+    solde_restant: string;
+    statut: "actif" | "en_retard" | "cloture" | "contentieux";
+    statut_display: string;
+    date_decaissement: string | null;
+    pct_rembourse: number;
+  } | null;
 };
 
 export type MicrocampaignDetail = MicrocampaignRow & {
@@ -698,6 +723,66 @@ export const adminApi = {
         `/loans/admin/escalations/${id}/classer/`,
         { method: "POST", body: JSON.stringify({ motif }) },
       ),
+  },
+
+  // Cron schedules — édition cadence + run-now + reset (recette).
+  cronSchedules: {
+    list: () =>
+      request<{
+        results: CronScheduleRow[];
+        presets: Record<string, string>;
+      }>("/audit/admin/cron-schedules/"),
+    update: (name: string, cron: string) =>
+      request<CronScheduleRow>(
+        `/audit/admin/cron-schedules/${encodeURIComponent(name)}/`,
+        { method: "PATCH", body: JSON.stringify({ cron }) },
+      ),
+    runNow: (name: string) =>
+      request<{
+        name: string;
+        executed_at: string;
+        summary: Record<string, unknown>;
+      }>(
+        `/audit/admin/cron-schedules/${encodeURIComponent(name)}/run-now/`,
+        { method: "POST" },
+      ),
+    resetDefaults: () =>
+      request<{
+        restored: Array<{ name: string; from: string; to: string }>;
+        count: number;
+      }>("/audit/admin/cron-schedules/reset-defaults/", { method: "POST" }),
+  },
+
+  // CooperativeAsset — règlement intérieur PDF (singleton).
+  cooperativeAsset: {
+    get: () =>
+      request<{
+        reglement_interieur: {
+          uploaded: boolean;
+          url: string | null;
+          name: string | null;
+          size: number;
+          uploaded_at: string | null;
+          uploaded_by: string | null;
+        };
+      }>("/audit/admin/cooperative-asset/"),
+    uploadReglement: async (file: File) => {
+      // Upload multipart — bypass le wrapper JSON request().
+      const csrf = readCookie("csrftoken");
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(
+        "/api/v1/audit/admin/cooperative-asset/reglement/",
+        {
+          method: "POST",
+          body: form,
+          credentials: "include",
+          headers: csrf ? { "X-CSRFToken": csrf } : {},
+        },
+      );
+      if (!res.ok) throw await readError(res);
+      return res.json();
+    },
   },
 
   // Coûts modifiables — frais (FCFA) + taux (ratio) en base (BR2/BR3).

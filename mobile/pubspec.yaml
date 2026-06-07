@@ -21,8 +21,11 @@ dependencies:
   # Navigation — go_router déclaratif, deep linking.
   go_router: ^14.6.0
 
-  # Réseau (préparé pour l'API quand on basculera off-mock).
+  # Réseau (API Django : sessions cookies + CSRF).
   dio: ^5.7.0
+  cookie_jar: ^4.0.8
+  dio_cookie_manager: ^3.1.1
+  path_provider: ^2.1.4
 
   # Sérialisation
   json_annotation: ^4.9.0
