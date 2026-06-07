@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Container, buttonClasses } from "@gathe/ui";
@@ -36,6 +37,7 @@ export default function PortalDashboardPage() {
   const router = useRouter();
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [savings, setSavings] = useState<SavingsSnapshot | null>(null);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +58,13 @@ export default function PortalDashboardPage() {
         if (cancelled) return;
         setIdentity(me);
         setSavings(snap);
+        // Compteur notifications — best-effort, on n'échoue pas le dashboard.
+        portalApi.notifications
+          .list(true)
+          .then((res) => {
+            if (!cancelled) setUnreadNotifs(res.unread_count);
+          })
+          .catch(() => undefined);
       } catch (err) {
         const apiErr = err as ApiError;
         if (apiErr.status === 401 || apiErr.status === 403) {
@@ -153,9 +162,25 @@ export default function PortalDashboardPage() {
               </span>
             </p>
           </div>
-          <button onClick={onLogout} className={buttonClasses({ variant: "ghost", size: "sm" })}>
-            Se déconnecter
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/notifications"
+              className={
+                buttonClasses({ variant: "secondary", size: "sm" }) +
+                " relative"
+              }
+            >
+              Notifications
+              {unreadNotifs > 0 ? (
+                <span className="ml-1.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-terra-600 px-1.5 text-xs font-semibold text-white">
+                  {unreadNotifs > 9 ? "9+" : unreadNotifs}
+                </span>
+              ) : null}
+            </Link>
+            <button onClick={onLogout} className={buttonClasses({ variant: "ghost", size: "sm" })}>
+              Se déconnecter
+            </button>
+          </div>
         </header>
 
         {/* Suspended members : big activation CTA instead of the savings dashboard */}

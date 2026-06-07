@@ -132,8 +132,10 @@ void main() {
       list[0].body,
       'La coopérative sera fermée vendredi 12 juin pour formation.',
     );
+    expect(list[0].kind, NotifKind.announcement);
     expect(list[1].title, 'Annonce');
     expect(list[1].body, 'Message sans titre détectable');
+    expect(list[1].kind, NotifKind.announcement);
   });
 
   test('Title dérivé du type (type.subtype → "Type Subtype")', () async {

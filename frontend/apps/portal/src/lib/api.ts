@@ -271,6 +271,16 @@ export type PaymentInitResponse = {
 export type WithdrawalModePaiement = "momo" | "presentiel";
 export type WithdrawalNetwork = "MTN" | "ORANGE" | "WAVE" | "AIRTEL";
 
+// Notifications in-app — alimentées par les hooks métier + les annonces broadcast.
+export type PortalNotification = {
+  id: number;
+  type: string;
+  message: string;
+  lien: string;
+  lue: boolean;
+  created_at: string;
+};
+
 export type WithdrawalRead = {
   id: number;
   montant: string;
@@ -421,5 +431,19 @@ export const portalApi = {
     /** DEV ONLY — backend returns 404 in production. */
     devConfirm: (id: number) =>
       request<PaymentRead>(`/payments/dev/${id}/confirm/`, { method: "POST" }),
+  },
+  notifications: {
+    list: (onlyUnread = false) =>
+      request<{ results: PortalNotification[]; unread_count: number }>(
+        onlyUnread ? "/notifications/?unread=1" : "/notifications/",
+      ),
+    markRead: (id: number) =>
+      request<PortalNotification>(`/notifications/${id}/read/`, {
+        method: "POST",
+      }),
+    markAllRead: () =>
+      request<{ marked: number }>("/notifications/read-all/", {
+        method: "POST",
+      }),
   },
 };

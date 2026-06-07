@@ -83,6 +83,9 @@ AppNotification _parseNotification(Map<String, dynamic> json) {
 }
 
 NotifKind _kindFromType(String type) {
+  if (type == 'annonce' || type.startsWith('annonce.')) {
+    return NotifKind.announcement;
+  }
   if (type.startsWith('savings') || type.startsWith('withdrawal')) {
     return NotifKind.savings;
   }
