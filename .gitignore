@@ -76,3 +76,6 @@ mobile/.idea/
 # --- Divers -----------------------------------------------------------------
 *.bak
 *.tmp
+
+# Artefacts intermédiaires de scripts/build-pdfs.mjs (HTML -> PDF via Playwright)
+docs/*.html
