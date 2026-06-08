@@ -97,6 +97,8 @@
       "secondaryCta": "Découvrir nos services"
     },
     "stats": {
+      "eyebrow": "Impact",
+      "title": "Une trajectoire mesurable",
       "projectsValue": "4 500",
       "projectsLabel": "projets financés",
       "fundedValue": "400 M",
@@ -158,7 +160,11 @@
     "teamTitle": "Une équipe à votre écoute",
     "teamText": "Notre équipe accompagne chaque membre de la coopérative, du premier contact au suivi de son projet. Contactez-nous pour échanger sur le vôtre.",
     "agenciesTitle": "Nous trouver",
-    "agenciesIntro": "Notre siège est à votre disposition aux heures d'ouverture."
+    "agenciesIntro": "Notre siège est à votre disposition aux heures d'ouverture.",
+    "agencyAddress": "Adresse",
+    "agencyPhone": "Téléphone",
+    "agencyEmail": "E-mail",
+    "agencyHours": "Horaires"
   },
   "services": {
     "eyebrow": "Services financiers",

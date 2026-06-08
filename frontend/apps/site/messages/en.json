@@ -97,6 +97,8 @@
       "secondaryCta": "Explore our services"
     },
     "stats": {
+      "eyebrow": "Impact",
+      "title": "A measurable trajectory",
       "projectsValue": "4,500",
       "projectsLabel": "projects financed",
       "fundedValue": "400M",
@@ -158,7 +160,11 @@
     "teamTitle": "A team at your side",
     "teamText": "Our team supports every member of the cooperative, from the first contact to following up on their project. Get in touch to talk about yours.",
     "agenciesTitle": "Find us",
-    "agenciesIntro": "Our head office is open to you during opening hours."
+    "agenciesIntro": "Our head office is open to you during opening hours.",
+    "agencyAddress": "Address",
+    "agencyPhone": "Phone",
+    "agencyEmail": "Email",
+    "agencyHours": "Opening hours"
   },
   "services": {
     "eyebrow": "Financial services",

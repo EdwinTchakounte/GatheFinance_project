@@ -11,6 +11,7 @@ import { CurveDivider } from "@/components/curve-divider";
 import { KeyFiguresBand } from "@/components/key-figures-band";
 import { Reveal } from "@/components/reveal";
 import { SectionHeading } from "@/components/section-heading";
+import { HeroNumeral, MeshAccent } from "@/components/decor-rich";
 import { Hero } from "@/sections/hero";
 import { AboutSection } from "@/sections/about";
 import { servicePillars } from "@/lib/site-config";
@@ -47,8 +48,12 @@ export default async function HomePage({ params }: Params) {
 
       {/* ===== SERVICES — 4 cards (matches the reference site) ===== */}
       <section className="relative isolate overflow-hidden section-pad bg-paper">
+        <MeshAccent variant="blue" />
         <InstitutionalDecor variant="grid" />
-        <Container>
+        <Container className="relative">
+          <HeroNumeral className="absolute -left-6 -top-12 lg:-left-12 lg:-top-20">
+            02
+          </HeroNumeral>
           <SectionHeading
             number="02"
             eyebrow={t("services.eyebrow")}
@@ -174,9 +179,13 @@ export default async function HomePage({ params }: Params) {
 
 
       {/* ===== VALUES — press grid on cream, hairline cards, no shadows ===== */}
-      <section className="relative isolate overflow-hidden section-pad bg-paper">
+      <section className="relative isolate overflow-hidden section-pad bg-gradient-to-b from-paper to-cream/30">
+        <MeshAccent variant="warm" />
         <InstitutionalDecor variant="weave" />
-        <Container>
+        <Container className="relative">
+          <HeroNumeral className="absolute -right-6 -top-12 lg:-right-12 lg:-top-20">
+            03
+          </HeroNumeral>
           <SectionHeading
             number="03"
             eyebrow={t("values.eyebrow")}
@@ -189,8 +198,13 @@ export default async function HomePage({ params }: Params) {
                 as="div"
                 key={v}
                 delay={i * 70}
-                className="group relative flex flex-col bg-cream p-7 transition-colors hover:bg-paper lg:p-9"
+                className="group relative flex flex-col bg-paper p-7 transition-colors hover:bg-cream/50 lg:p-9"
               >
+                {/* Top hairline accent gradient qui s'allume au hover */}
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-terra-500 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                />
                 <span className="font-display text-[0.72rem] font-medium tracking-[0.12em] text-terra-600">
                   {`0${i + 1}`}
                 </span>
@@ -200,6 +214,11 @@ export default async function HomePage({ params }: Params) {
                 <p className="mt-3 text-sm leading-relaxed text-ink-600">
                   {t(`values.items.${v}.text`)}
                 </p>
+                {/* Bottom hairline accent qui s'étire au hover */}
+                <span
+                  aria-hidden="true"
+                  className="relative mt-5 block h-px w-8 bg-gradient-to-r from-terra-500 via-emerald to-blue-700 transition-all duration-500 group-hover:w-20"
+                />
               </Reveal>
             ))}
           </div>
@@ -209,8 +228,12 @@ export default async function HomePage({ params }: Params) {
 
       {/* ===== BLOG teaser ===== */}
       <section className="relative isolate overflow-hidden section-pad bg-paper">
+        <MeshAccent variant="split" />
         <InstitutionalDecor variant="nodes" />
-        <Container>
+        <Container className="relative">
+          <HeroNumeral className="absolute -left-6 -top-12 lg:-left-12 lg:-top-20">
+            04
+          </HeroNumeral>
           <div className="flex flex-wrap items-end justify-between gap-6 border-b border-line-200 pb-8">
             <SectionHeading
               number="04"
