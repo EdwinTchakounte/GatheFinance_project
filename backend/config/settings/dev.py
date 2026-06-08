@@ -31,6 +31,15 @@ CORS_ALLOWED_ORIGINS = env.list(
         "http://127.0.0.1:3202",
     ],
 )
+# Accès LAN dev : autoriser n'importe quelle IP privée 10.x.x.x / 192.168.x.x
+# / 172.16-31.x.x sur les ports vitrine/portail/admin (3200-3299). Permet
+# d'ouvrir le portail/admin depuis un téléphone connecté au même wifi sans
+# devoir ajouter manuellement l'IP du poste à chaque fois (DHCP change).
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}:32\d{2}$",
+    r"^http://192\.168\.\d{1,3}\.\d{1,3}:32\d{2}$",
+    r"^http://172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}:32\d{2}$",
+]
 
 INTERNAL_IPS = ["127.0.0.1"]
 
