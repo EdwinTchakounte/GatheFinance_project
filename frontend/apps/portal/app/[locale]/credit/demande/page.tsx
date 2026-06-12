@@ -5,10 +5,18 @@ import { useRouter } from "next/navigation";
 
 import { Container, buttonClasses } from "@gathe/ui";
 
-import { portalApi, type ApiError } from "@/lib/api";
+import { portalApi, type ApiError, type FormSchemaPublic } from "@/lib/api";
+import {
+  DynamicFields,
+  validateDynamicFields,
+  type FormSchemaPayload,
+  type FormValues,
+} from "@/components/form-renderer";
 
 
 type Voie = "senior_brc" | "avaliste" | "campaign";
+
+type Canal = "tara_momo" | "tara_om" | "agence_especes";
 
 type FormState = {
   voie: Voie;
@@ -19,6 +27,24 @@ type FormState = {
   avaliste_nom: string;
   profil_cible: string;
   campaign_id: string;
+  // CH-9 — Canal de réception du décaissement choisi par le membre.
+  moyen_reception: Canal;
+  recipient_phone: string;
+};
+
+// CH-4 — Champs câblés en dur dans cette page (UI dédiée, métier 3 voies).
+// Tous les autres champs du schéma loan_request actif sont rendus par
+// <DynamicFields> sous le formulaire principal.
+const HARDCODED_LOAN_FIELDS = new Set([
+  "montant_demande", "duree_mois", "motif", "modalite_paiement",
+  "avaliste_numero", "avaliste_nom", "campaign_id", "profil_cible",
+  "moyen_reception", "recipient_phone",
+]);
+
+const CANAL_LABEL: Record<Canal, string> = {
+  tara_momo: "MTN Mobile Money",
+  tara_om: "Orange Money",
+  agence_especes: "Retrait espèces en agence",
 };
 
 
@@ -44,20 +70,33 @@ export default function PortalLoanRequestPage() {
     avaliste_nom: "",
     profil_cible: "",
     campaign_id: "",
+    // CH-9 — Canal de réception par défaut : MTN MoMo (le plus courant
+    // pour les membres). Le membre peut changer avant soumission.
+    moyen_reception: "tara_momo",
+    recipient_phone: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorList, setErrorList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  // CH-4 — Champs supplémentaires saisis via le schéma loan_request actif.
+  const [schema, setSchema] = useState<FormSchemaPublic | null>(null);
+  const [extraValues, setExtraValues] = useState<FormValues>({});
+  const [extraErrors, setExtraErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         await portalApi.primeCsrf();
-        const el = await portalApi.loans.eligibility();
+        const [el, sc] = await Promise.all([
+          portalApi.loans.eligibility(),
+          // FormSchema optionnel : la page fonctionne aussi en mode legacy.
+          portalApi.formSchema("loan_request").catch(() => null),
+        ]);
         if (cancelled) return;
         setEligibility(el);
+        setSchema(sc);
       } catch (err) {
         const apiErr = err as ApiError;
         if (apiErr.status === 401 || apiErr.status === 403) {
@@ -84,12 +123,54 @@ export default function PortalLoanRequestPage() {
     if (submitting) return;
     setError(null);
     setErrorList([]);
+
+    // CH-4 — Valide les champs supplémentaires (FormSchema) côté client.
+    if (schema) {
+      const errs = validateDynamicFields(
+        schema as FormSchemaPayload,
+        extraValues,
+        HARDCODED_LOAN_FIELDS,
+      );
+      if (Object.keys(errs).length > 0) {
+        setExtraErrors(errs);
+        const firstId = Object.keys(errs)[0];
+        document.getElementById(`field-${firstId}`)?.scrollIntoView({
+          behavior: "smooth", block: "center",
+        });
+        return;
+      }
+      setExtraErrors({});
+    }
+
+    // CH-9 — Validation locale : téléphone requis pour les canaux Tara.
+    const phone = form.recipient_phone.trim();
+    const needsPhone = form.moyen_reception === "tara_om" ||
+      form.moyen_reception === "tara_momo";
+    if (needsPhone && phone.length < 9) {
+      setError("Renseigne un numéro Mobile Money valide pour ce canal de réception.");
+      return;
+    }
+
     setSubmitting(true);
     try {
+      // CH-5 — Les valeurs de type File sont uploadées séparément après
+      // création du LoanRequest. On les retire du body principal.
+      const fileEntries: Array<[string, File]> = [];
+      const scalarExtras: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(extraValues)) {
+        if (v instanceof File) fileEntries.push([k, v]);
+        else scalarExtras[k] = v;
+      }
+
       const payload: Parameters<typeof portalApi.loans.create>[0] = {
         montant_demande: Number(form.montant_demande),
         duree_mois: Number(form.duree_mois),
         motif: form.motif.trim(),
+        // CH-9 — Canal de réception + téléphone (vide pour agence_especes).
+        moyen_reception: form.moyen_reception,
+        recipient_phone: needsPhone ? phone : "",
+        // CH-4 — Champs scalaires supplémentaires routés vers extra_payload.
+        ...scalarExtras,
       };
       if (form.voie === "avaliste") {
         payload.avaliste_numero = form.avaliste_numero.trim();
@@ -104,6 +185,26 @@ export default function PortalLoanRequestPage() {
       }
 
       const result = await portalApi.loans.create(payload);
+
+      // CH-5 — Upload des fichiers attachés au LoanRequest créé.
+      // Best-effort : si un upload échoue, on log mais on ne bloque pas la
+      // navigation (le LoanRequest existe ; l'admin pourra demander re-upload).
+      if (fileEntries.length > 0 && result.loan_request?.id) {
+        for (const [fieldId, file] of fileEntries) {
+          try {
+            await portalApi.loans.uploadAttachment(
+              result.loan_request.id,
+              fieldId,
+              file,
+            );
+          } catch (uploadErr) {
+            console.warn(
+              `Upload de ${fieldId} échoué — la demande est créée, ré-uploader plus tard.`,
+              uploadErr,
+            );
+          }
+        }
+      }
 
       if (result.route === "avaliste") {
         router.push(
@@ -377,15 +478,109 @@ export default function PortalLoanRequestPage() {
             </div>
           )}
 
-          <div className="mt-7 rounded-md bg-cream p-4 text-sm text-ink-700">
-            <p>
-              <strong>Frais de dossier</strong> : à régler après soumission
-              (montant configuré par l'administration). Pour la voie{" "}
-              <em>avaliste</em>, le paiement se déclenche après l'acceptation
-              du garant. Pour la voie <em>campagne</em>, après la validation
-              du comité.
-            </p>
+          {/* CH-9 — Canal de réception du décaissement, à choisir avant
+              soumission. Le payout Tara sera pré-rempli côté admin lors de
+              la mise à disposition. */}
+          <fieldset className="mt-7 rounded-md border border-line-200 bg-paper p-4">
+            <legend className="px-1 text-sm font-semibold text-ink-900">
+              Comment recevoir l&apos;argent une fois le crédit accordé ?
+            </legend>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {(["tara_momo", "tara_om", "agence_especes"] as const).map((c) => {
+                const selected = form.moyen_reception === c;
+                return (
+                  <label
+                    key={c}
+                    className={[
+                      "flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition-colors",
+                      selected
+                        ? "border-blue-700 bg-blue-50/60"
+                        : "border-line-200 hover:border-blue-700/40",
+                    ].join(" ")}
+                  >
+                    <input
+                      type="radio"
+                      name="moyen_reception"
+                      value={c}
+                      checked={selected}
+                      onChange={() => set("moyen_reception", c)}
+                      className="size-4"
+                    />
+                    <span
+                      className={
+                        selected
+                          ? "font-medium text-blue-700"
+                          : "text-ink-700"
+                      }
+                    >
+                      {CANAL_LABEL[c]}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            {(form.moyen_reception === "tara_momo" ||
+              form.moyen_reception === "tara_om") && (
+              <div className="mt-3">
+                <label
+                  htmlFor="recipient_phone"
+                  className="block text-xs font-medium text-ink-700"
+                >
+                  Numéro Mobile Money
+                </label>
+                <input
+                  id="recipient_phone"
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="+237 6XX XX XX XX"
+                  value={form.recipient_phone}
+                  onChange={(e) => set("recipient_phone", e.target.value)}
+                  className="mt-1 w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-sm focus:border-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-700"
+                />
+                <p className="mt-1 text-[11px] text-ink-500">
+                  Ton numéro {form.moyen_reception === "tara_momo" ? "MTN" : "Orange"} sur lequel
+                  l&apos;argent sera versé après approbation.
+                </p>
+              </div>
+            )}
+          </fieldset>
+
+          <div className="mt-5 space-y-3">
+            <div className="rounded-md bg-cream p-4 text-sm text-ink-700">
+              <p>
+                <strong>Frais d&apos;étude du dossier</strong> : à régler après
+                soumission (montant configuré par l&apos;administration). Pour
+                la voie <em>avaliste</em>, le paiement se déclenche après
+                l&apos;acceptation du garant. Pour la voie <em>campagne</em>,
+                après la validation du comité.
+              </p>
+            </div>
+            {/* CH-7 — Mention non-remboursable bien visible. */}
+            <div
+              role="note"
+              className="rounded-md border border-terra-400/40 bg-terra-50/60 p-3 text-xs text-terra-700"
+            >
+              <strong>Important — ces frais sont non-remboursables.</strong>{" "}
+              Ils couvrent l&apos;instruction du dossier et la visite terrain
+              éventuelle. Aucun remboursement ne sera effectué, y compris en
+              cas de refus de la demande.
+            </div>
           </div>
+
+          {/* CH-4 — Section générée depuis le FormSchema actif loan_request.
+              Les champs hardcoded (montant, durée, motif, voies) sont rendus
+              au-dessus dans leur UI dédiée et exclus ici. */}
+          {schema ? (
+            <div className="mt-6 space-y-6">
+              <DynamicFields
+                schema={schema as FormSchemaPayload}
+                values={extraValues}
+                onChange={setExtraValues}
+                excludeFieldIds={HARDCODED_LOAN_FIELDS}
+                errors={extraErrors}
+              />
+            </div>
+          ) : null}
 
           <button
             type="submit"

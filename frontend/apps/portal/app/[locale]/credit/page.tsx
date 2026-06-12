@@ -5,7 +5,27 @@ import { useRouter } from "next/navigation";
 
 import { Container, buttonClasses } from "@gathe/ui";
 
-import { portalApi, type ApiError, type Loan, type LoanRequest } from "@/lib/api";
+import {
+  portalApi,
+  type ApiError,
+  type FormSchemaPublic,
+  type Loan,
+  type LoanRequest,
+} from "@/lib/api";
+import {
+  DynamicFields,
+  validateDynamicFields,
+  type FormSchemaPayload,
+  type FormValues,
+} from "@/components/form-renderer";
+
+
+// CH-4 — Champs câblés en dur côté UI reconduction. Le service backend les
+// gère explicitement ; tout autre champ du schéma loan_renewal actif est
+// rendu par <DynamicFields> dans le body de la modale.
+const HARDCODED_RENEWAL_FIELDS = new Set([
+  "interets_au_comptant", "nouvelle_duree_mois", "motif",
+]);
 
 
 function formatXAF(amount: string): string {
@@ -57,20 +77,27 @@ export default function PortalCreditPage() {
   const [renewalSubmitting, setRenewalSubmitting] = useState(false);
   const [renewalError, setRenewalError] = useState<string | null>(null);
   const [renewalDone, setRenewalDone] = useState(false);
+  // CH-4 — Schéma + valeurs des champs extras pour la modale reconduction.
+  const [renewalSchema, setRenewalSchema] = useState<FormSchemaPublic | null>(null);
+  const [renewalValues, setRenewalValues] = useState<FormValues>({});
+  const [renewalExtraErrors, setRenewalExtraErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const [el, list, active] = await Promise.all([
+        const [el, list, active, sc] = await Promise.all([
           portalApi.loans.eligibility(),
           portalApi.loans.listMine(),
           portalApi.loans.activeMine(),
+          // FormSchema optionnel : la modale fonctionne aussi en mode legacy.
+          portalApi.formSchema("loan_renewal").catch(() => null),
         ]);
         if (cancelled) return;
         setEligibility(el);
         setRequests(list);
         setActiveLoans(active);
+        setRenewalSchema(sc);
       } catch (err) {
         const apiErr = err as ApiError;
         if (apiErr.status === 401 || apiErr.status === 403) {
@@ -347,6 +374,18 @@ export default function PortalCreditPage() {
                       </button>
                     </div>
                   ) : null}
+                  {/* CH-9 — Téléchargement de la note PDF, disponible à tout
+                      moment après création (la note reflète l'état courant). */}
+                  <div className="mt-3">
+                    <a
+                      href={portalApi.loans.noteUrl(r.id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 hover:underline"
+                    >
+                      📄 Télécharger ma note de demande (PDF)
+                    </a>
+                  </div>
                   {r.statut === "rejetee" && r.motif_rejet ? (
                     <p className="mt-2 text-sm text-terra-700">Motif : {r.motif_rejet}</p>
                   ) : null}
@@ -370,16 +409,39 @@ export default function PortalCreditPage() {
         onClose={() => {
           setRenewalTarget(null);
           setRenewalError(null);
+          setRenewalValues({});
+          setRenewalExtraErrors({});
         }}
+        schema={renewalSchema}
+        values={renewalValues}
+        onValuesChange={setRenewalValues}
+        extraErrors={renewalExtraErrors}
         onSubmit={async () => {
           if (!renewalTarget) return;
+          // CH-4 — Valide les champs extras avant POST.
+          if (renewalSchema) {
+            const errs = validateDynamicFields(
+              renewalSchema as FormSchemaPayload,
+              renewalValues,
+              HARDCODED_RENEWAL_FIELDS,
+            );
+            if (Object.keys(errs).length > 0) {
+              setRenewalExtraErrors(errs);
+              return;
+            }
+            setRenewalExtraErrors({});
+          }
           setRenewalSubmitting(true);
           setRenewalError(null);
           try {
             // Reconduction +1 mois, sans frais : la demande part directement
             // en décision du comité, aucun paiement à régler.
-            await portalApi.loans.requestRenewal(renewalTarget.id);
+            await portalApi.loans.requestRenewal(
+              renewalTarget.id,
+              renewalValues,
+            );
             setRenewalTarget(null);
+            setRenewalValues({});
             setRenewalDone(true);
           } catch (err) {
             const apiErr = err as ApiError;
@@ -432,12 +494,21 @@ function RenewalModal({
   error,
   onClose,
   onSubmit,
+  schema,
+  values,
+  onValuesChange,
+  extraErrors,
 }: {
   target: Loan | null;
   submitting: boolean;
   error: string | null;
   onClose: () => void;
   onSubmit: () => void;
+  // CH-4 — Champs supplémentaires saisis via le schéma loan_renewal actif.
+  schema?: FormSchemaPublic | null;
+  values?: FormValues;
+  onValuesChange?: (v: FormValues) => void;
+  extraErrors?: Record<string, string>;
 }) {
   if (!target) return null;
 
@@ -475,6 +546,17 @@ function RenewalModal({
             <p className="rounded-md border border-terra-400/40 bg-terra-50/60 px-3 py-2 text-xs text-terra-700">
               {error}
             </p>
+          ) : null}
+
+          {/* CH-4 — Champs supplémentaires éventuels (FormSchema 'loan_renewal'). */}
+          {schema && values && onValuesChange ? (
+            <DynamicFields
+              schema={schema as FormSchemaPayload}
+              values={values}
+              onChange={onValuesChange}
+              excludeFieldIds={HARDCODED_RENEWAL_FIELDS}
+              errors={extraErrors}
+            />
           ) : null}
         </div>
         <footer className="flex items-center justify-end gap-2 border-t border-line-200 bg-line-100/30 px-6 py-3">

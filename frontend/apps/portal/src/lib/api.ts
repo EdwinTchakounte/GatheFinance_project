@@ -253,12 +253,22 @@ export type Loan = {
 };
 
 export type PaymentInitInput = {
-  type: "epargne" | "remboursement" | "frais_adhesion" | "frais_inscription" | "frais_demande_credit" | "frais_reconduction" | "frais_carnet";
+  type:
+    | "epargne"
+    | "epargne_classique"
+    | "remboursement"
+    | "frais_adhesion"
+    | "frais_inscription"
+    | "frais_demande_credit"
+    | "frais_reconduction"
+    | "frais_carnet";
   montant: number;
   phone: string;
   network: "MTN" | "ORANGE" | "WAVE" | "AIRTEL";
   loan_id?: number | null;
   loan_installment_id?: number | null;
+  // CH-3 — Sous-canal placement épargne classique (ignoré si type ≠ "epargne_classique").
+  is_placement?: boolean;
 };
 
 export type PaymentInitResponse = {
@@ -303,8 +313,23 @@ export type WithdrawalRead = {
   handed_over_at: string | null;
 };
 
+// CH-4 — FormSchema (réponse publique)
+export type FormSchemaPublic = {
+  id: number;
+  kind: "adhesion" | "loan_request" | "loan_renewal";
+  version: number;
+  title: string;
+  description: string;
+  schema: { sections: Array<Record<string, unknown>> };
+};
+
 export const portalApi = {
   primeCsrf: () => request<{ csrfToken: string }>("/auth/csrf/"),
+
+  // CH-4 — Charge le schéma actif d'un formulaire dynamique.
+  formSchema: (kind: "adhesion" | "loan_request" | "loan_renewal") =>
+    request<FormSchemaPublic>(`/forms/schemas/${kind}/active/`),
+
   login: (email: string, password: string) =>
     request<Identity>("/auth/login/", {
       method: "POST",
@@ -382,6 +407,12 @@ export const portalApi = {
       avaliste_nom?: string;
       campaign_id?: number;
       profil_cible?: string;
+      // CH-9 — Canal de réception choisi par le membre à la soumission.
+      moyen_reception?: "tara_om" | "tara_momo" | "agence_especes";
+      recipient_phone?: string;
+      // CH-4 — Champs ajoutés via FormSchema actif côté admin.
+      // Routés vers extra_payload par le backend (apply_form_schema).
+      [extraField: string]: unknown;
     }) =>
       request<{
         loan_request: LoanRequest;
@@ -389,6 +420,54 @@ export const portalApi = {
         route_details: Record<string, unknown>;
         frais_a_payer: { code: string; libelle: string; montant: string };
       }>("/loans/requests/", { method: "POST", body: JSON.stringify(data) }),
+
+    // CH-9 — URL absolue pour télécharger la note PDF d'une demande.
+    noteUrl: (requestId: number) => `/api/v1/loans/requests/${requestId}/note/`,
+
+    // CH-5 — Upload d'un fichier rattaché à un LoanRequest (multipart).
+    // Idempotent par schema_field_id : re-upload remplace le précédent.
+    uploadAttachment: async (
+      loanRequestId: number,
+      schemaFieldId: string,
+      file: File,
+    ) => {
+      const form = new FormData();
+      form.append("fichier", file);
+      form.append("schema_field_id", schemaFieldId);
+      // On contourne `request` (qui force Content-Type JSON) et fait l'appel
+      // directement avec FormData — le navigateur pose le boundary.
+      const csrf =
+        document.cookie
+          .split("; ")
+          .find((c) => c.startsWith("csrftoken="))
+          ?.slice("csrftoken=".length) ?? "";
+      const res = await fetch(
+        `${API_BASE}/loans/requests/${loanRequestId}/attachments/`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "X-CSRFToken": csrf },
+          body: form,
+        },
+      );
+      if (!res.ok) {
+        let detail = "Upload échoué.";
+        try {
+          const j = await res.json();
+          if (j.detail) detail = j.detail;
+        } catch {
+          /* ignore */
+        }
+        throw { status: res.status, detail } as ApiError;
+      }
+      return (await res.json()) as {
+        id: number;
+        schema_field_id: string;
+        nom_original: string;
+        taille: number;
+        url: string | null;
+      };
+    },
     // Refonte 2026 LOT 18 — Mandats d'avaliste (côté garant).
     avalisteMandats: {
       list: (statut?: "pending" | "accepted" | "refused") =>
@@ -405,7 +484,16 @@ export const portalApi = {
     },
     // Reconduction = +1 mois fixe, SANS frais (seul le taux est majoré).
     // Le corps est optionnel : la durée éventuelle est ignorée côté backend.
-    requestRenewal: (loanId: number, data: { nouvelle_duree_mois?: number } = {}) =>
+    // CH-4 — Accepte aussi des champs ajoutés via FormSchema 'loan_renewal',
+    // routés vers LoanRenewal.extra_payload côté backend.
+    requestRenewal: (
+      loanId: number,
+      data: {
+        nouvelle_duree_mois?: number;
+        interets_au_comptant?: boolean;
+        [extraField: string]: unknown;
+      } = {},
+    ) =>
       request<{
         renewal: {
           id: number;
@@ -427,6 +515,12 @@ export const portalApi = {
         body: JSON.stringify(data),
       }),
     detail: (id: number) => request<PaymentRead>(`/payments/${id}/`),
+    /** Historique des paiements du membre courant — utilisé notamment par
+     *  l'écran d'activation pour identifier quels frais sont déjà réglés. */
+    me: (type?: string) =>
+      request<{ results: PaymentRead[] }>(
+        type ? `/payments/me/?type=${type}` : `/payments/me/`,
+      ),
     fees: () => request<Record<string, { libelle: string; montant: string }>>("/payments/fees/"),
     /** DEV ONLY — backend returns 404 in production. */
     devConfirm: (id: number) =>
