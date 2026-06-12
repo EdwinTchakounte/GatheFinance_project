@@ -1,4 +1,5 @@
 import '../../domain/entities/eligibility.dart';
+import '../../domain/entities/lender_payout.dart';
 import '../../domain/entities/loan.dart';
 import '../../domain/entities/loan_renewal.dart';
 import '../../domain/entities/loan_request.dart';
@@ -9,6 +10,9 @@ abstract class LoansRemoteDataSource {
   Future<List<LoanRequestEntity>> myRequests();
 
   Future<Eligibility> eligibility();
+
+  /// CH-12 — Versements d'intérêts reçus en tant que prêteur (refonte §7.5).
+  Future<List<LenderPayout>> myLenderPayouts();
 
   Future<LoanRequestEntity> submitRequest({
     required num montantDemande,

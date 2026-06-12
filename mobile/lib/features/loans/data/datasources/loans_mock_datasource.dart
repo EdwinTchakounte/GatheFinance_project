@@ -1,5 +1,6 @@
 import '../../../../core/error/exceptions.dart';
 import '../../domain/entities/eligibility.dart';
+import '../../domain/entities/lender_payout.dart';
 import '../../domain/entities/loan.dart';
 import '../../domain/entities/loan_installment.dart';
 import '../../domain/entities/loan_renewal.dart';
@@ -126,6 +127,33 @@ class LoansMockDataSource implements LoansRemoteDataSource {
   }
 
   // -- Writes ---------------------------------------------------------------
+
+  @override
+  Future<List<LenderPayout>> myLenderPayouts() async {
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    // Mock léger : 2 versements pour montrer les 2 kinds dans l'UI dev.
+    return [
+      LenderPayout(
+        id: 1,
+        montant: 5000,
+        date: DateTime.now().subtract(const Duration(days: 1)),
+        kind: LenderPayoutKind.atSource,
+        loanNumeroDossier: 'GF-CR-2026-0042',
+        loanId: 42,
+        quotePart: 0.5,
+      ),
+      LenderPayout(
+        id: 2,
+        montant: 1250,
+        date: DateTime.now().subtract(const Duration(days: 18)),
+        kind: LenderPayoutKind.installment,
+        loanNumeroDossier: 'GF-CR-2026-0039',
+        loanId: 39,
+        quotePart: 0.25,
+        installmentNumero: 3,
+      ),
+    ];
+  }
 
   @override
   Future<LoanRequestEntity> submitRequest({

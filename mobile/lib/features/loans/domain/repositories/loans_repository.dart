@@ -1,4 +1,5 @@
 import '../entities/eligibility.dart';
+import '../entities/lender_payout.dart';
 import '../entities/loan.dart';
 import '../entities/loan_renewal.dart';
 import '../entities/loan_request.dart';
@@ -9,6 +10,10 @@ abstract class LoansRepository {
 
   /// Demandes de crédit du membre (toutes statuts confondus).
   Future<List<LoanRequestEntity>> myRequests();
+
+  /// CH-12 — Versements d'intérêts reçus en tant que prêteur, triés par
+  /// date desc (les 200 plus récents).
+  Future<List<LenderPayout>> myLenderPayouts();
 
   /// Vérification d'éligibilité à une **nouvelle** demande de crédit.
   Future<Eligibility> eligibility();

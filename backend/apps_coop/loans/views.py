@@ -1477,3 +1477,53 @@ def loan_disbursement_status(request, pk: int):
             ),
         }
     )
+
+
+# ---------------------------------------------------------------------------
+# CH-12 — Mes versements prêteur (membre côté épargne placement).
+# ---------------------------------------------------------------------------
+@extend_schema(
+    tags=["loans"],
+    summary="Mes versements d'intérêts en tant que prêteur",
+    description=(
+        "Liste les `LenderInterestPayout` reçus par le membre connecté en tant "
+        "que prêteur sur des crédits financés via son épargne classique en "
+        "placement (refonte 2026 §7.5 / CH-12). Inclut à la fois les payouts à "
+        "T0 (mode source CH-11, `installment=null`) et au fil des remboursements "
+        "(mode echeances, LOT 9)."
+    ),
+    responses={
+        200: OpenApiResponse(description="Liste de payouts triés par date desc"),
+    },
+)
+@api_view(["GET"])
+@permission_classes([IsMember])
+def me_lender_payouts(request):
+    from .models import LenderInterestPayout
+
+    member = request.user.member
+    qs = (
+        LenderInterestPayout.objects.filter(allocation__lender=member)
+        .select_related("allocation", "allocation__loan", "installment")
+        .order_by("-date", "-id")[:200]
+    )
+    results = []
+    for p in qs:
+        loan = p.allocation.loan
+        results.append({
+            "id": p.id,
+            "montant": str(p.montant),
+            "date": p.date.isoformat(),
+            "loan": {
+                "id": loan.id,
+                "numero_dossier": loan.numero_dossier,
+            },
+            "allocation_id": p.allocation_id,
+            "quote_part": str(p.allocation.quote_part),
+            # CH-12 — installment=None signale un versement à T0 (mode source).
+            "kind": "at_source" if p.installment_id is None else "installment",
+            "installment_numero": (
+                p.installment.numero_echeance if p.installment_id else None
+            ),
+        })
+    return Response({"count": len(results), "results": results})

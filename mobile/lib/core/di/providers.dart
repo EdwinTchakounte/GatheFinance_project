@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../network/api_client.dart';
 import '../network/api_config.dart';
+import '../usecases/usecase.dart';
 
 // ---- Auth -----------------------------------------------------------------
 import '../../features/auth/data/datasources/auth_dio_datasource.dart';
@@ -44,6 +45,7 @@ import '../../features/loans/data/repositories/loans_repository_impl.dart';
 import '../../features/loans/domain/repositories/loans_repository.dart';
 import '../../features/loans/domain/usecases/get_eligibility.dart';
 import '../../features/loans/domain/usecases/get_my_active_loans.dart';
+import '../../features/loans/domain/usecases/get_my_lender_payouts.dart';
 import '../../features/loans/domain/usecases/get_my_loan_requests.dart';
 import '../../features/loans/domain/usecases/make_loan_repayment.dart';
 import '../../features/loans/domain/usecases/request_loan_renewal.dart';
@@ -210,6 +212,19 @@ final makeLoanRepaymentUseCaseProvider = Provider<MakeLoanRepayment>(
 final requestLoanRenewalUseCaseProvider = Provider<RequestLoanRenewal>(
   (ref) => RequestLoanRenewal(ref.watch(loansRepositoryProvider)),
 );
+
+// CH-12 — Lecture des versements prêteur du membre connecté.
+final getMyLenderPayoutsUseCaseProvider = Provider<GetMyLenderPayouts>(
+  (ref) => GetMyLenderPayouts(ref.watch(loansRepositoryProvider)),
+);
+
+/// CH-12 — État asynchrone de la liste des versements prêteur du membre.
+/// Re-fetch automatique au montage. L'UI peut appeler `.invalidate(...)` pour
+/// rafraîchir manuellement.
+final myLenderPayoutsProvider = FutureProvider.autoDispose((ref) async {
+  final useCase = ref.watch(getMyLenderPayoutsUseCaseProvider);
+  return useCase.call(const NoParams());
+});
 
 
 // ===========================================================================

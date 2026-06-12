@@ -45,6 +45,7 @@ from .views import (
     loan_request_note,
     loan_request_upload_attachment,
     loans_me_active,
+    me_lender_payouts,
 )
 
 
@@ -55,6 +56,8 @@ urlpatterns = [
     path("me/eligibility/", loan_eligibility, name="eligibility"),
     path("me/requests/", loan_request_list, name="my-requests"),
     path("me/active/", loans_me_active, name="my-active-loans"),
+    # CH-12 — Versements d'intérêts reçus en tant que prêteur.
+    path("me/lender-payouts/", me_lender_payouts, name="my-lender-payouts"),
     path("requests/", loan_request_create, name="create-request"),
     # CH-5 — Upload de fichier rattaché à un LoanRequest (CGA, CFP, CNI, etc.).
     path(

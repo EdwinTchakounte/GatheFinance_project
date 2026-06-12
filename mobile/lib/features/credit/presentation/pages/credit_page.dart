@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
+import '../../../../core/di/providers.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/network/api_config.dart';
@@ -60,8 +61,13 @@ class CreditPage extends ConsumerWidget {
             ),
             // ── Accès Mandats avaliste (LOT 21) ──────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: _AvalisteEntryTile(),
+            ),
+            // ── CH-12 — Mes versements prêteur (Sinora §5.3) ──────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: _LenderPayoutsEntryTile(),
             ),
             Expanded(
               child: RefreshIndicator.adaptive(
@@ -983,6 +989,72 @@ Future<void> _openLoanNote(BuildContext context, int requestId) async {
   if (!ok) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Impossible d\'ouvrir la note PDF.')),
+    );
+  }
+}
+
+
+/// CH-12 — Tuile d'accès aux versements prêteur. Affichée seulement si
+/// l'API a renvoyé au moins un payout (sinon on évite de polluer la page
+/// Crédit avec une porte vide). Compteur+total perçu en aperçu rapide.
+class _LenderPayoutsEntryTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(myLenderPayoutsProvider);
+    final items = async.maybeWhen(data: (d) => d, orElse: () => null);
+    if (items == null || items.isEmpty) return const SizedBox.shrink();
+
+    final total = items.fold<num>(0, (s, p) => s + p.montant);
+    return PaCard(
+      onTap: () => context.push('/me/lender-payouts'),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: PaColors.success.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              Icons.savings_rounded,
+              size: 22,
+              color: PaColors.success,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Mes intérêts de prêteur',
+                  style: TextStyle(
+                    color: PaColors.inkPrimary,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${items.length} versement${items.length > 1 ? "s" : ""} · '
+                  'total ${XAFFormatter.format(total)}',
+                  style: const TextStyle(
+                    color: PaColors.inkSecondary,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right_rounded,
+            size: 22,
+            color: PaColors.inkMuted,
+          ),
+        ],
+      ),
     );
   }
 }

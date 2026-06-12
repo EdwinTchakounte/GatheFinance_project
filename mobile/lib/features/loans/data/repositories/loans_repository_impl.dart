@@ -1,6 +1,7 @@
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/eligibility.dart';
+import '../../domain/entities/lender_payout.dart';
 import '../../domain/entities/loan.dart';
 import '../../domain/entities/loan_renewal.dart';
 import '../../domain/entities/loan_request.dart';
@@ -30,6 +31,10 @@ class LoansRepositoryImpl implements LoansRepository {
 
   @override
   Future<List<LoanRequestEntity>> myRequests() => _run(_remote.myRequests);
+
+  @override
+  Future<List<LenderPayout>> myLenderPayouts() =>
+      _run(_remote.myLenderPayouts);
 
   @override
   Future<Eligibility> eligibility() => _run(_remote.eligibility);

@@ -4,6 +4,7 @@ import '../../../../core/error/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exceptions.dart';
 import '../../domain/entities/eligibility.dart';
+import '../../domain/entities/lender_payout.dart';
 import '../../domain/entities/loan.dart';
 import '../../domain/entities/loan_installment.dart';
 import '../../domain/entities/loan_renewal.dart';
@@ -62,6 +63,21 @@ class LoansDioDataSource implements LoansRemoteDataSource {
       final res = await _dio.get<List<dynamic>>('/loans/me/active/');
       return (res.data ?? const [])
           .map((l) => _parseLoan(l as Map<String, dynamic>))
+          .toList(growable: false);
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
+  Future<List<LenderPayout>> myLenderPayouts() async {
+    try {
+      final res =
+          await _dio.get<Map<String, dynamic>>('/loans/me/lender-payouts/');
+      final data = res.data ?? const {};
+      final rows = (data['results'] as List<dynamic>?) ?? const [];
+      return rows
+          .map((r) => _parseLenderPayout(r as Map<String, dynamic>))
           .toList(growable: false);
     } on DioException catch (e) {
       throw mapDioError(e);
@@ -325,6 +341,22 @@ FieldVisitOutcome? _fieldVisitOutcomeFromApi(String? raw) {
 LoanInterestMode _interestModeFromApi(String? raw) {
   if (raw == 'source') return LoanInterestMode.source;
   return LoanInterestMode.echeances;
+}
+
+LenderPayout _parseLenderPayout(Map<String, dynamic> json) {
+  final loan = (json['loan'] as Map<String, dynamic>?) ?? const {};
+  return LenderPayout(
+    id: (json['id'] as num).toInt(),
+    montant: _num(json['montant']),
+    date: _date(json['date']),
+    kind: (json['kind'] as String?) == 'at_source'
+        ? LenderPayoutKind.atSource
+        : LenderPayoutKind.installment,
+    loanNumeroDossier: (loan['numero_dossier'] as String?) ?? '',
+    loanId: (loan['id'] as num?)?.toInt() ?? 0,
+    quotePart: _num(json['quote_part']),
+    installmentNumero: (json['installment_numero'] as num?)?.toInt(),
+  );
 }
 
 LoanRenewalStatus _renewalStatus(String raw) {

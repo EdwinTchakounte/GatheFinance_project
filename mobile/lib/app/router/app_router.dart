@@ -11,6 +11,7 @@ import '../../features/contributions/presentation/pages/contributions_page.dart'
 import '../../features/credit/presentation/pages/credit_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/help/presentation/pages/help_contact_page.dart';
+import '../../features/loans/presentation/pages/my_lender_payouts_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/preferences/presentation/pages/notifications_preferences_page.dart';
 import '../../features/states/presentation/pages/states_page.dart';
@@ -176,6 +177,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'avaliste-mandats',
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const AvalisteMandatsPage()),
+      ),
+
+      // CH-12 — Mes versements prêteur (depuis le profil).
+      GoRoute(
+        path: '/me/lender-payouts',
+        name: 'my-lender-payouts',
+        pageBuilder: (context, state) =>
+            _paSlideFadePage(state, const MyLenderPayoutsPage()),
       ),
 
       // Shell racine — 4 branches avec état indépendant.
