@@ -32,7 +32,9 @@ export default function LoanRequestsPage() {
 }
 
 function Inner() {
-  const [filter, setFilter] = useState<"en_instruction" | "approuvee" | "rejetee" | "">("en_instruction");
+  const [filter, setFilter] = useState<
+    "en_instruction" | "approuvee_provisoire" | "approuvee" | "rejetee" | ""
+  >("en_instruction");
   const [items, setItems] = useState<LoanRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<number | null>(null);
@@ -41,6 +43,9 @@ function Inner() {
   const [approveTarget, setApproveTarget] = useState<LoanRequest | null>(null);
   const [rejectTarget, setRejectTarget] = useState<LoanRequest | null>(null);
   const [disburseTarget, setDisburseTarget] = useState<LoanRequest | null>(null);
+  // CH-6 — Workflow double approbation : provisoire → visite terrain → définitive.
+  const [provisionalTarget, setProvisionalTarget] = useState<LoanRequest | null>(null);
+  const [fieldVisitTarget, setFieldVisitTarget] = useState<LoanRequest | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -90,6 +95,49 @@ function Inner() {
     }
   }
 
+  async function submitProvisional(avis: string) {
+    if (!provisionalTarget) return;
+    setActingId(provisionalTarget.id);
+    try {
+      await adminApi.loanRequests.decideProvisional(provisionalTarget.id, {
+        avis_provisoire: avis,
+      });
+      setMessage({
+        tone: "ok",
+        text: `Demande #${provisionalTarget.id} approuvée provisoirement — à charge du staff de réaliser la visite terrain.`,
+      });
+      setProvisionalTarget(null);
+      await reload();
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setMessage({ tone: "err", text: apiErr.detail ?? "Approbation provisoire impossible." });
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function submitFieldVisit(payload: {
+    outcome: "favorable" | "defavorable" | "a_revoir";
+    note: string;
+  }) {
+    if (!fieldVisitTarget) return;
+    setActingId(fieldVisitTarget.id);
+    try {
+      await adminApi.loanRequests.fieldVisit(fieldVisitTarget.id, payload);
+      setMessage({
+        tone: "ok",
+        text: `Visite terrain enregistrée pour la demande #${fieldVisitTarget.id} (${payload.outcome}).`,
+      });
+      setFieldVisitTarget(null);
+      await reload();
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setMessage({ tone: "err", text: apiErr.detail ?? "Enregistrement visite impossible." });
+    } finally {
+      setActingId(null);
+    }
+  }
+
   async function submitDisburse(payload: { recipient_phone: string; network: "MTN" | "ORANGE" | "WAVE" | "AIRTEL" }) {
     if (!disburseTarget?.loan) return;
     setActingId(disburseTarget.id);
@@ -127,6 +175,7 @@ function Inner() {
         <div className="flex items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
           {[
             { v: "en_instruction", l: "En instruction" },
+            { v: "approuvee_provisoire", l: "Provisoires" },
             { v: "approuvee", l: "Approuvées" },
             { v: "rejetee", l: "Rejetées" },
             { v: "", l: "Toutes" },
@@ -134,7 +183,16 @@ function Inner() {
             <button
               key={opt.v}
               type="button"
-              onClick={() => setFilter(opt.v as "en_instruction" | "approuvee" | "rejetee" | "")}
+              onClick={() =>
+                setFilter(
+                  opt.v as
+                    | "en_instruction"
+                    | "approuvee_provisoire"
+                    | "approuvee"
+                    | "rejetee"
+                    | "",
+                )
+              }
               className={[
                 "rounded px-3 py-1.5 text-xs font-medium transition-colors",
                 filter === opt.v ? "bg-blue-700 text-white" : "text-ink-700 hover:text-blue-700",
@@ -191,9 +249,30 @@ function Inner() {
                     <span className={
                       "pill " +
                       (r.statut === "en_instruction" ? "pill-info"
+                        : r.statut === "approuvee_provisoire" ? "pill-warning"
                         : r.statut === "approuvee" ? "pill-success"
                         : r.statut === "rejetee" ? "pill-danger" : "pill-muted")
                     }>{r.statut_display}</span>
+                    {r.field_visit_outcome ? (
+                      <p className="mt-1 text-[11px] font-medium">
+                        <span className="text-ink-500">Visite : </span>
+                        <span
+                          className={
+                            r.field_visit_outcome === "favorable"
+                              ? "text-emerald"
+                              : r.field_visit_outcome === "defavorable"
+                                ? "text-terra-700"
+                                : "text-ink-700"
+                          }
+                        >
+                          {r.field_visit_outcome === "favorable"
+                            ? "favorable"
+                            : r.field_visit_outcome === "defavorable"
+                              ? "défavorable"
+                              : "à revoir"}
+                        </span>
+                      </p>
+                    ) : null}
                     {r.motif_rejet ? <p className="mt-1 text-xs text-terra-700 max-w-[14rem]">{r.motif_rejet}</p> : null}
                   </td>
                   <td className="text-right">
@@ -202,11 +281,11 @@ function Inner() {
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={() => setApproveTarget(r)}
+                            onClick={() => setProvisionalTarget(r)}
                             disabled={actingId === r.id}
                             className={buttonClasses({ variant: "success", size: "sm" })}
                           >
-                            <Check className="size-3.5" aria-hidden="true" />Approuver
+                            <Check className="size-3.5" aria-hidden="true" />Approbation provisoire
                           </button>
                           <button
                             type="button"
@@ -217,6 +296,48 @@ function Inner() {
                             <X className="size-3.5" aria-hidden="true" />Rejeter
                           </button>
                         </div>
+                        <a
+                          href={adminApi.loans.noteUrl(r.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
+                        >
+                          <FileText className="size-3" />Note PDF
+                        </a>
+                      </div>
+                    ) : r.statut === "approuvee_provisoire" ? (
+                      <div className="flex flex-col items-end gap-1.5">
+                        {!r.field_visit_outcome ? (
+                          <button
+                            type="button"
+                            onClick={() => setFieldVisitTarget(r)}
+                            disabled={actingId === r.id}
+                            className={buttonClasses({ variant: "primary", size: "sm" })}
+                          >
+                            Visite terrain à effectuer
+                          </button>
+                        ) : (
+                          <div className="flex gap-2">
+                            {r.field_visit_outcome === "favorable" ? (
+                              <button
+                                type="button"
+                                onClick={() => setApproveTarget(r)}
+                                disabled={actingId === r.id}
+                                className={buttonClasses({ variant: "success", size: "sm" })}
+                              >
+                                <Check className="size-3.5" aria-hidden="true" />Décision définitive
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() => setRejectTarget(r)}
+                              disabled={actingId === r.id}
+                              className={buttonClasses({ variant: "ghost", size: "sm" })}
+                            >
+                              <X className="size-3.5" aria-hidden="true" />Rejeter
+                            </button>
+                          </div>
+                        )}
                         <a
                           href={adminApi.loans.noteUrl(r.id)}
                           target="_blank"
@@ -291,7 +412,170 @@ function Inner() {
         onSubmit={submitDisburse}
         submitting={actingId !== null}
       />
+      <ProvisionalApproveModal
+        target={provisionalTarget}
+        onClose={() => setProvisionalTarget(null)}
+        onSubmit={submitProvisional}
+        submitting={actingId !== null}
+      />
+      <FieldVisitModal
+        target={fieldVisitTarget}
+        onClose={() => setFieldVisitTarget(null)}
+        onSubmit={submitFieldVisit}
+        submitting={actingId !== null}
+      />
     </div>
+  );
+}
+
+
+// CH-6 — Modal Approbation provisoire (avis du comité avant visite terrain).
+function ProvisionalApproveModal({
+  target,
+  onClose,
+  onSubmit,
+  submitting,
+}: {
+  target: LoanRequest | null;
+  onClose: () => void;
+  onSubmit: (avis: string) => void;
+  submitting: boolean;
+}) {
+  const [avis, setAvis] = useState("");
+  useEffect(() => {
+    if (target) setAvis("");
+  }, [target]);
+  if (!target) return null;
+  const trimmed = avis.trim();
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Approbation provisoire — comité"
+      description={`Demande #${target.id} · ${formatXAF(target.montant_demande)} · ${target.duree_mois} mois`}
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className={buttonClasses({ variant: "ghost" })}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            disabled={submitting || trimmed.length < 5}
+            onClick={() => onSubmit(trimmed)}
+            className={buttonClasses({ variant: "success" })}
+          >
+            {submitting ? "Enregistrement…" : "Approuver provisoirement"}
+          </button>
+        </>
+      }
+    >
+      <ModalField label="Avis du comité (motivation provisoire)">
+        <textarea
+          value={avis}
+          onChange={(e) => setAvis(e.target.value)}
+          placeholder="Dossier solide, sous réserve d'une visite favorable…"
+          rows={4}
+          className={modalInputClass}
+        />
+      </ModalField>
+      <p className="mt-2 text-xs text-ink-500">
+        La demande passe en <span className="font-medium">approuvée provisoirement</span>.
+        Le staff devra ensuite enregistrer une visite terrain avant la décision définitive.
+      </p>
+    </Modal>
+  );
+}
+
+
+// CH-6 — Modal Visite terrain (outcome favorable / défavorable / à revoir + note).
+function FieldVisitModal({
+  target,
+  onClose,
+  onSubmit,
+  submitting,
+}: {
+  target: LoanRequest | null;
+  onClose: () => void;
+  onSubmit: (payload: {
+    outcome: "favorable" | "defavorable" | "a_revoir";
+    note: string;
+  }) => void;
+  submitting: boolean;
+}) {
+  const [outcome, setOutcome] = useState<"favorable" | "defavorable" | "a_revoir">("favorable");
+  const [note, setNote] = useState("");
+  useEffect(() => {
+    if (target) {
+      setOutcome("favorable");
+      setNote("");
+    }
+  }, [target]);
+  if (!target) return null;
+  const trimmed = note.trim();
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Visite terrain — compte-rendu"
+      description={`Demande #${target.id} · ${formatXAF(target.montant_demande)}`}
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className={buttonClasses({ variant: "ghost" })}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            disabled={submitting || trimmed.length < 5}
+            onClick={() => onSubmit({ outcome, note: trimmed })}
+            className={buttonClasses({ variant: "primary" })}
+          >
+            {submitting ? "Enregistrement…" : "Enregistrer la visite"}
+          </button>
+        </>
+      }
+    >
+      <ModalField label="Verdict de la visite">
+        <div className="flex flex-col gap-1.5">
+          {[
+            { v: "favorable", l: "Favorable — peut être approuvée définitivement" },
+            { v: "defavorable", l: "Défavorable — propose le rejet" },
+            { v: "a_revoir", l: "À revoir — informations à compléter" },
+          ].map((opt) => (
+            <label key={opt.v} className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="outcome"
+                value={opt.v}
+                checked={outcome === opt.v}
+                onChange={() =>
+                  setOutcome(opt.v as "favorable" | "defavorable" | "a_revoir")
+                }
+              />
+              {opt.l}
+            </label>
+          ))}
+        </div>
+      </ModalField>
+      <ModalField label="Observations terrain">
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Activité réelle, local visité, ressenti général…"
+          rows={4}
+          className={modalInputClass}
+        />
+      </ModalField>
+    </Modal>
   );
 }
 

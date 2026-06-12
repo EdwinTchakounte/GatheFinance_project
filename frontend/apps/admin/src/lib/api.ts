@@ -137,6 +137,10 @@ export type LoanRequest = {
   motif_rejet: string;
   date_soumission: string;
   date_decision: string | null;
+  // CH-6 — Workflow double approbation : visite terrain entre provisoire et définitive.
+  field_visit_outcome?: "" | "favorable" | "defavorable" | "a_revoir";
+  field_visit_done_at?: string | null;
+  field_visit_note?: string;
   loan: {
     id: number;
     numero_dossier: string;
@@ -576,6 +580,24 @@ export const adminApi = {
         | { decision: "rejetee"; motif_rejet: string },
     ) =>
       request<LoanRequest>(`/loans/requests/${id}/decide/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    // CH-6 — Approbation provisoire (comité) : en_instruction → approuvee_provisoire.
+    decideProvisional: (id: number, payload: { avis_provisoire: string }) =>
+      request<LoanRequest>(`/loans/requests/${id}/decide-provisional/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    // CH-6 — Compte-rendu visite terrain (staff) : pose field_visit_outcome.
+    fieldVisit: (
+      id: number,
+      payload: {
+        outcome: "favorable" | "defavorable" | "a_revoir";
+        note: string;
+      },
+    ) =>
+      request<LoanRequest>(`/loans/requests/${id}/field-visit/`, {
         method: "POST",
         body: JSON.stringify(payload),
       }),
