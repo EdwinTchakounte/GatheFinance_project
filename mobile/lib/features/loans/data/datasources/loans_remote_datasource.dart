@@ -14,6 +14,9 @@ abstract class LoansRemoteDataSource {
     required num montantDemande,
     required int dureeMois,
     required String motif,
+    // CH-9 — Canal choisi par le membre. Optionnels pour rétro-compat.
+    LoanReceiveChannel? moyenReception,
+    String? recipientPhone,
   });
 
   Future<Loan> repay({

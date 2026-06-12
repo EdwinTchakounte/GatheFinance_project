@@ -510,6 +510,8 @@ class _RequestCard extends StatelessWidget {
       LoanRequestStatus.enAttente => PaColors.warning,
       LoanRequestStatus.enInstruction => PaColors.teal,
       LoanRequestStatus.enAttenteAcceptationMembre => PaColors.teal,
+      // CH-6 — Provisoire = en attente d'une visite terrain, traité comme "en revue".
+      LoanRequestStatus.approuveeProvisoire => PaColors.warning,
       LoanRequestStatus.approuvee => PaColors.success,
       LoanRequestStatus.rejetee => PaColors.danger,
     };
@@ -517,6 +519,8 @@ class _RequestCard extends StatelessWidget {
       LoanRequestStatus.enAttente => l.credit_req_pending,
       LoanRequestStatus.enInstruction => l.credit_req_review,
       LoanRequestStatus.enAttenteAcceptationMembre => l.credit_req_counter,
+      // CH-6 — Libellé court (l10n.arb encore à enrichir si besoin).
+      LoanRequestStatus.approuveeProvisoire => 'Visite à effectuer',
       LoanRequestStatus.approuvee => l.credit_req_approved,
       LoanRequestStatus.rejetee => l.credit_req_rejected,
     };

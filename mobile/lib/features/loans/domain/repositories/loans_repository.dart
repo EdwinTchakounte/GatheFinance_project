@@ -15,10 +15,16 @@ abstract class LoansRepository {
 
   /// Soumet une demande de crédit — renvoie la LoanRequest créée.
   /// Lève `ValidationFailure` / `BusinessFailure` côté domain.
+  ///
+  /// CH-9 — [moyenReception] + [recipientPhone] : canal choisi par le membre
+  /// pour recevoir le décaissement. Optionnels pour rétro-compat ; quand
+  /// renseignés, le téléphone est obligatoire si le canal est Tara OM/MoMo.
   Future<LoanRequestEntity> submitRequest({
     required num montantDemande,
     required int dureeMois,
     required String motif,
+    LoanReceiveChannel? moyenReception,
+    String? recipientPhone,
   });
 
   /// Effectue un remboursement d'échéance via Mobile Money.

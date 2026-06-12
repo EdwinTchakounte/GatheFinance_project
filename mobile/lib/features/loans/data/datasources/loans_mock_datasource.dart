@@ -132,6 +132,8 @@ class LoansMockDataSource implements LoansRemoteDataSource {
     required num montantDemande,
     required int dureeMois,
     required String motif,
+    LoanReceiveChannel? moyenReception,
+    String? recipientPhone,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 600));
     final req = LoanRequestEntity(
@@ -141,6 +143,8 @@ class LoansMockDataSource implements LoansRemoteDataSource {
       motif: motif,
       statut: LoanRequestStatus.enAttente, // frais à payer
       dateSoumission: DateTime.now(),
+      moyenReception: moyenReception,
+      recipientPhone: recipientPhone,
     );
     _requests.insert(0, req);
     return req;

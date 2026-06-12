@@ -5,6 +5,13 @@ import 'loan_installment.dart';
 
 enum LoanStatus { actif, enRetard, cloture, contentieux }
 
+/// CH-11 — Mode de retenue des intérêts (Sinora §5.3).
+///
+/// * [echeances] : intérêts répartis sur les échéances (comportement historique).
+/// * [source] : intérêts retenus à la mise à disposition. Le membre reçoit 90 %
+///   du nominal et ne rembourse que ce qu'il a touché.
+enum LoanInterestMode { echeances, source }
+
 @immutable
 class Loan {
   const Loan({
@@ -20,6 +27,10 @@ class Loan {
     required this.statut,
     required this.installments,
     this.dejaReconduit = false,
+    this.dateButoire,
+    this.modeRetenueInterets = LoanInterestMode.echeances,
+    this.montantDecaisseNet,
+    this.interetsRetenusSource,
   });
 
   final int id;
@@ -37,6 +48,21 @@ class Loan {
   /// Vrai si ce crédit a déjà été reconduit (Article 11 : une seule
   /// reconduction par crédit, bloquée même à la soumission).
   final bool dejaReconduit;
+
+  /// CH-8 — Date butoire formelle pour solder le crédit. Les échéances sont
+  /// indicatives ; seule la date butoire engage. Modifiable côté admin
+  /// (extension exceptionnelle avec motif). Null = crédit legacy pre-CH-8.
+  final DateTime? dateButoire;
+
+  /// CH-11 — Mode de retenue des intérêts (figé à l'approbation).
+  final LoanInterestMode modeRetenueInterets;
+
+  /// CH-11 — Montant réellement versé au membre. En mode source = montant × 0.9.
+  /// En mode echeances = montant nominal. Null = crédit legacy.
+  final num? montantDecaisseNet;
+
+  /// CH-11 — Intérêts ponctionnés à T0 par la coop (mode source uniquement).
+  final num? interetsRetenusSource;
 
   LoanInstallment? get nextDue =>
       installments.where((i) => i.statut != InstallmentStatus.payee).firstOrNull;

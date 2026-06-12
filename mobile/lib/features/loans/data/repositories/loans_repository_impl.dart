@@ -39,11 +39,15 @@ class LoansRepositoryImpl implements LoansRepository {
     required num montantDemande,
     required int dureeMois,
     required String motif,
+    LoanReceiveChannel? moyenReception,
+    String? recipientPhone,
   }) =>
       _run(() => _remote.submitRequest(
             montantDemande: montantDemande,
             dureeMois: dureeMois,
             motif: motif,
+            moyenReception: moyenReception,
+            recipientPhone: recipientPhone,
           ));
 
   @override

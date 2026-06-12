@@ -11,11 +11,16 @@ class SubmitLoanRequestParams {
     required this.montantDemande,
     required this.dureeMois,
     required this.motif,
+    this.moyenReception,
+    this.recipientPhone,
   });
 
   final num montantDemande;
   final int dureeMois;
   final String motif;
+  // CH-9 — Canal de réception choisi par le membre (optionnel pour rétro-compat).
+  final LoanReceiveChannel? moyenReception;
+  final String? recipientPhone;
 }
 
 class SubmitLoanRequest
@@ -47,10 +52,22 @@ class SubmitLoanRequest
         field: 'motif',
       );
     }
+    // CH-9 — Quand le canal est Tara MoMo / OM, le téléphone est requis.
+    final phone = params.recipientPhone?.trim() ?? '';
+    final needsPhone = params.moyenReception == LoanReceiveChannel.taraOm ||
+        params.moyenReception == LoanReceiveChannel.taraMomo;
+    if (needsPhone && phone.length < 9) {
+      throw const ValidationFailure(
+        'Numéro Mobile Money requis pour un décaissement Tara.',
+        field: 'recipient_phone',
+      );
+    }
     return _repo.submitRequest(
       montantDemande: params.montantDemande,
       dureeMois: params.dureeMois,
       motif: params.motif.trim(),
+      moyenReception: params.moyenReception,
+      recipientPhone: needsPhone ? phone : null,
     );
   }
 }

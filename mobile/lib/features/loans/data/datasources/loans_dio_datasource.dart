@@ -73,15 +73,26 @@ class LoansDioDataSource implements LoansRemoteDataSource {
     required num montantDemande,
     required int dureeMois,
     required String motif,
+    LoanReceiveChannel? moyenReception,
+    String? recipientPhone,
   }) async {
     try {
+      final body = <String, dynamic>{
+        'montant_demande': montantDemande,
+        'duree_mois': dureeMois,
+        'motif': motif,
+      };
+      // CH-9 — Propage le canal de réception choisi par le membre. Le backend
+      // valide la cohérence (phone requis si tara_*).
+      if (moyenReception != null) {
+        body['moyen_reception'] = _receiveChannelToApi(moyenReception);
+        if (recipientPhone != null && recipientPhone.trim().isNotEmpty) {
+          body['recipient_phone'] = recipientPhone.trim();
+        }
+      }
       final res = await _dio.post<Map<String, dynamic>>(
         '/loans/requests/',
-        data: {
-          'montant_demande': montantDemande,
-          'duree_mois': dureeMois,
-          'motif': motif,
-        },
+        data: body,
       );
       final data = res.data ?? const {};
       // Le backend renvoie { loan_request, route, route_details, frais_a_payer }.
@@ -170,6 +181,13 @@ LoanRequestEntity _parseRequest(Map<String, dynamic> json) {
     motifRejet: (json['motif_rejet'] as String?) ?? '',
     montantRevise: json['montant_revise'] != null ? _num(json['montant_revise']) : null,
     dureeRevisee: (json['duree_revisee'] as num?)?.toInt(),
+    moyenReception: _receiveChannelFromApi(json['moyen_reception'] as String?),
+    recipientPhone: (json['recipient_phone'] as String?)?.trim().isNotEmpty == true
+        ? (json['recipient_phone'] as String)
+        : null,
+    fieldVisitOutcome: _fieldVisitOutcomeFromApi(
+      json['field_visit_outcome'] as String?,
+    ),
   );
 }
 
@@ -189,6 +207,16 @@ Loan _parseLoan(Map<String, dynamic> json) {
     installments: installments
         .map((i) => _parseInstallment(i as Map<String, dynamic>))
         .toList(growable: false),
+    dateButoire:
+        json['date_butoire'] != null ? _date(json['date_butoire']) : null,
+    modeRetenueInterets:
+        _interestModeFromApi(json['mode_retenue_interets'] as String?),
+    montantDecaisseNet: json['montant_decaisse_net'] != null
+        ? _num(json['montant_decaisse_net'])
+        : null,
+    interetsRetenusSource: json['interets_retenus_source'] != null
+        ? _num(json['interets_retenus_source'])
+        : null,
   );
 }
 
@@ -239,6 +267,8 @@ LoanRequestStatus _requestStatus(String raw) {
       return LoanRequestStatus.enInstruction;
     case 'en_attente_acceptation_membre':
       return LoanRequestStatus.enAttenteAcceptationMembre;
+    case 'approuvee_provisoire':
+      return LoanRequestStatus.approuveeProvisoire;
     case 'approuvee':
       return LoanRequestStatus.approuvee;
     case 'rejetee':
@@ -251,6 +281,50 @@ LoanRequestStatus _requestStatus(String raw) {
     default:
       return LoanRequestStatus.enAttente;
   }
+}
+
+LoanReceiveChannel? _receiveChannelFromApi(String? raw) {
+  if (raw == null || raw.isEmpty) return null;
+  switch (raw) {
+    case 'tara_om':
+      return LoanReceiveChannel.taraOm;
+    case 'tara_momo':
+      return LoanReceiveChannel.taraMomo;
+    case 'agence_especes':
+      return LoanReceiveChannel.agenceEspeces;
+    default:
+      return null;
+  }
+}
+
+String _receiveChannelToApi(LoanReceiveChannel channel) {
+  switch (channel) {
+    case LoanReceiveChannel.taraOm:
+      return 'tara_om';
+    case LoanReceiveChannel.taraMomo:
+      return 'tara_momo';
+    case LoanReceiveChannel.agenceEspeces:
+      return 'agence_especes';
+  }
+}
+
+FieldVisitOutcome? _fieldVisitOutcomeFromApi(String? raw) {
+  if (raw == null || raw.isEmpty) return null;
+  switch (raw) {
+    case 'favorable':
+      return FieldVisitOutcome.favorable;
+    case 'defavorable':
+      return FieldVisitOutcome.defavorable;
+    case 'a_revoir':
+      return FieldVisitOutcome.aRevoir;
+    default:
+      return null;
+  }
+}
+
+LoanInterestMode _interestModeFromApi(String? raw) {
+  if (raw == 'source') return LoanInterestMode.source;
+  return LoanInterestMode.echeances;
 }
 
 LoanRenewalStatus _renewalStatus(String raw) {
