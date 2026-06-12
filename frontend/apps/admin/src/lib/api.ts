@@ -176,6 +176,36 @@ export type AdminLoanRow = {
   statut_display: string;
   installments_payees: number;
   installments_total: number;
+  // CH-11 — Mode de retenue d'intérêts (source = 90% versé, echeances = legacy).
+  mode_retenue_interets: "source" | "echeances";
+  montant_decaisse_net: string | null;
+  interets_retenus_source: string | null;
+  // CH-9 — Canal de réception choisi à la soumission de la demande.
+  moyen_reception: "" | "tara_om" | "tara_momo" | "agence_especes";
+  recipient_phone: string;
+  // CH-9 — Statut du dernier décaissement (null = jamais déclenché).
+  disbursement:
+    | null
+    | {
+        payment_id: number;
+        statut: "en_attente" | "valide" | "rejete";
+        source: "manuel" | "mobile_money";
+        reference_externe: string;
+      };
+};
+
+export type LoanDisbursementStatus = {
+  loan_id: number;
+  numero_dossier: string;
+  has_payment: boolean;
+  payment_id?: number;
+  statut?: "en_attente" | "valide" | "rejete";
+  source?: "manuel" | "mobile_money";
+  provider_code?: string;
+  reference_externe?: string;
+  motif_rejet?: string;
+  date_versement?: string | null;
+  gateway_initiated_at?: string | null;
 };
 
 export type Member = {
@@ -570,6 +600,27 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify({ mode: "manuel", ...payload }),
       }),
+    // CH-9 — Décaissement « Payer maintenant » : auto-fill depuis le
+    // moyen_reception choisi par le membre à la soumission. Pour
+    // `agence_especes`, le payload doit fournir `reference_externe`.
+    disburseNow: (
+      loanId: number,
+      payload?: { reference_externe?: string; note?: string },
+    ) =>
+      request<DisburseResponse & { moyen_reception: string }>(
+        `/loans/admin/${loanId}/disburse-now/`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload ?? {}),
+        },
+      ),
+    disbursementStatus: (loanId: number) =>
+      request<LoanDisbursementStatus>(
+        `/loans/admin/${loanId}/disbursement-status/`,
+      ),
+    // CH-9 — URL absolue pour télécharger la note PDF (membre + admin).
+    noteUrl: (requestId: number) =>
+      `${API_BASE}/loans/requests/${requestId}/note/`,
   },
 
   members: {
@@ -846,4 +897,102 @@ export const adminApi = {
         body: JSON.stringify(payload),
       }),
   },
+
+  // CH-4 — Moteur FormSchema (admin CRUD + activate + duplicate).
+  forms: {
+    list: (kind?: FormSchemaKind) =>
+      request<FormSchemaAdmin[]>(
+        `/forms/admin/schemas/${kind ? `?kind=${kind}` : ""}`,
+      ),
+    detail: (id: number) =>
+      request<FormSchemaAdmin>(`/forms/admin/schemas/${id}/`),
+    create: (payload: {
+      kind: FormSchemaKind;
+      title: string;
+      description?: string;
+      schema: FormSchemaJSON;
+      notes_admin?: string;
+    }) =>
+      request<FormSchemaAdmin>(`/forms/admin/schemas/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    update: (id: number, payload: Partial<{
+      title: string;
+      description: string;
+      schema: FormSchemaJSON;
+      notes_admin: string;
+    }>) =>
+      request<FormSchemaAdmin>(`/forms/admin/schemas/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    delete: (id: number) =>
+      request<void>(`/forms/admin/schemas/${id}/`, { method: "DELETE" }),
+    activate: (id: number) =>
+      request<FormSchemaAdmin>(`/forms/admin/schemas/${id}/activate/`, {
+        method: "POST",
+      }),
+    duplicate: (id: number) =>
+      request<FormSchemaAdmin>(`/forms/admin/schemas/${id}/duplicate/`, {
+        method: "POST",
+      }),
+  },
+};
+
+// CH-4 — Types FormSchema (admin).
+export type FormSchemaKind = "adhesion" | "loan_request" | "loan_renewal";
+
+export type FormFieldType =
+  | "text" | "email" | "tel" | "number" | "textarea"
+  | "select" | "radio" | "checkbox" | "file" | "date";
+
+export type FormFieldCondition = {
+  field: string;
+  operator: "equals" | "not_equals" | "in";
+  value: unknown;
+};
+
+export type FormFieldOption = { value: string; label: string };
+
+export type FormField = {
+  id: string;
+  type: FormFieldType;
+  label: string;
+  required?: boolean;
+  placeholder?: string;
+  help_text?: string;
+  max_length?: number;
+  min?: number;
+  max?: number;
+  accept?: string;
+  max_size_mb?: number;
+  options?: FormFieldOption[];
+  condition?: FormFieldCondition;
+  is_locked?: boolean;
+};
+
+export type FormSection = {
+  id: string;
+  title: string;
+  description?: string;
+  fields: FormField[];
+};
+
+export type FormSchemaJSON = { sections: FormSection[] };
+
+export type FormSchemaAdmin = {
+  id: number;
+  kind: FormSchemaKind;
+  kind_display: string;
+  version: number;
+  title: string;
+  description: string;
+  schema: FormSchemaJSON;
+  is_active: boolean;
+  activated_at: string | null;
+  activated_by_name: string | null;
+  notes_admin: string;
+  created_at: string;
+  updated_at: string;
 };

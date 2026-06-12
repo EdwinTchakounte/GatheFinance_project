@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Wallet, Loader2, CheckCircle2 } from "lucide-react";
 
 import { ExportMenu } from "@/components/export-menu";
 import type { ExportColumn } from "@/lib/export";
 import { adminApi, type AdminLoanRow, type ApiError } from "@/lib/api";
+
+
+const MOYEN_LABEL: Record<string, string> = {
+  tara_om: "Orange Money",
+  tara_momo: "MTN MoMo",
+  agence_especes: "Espèces (agence)",
+};
 
 
 type StatutFilter = "" | "actif" | "en_retard" | "cloture" | "contentieux";
@@ -195,6 +202,7 @@ function Inner() {
                 <th>Échéances</th>
                 <th>Décaissement</th>
                 <th>Statut</th>
+                <th>Mise à dispo.</th>
               </tr>
             </thead>
             <tbody>
@@ -223,6 +231,11 @@ function Inner() {
                     </td>
                     <td className="text-right font-mono text-sm text-ink-900">
                       {Number(l.montant).toLocaleString("fr-FR")}
+                      {l.mode_retenue_interets === "source" && l.montant_decaisse_net ? (
+                        <p className="text-xs text-emerald-700">
+                          net versé {Number(l.montant_decaisse_net).toLocaleString("fr-FR")}
+                        </p>
+                      ) : null}
                       <p className="text-xs text-ink-500">
                         total dû {Number(l.montant_total_du).toLocaleString("fr-FR")}
                       </p>
@@ -264,6 +277,14 @@ function Inner() {
                       >
                         {l.statut_display}
                       </span>
+                      {l.mode_retenue_interets === "source" ? (
+                        <p className="mt-1 text-[10px] uppercase tracking-wide text-emerald-700">
+                          Intérêts à la source
+                        </p>
+                      ) : null}
+                    </td>
+                    <td>
+                      <DisbursementCell row={l} onAction={reload} />
                     </td>
                   </tr>
                 );
@@ -279,6 +300,111 @@ function Inner() {
           Affine via les filtres ou la recherche.
         </p>
       ) : null}
+    </div>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// DisbursementCell — CH-9 : bouton « Payer maintenant » + badge statut payout.
+// ---------------------------------------------------------------------------
+function DisbursementCell({
+  row,
+  onAction,
+}: {
+  row: AdminLoanRow;
+  onAction: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const dis = row.disbursement;
+  // Validé = badge "Versé".
+  if (dis && dis.statut === "valide") {
+    return (
+      <div className="text-xs">
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+          <CheckCircle2 className="size-3" /> Versé
+        </span>
+        <p className="mt-1 text-[10px] text-ink-500">
+          {dis.source === "mobile_money" ? "Tara MoMo" : "Manuel"}
+        </p>
+      </div>
+    );
+  }
+  // En cours = badge "En attente Tara".
+  if (dis && dis.statut === "en_attente") {
+    return (
+      <div className="text-xs">
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+          <Loader2 className="size-3 animate-spin" /> Payout en cours
+        </span>
+        <p className="mt-1 text-[10px] text-ink-500">
+          {dis.reference_externe || "—"}
+        </p>
+      </div>
+    );
+  }
+  // Rejeté = badge "Échec" + bouton retry.
+  const rejected = dis && dis.statut === "rejete";
+
+  // Si pas de moyen_reception, on guide l'admin vers /disburse/ classique.
+  const moyen = row.moyen_reception;
+  if (!moyen) {
+    return (
+      <span className="text-[10px] text-ink-500">
+        Moyen de réception manquant
+      </span>
+    );
+  }
+
+  async function handlePayer() {
+    setBusy(true);
+    setErr(null);
+    try {
+      const payload: { reference_externe?: string; note?: string } = {};
+      if (moyen === "agence_especes") {
+        const ref = window.prompt(
+          "Référence du reçu de caisse (numéro de bordereau) :",
+        );
+        if (!ref || !ref.trim()) {
+          setBusy(false);
+          return;
+        }
+        payload.reference_externe = ref.trim();
+      }
+      await adminApi.loans.disburseNow(row.id, payload);
+      onAction();
+    } catch (e) {
+      const apiErr = e as ApiError;
+      setErr(apiErr.detail ?? "Échec du décaissement.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="text-xs">
+      <p className="text-ink-500">
+        Canal :{" "}
+        <span className="font-medium text-ink-700">
+          {MOYEN_LABEL[moyen] ?? moyen}
+        </span>
+      </p>
+      <button
+        type="button"
+        onClick={handlePayer}
+        disabled={busy}
+        className="mt-1 inline-flex items-center gap-1.5 rounded border border-blue-700/30 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 transition-colors hover:bg-blue-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {busy ? (
+          <Loader2 className="size-3 animate-spin" />
+        ) : (
+          <Wallet className="size-3" />
+        )}
+        {rejected ? "Re-essayer" : "Payer maintenant"}
+      </button>
+      {err ? <p className="mt-1 text-[10px] text-terra-700">{err}</p> : null}
     </div>
   );
 }

@@ -685,7 +685,7 @@ _ADMIN_LOANS_PAGE_SIZE = 200
 @permission_classes([IsStaff])
 def admin_list_loans(request):
     qs = (
-        Loan.objects.select_related("member", "member__user")
+        Loan.objects.select_related("member", "member__user", "loan_request")
         .prefetch_related("installments")
         .order_by("-date_decaissement")
     )
@@ -707,10 +707,25 @@ def admin_list_loans(request):
 
     count = qs.count()
     rows = qs[:_ADMIN_LOANS_PAGE_SIZE]
+
+    # CH-9 — Pré-charge le dernier Payment décaissement pour chaque crédit visible,
+    # afin d'éviter N+1 queries quand on calcule disbursement_status par ligne.
+    loan_ids = [loan.id for loan in rows]
+    last_payment_by_loan: dict[int, Payment] = {}
+    if loan_ids:
+        for p in (
+            Payment.objects.filter(loan_id__in=loan_ids, type=Payment.Type.DECAISSEMENT)
+            .order_by("loan_id", "-id")
+        ):
+            # On garde uniquement le plus récent par crédit (premier rencontré
+            # grâce à l'ordre -id).
+            last_payment_by_loan.setdefault(p.loan_id, p)
+
     results = []
     for loan in rows:
         nb_payees = sum(1 for i in loan.installments.all() if i.statut == "payee")
         nb_total = loan.installments.count()
+        last_pay = last_payment_by_loan.get(loan.id)
         results.append({
             "id": loan.id,
             "numero_dossier": loan.numero_dossier,
@@ -731,6 +746,29 @@ def admin_list_loans(request):
             "statut_display": loan.get_statut_display(),
             "installments_payees": nb_payees,
             "installments_total": nb_total,
+            # CH-11 — Affichage net décaissé vs nominal en mode source.
+            "mode_retenue_interets": loan.mode_retenue_interets,
+            "montant_decaisse_net": (
+                str(loan.montant_decaisse_net)
+                if loan.montant_decaisse_net is not None else None
+            ),
+            "interets_retenus_source": (
+                str(loan.interets_retenus_source)
+                if loan.interets_retenus_source is not None else None
+            ),
+            # CH-9 — Moyen de réception choisi par le membre (pilote auto-fill payout).
+            "moyen_reception": loan.loan_request.moyen_reception or "",
+            "recipient_phone": loan.loan_request.recipient_phone or "",
+            # CH-9 — Statut du dernier décaissement Payment (pour bouton/badge).
+            "disbursement": (
+                {
+                    "payment_id": last_pay.id,
+                    "statut": last_pay.statut,
+                    "source": last_pay.source,
+                    "reference_externe": last_pay.reference_externe or "",
+                }
+                if last_pay else None
+            ),
         })
     return Response({"count": count, "results": results})
 

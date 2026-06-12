@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Send, X } from "lucide-react";
+import { Check, FileText, Send, X } from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
 
@@ -198,23 +198,33 @@ function Inner() {
                   </td>
                   <td className="text-right">
                     {r.statut === "en_instruction" ? (
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setApproveTarget(r)}
-                          disabled={actingId === r.id}
-                          className={buttonClasses({ variant: "success", size: "sm" })}
+                      <div className="flex flex-col items-end gap-1.5">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setApproveTarget(r)}
+                            disabled={actingId === r.id}
+                            className={buttonClasses({ variant: "success", size: "sm" })}
+                          >
+                            <Check className="size-3.5" aria-hidden="true" />Approuver
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRejectTarget(r)}
+                            disabled={actingId === r.id}
+                            className={buttonClasses({ variant: "ghost", size: "sm" })}
+                          >
+                            <X className="size-3.5" aria-hidden="true" />Rejeter
+                          </button>
+                        </div>
+                        <a
+                          href={adminApi.loans.noteUrl(r.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
                         >
-                          <Check className="size-3.5" aria-hidden="true" />Approuver
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setRejectTarget(r)}
-                          disabled={actingId === r.id}
-                          className={buttonClasses({ variant: "ghost", size: "sm" })}
-                        >
-                          <X className="size-3.5" aria-hidden="true" />Rejeter
-                        </button>
+                          <FileText className="size-3" />Note PDF
+                        </a>
                       </div>
                     ) : r.statut === "approuvee" && r.loan ? (
                       <div className="flex flex-col items-end gap-1.5">
@@ -233,9 +243,27 @@ function Inner() {
                             <Send className="size-3.5" aria-hidden="true" />Décaisser via Tara
                           </button>
                         )}
+                        <a
+                          href={adminApi.loans.noteUrl(r.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
+                        >
+                          <FileText className="size-3" />Note PDF
+                        </a>
                       </div>
                     ) : (
-                      <span className="text-xs text-ink-400">—</span>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className="text-xs text-ink-400">—</span>
+                        <a
+                          href={adminApi.loans.noteUrl(r.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
+                        >
+                          <FileText className="size-3" />Note PDF
+                        </a>
+                      </div>
                     )}
                   </td>
                 </tr>
