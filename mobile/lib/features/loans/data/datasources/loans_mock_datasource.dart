@@ -5,6 +5,7 @@ import '../../domain/entities/loan.dart';
 import '../../domain/entities/loan_installment.dart';
 import '../../domain/entities/loan_renewal.dart';
 import '../../domain/entities/loan_request.dart';
+import '../../domain/entities/loan_request_submission.dart';
 import '../../domain/loan_terms.dart';
 import 'loans_remote_datasource.dart';
 
@@ -156,7 +157,7 @@ class LoansMockDataSource implements LoansRemoteDataSource {
   }
 
   @override
-  Future<LoanRequestEntity> submitRequest({
+  Future<LoanRequestSubmission> submitRequest({
     required num montantDemande,
     required int dureeMois,
     required String motif,
@@ -175,7 +176,48 @@ class LoansMockDataSource implements LoansRemoteDataSource {
       recipientPhone: recipientPhone,
     );
     _requests.insert(0, req);
-    return req;
+    // CH-7 — Mock un bloc frais_a_payer cohérent (montant fictif 5 000 XAF).
+    const studyFee = LoanRequestStudyFee(
+      montant: 5000,
+      libelle: 'Frais d\'étude du dossier',
+      notice:
+          'Ces frais d\'étude couvrent l\'instruction du dossier et la visite '
+          'terrain éventuelle. Ils sont non-remboursables, y compris en cas '
+          'de refus de la demande.',
+      nonRemboursable: true,
+    );
+    return LoanRequestSubmission(request: req, studyFee: studyFee);
+  }
+
+  @override
+  Future<void> payStudyFee({
+    required String phone,
+    required String network,
+  }) async {
+    // Mock — simule la latence d'init Tara. En vrai, le webhook bascule
+    // la LoanRequest en EN_INSTRUCTION quand le paiement est validé.
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    final idx = _requests.indexWhere(
+      (r) => r.statut == LoanRequestStatus.enAttente,
+    );
+    if (idx >= 0) {
+      final r = _requests[idx];
+      _requests[idx] = LoanRequestEntity(
+        id: r.id,
+        montantDemande: r.montantDemande,
+        dureeMois: r.dureeMois,
+        motif: r.motif,
+        statut: LoanRequestStatus.enInstruction,
+        dateSoumission: r.dateSoumission,
+        dateDecision: r.dateDecision,
+        motifRejet: r.motifRejet,
+        montantRevise: r.montantRevise,
+        dureeRevisee: r.dureeRevisee,
+        moyenReception: r.moyenReception,
+        recipientPhone: r.recipientPhone,
+        fieldVisitOutcome: r.fieldVisitOutcome,
+      );
+    }
   }
 
   @override

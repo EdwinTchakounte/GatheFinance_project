@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../entities/loan_request.dart';
+import '../entities/loan_request_submission.dart';
 import '../repositories/loans_repository.dart';
 
 @immutable
@@ -24,7 +25,7 @@ class SubmitLoanRequestParams {
 }
 
 class SubmitLoanRequest
-    extends UseCase<LoanRequestEntity, SubmitLoanRequestParams> {
+    extends UseCase<LoanRequestSubmission, SubmitLoanRequestParams> {
   const SubmitLoanRequest(this._repo);
   final LoansRepository _repo;
 
@@ -33,7 +34,7 @@ class SubmitLoanRequest
   static const num _montantMin = 50000;
 
   @override
-  Future<LoanRequestEntity> call(SubmitLoanRequestParams params) async {
+  Future<LoanRequestSubmission> call(SubmitLoanRequestParams params) async {
     if (params.montantDemande < _montantMin) {
       throw const ValidationFailure(
         'Montant minimum 50 000 XAF.',

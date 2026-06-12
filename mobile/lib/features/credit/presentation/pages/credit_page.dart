@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -553,12 +554,12 @@ class _LoanCard extends StatelessWidget {
 // Card LoanRequest en cours (instruction / décision attendue)
 // ───────────────────────────────────────────────────────────────────────────
 
-class _RequestCard extends StatelessWidget {
+class _RequestCard extends ConsumerWidget {
   const _RequestCard({required this.request});
   final LoanRequestEntity request;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppL10n.of(context);
     final statusColor = switch (request.statut) {
       LoanRequestStatus.enAttente => PaColors.warning,
@@ -645,7 +646,269 @@ class _RequestCard extends StatelessWidget {
               ),
             ),
           ),
+          // CH-7 — Tant que la demande est en_attente, les frais d'étude n'ont
+          // pas encore été réglés et la demande ne passe pas en instruction.
+          // On propose un CTA visible pour relancer le paiement Tara depuis
+          // la page Crédit (cas du membre qui a fermé le sheet avant de payer).
+          if (request.statut == LoanRequestStatus.enAttente) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _StudyFeePaySheet.show(context),
+                icon: const Icon(Icons.receipt_long_rounded, size: 18),
+                label: const Text('Payer les frais d\'étude'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: PaColors.warning,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// CH-7 — Sheet compact pour régler les frais d'étude depuis la page Crédit
+/// quand la demande est restée bloquée en `enAttente`.
+class _StudyFeePaySheet extends ConsumerStatefulWidget {
+  const _StudyFeePaySheet();
+
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => const _StudyFeePaySheet(),
+    );
+  }
+
+  @override
+  ConsumerState<_StudyFeePaySheet> createState() => _StudyFeePaySheetState();
+}
+
+class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
+  final _phoneCtrl = TextEditingController();
+  String _network = 'mtn';
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final phone = _phoneCtrl.text.trim();
+    if (phone.length < 9) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Numéro Mobile Money requis (au moins 9 chiffres).'),
+        ),
+      );
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    setState(() => _loading = true);
+    try {
+      await ref.read(loanRequestsProvider.notifier).payStudyFee(
+            phone: phone,
+            network: _network,
+          );
+      if (!mounted) return;
+      HapticFeedback.heavyImpact();
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Paiement initié — validez la notification Mobile Money sur votre téléphone.',
+          ),
+        ),
+      );
+    } catch (err) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(err.toString())),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.outline,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Régler les frais d\'étude',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: PaColors.inkPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Ces frais d\'étude sont non-remboursables et débloquent '
+                'l\'instruction de votre demande.',
+                style: TextStyle(
+                  color: PaColors.inkSecondary,
+                  fontSize: 13,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text('Opérateur',
+                  style: TextStyle(
+                      color: PaColors.inkSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _MoneyNetworkChip(
+                      label: 'MTN Mobile Money',
+                      selected: _network == 'mtn',
+                      onTap: () => setState(() => _network = 'mtn'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _MoneyNetworkChip(
+                      label: 'Orange Money',
+                      selected: _network == 'orange',
+                      onTap: () => setState(() => _network = 'orange'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text('Numéro Mobile Money',
+                  style: TextStyle(
+                      color: PaColors.inkSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  hintText: '+237 6XX XX XX XX',
+                  prefixIcon: Icon(Icons.phone_iphone_rounded, size: 20),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _loading ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: PaColors.navy,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: _loading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text(
+                          'Payer maintenant',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14.5,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MoneyNetworkChip extends StatelessWidget {
+  const _MoneyNetworkChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? PaColors.navy : PaColors.cardBg,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? PaColors.navy : PaColors.line,
+              width: 1,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : PaColors.inkSecondary,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ),
       ),
     );
   }

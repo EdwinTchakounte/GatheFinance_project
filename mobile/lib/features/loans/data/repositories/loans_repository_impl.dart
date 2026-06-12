@@ -5,6 +5,7 @@ import '../../domain/entities/lender_payout.dart';
 import '../../domain/entities/loan.dart';
 import '../../domain/entities/loan_renewal.dart';
 import '../../domain/entities/loan_request.dart';
+import '../../domain/entities/loan_request_submission.dart';
 import '../../domain/repositories/loans_repository.dart';
 import '../datasources/loans_remote_datasource.dart';
 
@@ -40,7 +41,7 @@ class LoansRepositoryImpl implements LoansRepository {
   Future<Eligibility> eligibility() => _run(_remote.eligibility);
 
   @override
-  Future<LoanRequestEntity> submitRequest({
+  Future<LoanRequestSubmission> submitRequest({
     required num montantDemande,
     required int dureeMois,
     required String motif,
@@ -54,6 +55,13 @@ class LoansRepositoryImpl implements LoansRepository {
             moyenReception: moyenReception,
             recipientPhone: recipientPhone,
           ));
+
+  @override
+  Future<void> payStudyFee({
+    required String phone,
+    required String network,
+  }) =>
+      _run(() => _remote.payStudyFee(phone: phone, network: network));
 
   @override
   Future<Loan> repay({

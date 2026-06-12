@@ -6,7 +6,9 @@ import '../../domain/entities/eligibility.dart';
 import '../../domain/entities/loan.dart';
 import '../../domain/entities/loan_renewal.dart';
 import '../../domain/entities/loan_request.dart';
+import '../../domain/entities/loan_request_submission.dart';
 import '../../domain/usecases/make_loan_repayment.dart';
+import '../../domain/usecases/pay_loan_request_study_fee.dart';
 import '../../domain/usecases/request_loan_renewal.dart';
 import '../../domain/usecases/submit_loan_request.dart';
 
@@ -80,7 +82,11 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>> {
   ///
   /// CH-9 — [moyenReception] + [recipientPhone] : canal choisi par le membre
   /// pour recevoir le décaissement (optionnels).
-  Future<LoanRequestEntity> submit({
+  ///
+  /// CH-7 — Renvoie un [LoanRequestSubmission] qui inclut la demande créée
+  /// + le bloc `frais_a_payer` (montant + notice non-remboursable) à régler
+  /// avant que la demande ne passe en instruction.
+  Future<LoanRequestSubmission> submit({
     required num montantDemande,
     required int dureeMois,
     required String motif,
@@ -88,7 +94,7 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>> {
     String? recipientPhone,
   }) async {
     final useCase = ref.read(submitLoanRequestUseCaseProvider);
-    final created = await useCase.call(
+    final submission = await useCase.call(
       SubmitLoanRequestParams(
         montantDemande: montantDemande,
         dureeMois: dureeMois,
@@ -98,7 +104,21 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>> {
       ),
     );
     await refresh();
-    return created;
+    return submission;
+  }
+
+  /// CH-7 — Règle les frais d'étude de la demande EN_ATTENTE via Mobile Money.
+  /// L'UI rafraîchit la liste pour refléter la bascule attendue en
+  /// `enInstruction` (effective dès que le webhook Tara valide le paiement).
+  Future<void> payStudyFee({
+    required String phone,
+    required String network,
+  }) async {
+    final useCase = ref.read(payLoanRequestStudyFeeUseCaseProvider);
+    await useCase.call(
+      PayLoanRequestStudyFeeParams(phone: phone, network: network),
+    );
+    await refresh();
   }
 }
 

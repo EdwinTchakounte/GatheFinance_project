@@ -9,7 +9,29 @@ import '../../domain/entities/loan.dart';
 import '../../domain/entities/loan_installment.dart';
 import '../../domain/entities/loan_renewal.dart';
 import '../../domain/entities/loan_request.dart';
+import '../../domain/entities/loan_request_submission.dart';
 import 'loans_remote_datasource.dart';
+
+// -- Top-level helpers used by the datasource -------------------------------
+
+/// CH-7 — Désérialise le bloc `frais_a_payer` renvoyé par
+/// `POST /loans/requests/`. Renvoie `null` si le bloc est absent ou
+/// inexploitable (rétro-compat avec l'API pré-CH-7).
+LoanRequestStudyFee? _parseStudyFee(Map<String, dynamic>? json) {
+  if (json == null) return null;
+  final montantRaw = json['montant'];
+  if (montantRaw == null) return null;
+  final montant = montantRaw is num
+      ? montantRaw
+      : num.tryParse(montantRaw.toString());
+  if (montant == null) return null;
+  return LoanRequestStudyFee(
+    montant: montant,
+    libelle: (json['libelle'] as String?) ?? 'Frais d\'étude du dossier',
+    notice: (json['notice'] as String?) ?? '',
+    nonRemboursable: (json['non_remboursable'] as bool?) ?? true,
+  );
+}
 
 /// Implémentation HTTP de [LoansRemoteDataSource].
 ///
@@ -85,7 +107,7 @@ class LoansDioDataSource implements LoansRemoteDataSource {
   }
 
   @override
-  Future<LoanRequestEntity> submitRequest({
+  Future<LoanRequestSubmission> submitRequest({
     required num montantDemande,
     required int dureeMois,
     required String motif,
@@ -112,10 +134,35 @@ class LoansDioDataSource implements LoansRemoteDataSource {
       );
       final data = res.data ?? const {};
       // Le backend renvoie { loan_request, route, route_details, frais_a_payer }.
-      // On ne projète QUE le LoanRequest dans l'entité — l'UI consultera la
-      // route via un appel séparé si besoin (LOT 18 avaliste / LOT 19 campaign).
       final lr = data['loan_request'] as Map<String, dynamic>? ?? data;
-      return _parseRequest(lr);
+      final request = _parseRequest(lr);
+      // CH-7 — Bloc frais_a_payer : montant + libellé + notice non-remboursable.
+      final feeJson = data['frais_a_payer'] as Map<String, dynamic>?;
+      final studyFee = _parseStudyFee(feeJson);
+      return LoanRequestSubmission(request: request, studyFee: studyFee);
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
+  Future<void> payStudyFee({
+    required String phone,
+    required String network,
+  }) async {
+    try {
+      // CH-7 — Le backend pioche le montant dans FeeType.DEMANDE_CREDIT et
+      // identifie la LoanRequest cible par le membre (en_attente). Le hook
+      // `_hook_loan_request_fees` la promeut en `en_instruction` à validation.
+      await _dio.post<Map<String, dynamic>>(
+        '/payments/init/',
+        data: {
+          'type': 'frais_demande_credit',
+          'montant': 0,
+          'phone': phone,
+          'network': network,
+        },
+      );
     } on DioException catch (e) {
       throw mapDioError(e);
     }

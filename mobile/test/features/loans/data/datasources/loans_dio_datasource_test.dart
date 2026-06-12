@@ -144,13 +144,63 @@ void main() {
               'route': 'senior_brc',
             });
       final ds = LoansDioDataSource(_client(adapter));
-      final r = await ds.submitRequest(
+      final submission = await ds.submitRequest(
         montantDemande: 150000,
         dureeMois: 4,
         motif: 'Test',
       );
-      expect(r.id, 42);
-      expect(r.statut, LoanRequestStatus.enAttente);
+      expect(submission.request.id, 42);
+      expect(submission.request.statut, LoanRequestStatus.enAttente);
+      // CH-7 — Sans bloc `frais_a_payer` côté backend, studyFee reste null.
+      expect(submission.studyFee, isNull);
+    });
+
+    test('submitRequest parse frais_a_payer block (CH-7)', () async {
+      final adapter = ScriptedAdapter()
+        ..on('/auth/csrf/', method: 'GET', status: 200)
+        ..on('/loans/requests/',
+            method: 'POST',
+            status: 200,
+            body: {
+              'loan_request': {
+                'id': 43,
+                'montant_demande': '200000',
+                'duree_mois': 4,
+                'motif': 'Test',
+                'statut': 'en_attente',
+                'date_soumission': '2026-06-01T08:00:00Z',
+              },
+              'frais_a_payer': {
+                'code': 'DEMANDE_CREDIT',
+                'libelle': 'Frais d\'étude du dossier',
+                'montant': '5000',
+                'non_remboursable': true,
+                'notice': 'Ces frais sont non-remboursables.',
+              },
+            });
+      final ds = LoansDioDataSource(_client(adapter));
+      final submission = await ds.submitRequest(
+        montantDemande: 200000,
+        dureeMois: 4,
+        motif: 'Test',
+      );
+      expect(submission.studyFee, isNotNull);
+      expect(submission.studyFee!.montant, 5000);
+      expect(submission.studyFee!.nonRemboursable, isTrue);
+      expect(submission.studyFee!.notice, contains('non-remboursables'));
+    });
+
+    test('payStudyFee POST /payments/init/ type=frais_demande_credit',
+        () async {
+      final adapter = ScriptedAdapter()
+        ..on('/auth/csrf/', method: 'GET', status: 200)
+        ..on('/payments/init/',
+            method: 'POST',
+            status: 200,
+            body: {'payment': {'id': 99}});
+      final ds = LoansDioDataSource(_client(adapter));
+      await ds.payStudyFee(phone: '+237699112233', network: 'mtn');
+      // Pas de retour à valider — succès = pas d'exception.
     });
 
     test('repay POST /payments/init/ type=remboursement + loan_id', () async {

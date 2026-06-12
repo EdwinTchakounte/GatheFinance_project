@@ -48,6 +48,7 @@ import '../../features/loans/domain/usecases/get_my_active_loans.dart';
 import '../../features/loans/domain/usecases/get_my_lender_payouts.dart';
 import '../../features/loans/domain/usecases/get_my_loan_requests.dart';
 import '../../features/loans/domain/usecases/make_loan_repayment.dart';
+import '../../features/loans/domain/usecases/pay_loan_request_study_fee.dart';
 import '../../features/loans/domain/usecases/request_loan_renewal.dart';
 import '../../features/loans/domain/usecases/submit_loan_request.dart';
 
@@ -203,6 +204,12 @@ final getEligibilityUseCaseProvider = Provider<GetEligibility>(
 
 final submitLoanRequestUseCaseProvider = Provider<SubmitLoanRequest>(
   (ref) => SubmitLoanRequest(ref.watch(loansRepositoryProvider)),
+);
+
+// CH-7 — Paiement des frais d'étude de la demande EN_ATTENTE.
+final payLoanRequestStudyFeeUseCaseProvider =
+    Provider<PayLoanRequestStudyFee>(
+  (ref) => PayLoanRequestStudyFee(ref.watch(loansRepositoryProvider)),
 );
 
 final makeLoanRepaymentUseCaseProvider = Provider<MakeLoanRepayment>(

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gathe_finance/core/error/failures.dart';
+import 'package:gathe_finance/features/loans/domain/entities/loan_request_submission.dart';
 import 'package:gathe_finance/features/loans/domain/repositories/loans_repository.dart';
 import 'package:gathe_finance/features/loans/domain/usecases/submit_loan_request.dart';
 import 'package:mocktail/mocktail.dart';
@@ -66,7 +67,7 @@ void main() {
     });
 
     test('passe la validation et trim le motif avant le repo', () async {
-      final created = Fixtures.loanRequest();
+      final created = LoanRequestSubmission(request: Fixtures.loanRequest());
       when(() => repo.submitRequest(
             montantDemande: 200000,
             dureeMois: 12,
