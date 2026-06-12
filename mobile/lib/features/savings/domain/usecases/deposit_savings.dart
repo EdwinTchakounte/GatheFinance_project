@@ -11,11 +11,14 @@ class DepositSavingsParams {
     required this.amount,
     required this.phone,
     required this.network,
+    this.isPlacement = false,
   });
 
   final num amount;
   final String phone;
   final String network;
+  // CH-3 — Sous-canal placement (épargne classique uniquement).
+  final bool isPlacement;
 }
 
 class DepositSavings extends UseCase<SavingsAccount, DepositSavingsParams> {
@@ -31,6 +34,7 @@ class DepositSavings extends UseCase<SavingsAccount, DepositSavingsParams> {
       amount: params.amount,
       phone: params.phone,
       network: params.network,
+      isPlacement: params.isPlacement,
     );
   }
 }

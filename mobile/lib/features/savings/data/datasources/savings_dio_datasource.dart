@@ -52,16 +52,26 @@ class SavingsDioDataSource implements SavingsRemoteDataSource {
     required num amount,
     required String phone,
     required String network,
+    bool isPlacement = false,
   }) async {
     try {
+      final body = <String, dynamic>{
+        'type': _paymentType,
+        'montant': amount,
+        'phone': phone,
+        'network': network,
+      };
+      // CH-3 — Sous-canal placement (bloqué 12 mois, rapporte un intérêt
+      // capitalisé à maturité). Le backend ignore is_placement pour les types
+      // autres que `epargne_classique` (cf. payments/views.py:200) — on le
+      // pose tout de même côté UI uniquement quand le membre l'a coché ET
+      // que l'on cible bien l'épargne classique pour rester explicite.
+      if (isPlacement && kind == SavingsAccountKind.classique) {
+        body['is_placement'] = true;
+      }
       await _dio.post<Map<String, dynamic>>(
         '/payments/init/',
-        data: {
-          'type': _paymentType,
-          'montant': amount,
-          'phone': phone,
-          'network': network,
-        },
+        data: body,
       );
       // Le webhook Tara n'a pas encore crédité — on renvoie le snapshot actuel.
       return fetchMine();

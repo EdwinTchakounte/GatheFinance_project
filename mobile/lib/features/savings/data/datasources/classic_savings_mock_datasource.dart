@@ -29,6 +29,7 @@ class ClassicSavingsMockDataSource implements SavingsRemoteDataSource {
     required num amount,
     required String phone,
     required String network,
+    bool isPlacement = false,
   }) async {
     // Simule l'appel Tara + le webhook (dépôt épargne classique).
     await Future<void>.delayed(const Duration(milliseconds: 1900));

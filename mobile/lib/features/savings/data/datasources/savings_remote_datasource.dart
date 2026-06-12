@@ -7,5 +7,6 @@ abstract class SavingsRemoteDataSource {
     required num amount,
     required String phone,
     required String network,
+    bool isPlacement = false,
   });
 }

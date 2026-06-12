@@ -24,12 +24,14 @@ class SavingsRepositoryImpl implements SavingsRepository {
     required num amount,
     required String phone,
     required String network,
+    bool isPlacement = false,
   }) async {
     try {
       return await _remote.deposit(
         amount: amount,
         phone: phone,
         network: network,
+        isPlacement: isPlacement,
       );
     } on NetworkException catch (e) {
       throw NetworkFailure(e.message);

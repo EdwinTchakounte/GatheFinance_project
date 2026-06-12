@@ -52,6 +52,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   final _amountCtrl = TextEditingController(text: '1000');
   final _phoneCtrl = TextEditingController(text: '699 11 22 33');
   _Network _network = _Network.mtn;
+  // CH-3 — Sous-canal placement (épargne classique uniquement). Reste false
+  // pour la cotisation.
+  bool _isPlacement = false;
 
   late _Step _step;
   num? _committedAmount;
@@ -60,8 +63,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   @override
   void initState() {
     super.initState();
-    // Cotisation : choix du canal d'abord. Épargne classique : formulaire direct.
-    _step = widget.classic ? _Step.form : _Step.channelChoice;
+    // Cotisation : choix du canal d'abord. Épargne classique : choix
+    // placement/libre d'abord (CH-3), puis formulaire.
+    _step = widget.classic ? _Step.kindChoice : _Step.channelChoice;
     _checkCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -91,6 +95,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             amount: amount,
             phone: _phoneCtrl.text,
             network: network,
+            // CH-3 — Sous-canal placement.
+            isPlacement: _isPlacement,
           );
     } else {
       await ref.read(savingsProvider.notifier).deposit(
@@ -130,12 +136,83 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
         child: SafeArea(
           top: false,
           child: switch (_step) {
+            _Step.kindChoice => _kindChoiceStep(),
             _Step.channelChoice => _channelChoiceStep(),
             _Step.agencyInfo => _agencyInfoStep(),
             _Step.form => _formStep(),
             _Step.loading => _loadingStep(),
             _Step.success => _successStep(),
           },
+        ),
+      ),
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Étape 0 (épargne classique) — CH-3 : choix Libre vs Placement
+  // ───────────────────────────────────────────────────────────────────────
+  Widget _kindChoiceStep() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 26),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _Grabber(),
+            const SizedBox(height: 18),
+            const Text(
+              'Type de dépôt',
+              style: TextStyle(
+                color: PaColors.inkPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Choisissez comment votre argent travaille pour vous.',
+              style: TextStyle(color: PaColors.inkMuted, fontSize: 14),
+            ),
+            const SizedBox(height: 22),
+
+            _KindCard(
+              icon: Icons.trending_up_rounded,
+              accent: PaColors.teal,
+              accentSurface: PaColors.tealSurface,
+              title: 'Placement',
+              subtitle:
+                  'Bloqué 12 mois, rapporte un intérêt versé à maturité. Idéal si vous n\'avez pas besoin de la somme tout de suite.',
+              pill: '+ Intérêt à 12 mois',
+              selected: _isPlacement,
+              onTap: () => setState(() => _isPlacement = true),
+            ),
+            const SizedBox(height: 10),
+            _KindCard(
+              icon: Icons.savings_outlined,
+              accent: PaColors.navy,
+              accentSurface: PaColors.paper,
+              title: 'Libre',
+              subtitle:
+                  'Retrait possible à tout moment. Pas d\'intérêt versé sur ce dépôt.',
+              pill: 'Retrait libre',
+              selected: !_isPlacement,
+              onTap: () => setState(() => _isPlacement = false),
+            ),
+
+            const SizedBox(height: 16),
+            _InfoStrip(
+              text: _isPlacement
+                  ? 'Un placement crée une tranche bloquée pendant 12 mois. À maturité, vous récupérez le capital + l\'intérêt sur votre solde épargne.'
+                  : 'Un dépôt libre est crédité sur votre solde épargne classique et reste à votre disposition.',
+            ),
+            const SizedBox(height: 22),
+
+            PaButton(
+              label: 'Continuer',
+              onPressed: () => setState(() => _step = _Step.form),
+            ),
+          ],
         ),
       ),
     );
@@ -309,6 +386,61 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               widget.classic ? l.classic_dep_sub : l.dep_suggestion,
               style: const TextStyle(color: PaColors.inkMuted, fontSize: 13.5),
             ),
+            // CH-3 — Badge rappelant le sous-canal choisi à l'étape kindChoice.
+            if (widget.classic) ...[
+              const SizedBox(height: 10),
+              InkWell(
+                onTap: () => setState(() => _step = _Step.kindChoice),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _isPlacement
+                        ? PaColors.tealSurface
+                        : PaColors.paper,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: _isPlacement ? PaColors.teal : PaColors.line,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _isPlacement
+                            ? Icons.trending_up_rounded
+                            : Icons.savings_outlined,
+                        size: 14,
+                        color: _isPlacement ? PaColors.teal : PaColors.navy,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _isPlacement
+                            ? 'Placement 12 mois'
+                            : 'Dépôt libre',
+                        style: TextStyle(
+                          color: _isPlacement
+                              ? PaColors.teal
+                              : PaColors.inkSecondary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.expand_more_rounded,
+                        size: 14,
+                        color: _isPlacement
+                            ? PaColors.teal
+                            : PaColors.inkSecondary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
 
             const SizedBox(height: 22),
 
@@ -607,7 +739,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   }
 }
 
-enum _Step { channelChoice, agencyInfo, form, loading, success }
+/// CH-3 — `kindChoice` est l'écran d'entrée du dépôt **épargne classique** :
+/// le membre y choisit entre placement (bloqué 12 mois, rapporte un intérêt
+/// à maturité) et libre (retrait libre, pas d'intérêt). La cotisation
+/// journalière saute directement à `channelChoice`.
+enum _Step { kindChoice, channelChoice, agencyInfo, form, loading, success }
 
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -807,6 +943,109 @@ class _AmountChip extends StatelessWidget {
   }
 }
 
+
+/// CH-3 — Carte « Placement » vs « Libre » dans l'étape kindChoice.
+class _KindCard extends StatelessWidget {
+  const _KindCard({
+    required this.icon,
+    required this.accent,
+    required this.accentSurface,
+    required this.title,
+    required this.subtitle,
+    required this.pill,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color accent;
+  final Color accentSurface;
+  final String title;
+  final String subtitle;
+  final String pill;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return PaCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(14),
+      background: PaColors.cardBg,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: accentSurface,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: selected ? accent : PaColors.line,
+                width: selected ? 1.6 : 1,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, color: accent, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: PaColors.inkPrimary,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (selected)
+                      Icon(Icons.check_circle_rounded,
+                          color: accent, size: 20),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: PaColors.inkSecondary,
+                    fontSize: 12.5,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: accentSurface,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: accent.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    pill,
+                    style: TextStyle(
+                      color: accent,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _NetworkCard extends StatelessWidget {
   const _NetworkCard({

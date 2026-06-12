@@ -110,6 +110,60 @@ void main() {
       final init = adapter.recorded
           .firstWhere((r) => r.path.contains('/payments/init/'));
       expect(init.body, contains('"type":"epargne_classique"'));
+      // CH-3 — Sans le flag isPlacement, le body n'inclut PAS is_placement.
+      expect(init.body, isNot(contains('is_placement')));
+    });
+
+    test('deposit isPlacement=true → propage is_placement:true (CH-3)',
+        () async {
+      final adapter = ScriptedAdapter()
+        ..on('/auth/csrf/', method: 'GET', status: 200)
+        ..on('/payments/init/',
+            method: 'POST',
+            status: 200,
+            body: {'payment': {'id': 1}})
+        ..on('/savings/classic/me/',
+            method: 'GET', status: 200, body: _accountPayload);
+      final ds = SavingsDioDataSource(
+        _client(adapter),
+        SavingsAccountKind.classique,
+      );
+      await ds.deposit(
+        amount: 25000,
+        phone: '+237699112233',
+        network: 'MTN',
+        isPlacement: true,
+      );
+      final init = adapter.recorded
+          .firstWhere((r) => r.path.contains('/payments/init/'));
+      expect(init.body, contains('"is_placement":true'));
+    });
+
+    test('deposit cotisation ignore isPlacement (n\'est pas appliqué)',
+        () async {
+      final adapter = ScriptedAdapter()
+        ..on('/auth/csrf/', method: 'GET', status: 200)
+        ..on('/payments/init/',
+            method: 'POST',
+            status: 200,
+            body: {'payment': {'id': 1}})
+        ..on('/savings/me/',
+            method: 'GET', status: 200, body: _accountPayload);
+      final ds = SavingsDioDataSource(
+        _client(adapter),
+        SavingsAccountKind.cotisation,
+      );
+      // Même si l'appelant pose isPlacement: true par erreur, on ne propage
+      // PAS le flag pour la cotisation (placement n'a aucun sens dessus).
+      await ds.deposit(
+        amount: 1000,
+        phone: '+237699112233',
+        network: 'MTN',
+        isPlacement: true,
+      );
+      final init = adapter.recorded
+          .firstWhere((r) => r.path.contains('/payments/init/'));
+      expect(init.body, isNot(contains('is_placement')));
     });
   });
 }

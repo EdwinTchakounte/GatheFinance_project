@@ -19,15 +19,23 @@ class ClassicSavingsNotifier extends AsyncNotifier<SavingsAccount> {
     state = await AsyncValue.guard(() => _getMy.call(const NoParams()));
   }
 
+  /// CH-3 — [isPlacement] : sous-canal placement (bloqué 12 mois, rapporte
+  /// un intérêt à maturité). Par défaut `false` = épargne libre.
   Future<void> deposit({
     required num amount,
     required String phone,
     required String network,
+    bool isPlacement = false,
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
       () => _deposit.call(
-        DepositSavingsParams(amount: amount, phone: phone, network: network),
+        DepositSavingsParams(
+          amount: amount,
+          phone: phone,
+          network: network,
+          isPlacement: isPlacement,
+        ),
       ),
     );
   }
