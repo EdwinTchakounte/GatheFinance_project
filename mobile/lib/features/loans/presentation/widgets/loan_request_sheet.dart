@@ -11,6 +11,7 @@ import '../../../../core/widgets/brand_loader.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/eligibility.dart';
+import '../../domain/entities/loan_request.dart';
 import '../../domain/loan_terms.dart';
 import '../state/loans_notifier.dart';
 
@@ -48,6 +49,10 @@ enum _Step { form, loading, success }
 class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     with TickerProviderStateMixin {
   final _motifCtrl = TextEditingController();
+  // CH-9 — Canal de réception choisi par le membre + numéro Mobile Money.
+  final _phoneCtrl = TextEditingController();
+  LoanReceiveChannel _canal = LoanReceiveChannel.taraMomo;
+
   double _montant = 200000;
   // Durée NON saisie manuellement : dérivée du montant (Art. 7).
   PaymentModality _modalite = PaymentModality.mensuel;
@@ -71,6 +76,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   @override
   void dispose() {
     _motifCtrl.dispose();
+    _phoneCtrl.dispose();
     _checkCtrl.dispose();
     super.dispose();
   }
@@ -82,6 +88,19 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
+    // CH-9 — Si canal Tara MoMo/OM, un numéro est requis (validation locale
+    // avant l'appel use case qui re-vérifie).
+    final phone = _phoneCtrl.text.trim();
+    final needsPhone = _canal == LoanReceiveChannel.taraOm ||
+        _canal == LoanReceiveChannel.taraMomo;
+    if (needsPhone && phone.length < 9) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Numéro Mobile Money requis (au moins 9 chiffres).'),
+        ),
+      );
+      return;
+    }
     HapticFeedback.mediumImpact();
     setState(() => _step = _Step.loading);
     try {
@@ -89,6 +108,8 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
             montantDemande: _montant.round(),
             dureeMois: _bd.dureeMois, // dérivée du montant (Art. 7)
             motif: _motifCtrl.text.trim(),
+            moyenReception: _canal,
+            recipientPhone: needsPhone ? phone : null,
           );
       if (!mounted) return;
       setState(() => _step = _Step.success);
@@ -226,6 +247,34 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
             ),
+
+            const SizedBox(height: AppSpacing.l),
+
+            // --- CH-9 — Canal de réception du décaissement ---
+            Text('Comment recevoir l\'argent ?',
+                style: AppTypography.labelMedium),
+            const SizedBox(height: AppSpacing.s),
+            _ChannelPicker(
+              selected: _canal,
+              onChanged: (c) => setState(() => _canal = c),
+            ),
+
+            // Champ téléphone, visible seulement pour Tara MoMo/OM.
+            if (_canal == LoanReceiveChannel.taraOm ||
+                _canal == LoanReceiveChannel.taraMomo) ...[
+              const SizedBox(height: AppSpacing.s),
+              TextFormField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                style: AppTypography.bodyLarge,
+                decoration: const InputDecoration(
+                  hintText: '+237 6XX XX XX XX',
+                  prefixIcon: Icon(Icons.phone_iphone_rounded, size: 20),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+              ),
+            ],
 
             const SizedBox(height: AppSpacing.m),
 
@@ -464,6 +513,77 @@ class _ScheduleRecap extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+// CH-9 — Sélecteur de canal de réception (Orange Money / MTN MoMo / espèces).
+class _ChannelPicker extends StatelessWidget {
+  const _ChannelPicker({required this.selected, required this.onChanged});
+
+  final LoanReceiveChannel selected;
+  final ValueChanged<LoanReceiveChannel> onChanged;
+
+  static const _options = <(LoanReceiveChannel, String, IconData)>[
+    (LoanReceiveChannel.taraMomo, 'MTN MoMo', Icons.phone_android_rounded),
+    (LoanReceiveChannel.taraOm, 'Orange Money', Icons.phone_android_rounded),
+    (LoanReceiveChannel.agenceEspeces, 'Espèces (agence)', Icons.payments_rounded),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final entry in _options) ...[
+          InkWell(
+            onTap: () => onChanged(entry.$1),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: selected == entry.$1
+                    ? PaColors.teal.withValues(alpha: 0.08)
+                    : PaColors.paper,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: selected == entry.$1
+                      ? PaColors.teal
+                      : PaColors.line.withValues(alpha: 0.5),
+                  width: selected == entry.$1 ? 1.5 : 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    entry.$3,
+                    size: 20,
+                    color: selected == entry.$1
+                        ? PaColors.teal
+                        : PaColors.inkSecondary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      entry.$2,
+                      style: AppTypography.bodyLarge.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: selected == entry.$1
+                            ? PaColors.teal
+                            : PaColors.inkPrimary,
+                      ),
+                    ),
+                  ),
+                  if (selected == entry.$1)
+                    const Icon(Icons.check_circle_rounded,
+                        size: 20, color: PaColors.teal),
+                ],
+              ),
+            ),
+          ),
+          if (entry != _options.last) const SizedBox(height: 8),
+        ],
+      ],
     );
   }
 }

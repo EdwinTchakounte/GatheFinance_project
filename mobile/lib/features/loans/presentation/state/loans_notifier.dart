@@ -77,10 +77,15 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>> {
   }
 
   /// Soumet une nouvelle demande de crédit.
+  ///
+  /// CH-9 — [moyenReception] + [recipientPhone] : canal choisi par le membre
+  /// pour recevoir le décaissement (optionnels).
   Future<LoanRequestEntity> submit({
     required num montantDemande,
     required int dureeMois,
     required String motif,
+    LoanReceiveChannel? moyenReception,
+    String? recipientPhone,
   }) async {
     final useCase = ref.read(submitLoanRequestUseCaseProvider);
     final created = await useCase.call(
@@ -88,6 +93,8 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>> {
         montantDemande: montantDemande,
         dureeMois: dureeMois,
         motif: motif,
+        moyenReception: moyenReception,
+        recipientPhone: recipientPhone,
       ),
     );
     await refresh();

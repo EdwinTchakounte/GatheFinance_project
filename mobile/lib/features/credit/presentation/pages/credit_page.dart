@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
+import '../../../../core/network/api_config.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
@@ -348,6 +351,51 @@ class _LoanCard extends StatelessWidget {
             style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
           ),
 
+          // CH-11 — Annonce explicite « intérêts retenus à la source ».
+          if (loan.modeRetenueInterets == LoanInterestMode.source &&
+              loan.montantDecaisseNet != null) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: PaColors.success.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.bolt_rounded,
+                      size: 14, color: PaColors.success),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Net versé : ${XAFFormatter.format(loan.montantDecaisseNet!)} '
+                      '· intérêts retenus à la source',
+                      style: const TextStyle(
+                        color: PaColors.success,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // CH-8 — Date butoire formelle si posée.
+          if (loan.dateButoire != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Date butoire : ${_formatDateShort(loan.dateButoire!)}',
+              style: const TextStyle(
+                color: PaColors.inkMuted,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+
           // Barre progression
           const SizedBox(height: 14),
           ClipRRect(
@@ -563,6 +611,34 @@ class _RequestCard extends StatelessWidget {
               ),
             ),
           ],
+          // CH-9 — Bouton « Télécharger ma note » disponible à tout moment
+          // après création (la note PDF reflète l'état courant : moyen de
+          // réception, échéancier si Loan créé, etc.).
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: () => _openLoanNote(context, request.id),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.picture_as_pdf_rounded,
+                      size: 16, color: PaColors.teal),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Télécharger ma note PDF',
+                    style: AppTypography.bodySmall.copyWith(
+                      color: PaColors.teal,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: PaColors.teal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -877,6 +953,36 @@ class _AvalisteEntryTile extends ConsumerWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+
+// CH-8 — Format court pour la date butoire affichée sur les cartes Loan.
+String _formatDateShort(DateTime d) {
+  const mois = [
+    'janv', 'févr', 'mars', 'avril', 'mai', 'juin',
+    'juil', 'août', 'sept', 'oct', 'nov', 'déc',
+  ];
+  return '${d.day} ${mois[d.month - 1]} ${d.year}';
+}
+
+
+// CH-9 — Ouvre la note PDF d'une demande de crédit dans le navigateur
+// système (la session cookie du backend est partagée avec le webview/Chrome
+// Custom Tab, donc l'auth fonctionne pour les membres déjà connectés).
+Future<void> _openLoanNote(BuildContext context, int requestId) async {
+  final url = Uri.parse(
+    '${ApiConfig.apiBase}/loans/requests/$requestId/note/',
+  );
+  final ok = await launchUrl(
+    url,
+    mode: LaunchMode.externalApplication,
+  );
+  if (!context.mounted) return;
+  if (!ok) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Impossible d\'ouvrir la note PDF.')),
     );
   }
 }
