@@ -78,6 +78,7 @@ INSTALLED_APPS = [
     "apps_coop.payments",
     "apps_coop.notifications",
     "apps_coop.audit",
+    "apps_coop.forms",
     # Wagtail
     "wagtail.contrib.forms",
     "wagtail.contrib.redirects",

@@ -47,6 +47,16 @@ class PaymentInitSerializer(serializers.Serializer):
             "Défaut 1. > 1 → montant figé à N × collecte.min_per_day."
         ),
     )
+    # CH-3 (refonte 2026) — Sous-canal placement épargne classique.
+    # Significatif uniquement quand type == EPARGNE_CLASSIQUE.
+    is_placement = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text=(
+            "Pour type=epargne_classique : True = placement bloqué 12 mois "
+            "(intérêt mensuel à la maturité), False = libre. Ignoré sinon."
+        ),
+    )
 
     def validate_network(self, value: str) -> str:
         upper = value.upper()
@@ -87,5 +97,7 @@ class PaymentReadSerializer(serializers.ModelSerializer):
             "created_at",
             # LOT 6 (refonte 2026) — multi-jours pré-payé.
             "nb_jours_couverts",
+            # CH-3 (refonte 2026) — épargne classique placement vs libre.
+            "is_placement",
         )
         read_only_fields = fields

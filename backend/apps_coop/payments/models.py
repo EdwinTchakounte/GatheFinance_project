@@ -158,6 +158,19 @@ class Payment(TimestampedModel):
     gateway_initiated_at = models.DateTimeField(null=True, blank=True)
     motif_rejet = models.TextField(blank=True)
 
+    # CH-3 (refonte 2026) — Épargne classique : sous-canal « placement ».
+    # Vrai uniquement si type == EPARGNE_CLASSIQUE ET que le membre coche
+    # « placer ce dépôt » sur le formulaire. Posé à la création du Payment et
+    # propagé au hook `_hook_classic_savings_deposit`, qui pose à son tour
+    # `placement_unlock_date` sur la transaction ledger.
+    is_placement = models.BooleanField(
+        default=False,
+        help_text=(
+            "Sous-canal épargne classique : True = placement bloqué 12 mois "
+            "(intérêt mensuel), False = libre (retrait à tout moment)."
+        ),
+    )
+
     # LOT 2 (refonte 2026) — multi-jours pré-payé sur la collecte journalière.
     # Pertinent uniquement pour ``type = EPARGNE`` (collecte) ; ignoré sinon.
     # 1 = paiement standard d'1 jour. N > 1 = paiement couvrant N jours

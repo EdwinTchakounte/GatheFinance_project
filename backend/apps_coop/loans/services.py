@@ -14,7 +14,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.db import transaction
 from django.utils import timezone
 
-from apps_coop.audit.services import record as record_audit
+from apps_coop.audit.services import get_str_setting, record as record_audit
 from apps_coop.members.models import Member
 from apps_coop.payments.models import RateParam
 from apps_coop.payments.rates import get_rate
@@ -176,9 +176,9 @@ def generate_installments_flat_interest(
     Règlement Intérieur, Article 5 :
         Un taux d'intérêt de **10 % est appliqué par transaction**.
 
-    Ce n'est donc pas un taux annuel composé : c'est une majoration plate sur
-    le capital, payée en plus du capital sur la durée du crédit. La fonction
-    répartit également capital et intérêts entre toutes les échéances :
+    Deux modes selon ``loan.mode_retenue_interets`` :
+
+    - **echeances** (legacy) : intérêts répartis sur les échéances.
 
         intérêts_totaux = montant × taux            (10 % par défaut)
         n               = durée_mois × cadence(modalité)
@@ -186,8 +186,15 @@ def generate_installments_flat_interest(
         intérêts_par_éch = intérêts_totaux / n
         mensualité      = capital_par_éch + intérêts_par_éch
 
+    - **source** (CH-11, par défaut 2026-06-12) : intérêts retenus à la
+      mise à disposition. Le membre rembourse uniquement ce qu'il a touché.
+
+        capital_total   = montant_decaisse_net      (= 90 % du nominal)
+        intérêts_éch    = 0
+        mensualité      = capital_par_éch (capital pur)
+
     La dernière échéance absorbe le reliquat d'arrondi pour que la somme des
-    capitaux soit exactement ``montant`` (idem pour les intérêts).
+    capitaux soit exactement le capital pris en charge (idem pour les intérêts).
 
     ``interets_totaux`` (optionnel) : pour une **reconduction**, les intérêts
     ne se calculent pas sur ``montant`` mais sur le **capital restant**
@@ -198,12 +205,24 @@ def generate_installments_flat_interest(
     par compat ; il pointe désormais sur cette fonction (alias en bas du module).
     """
     n = n_installments(loan.duree_mois, loan.modalite_paiement)
-    montant = Decimal(loan.montant)
-    if interets_totaux is None:
-        taux = Decimal(loan.taux_interet)
-        interets_totaux = _q(montant * taux)
+    mode_source = (
+        getattr(loan, "mode_retenue_interets", "echeances") == Loan.ModeRetenue.SOURCE
+    )
+
+    if mode_source:
+        # CH-11 — Le membre rembourse uniquement le net décaissé (capital pur),
+        # les intérêts ayant été retenus à la source. interets_totaux est forcé
+        # à zéro même si un appelant l'a passé (reconduction n'utilise pas le
+        # mode source — guard simple).
+        montant = Decimal(loan.montant_decaisse_net or loan.montant)
+        interets_totaux = Decimal("0")
     else:
-        interets_totaux = _q(Decimal(interets_totaux))
+        montant = Decimal(loan.montant)
+        if interets_totaux is None:
+            taux = Decimal(loan.taux_interet)
+            interets_totaux = _q(montant * taux)
+        else:
+            interets_totaux = _q(Decimal(interets_totaux))
     capital_par_ech = _q(montant / n)
     interets_par_ech = _q(interets_totaux / n)
 
@@ -299,10 +318,17 @@ def approve_loan_request(
     """
     if loan_request.statut == LoanRequest.Statut.APPROUVEE:
         return loan_request.loan
-    if loan_request.statut != LoanRequest.Statut.EN_INSTRUCTION:
+    # CH-6 — La décision définitive peut suivre soit l'instruction directe
+    # (EN_INSTRUCTION) soit l'approbation provisoire + visite terrain
+    # (APPROUVEE_PROVISOIRE).
+    allowed_from = (
+        LoanRequest.Statut.EN_INSTRUCTION,
+        LoanRequest.Statut.APPROUVEE_PROVISOIRE,
+    )
+    if loan_request.statut not in allowed_from:
         raise ValueError(
             f"Cannot approve a request with status {loan_request.statut!r} "
-            f"(expected {LoanRequest.Statut.EN_INSTRUCTION!r})."
+            f"(expected one of {[s.value for s in allowed_from]!r})."
         )
 
     taux = (
@@ -314,13 +340,42 @@ def approve_loan_request(
     duree = duration_months_for(montant)
     modalite = loan_request.modalite_paiement or PaymentModality.MENSUEL
 
-    # Flat interest (Article 5) : intérêts_totaux = montant × taux.
-    montant_total_du = _q(montant + (montant * taux))
-
     # EXT-versioning : on FIGE le taux de pénalité au décaissement (le membre
     # signe un contrat avec ce taux — un changement admin ultérieur ne doit
     # pas s'appliquer rétroactivement).
     taux_penalite_fige = get_rate(RateParam.Code.LATE_PENALTY)
+
+    # CH-11 — Choix du mode de retenue d'intérêts (toggle AppSetting).
+    # Lecture défensive : si la valeur n'est pas exactement "true" (case
+    # insensitive), on retombe sur le mode legacy "echeances".
+    raw_toggle = (get_str_setting("loans.interest_withheld_at_source", "true") or "").strip().lower()
+    interest_at_source = raw_toggle in ("true", "1", "yes", "oui")
+
+    if interest_at_source:
+        # Mode "source" (Sinora §5.3) : la coop encaisse 10 % à T0, le membre
+        # reçoit 90 % et rembourse seulement ces 90 %.
+        interets_retenus_source = _q(montant * taux)
+        montant_decaisse_net = _q(montant - interets_retenus_source)
+        montant_total_du = montant_decaisse_net
+        mode_retenue = Loan.ModeRetenue.SOURCE
+    else:
+        # Mode legacy : intérêts répartis sur les échéances. Le membre reçoit
+        # 100 % du nominal et rembourse capital + intérêts.
+        interets_retenus_source = Decimal("0")
+        montant_decaisse_net = montant
+        montant_total_du = _q(montant + (montant * taux))
+        mode_retenue = Loan.ModeRetenue.ECHEANCES
+
+    # CH-12 — Fige le taux de partage prêteurs/coop courant pour éviter qu'un
+    # changement admin ultérieur ne s'applique rétroactivement. La valeur
+    # courante vit dans l'AppSetting ``lender.interest_share_rate``.
+    share_rate_raw = (get_str_setting("lender.interest_share_rate", "0.5") or "0.5").strip()
+    try:
+        share_rate_fige = Decimal(share_rate_raw)
+        if share_rate_fige < 0 or share_rate_fige > 1:
+            share_rate_fige = max(Decimal("0"), min(Decimal("1"), share_rate_fige))
+    except Exception:  # noqa: BLE001 — valeur AppSetting cassée
+        share_rate_fige = Decimal("0.5")
 
     loan = Loan.objects.create(
         loan_request=loan_request,
@@ -336,8 +391,25 @@ def approve_loan_request(
         montant_total_du=montant_total_du,
         solde_restant=montant_total_du,
         statut=Loan.Statut.ACTIF,
+        mode_retenue_interets=mode_retenue,
+        montant_decaisse_net=montant_decaisse_net,
+        interets_retenus_source=interets_retenus_source,
+        interest_share_rate_fige=share_rate_fige,
     )
     generate_installments_flat_interest(loan)
+
+    # CH-8 — Pose la date butoire formelle = date de la dernière échéance
+    # générée. C'est cette date (et non les échéances individuelles) qui
+    # déclenche la pénalité globale et le contentieux. L'admin peut la prolonger
+    # via /extend-deadline/ avec motif (extension exceptionnelle).
+    last_echeance = (
+        loan.installments.order_by("-date_echeance")
+        .values_list("date_echeance", flat=True)
+        .first()
+    )
+    if last_echeance is not None:
+        loan.date_butoire = last_echeance
+        loan.save(update_fields=["date_butoire", "updated_at"])
 
     loan_request.statut = LoanRequest.Statut.APPROUVEE
     loan_request.decide_par = decided_by
@@ -430,9 +502,12 @@ def disburse_loan_via_tara(
         if existing:
             return existing
 
+        # CH-11 — Le montant versé est le NET (montant_decaisse_net) en mode
+        # source. Fallback sur loan.montant pour les Loans legacy sans champ.
+        montant_versement = Decimal(loan.montant_decaisse_net or loan.montant)
         payment = Payment.objects.create(
             member=loan.member,
-            montant=loan.montant,
+            montant=montant_versement,
             type=Payment.Type.DECAISSEMENT,
             source=Payment.Source.MOBILE_MONEY,
             statut=Payment.Statut.EN_ATTENTE,
@@ -478,6 +553,12 @@ def disburse_loan_via_tara(
             "reference_externe": payment.reference_externe,
             "recipient_phone_masked": recipient_phone[:4] + "***" + recipient_phone[-2:],
             "network": network,
+            # CH-11 — Traçabilité de la retenue à la source. Le payment.montant
+            # est le NET ; on consigne le brut nominal et la retenue séparément.
+            "montant_brut_nominal": str(loan.montant),
+            "montant_decaisse_net": str(montant_versement),
+            "interets_retenus_source": str(loan.interets_retenus_source or "0"),
+            "mode_retenue_interets": loan.mode_retenue_interets,
         },
     )
 
@@ -532,9 +613,12 @@ def disburse_loan_manual(loan: Loan, *, agent, reference_externe: str, note: str
     if existing:
         return existing
 
+    # CH-11 — Idem que disburse_loan_via_tara : on verse le NET (90 %) en
+    # mode source. Fallback sur loan.montant pour les Loans legacy.
+    montant_versement = Decimal(loan.montant_decaisse_net or loan.montant)
     payment = Payment.objects.create(
         member=loan.member,
-        montant=loan.montant,
+        montant=montant_versement,
         type=Payment.Type.DECAISSEMENT,
         source=Payment.Source.MANUEL,
         statut=Payment.Statut.VALIDE,
@@ -556,7 +640,12 @@ def disburse_loan_manual(loan: Loan, *, agent, reference_externe: str, note: str
             "mode": "manuel",
             "reference_externe": payment.reference_externe,
             "note": note[:200],
-            "montant": str(loan.montant),
+            # CH-11 — Traçabilité de la retenue à la source. ``montant`` est
+            # le brut nominal, ``montant_decaisse_net`` est le NET versé.
+            "montant_brut_nominal": str(loan.montant),
+            "montant_decaisse_net": str(montant_versement),
+            "interets_retenus_source": str(loan.interets_retenus_source or "0"),
+            "mode_retenue_interets": loan.mode_retenue_interets,
         },
     )
     return payment
@@ -567,7 +656,12 @@ def reject_loan_request(loan_request: LoanRequest, *, decided_by, motif: str) ->
     """Reject a request that is in ``en_instruction``. Idempotent on rejected."""
     if loan_request.statut == LoanRequest.Statut.REJETEE:
         return loan_request
-    if loan_request.statut != LoanRequest.Statut.EN_INSTRUCTION:
+    # CH-6 — rejet possible aussi depuis APPROUVEE_PROVISOIRE (visite défavorable).
+    allowed_from = (
+        LoanRequest.Statut.EN_INSTRUCTION,
+        LoanRequest.Statut.APPROUVEE_PROVISOIRE,
+    )
+    if loan_request.statut not in allowed_from:
         raise ValueError(
             f"Cannot reject a request with status {loan_request.statut!r}."
         )
@@ -803,6 +897,12 @@ def approve_loan_renewal(
     # de pénalité courant (peut différer de l'ancien crédit).
     taux_penalite_fige = get_rate(RateParam.Code.LATE_PENALTY)
 
+    # CH-10/11 — La reconduction reste en mode "echeances" volontairement.
+    # Le membre ne reçoit pas de nouvelle somme à la reconduction (il a déjà
+    # touché ses fonds au décaissement initial), donc la mécanique de retenue
+    # à la source (CH-11) ne s'applique pas. Les intérêts de reconduction
+    # (Article 11) sont étalés sur les nouvelles échéances : ``echeances`` =
+    # comportement légal correct, ``source`` serait incorrect ici.
     nouveau_loan = Loan.objects.create(
         loan_request=synth_request,
         member=member,
@@ -818,6 +918,9 @@ def approve_loan_renewal(
         solde_restant=montant_total_du,
         statut=Loan.Statut.ACTIF,
         issu_reconduction=True,
+        mode_retenue_interets=Loan.ModeRetenue.ECHEANCES,
+        montant_decaisse_net=base,  # membre ne touche rien, mais champ non-NULL pour cohérence
+        interets_retenus_source=Decimal("0"),
     )
 
     # 5) Échéancier — intérêts de reconduction calculés sur le capital restant.

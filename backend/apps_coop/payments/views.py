@@ -196,6 +196,11 @@ def init_payment(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    # CH-3 — placement valable uniquement sur EPARGNE_CLASSIQUE.
+    is_placement = bool(data.get("is_placement", False)) and (
+        data["type"] == Payment.Type.EPARGNE_CLASSIQUE
+    )
+
     payment = Payment.objects.create(
         member=request.user.member,
         montant=data["montant"],
@@ -207,6 +212,7 @@ def init_payment(request):
         loan_id=data.get("loan_id"),
         loan_installment_id=data.get("loan_installment_id"),
         nb_jours_couverts=nb_jours,
+        is_placement=is_placement,
     )
 
     try:

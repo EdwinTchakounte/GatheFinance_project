@@ -262,6 +262,19 @@ class MembershipRequest(TimestampedModel):
     motivation = models.TextField(blank=True, help_text="Free-form 'Pourquoi rejoindre ?' field from the public form.")
     language = models.CharField(max_length=8, default="fr")
 
+    # CH-4 — Champs supplémentaires alimentés par le schéma de formulaire
+    # dynamique actif au moment de la soumission. Les colonnes hard-codées
+    # ci-dessus restent la source de vérité pour les champs « historiques » ;
+    # tout champ ajouté par l'admin via FormSchema atterrit ici.
+    extra_payload = models.JSONField(
+        default=dict, blank=True,
+        help_text="Champs FormSchema additionnels (id_champ → valeur).",
+    )
+    form_schema_version = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Version du FormSchema 'adhesion' actif lors de la soumission.",
+    )
+
     # Traceability — for abuse review / forensic.
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=400, blank=True)
@@ -461,9 +474,25 @@ class Document(TimestampedModel):
     nom_original = models.CharField(max_length=255, blank=True)
     taille = models.PositiveIntegerField(default=0)
 
+    # CH-5 — Identifie de quel champ du FormSchema vient l'upload, pour permettre
+    # à l'admin de retrouver "le CGA" / "le CFP" / "la CNI" sans relire le JSON.
+    # Vide pour les uploads BRC/historiques (rétro-compat).
+    schema_field_id = models.CharField(
+        max_length=80,
+        blank=True,
+        db_index=True,
+        help_text=(
+            "Identifiant du champ FormSchema source (ex. 'cga_attestation'). "
+            "Vide pour les uploads historiques."
+        ),
+    )
+
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["entite_liee_type", "entite_liee_id"])]
+        indexes = [
+            models.Index(fields=["entite_liee_type", "entite_liee_id"]),
+            models.Index(fields=["entite_liee_type", "entite_liee_id", "schema_field_id"]),
+        ]
 
     def __str__(self) -> str:
         return f"{self.type_doc} · {self.nom_original or self.fichier.name}"

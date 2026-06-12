@@ -30,13 +30,20 @@ from .views import (
     admin_list_loan_requests,
     admin_list_loans,
     loan_disburse,
+    loan_disburse_now,
+    loan_disbursement_status,
     loan_eligibility,
+    loan_extend_deadline,
     loan_notice,
     loan_renewal_decide,
     loan_renewal_request,
     loan_request_create,
     loan_request_decide,
+    loan_request_decide_provisional,
+    loan_request_field_visit,
     loan_request_list,
+    loan_request_note,
+    loan_request_upload_attachment,
     loans_me_active,
 )
 
@@ -49,6 +56,12 @@ urlpatterns = [
     path("me/requests/", loan_request_list, name="my-requests"),
     path("me/active/", loans_me_active, name="my-active-loans"),
     path("requests/", loan_request_create, name="create-request"),
+    # CH-5 — Upload de fichier rattaché à un LoanRequest (CGA, CFP, CNI, etc.).
+    path(
+        "requests/<int:pk>/attachments/",
+        loan_request_upload_attachment,
+        name="upload-loan-request-attachment",
+    ),
     # Refonte 2026 — LOT 18 : mandats d'avaliste côté membre.
     path(
         "me/avaliste-mandats/",
@@ -71,9 +84,44 @@ urlpatterns = [
     path("admin/requests/", admin_list_loan_requests, name="admin-list-requests"),
     path("admin/list/", admin_list_loans, name="admin-list-loans"),
     path("requests/<int:pk>/decide/", loan_request_decide, name="decide-request"),
+    # CH-6 — Double approbation (provisoire → visite terrain → définitive).
+    path(
+        "requests/<int:pk>/decide-provisional/",
+        loan_request_decide_provisional,
+        name="decide-provisional",
+    ),
+    path(
+        "requests/<int:pk>/field-visit/",
+        loan_request_field_visit,
+        name="field-visit",
+    ),
     path("renewals/<int:pk>/decide/", loan_renewal_decide, name="decide-renewal"),
     path("<int:pk>/disburse/", loan_disburse, name="disburse"),
     path("admin/<int:pk>/notice/", loan_notice, name="admin-notice"),
+    # CH-8 — Extension de la date butoire d'un crédit actif/en_retard.
+    path(
+        "admin/<int:pk>/extend-deadline/",
+        loan_extend_deadline,
+        name="admin-extend-deadline",
+    ),
+    # CH-9 — Note de demande PDF (membre + admin).
+    path(
+        "requests/<int:pk>/note/",
+        loan_request_note,
+        name="loan-request-note",
+    ),
+    # CH-9 — Payer maintenant (auto-fill depuis moyen_reception).
+    path(
+        "admin/<int:pk>/disburse-now/",
+        loan_disburse_now,
+        name="admin-disburse-now",
+    ),
+    # CH-9 — Monitor du statut décaissement.
+    path(
+        "admin/<int:pk>/disbursement-status/",
+        loan_disbursement_status,
+        name="admin-disbursement-status",
+    ),
     # Refonte 2026 — LOT 16 : admin CRUD MicrocreditCampaign + décision LR
     path("admin/campaigns/", admin_campaigns, name="admin-campaigns"),
     path("admin/campaigns/<int:pk>/", admin_campaign_detail, name="admin-campaign-detail"),

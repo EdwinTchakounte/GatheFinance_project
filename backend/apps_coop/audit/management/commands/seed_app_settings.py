@@ -124,6 +124,39 @@ SETTINGS: list[tuple[str, str, str]] = [
         "Délai de grâce (en jours) après la date de maturité pour payer "
         "les frais de ré-inscription. Dépassement → statut ARCHIVE.",
     ),
+    # CH-11 — Retenue des intérêts à la source au décaissement.
+    (
+        "loans.interest_withheld_at_source",
+        "true",
+        "Quand 'true' (par défaut) la coop retient 10 % d'intérêts à la "
+        "mise à disposition : le membre reçoit 90 % du montant nominal et "
+        "rembourse uniquement ce qu'il a touché. 'false' restaure le mode "
+        "historique (capital + intérêts répartis sur les échéances). "
+        "S'applique aux nouveaux crédits seulement — les crédits déjà "
+        "approuvés conservent leur mode figé à l'approbation.",
+    ),
+    # CH-7 — Frais d'étude du dossier crédit (non-remboursables).
+    (
+        "loans.study_fee.non_refundable_notice",
+        "Ces frais d'étude couvrent l'instruction du dossier et la visite "
+        "terrain éventuelle. Ils sont non-remboursables, y compris en cas "
+        "de refus de la demande.",
+        "Mention affichée sur le portail au moment du paiement des frais "
+        "d'étude du dossier crédit. Modifie ce texte pour ajuster la formulation "
+        "(la non-restitution est définitive dans tous les cas).",
+    ),
+    # CH-3 — Épargne classique : sous-canal placement.
+    # Le placement réutilise la convention prêteur (LOT 7) — chaque dépôt
+    # placement crée automatiquement une LenderTranche disponible. Le partage
+    # des intérêts crédit utilise `lender.interest_share_rate` (LOT 9), déjà
+    # configurable plus bas. Un seul flag dédié ici : kill-switch global.
+    (
+        "epargne.placement.enabled",
+        "true",
+        "Ouvre/ferme le sous-canal placement de l'épargne classique. "
+        "Si 'false' : la case 'placer ce dépôt' est masquée côté portail "
+        "et les dépôts ne créent plus de LenderTranche.",
+    ),
     # LOT 3 — Kill-switch pour la logique 2025 obsolète.
     (
         "savings.monthly_interest.enabled",
@@ -302,6 +335,17 @@ SETTINGS: list[tuple[str, str, str]] = [
         "7",
         "Préavis (jours) avant déclenchement auto en mode 'hybrid' — délai "
         "laissé à l'admin pour intervenir avant l'escalade automatique.",
+    ),
+    # CH-2 (chantier juin 2026) — Activation membre conditionnée au paiement
+    # complet des 3 frais (adhésion + inscription + carnet).
+    (
+        "membership.payment_deadline_days",
+        "30",
+        "CH-2 — Délai max (jours) après approbation de la demande d'adhésion "
+        "pour régler les 3 frais (adhésion + inscription + carnet). Au-delà, "
+        "le dossier peut être marqué expiré par l'admin (action manuelle pour "
+        "l'instant). Le membre reste suspendu tant que les 13 000 FCFA ne "
+        "sont pas tous payés.",
     ),
 ]
 

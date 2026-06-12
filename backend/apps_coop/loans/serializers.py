@@ -50,6 +50,28 @@ class LoanRequestSubmitSerializer(serializers.Serializer):
         max_length=64, required=False, allow_blank=True
     )
 
+    # CH-9 — Moyen de réception choisi à la soumission.
+    moyen_reception = serializers.ChoiceField(
+        choices=[("tara_om", "Tara OM"), ("tara_momo", "Tara MoMo"), ("agence_especes", "Agence espèces")],
+        required=False,
+        allow_blank=True,
+    )
+    recipient_phone = serializers.CharField(
+        max_length=32, required=False, allow_blank=True
+    )
+
+    def validate(self, attrs):
+        moyen = attrs.get("moyen_reception") or ""
+        phone = (attrs.get("recipient_phone") or "").strip()
+        if moyen in ("tara_om", "tara_momo") and not phone:
+            raise serializers.ValidationError(
+                {"recipient_phone": "Requis pour un décaissement Tara Mobile Money."}
+            )
+        if moyen == "agence_especes" and phone:
+            # Coherence : on n'attend pas de numéro pour un retrait espèces.
+            attrs["recipient_phone"] = ""
+        return attrs
+
 
 class LoanRequestReadSerializer(serializers.ModelSerializer):
     """Portal + admin display — `loan` exposé pour l'admin (décaissement)."""

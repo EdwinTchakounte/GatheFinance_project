@@ -287,3 +287,177 @@ def release_loan_tranches(loan: Loan) -> int:
         },
     )
     return len(engaged)
+
+
+# ---------------------------------------------------------------------------
+# CH-12 — Distribution immédiate prêteurs en mode source (Sinora §5.3).
+# ---------------------------------------------------------------------------
+@transaction.atomic
+def distribute_interest_share_at_source(
+    loan: Loan,
+    payment,
+) -> list[LenderInterestPayout]:
+    """Distribue la part prêteurs des intérêts retenus à la source (T0).
+
+    Activée uniquement si :
+      • ``loan.mode_retenue_interets == "source"`` (CH-11),
+      • le crédit a au moins une ``LenderAllocation``,
+      • ``loan.interest_share_rate_fige`` > 0 (sinon kill-switch).
+
+    Idempotent : si un ``LenderInterestPayout`` à T0 (installment=None) existe
+    déjà pour ce crédit, on no-op. Évite les doubles versements en cas de
+    rejeu du webhook ``decaissement`` ou d'auto-validate test.
+
+    Calcul (montants identiques au flux LOT 9, mais sourcés sur
+    ``loan.interets_retenus_source`` au lieu d'une imputation) :
+
+        pretteurs_total = interets_retenus_source × share_rate_fige
+        share(alloc)    = pretteurs_total × alloc.quote_part
+
+    La dernière allocation absorbe le résidu d'arrondi pour que
+    ``somme(payouts) == pretteurs_total``.
+    """
+    if loan.mode_retenue_interets != Loan.ModeRetenue.SOURCE:
+        return []
+
+    allocations = _allocations_for_loan(loan)
+    if not allocations:
+        # Crédit sans prêteurs internes — la coop garde 100 % des intérêts.
+        return []
+
+    interets_retenus = Decimal(loan.interets_retenus_source or "0")
+    if interets_retenus <= 0:
+        return []
+
+    share_rate = Decimal(loan.interest_share_rate_fige or "0")
+    if share_rate <= 0:
+        return []
+
+    # Idempotence : un payout T0 (installment=None) déjà posé pour ce crédit
+    # signifie que la distribution a déjà eu lieu — on ne réexecute pas.
+    already = (
+        LenderInterestPayout.objects.filter(
+            allocation__loan=loan,
+            installment__isnull=True,
+        )
+        .exists()
+    )
+    if already:
+        return list(
+            LenderInterestPayout.objects.filter(
+                allocation__loan=loan,
+                installment__isnull=True,
+            )
+        )
+
+    pretteurs_total = _q(interets_retenus * share_rate)
+    if pretteurs_total <= 0:
+        return []
+
+    payouts: list[LenderInterestPayout] = []
+    now = timezone.now()
+    sum_dispatched = Decimal("0")
+    for idx, alloc in enumerate(allocations):
+        share = _q(pretteurs_total * Decimal(alloc.quote_part))
+        if idx == len(allocations) - 1:
+            share = _q(pretteurs_total - sum_dispatched)
+        if share <= 0:
+            continue
+        payout = _credit_lender_at_source(
+            allocation=alloc,
+            payment=payment,
+            montant=share,
+            when=now,
+        )
+        payouts.append(payout)
+        sum_dispatched += share
+
+    record_audit(
+        action="loan.interest_share_distributed_at_source",
+        entite_type="Loan",
+        entite_id=loan.id,
+        details={
+            "payment_id": payment.id,
+            "interets_retenus_source": str(interets_retenus),
+            "share_rate_fige": str(share_rate),
+            "pretteurs_total": str(pretteurs_total),
+            "payouts": [
+                {
+                    "allocation_id": p.allocation_id,
+                    "lender_id": p.allocation.lender_id,
+                    "montant": str(p.montant),
+                }
+                for p in payouts
+            ],
+        },
+    )
+    return payouts
+
+
+def _credit_lender_at_source(
+    *,
+    allocation: LenderAllocation,
+    payment,
+    montant: Decimal,
+    when,
+) -> LenderInterestPayout:
+    """Variante de ``_credit_lender`` pour les versements à T0 (sans échéance).
+
+    Diffère uniquement par ``installment=None`` sur le ``LenderInterestPayout``
+    et par l'événement émis (``lender.interest_paid_at_source``) qui porte
+    une sémantique différente pour le destinataire ("ton placement a été
+    utilisé pour financer un crédit, voici ta rémunération immédiate").
+    """
+    lender = allocation.lender
+    account, _ = ClassicSavingsAccount.objects.select_for_update().get_or_create(
+        member=lender,
+        defaults={
+            "solde": Decimal("0"),
+            "date_ouverture": when.date(),
+        },
+    )
+    nouveau_solde = Decimal(account.solde) + montant
+    account.solde = nouveau_solde
+    account.save(update_fields=["solde", "updated_at"])
+
+    ClassicSavingsTransaction.objects.create(
+        account=account,
+        payment=payment,
+        type_op=ClassicSavingsTransaction.TypeOp.INTERET_PRETEUR,
+        montant=montant,
+        solde_apres=nouveau_solde,
+        date=when,
+    )
+
+    payout = LenderInterestPayout.objects.create(
+        allocation=allocation,
+        installment=None,  # CH-12 — versement à T0, pas d'échéance attachée.
+        payment=payment,
+        montant=montant,
+        date=when,
+    )
+    allocation.interest_share_paid_total = _q(
+        Decimal(allocation.interest_share_paid_total) + montant
+    )
+    allocation.save(update_fields=["interest_share_paid_total", "updated_at"])
+
+    # Notif au prêteur — il découvre que sa portion d'épargne placée a été
+    # utilisée pour financer un crédit, et qu'il est rémunéré immédiatement.
+    try:
+        from apps_coop.notifications.events import emit_event
+
+        emit_event(
+            "lender.interest_paid_at_source",
+            member=lender,
+            context={
+                "prenom": lender.prenom,
+                "montant": str(montant),
+                "numero_dossier": allocation.loan.numero_dossier,
+            },
+        )
+    except Exception:  # noqa: BLE001 — best-effort
+        logger.warning(
+            "emit_event lender.interest_paid_at_source a échoué (payout=%s)",
+            payout.id,
+        )
+    return payout

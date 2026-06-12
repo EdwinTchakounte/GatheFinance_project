@@ -238,6 +238,39 @@ class ClassicSavingsAccount(TimestampedModel):
     def __str__(self) -> str:
         return f"Épargne classique {self.member.numero_membre} · solde={self.solde}"
 
+    # ------------------------------------------------------------------
+    # CH-3 — Sous-canal placement (refonte 2026).
+    # ------------------------------------------------------------------
+    # Le placement réutilise la convention prêteur (LOT 7) : chaque dépôt
+    # placement crée une ``LenderTranche`` DISPONIBLE. Le solde "placement
+    # actif" = somme des tranches du membre encore DISPONIBLE ou ENGAGEE. Le
+    # solde librement retirable = solde total − ce montant.
+    @property
+    def solde_placement_actif(self) -> "Decimal":
+        """Somme des tranches prêteur du membre encore disponibles ou engagées."""
+        from decimal import Decimal
+
+        from django.db.models import Sum
+
+        total = (
+            LenderTranche.objects.filter(
+                member=self.member,
+                statut__in=[
+                    LenderTranche.Statut.DISPONIBLE,
+                    LenderTranche.Statut.ENGAGEE,
+                ],
+            )
+            .aggregate(s=Sum("montant"))["s"]
+        )
+        return Decimal(total) if total is not None else Decimal("0")
+
+    @property
+    def solde_libre(self) -> "Decimal":
+        """Part librement retirable = solde total − placements encore actifs."""
+        from decimal import Decimal
+
+        return Decimal(self.solde) - self.solde_placement_actif
+
 
 class ClassicSavingsTransaction(TimestampedModel):
     """Ledger append-only de l'épargne classique.
@@ -268,6 +301,12 @@ class ClassicSavingsTransaction(TimestampedModel):
             "retrait_force",
             "Prélèvement forcé sur épargne classique (crédit contentieux)",
         )
+        # CH-3 (refonte 2026) — Sous-canal placement : intérêt capitalisé à la
+        # maturité (12 mois après le dépôt). Une seule ligne par dépôt placement.
+        INTERET_PLACEMENT = (
+            "interet_placement",
+            "Intérêt capitalisé à la maturité d'un dépôt placement (refonte 2026)",
+        )
 
     account = models.ForeignKey(
         ClassicSavingsAccount,
@@ -286,6 +325,27 @@ class ClassicSavingsTransaction(TimestampedModel):
     montant = money_field()
     solde_apres = money_field(help_text="Solde du compte juste après cette opération.")
     date = models.DateTimeField(db_index=True)
+
+    # CH-3 (refonte 2026) — Sous-canal placement.
+    is_placement = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text=(
+            "Sous-canal placement (DEPOT) : True = bloqué jusqu'à "
+            "`placement_unlock_date`, restitué + intérêt à maturité. "
+            "Pour les autres TypeOp ce champ reste False."
+        ),
+    )
+    placement_unlock_date = models.DateField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=(
+            "Date à partir de laquelle le placement devient libre. Posée par "
+            "le hook au dépôt (date_depot + epargne.placement.lock_months). "
+            "Null pour tout ce qui n'est pas un DEPOT placement."
+        ),
+    )
 
     class Meta:
         ordering = ["-date", "-id"]

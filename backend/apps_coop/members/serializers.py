@@ -81,6 +81,39 @@ class MembershipPublicSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         meta = self.context.get("request_meta", {})
+
+        # CH-4 — Le moteur FormSchema permet à l'admin d'ajouter des champs
+        # supplémentaires au formulaire d'adhésion. On les capte depuis le
+        # request.data brut (les fields du serializer ne couvrent que le
+        # legacy), et on les répartit via ``apply_form_schema``.
+        request = self.context.get("request")
+        raw_payload = getattr(request, "data", {}) if request else {}
+        # On passe le payload complet (avec les hardcoded) ET tous les
+        # hardcoded keys au helper : il fait le split correctement et ignore
+        # les required des hardcoded (déjà validés par DRF plus haut).
+        _MEMBERSHIP_HARDCODED = {
+            "name", "email", "phone", "whatsapp", "city",
+            "quartier_localite", "statut_pro", "urgence_nom",
+            "urgence_lien", "urgence_phone", "message", "language",
+        }
+        try:
+            from apps_coop.forms.services import apply_form_schema
+
+            _, extra_payload, schema_version = apply_form_schema(
+                "adhesion",
+                {k: v for k, v in raw_payload.items() if k not in {
+                    # Anti-spam : jamais en extra_payload.
+                    "website", "captcha_token", "captcha_answer",
+                }},
+                hardcoded_keys=_MEMBERSHIP_HARDCODED,
+            )
+        except Exception:  # noqa: BLE001 — toujours créer la requête (legacy)
+            import logging
+            logging.getLogger(__name__).exception(
+                "apply_form_schema('adhesion') failed — falling back to legacy",
+            )
+            extra_payload, schema_version = {}, None
+
         return MembershipRequest.objects.create(
             nom=validated_data["name"].strip(),
             prenom="",  # admin will fill during instruction
@@ -97,6 +130,8 @@ class MembershipPublicSerializer(serializers.Serializer):
             language=validated_data.get("language", "fr"),
             ip_address=meta.get("ip_address"),
             user_agent=meta.get("user_agent", "")[:400],
+            extra_payload=extra_payload,
+            form_schema_version=schema_version,
         )
 
 

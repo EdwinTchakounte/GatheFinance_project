@@ -149,20 +149,71 @@ def _reject(payment: Payment, *, raw: dict) -> Payment:
 # failure rather than blow up the webhook.
 
 
-def _hook_adhesion(payment: Payment, _raw: dict) -> None:
-    """UC1 — 1re cotisation reçue → activate the Member."""
+#: Les 3 frais d'adhésion exigés par le Règlement Intérieur (Art.3) — un
+#: paiement validé de chacun de ces types est requis pour activer le Member.
+_MEMBERSHIP_REQUIRED_FEES = (
+    Payment.Type.FRAIS_ADHESION,
+    Payment.Type.FRAIS_INSCRIPTION,
+    Payment.Type.FRAIS_CARNET,
+)
+
+
+def _membership_fees_settled(member) -> bool:
+    """True si les 3 frais d'adhésion (adhésion + inscription + carnet) ont
+    chacun au moins un ``Payment`` validé pour ce membre.
+
+    Lecture seule, idempotente, sans verrou — utilisée par les hooks qui
+    décident d'activer ou non le Member.
+    """
+    paid_types = set(
+        Payment.objects.filter(
+            member=member,
+            statut=Payment.Statut.VALIDE,
+            type__in=_MEMBERSHIP_REQUIRED_FEES,
+        ).values_list("type", flat=True)
+    )
+    return set(_MEMBERSHIP_REQUIRED_FEES).issubset(paid_types)
+
+
+def _activate_member_if_fees_settled(member, *, trigger_payment: Payment) -> None:
+    """CH-2 — bascule le Member à ``ACTIF`` UNIQUEMENT si les 3 frais sont
+    payés. Sinon, log un audit ``membership.partial_payment`` et laisse le
+    statut inchangé (typiquement ``SUSPENDU`` post-approbation).
+
+    Idempotent : si le Member est déjà ``ACTIF``, no-op (cas du replay
+    webhook ou du 4e paiement après activation). L'événement
+    ``member.activated`` n'est émis qu'une seule fois — celui qui complète
+    le triplet de frais.
+    """
     from apps_coop.members.models import Member  # local import to avoid cycles
 
-    member = payment.member
     if member.statut == Member.Statut.ACTIF:
         return
+
+    if not _membership_fees_settled(member):
+        record_audit(
+            action="membership.partial_payment",
+            entite_type="Member",
+            entite_id=member.id,
+            details={
+                "trigger_payment_id": trigger_payment.id,
+                "trigger_type": trigger_payment.type,
+                "montant": str(trigger_payment.montant),
+            },
+        )
+        return
+
     member.statut = Member.Statut.ACTIF
     member.save(update_fields=["statut", "updated_at"])
     record_audit(
         action="member.activated",
         entite_type="Member",
         entite_id=member.id,
-        details={"trigger": "payment.frais_adhesion", "payment_id": payment.id},
+        details={
+            "trigger": "membership_fees_complete",
+            "completing_payment_id": trigger_payment.id,
+            "completing_type": trigger_payment.type,
+        },
     )
     from apps_coop.notifications.events import emit_event
 
@@ -172,10 +223,21 @@ def _hook_adhesion(payment: Payment, _raw: dict) -> None:
         context={
             "prenom": member.prenom,
             "numero_membre": member.numero_membre,
-            "montant": _fmt_xaf(payment.montant),
+            "montant": _fmt_xaf(trigger_payment.montant),
             "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
         },
     )
+
+
+def _hook_adhesion(payment: Payment, _raw: dict) -> None:
+    """UC1 — frais d'adhésion ou d'inscription reçu.
+
+    Depuis CH-2 (chantier juin 2026), le Member ne bascule à ``ACTIF`` QUE
+    lorsque les 3 frais (adhésion + inscription + carnet, 13 000 FCFA cumulés
+    par défaut) sont tous payés. Le paiement isolé d'un seul frais laisse le
+    Member ``SUSPENDU`` — voir ``_activate_member_if_fees_settled``.
+    """
+    _activate_member_if_fees_settled(payment.member, trigger_payment=payment)
 
 
 def _hook_savings_deposit(payment: Payment, _raw: dict) -> None:
@@ -258,10 +320,22 @@ def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
     Atomique + idempotent (tourné dans la transaction de ``handle_webhook_event``).
     Pas de règle de cut-off ici : c'est de l'épargne libre, pas la collecte
     journalière. Le compte est créé à la volée au premier dépôt.
+
+    CH-3 — Sous-canal **placement** : si ``payment.is_placement`` est True, le
+    dépôt alimente aussi automatiquement la convention prêteur (LOT 7) :
+      • Auto-création du ``LenderConsent`` (Mode B / tranches) si le membre
+        n'en a pas encore — convention signée implicitement à la date du dépôt.
+      • Création d'une ``LenderTranche`` DISPONIBLE du même montant que le
+        dépôt. L'admin pourra ensuite l'engager dans un crédit (LOT 8 funding).
+    Le partage des intérêts crédit ainsi générés reste piloté par
+    ``lender.interest_share_rate`` (LOT 9) — éditable depuis Paramètres admin.
     """
+    from apps_coop.audit.services import get_str_setting
     from apps_coop.savings.models import (
         ClassicSavingsAccount,
         ClassicSavingsTransaction,
+        LenderConsent,
+        LenderTranche,
     )
 
     # Création paresseuse puis verrou ligne pour sérialiser les dépôts concurrents.
@@ -275,14 +349,42 @@ def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
     account.solde = nouveau_solde
     account.save(update_fields=["solde", "updated_at"])
 
+    date_op = payment.date_validation or timezone.now()
+
     ClassicSavingsTransaction.objects.create(
         account=account,
         payment=payment,
         type_op=ClassicSavingsTransaction.TypeOp.DEPOT,
         montant=payment.montant,
         solde_apres=nouveau_solde,
-        date=payment.date_validation or timezone.now(),
+        date=date_op,
+        is_placement=payment.is_placement,
+        # `placement_unlock_date` reste null : le verrou vient de l'état de la
+        # tranche prêteur (DISPONIBLE/ENGAGEE), pas d'une date fixe.
     )
+
+    tranche_id: int | None = None
+    if payment.is_placement and get_str_setting("epargne.placement.enabled", "true").lower() == "true":
+        consent, _ = LenderConsent.objects.get_or_create(
+            member=payment.member,
+            defaults={
+                "is_global": False,
+                "convention_signed_at": date_op,
+            },
+        )
+        # On crée la tranche même si le consentement a été révoqué — le membre
+        # vient de placer explicitement, c'est un signe de réactivation.
+        if consent.revoked_at is not None:
+            consent.revoked_at = None
+            consent.revoked_by = None
+            consent.save(update_fields=["revoked_at", "revoked_by", "updated_at"])
+
+        tranche = LenderTranche.objects.create(
+            member=payment.member,
+            montant=payment.montant,
+            statut=LenderTranche.Statut.DISPONIBLE,
+        )
+        tranche_id = tranche.id
 
     record_audit(
         action="classic_savings.deposit",
@@ -293,6 +395,8 @@ def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
             "payment_id": payment.id,
             "montant": str(payment.montant),
             "solde_apres": str(nouveau_solde),
+            "is_placement": payment.is_placement,
+            "lender_tranche_id": tranche_id,
         },
     )
 
@@ -483,6 +587,10 @@ def _hook_carnet_fees(payment: Payment, _raw: dict) -> None:
     L'agence imprime ensuite le carnet et change le statut depuis le Django
     admin. Idempotent : si une `BookletOrder` existe déjà pour ce Payment, on
     no-op (le webhook Tara peut rejouer).
+
+    Depuis CH-2 : les frais de carnet font partie des 3 frais requis pour
+    activer le Member (cf. ``_activate_member_if_fees_settled``). Si ce
+    paiement complète le triplet, le Member bascule à ``ACTIF``.
     """
     from apps_coop.members.models import BookletOrder
 
@@ -504,22 +612,24 @@ def _hook_carnet_fees(payment: Payment, _raw: dict) -> None:
             "created": created,
         },
     )
-    if not created:
-        # Replay du webhook — ne renvoie pas un 2e email.
-        return
+    if created:
+        from apps_coop.notifications.events import emit_event
 
-    from apps_coop.notifications.events import emit_event
+        emit_event(
+            "booklet.ordered",
+            member=payment.member,
+            context={
+                "prenom": payment.member.prenom,
+                "numero_membre": payment.member.numero_membre,
+                "montant": _fmt_xaf(payment.montant),
+                "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            },
+        )
 
-    emit_event(
-        "booklet.ordered",
-        member=payment.member,
-        context={
-            "prenom": payment.member.prenom,
-            "numero_membre": payment.member.numero_membre,
-            "montant": _fmt_xaf(payment.montant),
-            "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
-        },
-    )
+    # CH-2 — tentative d'activation : si c'est le 3e frais qui complète
+    # le triplet (adhésion + inscription + carnet), le Member passe à ACTIF.
+    # Idempotent : si déjà actif (4e+ paiement), no-op.
+    _activate_member_if_fees_settled(payment.member, trigger_payment=payment)
 
 
 def _hook_decaissement(payment: Payment, _raw: dict) -> None:
@@ -583,6 +693,21 @@ def _hook_decaissement(payment: Payment, _raw: dict) -> None:
     loan.date_decaissement = timezone.localdate()
     loan.statut = Loan.Statut.ACTIF
     loan.save(update_fields=["date_decaissement", "statut", "updated_at"])
+
+    # CH-12 — Si mode source + prêteurs, distribue immédiatement leur part
+    # 50 % des intérêts retenus. Idempotent : ne s'exécute qu'une fois par
+    # crédit même en cas de rejeu du webhook.
+    try:
+        from apps_coop.loans.lender_payouts import (
+            distribute_interest_share_at_source,
+        )
+
+        distribute_interest_share_at_source(loan, payment)
+    except Exception:  # noqa: BLE001 — best-effort, ne casse pas le hook.
+        logger.warning(
+            "distribute_interest_share_at_source a échoué pour Loan=%s",
+            loan.id, exc_info=True,
+        )
 
     record_audit(
         action="loan.disbursed",

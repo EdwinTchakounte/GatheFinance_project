@@ -22,4 +22,6 @@ urlpatterns = [
     path("payments/", include("apps_coop.payments.urls")),
     path("notifications/", include("apps_coop.notifications.urls")),
     path("audit/", include("apps_coop.audit.urls")),
+    # CH-4 — Moteur de formulaires dynamiques.
+    path("forms/", include("apps_coop.forms.urls")),
 ]

@@ -145,6 +145,13 @@ class LoanRequest(TimestampedModel):
         EN_ATTENTE = "en_attente", "En attente (frais à payer)"
         EN_INSTRUCTION = "en_instruction", "En instruction"
         EN_ATTENTE_ACCEPTATION_MEMBRE = "en_attente_acceptation_membre", "Contre-proposition à accepter"
+        # CH-6 — Double approbation (provisoire → visite terrain → définitive).
+        # APPROUVEE_PROVISOIRE = décision provisoire favorable du comité, sous
+        # réserve d'une visite terrain. Avant le passage à APPROUVEE.
+        APPROUVEE_PROVISOIRE = (
+            "approuvee_provisoire",
+            "Approuvée provisoirement (visite terrain à effectuer)",
+        )
         APPROUVEE = "approuvee", "Approuvée"
         REJETEE = "rejetee", "Rejetée"
         # Refonte 2026 (LOT 10) — Voie 2 AVALISTE (§7.2 BUSINESS_RULES_2026).
@@ -181,6 +188,16 @@ class LoanRequest(TimestampedModel):
 
     statut = models.CharField(max_length=32, choices=Statut.choices, default=Statut.EN_ATTENTE, db_index=True)
     motif_rejet = models.TextField(blank=True)
+
+    # CH-4 — Champs additionnels FormSchema (loan_request).
+    extra_payload = models.JSONField(
+        default=dict, blank=True,
+        help_text="Champs FormSchema additionnels (id_champ → valeur).",
+    )
+    form_schema_version = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Version du FormSchema 'loan_request' actif lors de la soumission.",
+    )
 
     date_soumission = models.DateTimeField(auto_now_add=True)
 
@@ -232,6 +249,34 @@ class LoanRequest(TimestampedModel):
     montant_revise = money_field(null=True, blank=True)
     duree_revisee = models.PositiveIntegerField(null=True, blank=True)
 
+    # CH-6 — Visite terrain entre approbation provisoire et décision définitive.
+    # L'agent terrain est différent du président comité ; il remplit un rapport
+    # qui conditionne la validation définitive.
+    field_visit_done_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Date à laquelle la visite terrain a été effectuée.",
+    )
+    field_visit_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="loan_requests_visited",
+        help_text="Agent qui a effectué la visite terrain.",
+    )
+    field_visit_outcome = models.CharField(
+        max_length=16, blank=True,
+        choices=[
+            ("favorable", "Favorable — peut être approuvée définitivement"),
+            ("defavorable", "Défavorable — propose le rejet"),
+            ("a_revoir", "À revoir — informations à compléter"),
+        ],
+        help_text="Recommandation de l'agent terrain au comité.",
+    )
+    field_visit_note = models.TextField(
+        blank=True,
+        help_text="Compte-rendu de la visite (observations sur le demandeur, l'activité, le local).",
+    )
+
     # Refonte 2026 (LOT 10) — Voie d'éligibilité AVALISTE.
     # Posé une fois l'``AvalisteConsent`` accepté par l'avaliste. Indispensable
     # pour les écritures de phase contentieux (R1 + R2 saisissent les deux
@@ -261,6 +306,32 @@ class LoanRequest(TimestampedModel):
         help_text=(
             "Campagne micro-crédit d'origine. NULL pour les voies SENIOR_BRC "
             "et AVALISTE. Posé à la soumission via ``submit_microcampaign_request``."
+        ),
+    )
+
+    # CH-9 — Moyen de réception choisi par le membre à la soumission.
+    # Saisi en amont (avant approbation), il pilote ensuite l'auto-fill du
+    # payout Tara et apparaît sur la note de demande PDF (Sinora §5.3 flow).
+    class MoyenReception(models.TextChoices):
+        TARA_OM = "tara_om", "Tara Orange Money"
+        TARA_MOMO = "tara_momo", "Tara MTN MoMo"
+        AGENCE_ESPECES = "agence_especes", "Retrait espèces en agence"
+
+    moyen_reception = models.CharField(
+        max_length=16,
+        choices=MoyenReception.choices,
+        blank=True,
+        help_text=(
+            "Canal choisi par le membre pour recevoir le décaissement. "
+            "Pilote l'auto-fill du payout Tara à la mise à disposition."
+        ),
+    )
+    recipient_phone = models.CharField(
+        max_length=32,
+        blank=True,
+        help_text=(
+            "Numéro Mobile Money du membre — requis si moyen_reception "
+            "= tara_om ou tara_momo. Vide pour agence_especes."
         ),
     )
 
@@ -327,8 +398,83 @@ class Loan(TimestampedModel):
     date_decaissement = models.DateField()
     date_premiere_echeance = models.DateField()
 
+    # CH-8 — Date butoire formelle (échéancier souple, date butoire stricte).
+    # Posée à la création du Loan = date_premiere_echeance + duree_mois.
+    # Modifiable par l'admin (extension exceptionnelle à la demande du membre).
+    # Dépasser cette date sans solde nul = déclenchement pénalité globale +
+    # passage en contentieux.
+    date_butoire = models.DateField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=(
+            "Date butoire formelle pour solder le crédit. Les échéances "
+            "individuelles sont indicatives ; seule la date butoire engage. "
+            "Modifiable par l'admin via /extend-deadline/ avec audit."
+        ),
+    )
+
     montant_total_du = money_field(help_text="Principal + total interests over full term.")
     solde_restant = money_field()
+
+    # CH-11 — Retenue des intérêts à la source (Sinora §5.3).
+    # Quand ``mode_retenue_interets = "source"`` (réglage 2026-06-12) :
+    #   * Le membre demande 100 000, ``montant`` = 100 000 (nominal).
+    #   * ``interets_retenus_source`` = 10 000 (= montant × taux_interet).
+    #   * ``montant_decaisse_net`` = 90 000 (ce qu'il reçoit en main).
+    #   * ``montant_total_du`` = 90 000 (capital pur — il rembourse uniquement
+    #     ce qu'il a touché). L'échéancier ne contient plus d'intérêts.
+    # Pour les crédits historiques antérieurs à CH-11 (mode "echeances") :
+    #   * ``interets_retenus_source`` = 0, ``montant_decaisse_net`` = ``montant``.
+    #   * Échéancier inchangé (capital + intérêts répartis).
+    class ModeRetenue(models.TextChoices):
+        ECHEANCES = "echeances", "Intérêts répartis sur les échéances (legacy)"
+        SOURCE = "source", "Intérêts retenus à la source à la mise à disposition"
+
+    mode_retenue_interets = models.CharField(
+        max_length=12,
+        choices=ModeRetenue.choices,
+        default=ModeRetenue.ECHEANCES,
+        help_text=(
+            "Mode de paiement des intérêts. 'source' = retenus à la mise à "
+            "disposition (CH-11), 'echeances' = répartis sur les remboursements "
+            "(comportement historique)."
+        ),
+    )
+    montant_decaisse_net = money_field(
+        null=True,
+        blank=True,
+        help_text=(
+            "Montant réellement versé au membre au décaissement. En mode "
+            "'source' = montant - interets_retenus_source. En mode 'echeances' "
+            "= montant. NULL = legacy pre-CH-11."
+        ),
+    )
+    interets_retenus_source = money_field(
+        null=True,
+        blank=True,
+        help_text=(
+            "Intérêts ponctionnés par la coop à la mise à disposition. En "
+            "mode 'source' = montant × taux_interet. En mode 'echeances' = 0. "
+            "NULL = legacy pre-CH-11."
+        ),
+    )
+
+    # CH-12 — Snapshot du taux de partage prêteurs / coop figé à l'approbation
+    # du Loan. La valeur courante vit dans l'AppSetting ``lender.interest_share_rate``
+    # (modifiable côté admin) ; on la FIGE ici pour éviter qu'un changement
+    # ultérieur ne s'applique rétroactivement à un crédit déjà décaissé.
+    interest_share_rate_fige = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text=(
+            "Taux de partage des intérêts prêteurs vs coop, figé à "
+            "l'approbation (CH-12). Ex. 0.5000 = 50 % aux prêteurs, 50 % à "
+            "la coop. NULL = legacy ou pas de prêteurs."
+        ),
+    )
 
     statut = models.CharField(max_length=12, choices=Statut.choices, default=Statut.ACTIF, db_index=True)
 
@@ -411,13 +557,18 @@ class Loan(TimestampedModel):
 
     @property
     def date_limite_globale(self):
-        """Date limite globale du crédit = date de la dernière échéance prévue.
+        """Date limite globale du crédit.
+
+        CH-8 — Préfère ``date_butoire`` (champ formel modifiable) si posée,
+        sinon fallback sur la date de la dernière échéance (legacy).
 
         Sert de borne pour le cycle contentieux : c'est la date à partir de
         laquelle la pénalité globale (50 % × solde_restant) s'applique si
         ``solde_restant > 0``. Retourne ``None`` si aucune échéance n'a été
         générée (cas pathologique).
         """
+        if self.date_butoire is not None:
+            return self.date_butoire
         last = (
             self.installments.order_by("-date_echeance")
             .values_list("date_echeance", flat=True)
@@ -542,6 +693,16 @@ class LoanRenewal(TimestampedModel):
     statut = models.CharField(max_length=12, choices=Statut.choices, default=Statut.DEMANDEE, db_index=True)
     date_demande = models.DateTimeField(auto_now_add=True)
     date_decision = models.DateTimeField(null=True, blank=True)
+
+    # CH-4 — Champs additionnels FormSchema (loan_renewal).
+    extra_payload = models.JSONField(
+        default=dict, blank=True,
+        help_text="Champs FormSchema additionnels (id_champ → valeur).",
+    )
+    form_schema_version = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Version du FormSchema 'loan_renewal' actif lors de la soumission.",
+    )
 
     class Meta:
         ordering = ["-date_demande"]
@@ -932,7 +1093,13 @@ class LenderInterestPayout(TimestampedModel):
         LoanInstallment,
         on_delete=models.PROTECT,
         related_name="lender_interest_payouts",
-        help_text="Échéance dont la part intérêt a généré ce versement.",
+        null=True,
+        blank=True,
+        help_text=(
+            "Échéance dont la part intérêt a généré ce versement. NULL en "
+            "mode CH-11 source — le versement a lieu à T0 (décaissement) et "
+            "n'est rattaché à aucune échéance individuelle."
+        ),
     )
     payment = models.ForeignKey(
         "payments.Payment",

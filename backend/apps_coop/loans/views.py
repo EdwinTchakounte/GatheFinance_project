@@ -248,6 +248,29 @@ def loan_request_create(request):
             initial_statut = LoanRequest.Statut.EN_ATTENTE
             campaign_fk = None
 
+        # CH-4 — Champs ajoutés via FormSchema → extra_payload.
+        try:
+            from apps_coop.forms.services import apply_form_schema
+
+            _LOAN_REQUEST_HARDCODED = {
+                "montant_demande", "duree_mois", "motif",
+                "modalite_paiement",
+                # Voies AVALISTE / CAMPAIGN — toujours en colonnes/relations.
+                "avaliste_numero", "avaliste_nom",
+                "campaign_id", "profil_cible",
+            }
+            _, extra_payload, schema_version = apply_form_schema(
+                "loan_request",
+                {k: v for k, v in request.data.items()},
+                hardcoded_keys=_LOAN_REQUEST_HARDCODED,
+            )
+        except Exception:  # noqa: BLE001 — legacy fallback
+            import logging
+            logging.getLogger(__name__).exception(
+                "apply_form_schema('loan_request') failed — falling back to legacy",
+            )
+            extra_payload, schema_version = {}, None
+
         loan_request = LoanRequest.objects.create(
             member=member,
             montant_demande=data["montant_demande"],
@@ -255,6 +278,11 @@ def loan_request_create(request):
             motif=data["motif"],
             statut=initial_statut,
             microcampaign=campaign_fk,
+            extra_payload=extra_payload,
+            form_schema_version=schema_version,
+            # CH-9 — Canal de réception choisi à la soumission.
+            moyen_reception=data.get("moyen_reception") or "",
+            recipient_phone=(data.get("recipient_phone") or "").strip(),
         )
 
         # Voie AVALISTE : pose AvalisteConsent + LR → EN_ATTENTE_AVALISTE.
@@ -307,6 +335,15 @@ def loan_request_create(request):
     # Re-charge pour récupérer le statut potentiellement modifié par la
     # voie AVALISTE (request_avaliste_consent passe en EN_ATTENTE_AVALISTE).
     loan_request.refresh_from_db()
+    # CH-7 — Mention non-remboursable explicite (configurable via AppSetting).
+    from apps_coop.audit.services import get_str_setting
+    non_refundable_notice = get_str_setting(
+        "loans.study_fee.non_refundable_notice",
+        "Ces frais d'étude couvrent l'instruction du dossier et la visite "
+        "terrain éventuelle. Ils sont non-remboursables, y compris en cas "
+        "de refus de la demande.",
+    )
+
     return Response(
         {
             "loan_request": LoanRequestReadSerializer(loan_request).data,
@@ -314,8 +351,11 @@ def loan_request_create(request):
             "route_details": route_eval.details,
             "frais_a_payer": {
                 "code": "DEMANDE_CREDIT",
-                "libelle": "Frais de demande de crédit",
+                "libelle": "Frais d'étude du dossier",
                 "montant": str(frais_montant),
+                # CH-7 — Information UI : ces frais sont non-remboursables.
+                "non_remboursable": True,
+                "notice": non_refundable_notice,
             },
         },
         status=status.HTTP_201_CREATED,
@@ -555,6 +595,30 @@ def loan_renewal_request(request, pk: int):
         )
     except ValueError as exc:
         return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    # CH-4 — Champs ajoutés via FormSchema (loan_renewal) → extra_payload.
+    try:
+        from apps_coop.forms.services import apply_form_schema
+
+        _RENEWAL_HARDCODED = {
+            "nouvelle_duree_mois", "interets_au_comptant", "motif",
+        }
+        _, extra_payload, schema_version = apply_form_schema(
+            "loan_renewal",
+            {k: v for k, v in request.data.items()},
+            hardcoded_keys=_RENEWAL_HARDCODED,
+        )
+        if extra_payload or schema_version is not None:
+            renewal.extra_payload = extra_payload
+            renewal.form_schema_version = schema_version
+            renewal.save(update_fields=[
+                "extra_payload", "form_schema_version", "updated_at",
+            ])
+    except Exception:  # noqa: BLE001 — legacy fallback
+        import logging
+        logging.getLogger(__name__).exception(
+            "apply_form_schema('loan_renewal') failed — falling back to legacy",
+        )
 
     record_audit(
         action="loan_renewal.requested",
@@ -811,5 +875,567 @@ def loan_notice(request, pk: int):
             "statut": loan.statut,
             "mise_en_demeure_at": loan.mise_en_demeure_at.isoformat(),
             "mise_en_demeure_count": loan.mise_en_demeure_count,
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# CH-5 — Upload d'un fichier attaché à un LoanRequest (CGA, CFP, CNI, etc.).
+# Utilisé après la création du LoanRequest pour persister les fichiers déclarés
+# dans le FormSchema actif (champs de type 'file').
+# ---------------------------------------------------------------------------
+@extend_schema(
+    tags=["loans"],
+    summary="📎 Upload d'un fichier rattaché à une demande de crédit",
+    description=(
+        "Multipart upload : `fichier` (binaire) + `schema_field_id` (id du champ "
+        "FormSchema source). Crée un Document polymorphe lié au LoanRequest. "
+        "Re-upload du même champ remplace le précédent (idempotent par "
+        "(loan_request, schema_field_id)). Permission : owner du LoanRequest."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsActiveMember])
+def loan_request_upload_attachment(request, pk: int):
+    member = request.user.member
+    try:
+        lr = LoanRequest.objects.get(pk=pk, member=member)
+    except LoanRequest.DoesNotExist:
+        return Response(
+            {"detail": "Demande de crédit introuvable."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    fichier = request.FILES.get("fichier")
+    schema_field_id = str(request.data.get("schema_field_id", "")).strip()
+
+    if not fichier:
+        return Response(
+            {"detail": "Le fichier est requis (champ 'fichier')."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not schema_field_id:
+        return Response(
+            {"detail": "schema_field_id requis (id du champ FormSchema)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Plafond raisonnable : 10 Mo (le serializer du FormSchema valide aussi
+    # max_size_mb côté schéma, mais on garde un garde-fou serveur).
+    if fichier.size > 10 * 1024 * 1024:
+        return Response(
+            {"detail": "Fichier trop volumineux (max 10 Mo)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    from apps_coop.members.models import Document
+
+    # Idempotence : on remplace le précédent upload pour ce même champ.
+    Document.objects.filter(
+        entite_liee_type="LoanRequest",
+        entite_liee_id=lr.id,
+        schema_field_id=schema_field_id,
+    ).delete()
+
+    doc = Document.objects.create(
+        member=member,
+        type_doc=Document.TypeDoc.AUTRE,
+        entite_liee_type="LoanRequest",
+        entite_liee_id=lr.id,
+        schema_field_id=schema_field_id,
+        fichier=fichier,
+        nom_original=(getattr(fichier, "name", "") or "")[:255],
+        taille=fichier.size,
+    )
+
+    record_audit(
+        action="loan_request.attachment_uploaded",
+        entite_type="LoanRequest",
+        entite_id=lr.id,
+        user=request.user,
+        details={
+            "schema_field_id": schema_field_id,
+            "document_id": doc.id,
+            "nom_original": doc.nom_original,
+            "taille": doc.taille,
+        },
+        ip=client_ip(request),
+    )
+
+    return Response(
+        {
+            "id": doc.id,
+            "schema_field_id": doc.schema_field_id,
+            "nom_original": doc.nom_original,
+            "taille": doc.taille,
+            "url": doc.fichier.url if doc.fichier else None,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+# ---------------------------------------------------------------------------
+# CH-6 — Double approbation crédit (provisoire → visite terrain → définitive).
+# ---------------------------------------------------------------------------
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Comité — approbation provisoire d'une demande",
+    description=(
+        "EN_INSTRUCTION → APPROUVEE_PROVISOIRE. Sous réserve d'une visite "
+        "terrain favorable, la demande pourra ensuite être approuvée "
+        "définitivement via l'endpoint `decide-request`. Permission : "
+        "groupe `comite` ou superuser."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsComite])
+def loan_request_decide_provisional(request, pk: int):
+    try:
+        lr = LoanRequest.objects.get(pk=pk)
+    except LoanRequest.DoesNotExist:
+        return Response({"detail": "Demande introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    if lr.statut != LoanRequest.Statut.EN_INSTRUCTION:
+        return Response(
+            {"detail": f"Approbation provisoire impossible depuis le statut {lr.statut!r}."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    avis = str(request.data.get("avis_provisoire", "")).strip()
+    if not avis:
+        return Response(
+            {"detail": "Un avis provisoire est requis (champ 'avis_provisoire')."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    lr.statut = LoanRequest.Statut.APPROUVEE_PROVISOIRE
+    lr.decide_par = request.user
+    lr.date_decision = timezone.now()
+    # On stocke l'avis provisoire dans avis_instruction si vide ; sinon on
+    # concatène pour garder la traçabilité de l'avis d'origine.
+    if lr.avis_instruction:
+        lr.avis_instruction = f"{lr.avis_instruction}\n\n[Provisoire] {avis}"
+    else:
+        lr.avis_instruction = f"[Provisoire] {avis}"
+    lr.save(update_fields=[
+        "statut", "decide_par", "date_decision", "avis_instruction", "updated_at",
+    ])
+
+    record_audit(
+        action="loan_request.approved_provisional",
+        entite_type="LoanRequest",
+        entite_id=lr.id,
+        user=request.user,
+        details={"avis_provisoire": avis},
+        ip=client_ip(request),
+    )
+
+    from .serializers import LoanRequestReadSerializer as _LRR
+    return Response(_LRR(lr).data)
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Staff — enregistrer le rapport de visite terrain",
+    description=(
+        "Enregistre la visite terrain d'une demande APPROUVEE_PROVISOIRE. "
+        "Champs requis : `outcome` (favorable|defavorable|a_revoir) + `note`. "
+        "Idempotent : ré-enregistre si déjà rempli. Permission : staff."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def loan_request_field_visit(request, pk: int):
+    try:
+        lr = LoanRequest.objects.get(pk=pk)
+    except LoanRequest.DoesNotExist:
+        return Response({"detail": "Demande introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    if lr.statut != LoanRequest.Statut.APPROUVEE_PROVISOIRE:
+        return Response(
+            {
+                "detail": (
+                    "La visite terrain ne peut être enregistrée que pour une "
+                    "demande approuvée provisoirement."
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    outcome = str(request.data.get("outcome", "")).strip()
+    note = str(request.data.get("note", "")).strip()
+    valid_outcomes = {"favorable", "defavorable", "a_revoir"}
+    if outcome not in valid_outcomes:
+        return Response(
+            {"detail": f"outcome invalide. Valeurs autorisées : {sorted(valid_outcomes)}."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not note:
+        return Response(
+            {"detail": "Une note de visite est requise (champ 'note')."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    lr.field_visit_done_at = timezone.now()
+    lr.field_visit_by = request.user
+    lr.field_visit_outcome = outcome
+    lr.field_visit_note = note
+    lr.save(update_fields=[
+        "field_visit_done_at", "field_visit_by",
+        "field_visit_outcome", "field_visit_note", "updated_at",
+    ])
+
+    record_audit(
+        action="loan_request.field_visit_recorded",
+        entite_type="LoanRequest",
+        entite_id=lr.id,
+        user=request.user,
+        details={"outcome": outcome, "note_length": len(note)},
+        ip=client_ip(request),
+    )
+
+    from .serializers import LoanRequestReadSerializer as _LRR
+    return Response(_LRR(lr).data)
+
+
+# ---------------------------------------------------------------------------
+# CH-8 — Extension de la date butoire d'un crédit (admin, avec audit).
+# ---------------------------------------------------------------------------
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Admin — étendre la date butoire d'un crédit",
+    description=(
+        "Pose une nouvelle ``date_butoire`` strictement postérieure à l'actuelle. "
+        "Le motif est obligatoire (audit). Le crédit doit être actif ou en retard. "
+        "Permission : groupe `admin` ou superuser."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def loan_extend_deadline(request, pk: int):
+    from datetime import date as _date
+
+    try:
+        loan = Loan.objects.get(pk=pk)
+    except Loan.DoesNotExist:
+        return Response({"detail": "Crédit introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
+        return Response(
+            {
+                "detail": (
+                    f"Extension impossible : crédit en statut {loan.statut!r}. "
+                    "Réservé aux crédits actifs ou en retard."
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    new_date_raw = str(request.data.get("date_butoire", "")).strip()
+    motif = str(request.data.get("motif", "")).strip()
+
+    if not new_date_raw:
+        return Response(
+            {"detail": "Nouvelle date butoire requise (champ 'date_butoire', format YYYY-MM-DD)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not motif:
+        return Response(
+            {"detail": "Motif requis (champ 'motif')."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        new_date = _date.fromisoformat(new_date_raw)
+    except ValueError:
+        return Response(
+            {"detail": "Format de date invalide. Attendu : YYYY-MM-DD."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    current = loan.date_butoire
+    if current and new_date <= current:
+        return Response(
+            {
+                "detail": (
+                    f"La nouvelle date butoire ({new_date}) doit être strictement "
+                    f"postérieure à l'actuelle ({current})."
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    loan.date_butoire = new_date
+    loan.save(update_fields=["date_butoire", "updated_at"])
+
+    record_audit(
+        action="loan.deadline_extended",
+        entite_type="Loan",
+        entite_id=loan.id,
+        user=request.user,
+        details={
+            "previous": current.isoformat() if current else None,
+            "new": new_date.isoformat(),
+            "motif": motif,
+        },
+        ip=client_ip(request),
+    )
+
+    return Response(
+        {
+            "id": loan.id,
+            "numero_dossier": loan.numero_dossier,
+            "date_butoire": new_date.isoformat(),
+            "previous_date_butoire": current.isoformat() if current else None,
+            "motif": motif,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# CH-9 — Note de demande PDF + payout en un clic.
+# ---------------------------------------------------------------------------
+_MOYEN_TO_NETWORK = {
+    "tara_om": "ORANGE",
+    "tara_momo": "MTN",
+}
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="Note de demande de crédit (PDF)",
+    description=(
+        "Fiche A4 récapitulant la demande : identité, montant, durée, motif, "
+        "moyen de réception choisi, et échéancier prévisionnel si la demande "
+        "a déjà été approuvée. Accessible au membre demandeur et à l'admin, "
+        "à tout moment après création."
+    ),
+    responses={
+        200: OpenApiResponse(description="PDF binaire (application/pdf)"),
+        403: OpenApiResponse(description="Pas le propriétaire et pas admin"),
+        404: OpenApiResponse(description="Demande introuvable"),
+    },
+)
+@api_view(["GET"])
+def loan_request_note(request, pk: int):
+    """Télécharge la note PDF d'une `LoanRequest`.
+
+    - Le **membre** demandeur peut télécharger sa propre note.
+    - L'**admin** (superuser ou groupe ``coop_admin``) peut télécharger
+      n'importe quelle note.
+
+    NB : on n'utilise pas ``IsMember`` car l'admin n'a pas forcément de
+    profil membre. La vérification de propriété/admin est faite inline.
+    """
+    from django.http import HttpResponse
+
+    from .note_pdf import build_loan_request_note
+
+    user = request.user
+    if not user.is_authenticated:
+        return Response(
+            {"detail": "Authentification requise."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    try:
+        lr = LoanRequest.objects.select_related("member", "loan").get(pk=pk)
+    except LoanRequest.DoesNotExist:
+        return Response(
+            {"detail": "Demande introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    is_admin = user.is_superuser or user.groups.filter(name="coop_admin").exists()
+    is_owner = (
+        getattr(user, "member", None) is not None
+        and lr.member_id == user.member.id
+    )
+    if not (is_admin or is_owner):
+        return Response(
+            {"detail": "Vous n'êtes pas autorisé à accéder à cette note."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    pdf_bytes = build_loan_request_note(lr)
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    filename = f"note-demande-{lr.member.numero_membre}-{lr.id}.pdf"
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Admin — Décaisser maintenant (auto-fill)",
+    description=(
+        "Bouton « Payer maintenant » côté admin. Lit le `moyen_reception` "
+        "saisi par le membre à la soumission, déduit le canal Tara (OM/MTN) "
+        "ou le mode espèces, et déclenche le payout sans paramètres "
+        "supplémentaires.\n\n"
+        "- `tara_om` → payout Tara network=ORANGE\n"
+        "- `tara_momo` → payout Tara network=MTN\n"
+        "- `agence_especes` → décaissement manuel — `reference_externe` "
+        "  doit être fourni dans le body.\n\n"
+        "Idempotent : si un Payment décaissement existe déjà (en_attente ou "
+        "valide), on le retourne tel quel."
+    ),
+    responses={
+        200: OpenApiResponse(description="Décaissement initié / déjà existant"),
+        400: OpenApiResponse(description="Moyen non défini ou ref manuelle manquante"),
+        404: OpenApiResponse(description="Crédit introuvable"),
+        502: OpenApiResponse(description="Erreur Tara non réessayable"),
+        503: OpenApiResponse(description="Tara indisponible (retryable)"),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def loan_disburse_now(request, pk: int):
+    """Auto-fill du payout depuis ``LoanRequest.moyen_reception``."""
+    try:
+        loan = Loan.objects.select_related("loan_request").get(pk=pk)
+    except Loan.DoesNotExist:
+        return Response(
+            {"detail": "Crédit introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
+        return Response(
+            {"detail": f"Crédit en statut {loan.statut!r} — décaissement impossible."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    lr = loan.loan_request
+    moyen = (lr.moyen_reception or "").strip()
+    if not moyen:
+        return Response(
+            {
+                "detail": (
+                    "Le membre n'a pas précisé de moyen de réception. "
+                    "Utilisez /disburse/ avec mode + paramètres explicites."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if moyen in _MOYEN_TO_NETWORK:
+        phone = (lr.recipient_phone or "").strip()
+        if not phone:
+            return Response(
+                {"detail": "Numéro Mobile Money manquant sur la demande."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            payment = disburse_loan_via_tara(
+                loan,
+                agent=request.user,
+                recipient_phone=phone,
+                network=_MOYEN_TO_NETWORK[moyen],
+            )
+        except ProviderError as exc:
+            http_status = (
+                status.HTTP_503_SERVICE_UNAVAILABLE
+                if exc.retryable
+                else status.HTTP_502_BAD_GATEWAY
+            )
+            return Response(
+                {"detail": f"Tara indisponible : {exc}"},
+                status=http_status,
+            )
+        return Response(
+            {
+                "loan_id": loan.id,
+                "numero_dossier": loan.numero_dossier,
+                "payment_id": payment.id,
+                "mode": "tara",
+                "moyen_reception": moyen,
+                "statut": payment.statut,
+                "reference_externe": payment.reference_externe,
+            }
+        )
+
+    # Mode manuel — agence_especes : besoin d'une référence externe.
+    ref_externe = (request.data.get("reference_externe") or "").strip()
+    if not ref_externe:
+        return Response(
+            {
+                "detail": (
+                    "Décaissement espèces : reference_externe requise "
+                    "(ex. numéro de reçu de caisse)."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    payment = disburse_loan_manual(
+        loan,
+        agent=request.user,
+        reference_externe=ref_externe,
+        note=(request.data.get("note") or ""),
+    )
+    return Response(
+        {
+            "loan_id": loan.id,
+            "numero_dossier": loan.numero_dossier,
+            "payment_id": payment.id,
+            "mode": "manuel",
+            "moyen_reception": moyen,
+            "statut": payment.statut,
+            "reference_externe": payment.reference_externe,
+        }
+    )
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Admin — Statut du décaissement",
+    description=(
+        "Renvoie l'état du dernier `Payment(type=decaissement)` du crédit — "
+        "permet à l'admin de monitor un payout Tara en cours sans recharger "
+        "toute la page."
+    ),
+    responses={
+        200: OpenApiResponse(description="Statut + détails du Payment"),
+        404: OpenApiResponse(description="Crédit introuvable"),
+    },
+)
+@api_view(["GET"])
+@permission_classes([IsAdmin])
+def loan_disbursement_status(request, pk: int):
+    try:
+        loan = Loan.objects.get(pk=pk)
+    except Loan.DoesNotExist:
+        return Response(
+            {"detail": "Crédit introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+    payment = (
+        Payment.objects.filter(loan=loan, type=Payment.Type.DECAISSEMENT)
+        .order_by("-id")
+        .first()
+    )
+    if not payment:
+        return Response(
+            {
+                "loan_id": loan.id,
+                "numero_dossier": loan.numero_dossier,
+                "has_payment": False,
+            }
+        )
+    return Response(
+        {
+            "loan_id": loan.id,
+            "numero_dossier": loan.numero_dossier,
+            "has_payment": True,
+            "payment_id": payment.id,
+            "statut": payment.statut,
+            "source": payment.source,
+            "provider_code": payment.provider_code,
+            "reference_externe": payment.reference_externe,
+            "motif_rejet": payment.motif_rejet,
+            "date_versement": (
+                payment.date_versement.isoformat() if payment.date_versement else None
+            ),
+            "gateway_initiated_at": (
+                payment.gateway_initiated_at.isoformat()
+                if payment.gateway_initiated_at
+                else None
+            ),
         }
     )

@@ -115,12 +115,14 @@ class TestRejectMembershipRequest:
 
 
 class TestMemberActivationOnFirstCotisation:
-    def test_payment_frais_adhesion_flips_suspended_to_actif(self, suspended_member):
-        """Le hook `_hook_adhesion` doit passer le membre `suspendu` à `actif`."""
+    def test_payment_frais_adhesion_alone_keeps_member_suspended(self, suspended_member):
+        """Depuis CH-2 (juin 2026) : un seul frais payé ne suffit plus pour activer.
+        Il faut les 3 frais cumulés (adhésion + inscription + carnet) — cf.
+        ``test_membership_activation.py`` pour la couverture complète."""
         # 1) On crée un paiement frais_adhesion en attente
         payment = Payment.objects.create(
             member=suspended_member,
-            montant=Decimal("5000"),
+            montant=Decimal("10000"),
             type=Payment.Type.FRAIS_ADHESION,
             source=Payment.Source.MOBILE_MONEY,
             statut=Payment.Statut.EN_ATTENTE,
@@ -134,9 +136,9 @@ class TestMemberActivationOnFirstCotisation:
             provider_reference="TEST-REF-001",
             raw_payload={},
         )
-        # 3) Vérifications
+        # 3) Le membre reste suspendu — il manque les frais d'inscription et carnet.
         suspended_member.refresh_from_db()
         payment.refresh_from_db()
-        assert suspended_member.statut == Member.Statut.ACTIF
+        assert suspended_member.statut == Member.Statut.SUSPENDU
         assert payment.statut == Payment.Statut.VALIDE
         assert payment.reference_externe == "TEST-REF-001"
