@@ -48,4 +48,12 @@ class Member {
   }
 }
 
-enum MemberStatus { actif, suspendu, radie }
+/// Statut métier d'un membre, aligné sur `apps_coop.members.models.Member.Statut`.
+///
+/// - [actif] : membre confirmé, accès complet.
+/// - [suspendu] : sanction administrative (ex. retards graves).
+/// - [radie] : exclusion définitive de la coopérative.
+/// - [temporaire] : bénéficiaire micro-crédit campagne (LOT 11) — accès au
+///   crédit campagne uniquement, peut basculer [actif] après paiement des
+///   frais d'inscription (CH-2).
+enum MemberStatus { actif, suspendu, radie, temporaire }

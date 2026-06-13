@@ -17,6 +17,7 @@ import '../../../../core/widgets/paysika/pa_shimmer.dart';
 import '../../../../core/widgets/paysika/pa_transaction_tile.dart';
 import '../../../security/presentation/widgets/pin_prompt_sheet.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../auth/domain/entities/member.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
 import '../../../notifications/presentation/state/notifications_notifier.dart';
 import '../../../savings/domain/entities/savings_account.dart';
@@ -61,6 +62,16 @@ class HomePage extends ConsumerWidget {
                 unread: ref.watch(unreadNotifsCountProvider),
               ),
             ),
+            // CH-2 — Bannière statut quand le membre n'est pas encore actif
+            // (temporaire = micro-crédit campagne, doit payer ses frais ;
+            // suspendu = sanction administrative). On l'épingle hors du
+            // scroll pour qu'elle reste visible tant que l'action n'est
+            // pas faite.
+            if (member != null && member.statut != MemberStatus.actif)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                child: _StatusBanner(status: member.statut),
+              ),
             Expanded(
               child: RefreshIndicator.adaptive(
           color: PaColors.teal,
@@ -566,6 +577,155 @@ class _HeroError extends StatelessWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
+// Badge info commission 1% (LOT 4) — affiché sur la card Cotisation.
+// Au tap, ouvre un dialog explicatif citant l'Article 4 du Règlement.
+// ───────────────────────────────────────────────────────────────────────────
+
+class _CommissionInfoBadge extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+          ),
+          title: const Text('Commission mensuelle 1 %'),
+          content: const Text(
+            "Conformément à l'Article 4 du Règlement Intérieur, la "
+            "coopérative retient 1 % de ton solde cotisation à la fin de "
+            "chaque mois calendaire. Ce taux peut être ajusté par le "
+            'comité.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: PaColors.warningSurface,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.info_outline,
+                size: 12, color: PaColors.warning),
+            const SizedBox(width: 4),
+            const Text(
+              '1 % retenu en fin de mois',
+              style: TextStyle(
+                color: PaColors.warning,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+// ───────────────────────────────────────────────────────────────────────────
+// Bannière statut (CH-2) — affichée quand le membre n'est pas actif :
+// - temporaire (LOT 11) : compte créé après crédit campagne, doit payer
+//   ses frais d'inscription pour basculer actif et accéder à l'épargne.
+// - suspendu : sanction administrative, doit régulariser sa situation.
+// - radie : exclusion définitive — pour info, pas de CTA.
+// ───────────────────────────────────────────────────────────────────────────
+
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({required this.status});
+
+  final MemberStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, title, sub, bg, fg) = switch (status) {
+      MemberStatus.temporaire => (
+        Icons.info_outline_rounded,
+        'Compte temporaire',
+        "Paie tes frais d'inscription pour activer ton compte complet.",
+        PaColors.warningSurface,
+        PaColors.warning,
+      ),
+      MemberStatus.suspendu => (
+        Icons.pause_circle_outline_rounded,
+        'Compte suspendu',
+        'Contacte la coopérative pour régulariser ta situation.',
+        PaColors.dangerSurface,
+        PaColors.danger,
+      ),
+      MemberStatus.radie => (
+        Icons.block_rounded,
+        'Compte radié',
+        "Tu n'as plus accès aux services de la coopérative.",
+        PaColors.dangerSurface,
+        PaColors.danger,
+      ),
+      MemberStatus.actif => (
+        Icons.check_circle_outline_rounded,
+        'Compte actif',
+        '',
+        PaColors.successSurface,
+        PaColors.success,
+      ),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: fg.withValues(alpha: 0.25), width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: fg, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (sub.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    sub,
+                    style: const TextStyle(
+                      color: PaColors.inkSecondary,
+                      fontSize: 12,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+// ───────────────────────────────────────────────────────────────────────────
 // Carte Cotisation journalière — section secondaire de la Home maintenant
 // que l'épargne classique occupe le hero. Présente le solde cotisation +
 // CTA dédié vers le sheet de versement journalier (multi-jours pré-payé).
@@ -620,6 +780,11 @@ class _CotisationCard extends ConsumerWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                // LOT 4 — Commission 1% prélevée en fin de mois calendaire
+                // par la coopérative (Article 4 du Règlement Intérieur).
+                // Affichage transparent pour le membre.
+                const SizedBox(height: 6),
+                _CommissionInfoBadge(),
               ],
             ),
           ),

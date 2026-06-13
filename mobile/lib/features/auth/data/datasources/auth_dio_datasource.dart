@@ -212,6 +212,8 @@ MemberStatus _toStatus(String raw) {
       return MemberStatus.suspendu;
     case 'radie':
       return MemberStatus.radie;
+    case 'temporaire':
+      return MemberStatus.temporaire;
     case 'actif':
     default:
       return MemberStatus.actif;
