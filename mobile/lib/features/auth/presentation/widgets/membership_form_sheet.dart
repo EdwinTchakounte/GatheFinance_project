@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../../core/di/providers.dart';
 import '../../../../core/widgets/brand_loader.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../forms/domain/form_validation.dart';
+import '../../../forms/presentation/widgets/dynamic_fields.dart';
+
+/// Champs hardcoded dans ce sheet — exclus du renderer DynamicFields pour
+/// éviter les doublons. Doit refléter `_MEMBERSHIP_HARDCODED` dans
+/// `apps_coop/members/serializers.py`.
+const Set<String> _hardcodedAdhesionFields = {
+  'name', 'email', 'phone', 'whatsapp', 'city',
+  'quartier_localite', 'statut_pro', 'urgence_nom',
+  'urgence_lien', 'urgence_phone', 'message', 'language',
+};
 
 enum _Step { form, loading, success }
 
@@ -20,7 +33,7 @@ enum _StatutPro { salarie, commercant, artisan, sansEmploi, autre }
 ///
 /// Mock-only : flow visuel complet, persistance branchée plus tard via
 /// `SubmitMembershipRequest`.
-class MembershipFormSheet extends StatefulWidget {
+class MembershipFormSheet extends ConsumerStatefulWidget {
   const MembershipFormSheet({super.key});
 
   static Future<void> show(BuildContext context) {
@@ -38,11 +51,15 @@ class MembershipFormSheet extends StatefulWidget {
   }
 
   @override
-  State<MembershipFormSheet> createState() => _MembershipFormSheetState();
+  ConsumerState<MembershipFormSheet> createState() => _MembershipFormSheetState();
 }
 
-class _MembershipFormSheetState extends State<MembershipFormSheet>
+class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
     with TickerProviderStateMixin {
+  // CH-5 — Valeurs des champs dynamiques (FormSchema adhesion).
+  Map<String, Object?> _extraValues = {};
+  Map<String, String> _extraErrors = {};
+  String? _submitError;
   final _formKey = GlobalKey<FormState>();
 
   final _prenomCtrl = TextEditingController();
@@ -91,16 +108,103 @@ class _MembershipFormSheetState extends State<MembershipFormSheet>
     super.dispose();
   }
 
+  String _statutProValue() {
+    switch (_statutPro) {
+      case _StatutPro.salarie:
+        return 'salarie';
+      case _StatutPro.commercant:
+        return 'commercant';
+      case _StatutPro.artisan:
+        return 'artisan';
+      case _StatutPro.sansEmploi:
+        return 'sans_emploi';
+      case _StatutPro.autre:
+        return 'autre';
+      case null:
+        return '';
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    // CH-5 — Validation locale des champs dynamiques avant l'envoi.
+    final schema = ref.read(activeAdhesionSchemaProvider).valueOrNull;
+    if (schema != null) {
+      final errs = validateSchema(
+        schema,
+        _extraValues,
+        excludeIds: _hardcodedAdhesionFields,
+      );
+      if (errs.isNotEmpty) {
+        setState(() => _extraErrors = errs);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Certains champs supplémentaires sont à compléter.'),
+          ),
+        );
+        return;
+      }
+      setState(() => _extraErrors = const {});
+    }
     FocusScope.of(context).unfocus();
     HapticFeedback.mediumImpact();
-    setState(() => _step = _Step.loading);
-    await Future<void>.delayed(const Duration(milliseconds: 1400));
-    if (!mounted) return;
-    setState(() => _step = _Step.success);
-    HapticFeedback.heavyImpact();
-    _checkCtrl.forward();
+    setState(() {
+      _step = _Step.loading;
+      _submitError = null;
+    });
+    try {
+      // 1. Captcha auto-résolu (challenge math signé côté backend).
+      final ds = ref.read(membershipDataSourceProvider);
+      final challenge = await ds.getCaptcha();
+      final answer = challenge.solve();
+      if (answer == null || challenge.token.isEmpty) {
+        throw 'Captcha indisponible — réessaie dans un instant.';
+      }
+      // 2. Construit le body backend depuis les hardcoded + extras (scalaires).
+      final scalarExtras = <String, Object?>{};
+      for (final entry in _extraValues.entries) {
+        final v = entry.value;
+        // Le sheet adhésion ne supporte pas les uploads — le backend les
+        // accepterait mais le serializer public est text-only (multipart KO).
+        if (v is PickedFile) continue;
+        if (v != null && v != '') scalarExtras[entry.key] = v;
+      }
+      final body = <String, Object?>{
+        'name': '${_prenomCtrl.text.trim()} ${_nomCtrl.text.trim()}'.trim(),
+        'email': _emailCtrl.text.trim().toLowerCase(),
+        'phone': _phoneCtrl.text.trim(),
+        'whatsapp': _whatsappCtrl.text.trim(),
+        'city': _cityCtrl.text.trim(),
+        'quartier_localite': _quartierCtrl.text.trim(),
+        'statut_pro': _statutProValue(),
+        'urgence_nom': _urgenceNomCtrl.text.trim(),
+        'urgence_lien': _urgenceLienCtrl.text.trim(),
+        'urgence_phone': _urgencePhoneCtrl.text.trim(),
+        'message': _motivationCtrl.text.trim(),
+        'language': 'fr',
+        'captcha_token': challenge.token,
+        'captcha_answer': answer.toString(),
+        ...scalarExtras,
+      };
+      final err = await ds.submit(body: body);
+      if (!mounted) return;
+      if (err != null) {
+        setState(() {
+          _step = _Step.form;
+          _submitError = err;
+        });
+        return;
+      }
+      setState(() => _step = _Step.success);
+      HapticFeedback.heavyImpact();
+      _checkCtrl.forward();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _step = _Step.form;
+        _submitError = e is String ? e : 'Soumission échouée : $e';
+      });
+    }
   }
 
   @override
@@ -209,6 +313,50 @@ class _MembershipFormSheetState extends State<MembershipFormSheet>
                 _section(l.mf_section_motivation),
                 _field(_motivationCtrl, l.mf_motivation_q,
                     maxLines: 3),
+
+                // CH-5 — Champs supplémentaires définis par l'admin via le
+                // FormSchema actif (kind=adhesion). En 404 ou erreur transport,
+                // on garde le sheet legacy intact.
+                Consumer(
+                  builder: (context, ref, _) {
+                    final schemaAsync =
+                        ref.watch(activeAdhesionSchemaProvider);
+                    final schema = schemaAsync.valueOrNull;
+                    if (schema == null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 18),
+                      child: DynamicFields(
+                        schema: schema,
+                        values: _extraValues,
+                        onChange: (v) => setState(() => _extraValues = v),
+                        excludeIds: _hardcodedAdhesionFields,
+                        errors: _extraErrors,
+                      ),
+                    );
+                  },
+                ),
+
+                if (_submitError != null) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: PaColors.danger.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: PaColors.danger.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      _submitError!,
+                      style: const TextStyle(
+                        color: PaColors.danger,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 14),
                 _feesNote(),

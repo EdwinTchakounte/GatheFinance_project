@@ -19,11 +19,14 @@ import '../usecases/usecase.dart';
 
 // ---- Auth -----------------------------------------------------------------
 import '../../features/auth/data/datasources/auth_dio_datasource.dart';
+import '../../features/auth/data/datasources/membership_dio_datasource.dart';
 import '../../features/auth/data/datasources/auth_mock_datasource.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
+import '../../features/auth/domain/usecases/confirm_password_reset.dart';
 import '../../features/auth/domain/usecases/get_current_member.dart';
+import '../../features/auth/domain/usecases/request_password_reset.dart';
 import '../../features/auth/domain/usecases/sign_in.dart';
 import '../../features/auth/domain/usecases/sign_out.dart';
 
@@ -47,10 +50,12 @@ import '../../features/loans/domain/usecases/get_eligibility.dart';
 import '../../features/loans/domain/usecases/get_my_active_loans.dart';
 import '../../features/loans/domain/usecases/get_my_lender_payouts.dart';
 import '../../features/loans/domain/usecases/get_my_loan_requests.dart';
+import '../../features/loans/domain/usecases/get_active_loan_request_schema.dart';
 import '../../features/loans/domain/usecases/make_loan_repayment.dart';
 import '../../features/loans/domain/usecases/pay_loan_request_study_fee.dart';
 import '../../features/loans/domain/usecases/request_loan_renewal.dart';
 import '../../features/loans/domain/usecases/submit_loan_request.dart';
+import '../../features/loans/domain/usecases/upload_loan_request_attachment.dart';
 
 // ---- Booklet --------------------------------------------------------------
 import '../../features/booklet/data/datasources/booklet_dio_datasource.dart';
@@ -121,6 +126,16 @@ final signInUseCaseProvider = Provider<SignIn>(
 
 final signOutUseCaseProvider = Provider<SignOut>(
   (ref) => SignOut(ref.watch(authRepositoryProvider)),
+);
+
+// Mot de passe oublié — étape 1 : demande d'envoi OTP.
+final requestPasswordResetUseCaseProvider = Provider<RequestPasswordReset>(
+  (ref) => RequestPasswordReset(ref.watch(authRepositoryProvider)),
+);
+
+// Mot de passe oublié — étape 2 : confirmation OTP + nouveau mot de passe.
+final confirmPasswordResetUseCaseProvider = Provider<ConfirmPasswordReset>(
+  (ref) => ConfirmPasswordReset(ref.watch(authRepositoryProvider)),
 );
 
 final getCurrentMemberUseCaseProvider = Provider<GetCurrentMember>(
@@ -206,11 +221,43 @@ final submitLoanRequestUseCaseProvider = Provider<SubmitLoanRequest>(
   (ref) => SubmitLoanRequest(ref.watch(loansRepositoryProvider)),
 );
 
+// Adhésion publique (sans auth) — POST /api/forms/adhesion/ + captcha.
+final membershipDataSourceProvider =
+    Provider<MembershipDioDataSource>((ref) {
+  return MembershipDioDataSource(ref.watch(apiClientProvider));
+});
+
+/// FormSchema actif (kind=adhesion) — null si admin n'a pas défini de version
+/// active → mode legacy hardcoded. Auto-fetch + autoDispose.
+final activeAdhesionSchemaProvider = FutureProvider.autoDispose((ref) async {
+  return ref.watch(membershipDataSourceProvider).getActiveAdhesionSchema();
+});
+
 // CH-7 — Paiement des frais d'étude de la demande EN_ATTENTE.
 final payLoanRequestStudyFeeUseCaseProvider =
     Provider<PayLoanRequestStudyFee>(
   (ref) => PayLoanRequestStudyFee(ref.watch(loansRepositoryProvider)),
 );
+
+// CH-5 — Récupération du FormSchema actif pour le formulaire de demande.
+final getActiveLoanRequestSchemaUseCaseProvider =
+    Provider<GetActiveLoanRequestSchema>(
+  (ref) => GetActiveLoanRequestSchema(ref.watch(loansRepositoryProvider)),
+);
+
+// CH-5 — Upload d'une pièce jointe sur un LoanRequest.
+final uploadLoanRequestAttachmentUseCaseProvider =
+    Provider<UploadLoanRequestAttachment>(
+  (ref) => UploadLoanRequestAttachment(ref.watch(loansRepositoryProvider)),
+);
+
+/// CH-5 — FormSchema actif (loan_request), null si mode legacy. Auto-fetché
+/// à l'ouverture du sheet de demande. L'UI le watch via `.when()`.
+final activeLoanRequestSchemaProvider =
+    FutureProvider.autoDispose((ref) async {
+  final useCase = ref.watch(getActiveLoanRequestSchemaUseCaseProvider);
+  return useCase.call(const NoParams());
+});
 
 final makeLoanRepaymentUseCaseProvider = Provider<MakeLoanRepayment>(
   (ref) => MakeLoanRepayment(ref.watch(loansRepositoryProvider)),
