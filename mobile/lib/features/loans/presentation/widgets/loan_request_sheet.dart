@@ -73,6 +73,11 @@ enum _Step { form, loading, success, payForm, payLoading, paySuccess }
 class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     with TickerProviderStateMixin {
   final _motifCtrl = TextEditingController();
+  // §7.2 BUSINESS_RULES_2026 — Désignation optionnelle d'un avaliste senior+BRC.
+  // Si renseignés, le backend bascule la voie EligibilityRoute.AVALISTE.
+  bool _withAvaliste = false;
+  final _avalisteNumeroCtrl = TextEditingController();
+  final _avalisteNomCtrl = TextEditingController();
   // CH-9 — Canal de réception choisi par le membre + numéro Mobile Money.
   final _phoneCtrl = TextEditingController();
   // CH-7 — Numéro Mobile Money pour régler les frais d'étude.
@@ -113,6 +118,8 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     _motifCtrl.dispose();
     _phoneCtrl.dispose();
     _feePhoneCtrl.dispose();
+    _avalisteNumeroCtrl.dispose();
+    _avalisteNomCtrl.dispose();
     _checkCtrl.dispose();
     super.dispose();
   }
@@ -121,6 +128,20 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     if (_motifCtrl.text.trim().length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppL10n.of(context).lreq_motive_short)),
+      );
+      return;
+    }
+    // BUSINESS_RULES §7.2 — Si avaliste activé, les 2 champs sont requis.
+    final avalisteNumero = _avalisteNumeroCtrl.text.trim();
+    final avalisteNom = _avalisteNomCtrl.text.trim();
+    if (_withAvaliste &&
+        (avalisteNumero.length < 4 || avalisteNom.length < 2)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Renseigne le numéro et le nom de l'avaliste (ou décoche).",
+          ),
+        ),
       );
       return;
     }
@@ -173,6 +194,12 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
         } else if (v != null && v != '') {
           scalarExtras[entry.key] = v;
         }
+      }
+      // BUSINESS_RULES §7.2 — Injecte les champs avaliste dans le body
+      // attendu par LoanRequestSubmitSerializer (clés snake_case backend).
+      if (_withAvaliste) {
+        scalarExtras['avaliste_numero'] = avalisteNumero;
+        scalarExtras['avaliste_nom'] = avalisteNom;
       }
       final submission =
           await ref.read(loanRequestsProvider.notifier).submit(
@@ -379,6 +406,56 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
             ),
 
             const SizedBox(height: AppSpacing.l),
+
+            // --- BUSINESS_RULES §7.2 — Désignation optionnelle d'un avaliste ---
+            //
+            // Si le membre veut emprunter sur la voie AVALISTE (typiquement
+            // parce qu'il n'est pas senior+BRC ou qu'il a déjà un crédit en
+            // cours), il saisit ici le numéro d'identification + nom de
+            // famille de l'avaliste, qui recevra une notification de consent.
+            // Si laissé fermé, le backend tente d'abord la voie SENIOR_BRC.
+            SwitchListTile.adaptive(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: _withAvaliste,
+              onChanged: (v) => setState(() => _withAvaliste = v),
+              title: Text(
+                'Désigner un avaliste',
+                style: AppTypography.labelMedium,
+              ),
+              subtitle: const Text(
+                'Membre senior+BRC qui garantit le crédit (§7.2).',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+            if (_withAvaliste) ...[
+              const SizedBox(height: AppSpacing.s),
+              TextFormField(
+                controller: _avalisteNumeroCtrl,
+                style: AppTypography.bodyLarge,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  hintText: 'Numéro d\'identification (ex. GF-2024-0042)',
+                  prefixIcon: Icon(Icons.badge_outlined, size: 20),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.s),
+              TextFormField(
+                controller: _avalisteNomCtrl,
+                style: AppTypography.bodyLarge,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  hintText: 'Nom de famille de l\'avaliste',
+                  prefixIcon: Icon(Icons.person_outline, size: 20),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.m),
+            ] else
+              const SizedBox(height: AppSpacing.m),
 
             // --- CH-9 — Canal de réception du décaissement ---
             Text('Comment recevoir l\'argent ?',
