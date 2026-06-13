@@ -16,6 +16,7 @@ import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../avaliste/presentation/state/avaliste_notifier.dart';
+import '../../../loans/domain/entities/eligibility.dart';
 import '../../../loans/domain/entities/loan.dart';
 import '../../../loans/domain/entities/loan_request.dart';
 import '../../../loans/presentation/state/loans_notifier.dart';
@@ -107,6 +108,39 @@ class CreditPage extends ConsumerWidget {
                     ),
                     error: (e, _) => _ErrorBox(message: e.toString()),
                   ),
+                ),
+              ),
+
+              // ── Voies de crédit disponibles (refonte 2026) ──────────
+              //     Refonte 2026 LOT 12 : 3 voies d'éligibilité existent
+              //     côté backend (SENIOR_BRC / AVALISTE / CAMPAGNE). Cette
+              //     section les rend visibles au membre avant qu'il ne
+              //     soumette une demande, pour qu'il sache laquelle il vise.
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                  child: Text(
+                    'Vos voies de crédit',
+                    style: const TextStyle(
+                      color: PaColors.inkPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final eligibility =
+                        ref.watch(eligibilityProvider).valueOrNull;
+                    return _LoanRoutesCarousel(
+                      eligibility: eligibility,
+                      onTap: eligibility == null
+                          ? null
+                          : () => LoanRequestSheet.show(context, eligibility),
+                    );
+                  },
                 ),
               ),
 
@@ -1317,6 +1351,189 @@ class _LenderPayoutsEntryTile extends ConsumerWidget {
             color: PaColors.inkMuted,
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+// ───────────────────────────────────────────────────────────────────────────
+// Carousel des 3 voies de crédit (CH-12 / LOT 12)
+//
+// Avant le chantier juin 2026, le membre voyait un seul bouton « Nouvelle
+// demande ». Depuis la refonte (3 produits + 3 voies), il existe :
+//   • SENIOR_BRC   — voie senior éligibles BRC, plafond = soldeEpargne × ratio
+//   • AVALISTE     — voie classique avec garant désigné (LOT 10/18)
+//   • CAMPAGNE     — microcrédit social (LOT 11), pas d'endpoint membre actif
+//
+// Le carousel les expose côte à côte pour que le membre comprenne quelle
+// voie il vise *avant* d'ouvrir LoanRequestSheet — le routing réel reste
+// côté backend (LOT 15). Le tap appelle simplement `onTap` du parent qui
+// ouvre la sheet déjà existante (le backend décide la voie).
+// ───────────────────────────────────────────────────────────────────────────
+
+class _LoanRoutesCarousel extends StatelessWidget {
+  const _LoanRoutesCarousel({
+    required this.eligibility,
+    required this.onTap,
+  });
+
+  final Eligibility? eligibility;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final elig = eligibility;
+    final isEligible = elig != null && elig.eligible;
+    final plafond = elig?.plafondMax;
+
+    return SizedBox(
+      height: 158,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        physics: const BouncingScrollPhysics(),
+        children: [
+          _LoanRouteCard(
+            icon: Icons.workspace_premium_rounded,
+            iconColor: PaColors.teal,
+            iconBg: PaColors.tealSurface,
+            title: 'Voie senior (BRC)',
+            subtitle: plafond != null && plafond > 0
+                ? 'Plafond ${_formatPlafond(plafond)} XAF'
+                : 'Selon votre épargne',
+            statusLabel: isEligible ? 'Disponible' : 'Non éligible',
+            statusOk: isEligible,
+            onTap: isEligible ? onTap : null,
+          ),
+          const SizedBox(width: 12),
+          _LoanRouteCard(
+            icon: Icons.handshake_rounded,
+            iconColor: PaColors.blue,
+            iconBg: const Color(0xFFE8EEFC),
+            title: 'Avec un avaliste',
+            subtitle: 'Garant désigné (membre actif)',
+            statusLabel: 'Disponible',
+            statusOk: true,
+            onTap: onTap,
+          ),
+          const SizedBox(width: 12),
+          _LoanRouteCard(
+            icon: Icons.campaign_rounded,
+            iconColor: PaColors.warning,
+            iconBg: PaColors.warningSurface,
+            title: 'Campagne microcrédit',
+            subtitle: 'Sur invitation de la coopérative',
+            statusLabel: 'Sur invitation',
+            statusOk: false,
+            onTap: null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _formatPlafond(num value) {
+    final str = value.toInt().toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < str.length; i++) {
+      if (i > 0 && (str.length - i) % 3 == 0) buf.write(' ');
+      buf.write(str[i]);
+    }
+    return buf.toString();
+  }
+}
+
+class _LoanRouteCard extends StatelessWidget {
+  const _LoanRouteCard({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.title,
+    required this.subtitle,
+    required this.statusLabel,
+    required this.statusOk,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+  final String title;
+  final String subtitle;
+  final String statusLabel;
+  final bool statusOk;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onTap == null;
+    return Opacity(
+      opacity: disabled ? 0.72 : 1.0,
+      child: SizedBox(
+        width: 230,
+        child: PaCard(
+          padding: const EdgeInsets.all(14),
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: PaColors.inkPrimary,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: PaColors.inkSecondary,
+                  fontSize: 12,
+                  height: 1.3,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: statusOk
+                      ? PaColors.successSurface
+                      : PaColors.warningSurface,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  statusLabel,
+                  style: TextStyle(
+                    color: statusOk ? PaColors.success : PaColors.warning,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
