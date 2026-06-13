@@ -90,6 +90,17 @@ class ProfilePage extends ConsumerWidget {
                       subtitle: l.profile_tile_contributions_sub,
                       onTap: () => context.push('/contributions'),
                     ),
+                    const _TileDivider(),
+                    // LOT 19 — Espace prêteur complet (convention, tranches,
+                    // funding 24h). Distinct de /me/lender-payouts (CH-12)
+                    // qui n'affiche que l'historique des intérêts touchés.
+                    _Tile(
+                      icon: Icons.handshake_outlined,
+                      tint: PaColors.blue,
+                      label: l.profile_tile_lender,
+                      subtitle: l.profile_tile_lender_sub,
+                      onTap: () => context.push('/me/lender'),
+                    ),
                   ],
                 ),
               ),

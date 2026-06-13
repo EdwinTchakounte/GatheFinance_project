@@ -30,6 +30,8 @@
   "profile_tile_states_sub": "Balance, outstanding, seniority.",
   "profile_tile_contributions": "My fees",
   "profile_tile_contributions_sub": "History of fees paid to the cooperative.",
+  "profile_tile_lender": "Lender space",
+  "profile_tile_lender_sub": "Agreement, tranches and 24h requests.",
   "profile_tile_info": "My information",
   "profile_tile_info_sub": "Name, email, phone.",
   "profile_tile_password": "Security & password",

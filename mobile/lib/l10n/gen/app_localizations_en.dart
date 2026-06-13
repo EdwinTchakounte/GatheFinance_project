@@ -86,6 +86,12 @@ class AppL10nEn extends AppL10n {
       'History of fees paid to the cooperative.';
 
   @override
+  String get profile_tile_lender => 'Lender space';
+
+  @override
+  String get profile_tile_lender_sub => 'Agreement, tranches and 24h requests.';
+
+  @override
   String get profile_tile_info => 'My information';
 
   @override

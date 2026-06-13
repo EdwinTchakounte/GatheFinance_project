@@ -247,6 +247,18 @@ abstract class AppL10n {
   /// **'Historique des frais payés à la coopérative.'**
   String get profile_tile_contributions_sub;
 
+  /// No description provided for @profile_tile_lender.
+  ///
+  /// In fr, this message translates to:
+  /// **'Espace prêteur'**
+  String get profile_tile_lender;
+
+  /// No description provided for @profile_tile_lender_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Convention, tranches et demandes 24h.'**
+  String get profile_tile_lender_sub;
+
   /// No description provided for @profile_tile_info.
   ///
   /// In fr, this message translates to:

@@ -86,6 +86,12 @@ class AppL10nFr extends AppL10n {
       'Historique des frais payés à la coopérative.';
 
   @override
+  String get profile_tile_lender => 'Espace prêteur';
+
+  @override
+  String get profile_tile_lender_sub => 'Convention, tranches et demandes 24h.';
+
+  @override
   String get profile_tile_info => 'Mes informations';
 
   @override

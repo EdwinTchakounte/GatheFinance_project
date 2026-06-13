@@ -31,6 +31,8 @@
   "profile_tile_states_sub": "Solde, encours, ancienneté.",
   "profile_tile_contributions": "Mes frais",
   "profile_tile_contributions_sub": "Historique des frais payés à la coopérative.",
+  "profile_tile_lender": "Espace prêteur",
+  "profile_tile_lender_sub": "Convention, tranches et demandes 24h.",
   "profile_tile_info": "Mes informations",
   "profile_tile_info_sub": "Nom, e-mail, téléphone.",
   "profile_tile_password": "Sécurité & mot de passe",
