@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -136,10 +137,13 @@ class _CampaignCard extends StatelessWidget {
                 aspectRatio: 16 / 9,
                 child: c.flyerUrl == null
                     ? _PlaceholderFlyer(label: c.profilCible)
-                    : Image.network(
-                        c.flyerUrl!,
+                    : CachedNetworkImage(
+                        imageUrl: c.flyerUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
+                        fadeInDuration: const Duration(milliseconds: 200),
+                        placeholder: (_, __) =>
+                            _PlaceholderFlyer(label: c.profilCible),
+                        errorWidget: (_, __, ___) =>
                             _PlaceholderFlyer(label: c.profilCible),
                       ),
               ),
