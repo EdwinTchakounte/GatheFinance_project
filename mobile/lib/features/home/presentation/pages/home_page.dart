@@ -18,6 +18,9 @@ import '../../../security/presentation/widgets/pin_prompt_sheet.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../auth/domain/entities/member.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
+import '../../../home_feed/presentation/state/feed_notifier.dart';
+import '../../../home_feed/presentation/widgets/feed_sections.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../notifications/presentation/state/notifications_notifier.dart';
 import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
@@ -80,6 +83,7 @@ class HomePage extends ConsumerWidget {
             await Future.wait([
               ref.read(classicSavingsProvider.notifier).refresh(),
               ref.read(savingsProvider.notifier).refresh(),
+              ref.read(homeFeedProvider.notifier).refresh(),
             ]);
           },
           child: CustomScrollView(
@@ -156,6 +160,20 @@ class HomePage extends ConsumerWidget {
               // est désormais accessible via la pill "Cotisation" en haut, et
               // le badge LOT 4 (commission 1%) sera réintégré ailleurs si
               // besoin. Évite la redondance UI signalée par le client.
+
+              // ── Section "Campagnes en cours" (LOT 11 micro-crédit) ──
+              SliverToBoxAdapter(
+                child: CampaignsSection(
+                  onSeeMore: () => _openVitrineCampaigns(),
+                ),
+              ),
+
+              // ── Section "Actualités" (Wagtail blog) ────────────────────
+              SliverToBoxAdapter(
+                child: NewsSection(
+                  onSeeMore: () => _openVitrineNews(),
+                ),
+              ),
 
               // ── Carousel d'infos défilant (remplace « Mes services ») ──
               SliverToBoxAdapter(
@@ -291,6 +309,19 @@ class HomePage extends ConsumerWidget {
       shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheet),
       builder: (_) => const DepositSheet(classic: true),
     );
+  }
+
+  /// "Voir plus" sur la section Campagnes — délègue à la vitrine pour
+  /// l'instant (pas d'écran mobile dédié au listing détaillé).
+  static Future<void> _openVitrineCampaigns() async {
+    final uri = Uri.parse('http://10.93.197.210:3200/services/micro-credit');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  /// "Voir plus" sur la section Actualités — pousse vers le blog vitrine.
+  static Future<void> _openVitrineNews() async {
+    final uri = Uri.parse('http://10.93.197.210:3200/blog');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   /// Série des soldes (ancien → récent, max 8 points) pour la mini-courbe.

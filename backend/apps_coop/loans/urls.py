@@ -26,6 +26,7 @@ from .microcampaign_admin import (
     admin_campaigns,
     admin_loan_request_campaign_decide,
 )
+from .microcampaign_public import public_active_campaigns
 from .views import (
     admin_list_loan_requests,
     admin_list_loans,
@@ -58,6 +59,9 @@ urlpatterns = [
     path("me/active/", loans_me_active, name="my-active-loans"),
     # CH-12 — Versements d'intérêts reçus en tant que prêteur.
     path("me/lender-payouts/", me_lender_payouts, name="my-lender-payouts"),
+    # LOT 11 — Liste publique des campagnes micro-crédit actives (mobile +
+    # vitrine). Pas d'auth : un membre peut partager le flyer en externe.
+    path("campaigns/active/", public_active_campaigns, name="public-active-campaigns"),
     path("requests/", loan_request_create, name="create-request"),
     # CH-5 — Upload de fichier rattaché à un LoanRequest (CGA, CFP, CNI, etc.).
     path(
