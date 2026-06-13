@@ -79,10 +79,11 @@ class AppL10nEn extends AppL10n {
   String get profile_tile_states_sub => 'Balance, outstanding, seniority.';
 
   @override
-  String get profile_tile_contributions => 'My savings';
+  String get profile_tile_contributions => 'My fees';
 
   @override
-  String get profile_tile_contributions_sub => 'History of paid fees.';
+  String get profile_tile_contributions_sub =>
+      'History of fees paid to the cooperative.';
 
   @override
   String get profile_tile_info => 'My information';
@@ -238,6 +239,9 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get tx_deposit => 'Savings deposit';
+
+  @override
+  String get tx_deposit_cotisation => 'Daily cotisation';
 
   @override
   String get tx_withdrawal => 'Withdrawal';
@@ -636,7 +640,7 @@ class AppL10nEn extends AppL10n {
   String get contrib_eyebrow => 'Profile';
 
   @override
-  String get contrib_title => 'My savings';
+  String get contrib_title => 'My fees';
 
   @override
   String get contrib_total_label => 'Total paid to the cooperative';
@@ -675,10 +679,10 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get contrib_empty_sub =>
-      'Your payments will show up here as they come.';
+      'Fees you pay to the cooperative will show up here.';
 
   @override
-  String get contrib_error_title => 'Savings unavailable';
+  String get contrib_error_title => 'Fees unavailable';
 
   @override
   String get states_title => 'My statements';
@@ -954,6 +958,12 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get home_action_deposit => 'Deposit';
+
+  @override
+  String get home_action_savings => 'Savings';
+
+  @override
+  String get home_action_cotisation => 'Cotisation';
 
   @override
   String get home_action_credit => 'Loan';

@@ -259,8 +259,11 @@ class StatesPage extends ConsumerWidget {
       return;
     }
     final df = DateFormat('dd/MM/yyyy');
+    // La page Mes états affiche les transactions de cotisation journalière
+    // (savingsProvider), pas l'épargne classique — on utilise donc le libellé
+    // dédié pour ne plus brouiller les deux notions côté membre.
     String txLabel(SavingsType t) => switch (t) {
-          SavingsType.depot => l.tx_deposit,
+          SavingsType.depot => l.tx_deposit_cotisation,
           SavingsType.interet => l.tx_interest,
           SavingsType.retrait => l.tx_withdrawal,
         };

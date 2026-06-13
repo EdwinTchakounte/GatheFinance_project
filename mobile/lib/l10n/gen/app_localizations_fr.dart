@@ -79,10 +79,11 @@ class AppL10nFr extends AppL10n {
   String get profile_tile_states_sub => 'Solde, encours, ancienneté.';
 
   @override
-  String get profile_tile_contributions => 'Mon épargne';
+  String get profile_tile_contributions => 'Mes frais';
 
   @override
-  String get profile_tile_contributions_sub => 'Historique des frais versés.';
+  String get profile_tile_contributions_sub =>
+      'Historique des frais payés à la coopérative.';
 
   @override
   String get profile_tile_info => 'Mes informations';
@@ -238,6 +239,9 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get tx_deposit => 'Dépôt épargne';
+
+  @override
+  String get tx_deposit_cotisation => 'Versement cotisation';
 
   @override
   String get tx_withdrawal => 'Retrait';
@@ -637,7 +641,7 @@ class AppL10nFr extends AppL10n {
   String get contrib_eyebrow => 'Profil';
 
   @override
-  String get contrib_title => 'Mon épargne';
+  String get contrib_title => 'Mes frais';
 
   @override
   String get contrib_total_label => 'Total versé à la coopérative';
@@ -676,10 +680,10 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get contrib_empty_sub =>
-      'Tes versements d\'épargne apparaîtront ici au fur et à mesure.';
+      'Tes frais payés à la coopérative apparaîtront ici au fur et à mesure.';
 
   @override
-  String get contrib_error_title => 'Épargne indisponible';
+  String get contrib_error_title => 'Frais indisponibles';
 
   @override
   String get states_title => 'Mes états';
@@ -957,6 +961,12 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get home_action_deposit => 'Verser';
+
+  @override
+  String get home_action_savings => 'Épargne';
+
+  @override
+  String get home_action_cotisation => 'Cotisation';
 
   @override
   String get home_action_credit => 'Crédit';

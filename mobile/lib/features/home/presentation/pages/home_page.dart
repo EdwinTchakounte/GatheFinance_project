@@ -39,7 +39,10 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final member = ref.watch(authProvider).valueOrNull;
-    final savings = ref.watch(savingsProvider);
+    // Le héros principal présente désormais l'épargne classique (produit
+    // principal) ; la cotisation journalière apparaît dans la section
+    // secondaire juste en dessous.
+    final savings = ref.watch(classicSavingsProvider);
     final l = AppL10n.of(context);
     final firstName = member?.prenom ?? l.profile_member_badge;
 
@@ -61,7 +64,14 @@ class HomePage extends ConsumerWidget {
             Expanded(
               child: RefreshIndicator.adaptive(
           color: PaColors.teal,
-          onRefresh: () => ref.read(savingsProvider.notifier).refresh(),
+          // Refresh global : on rafraîchit les 2 comptes pour que le hero
+          // (épargne) ET la section cotisation se mettent à jour ensemble.
+          onRefresh: () async {
+            await Future.wait([
+              ref.read(classicSavingsProvider.notifier).refresh(),
+              ref.read(savingsProvider.notifier).refresh(),
+            ]);
+          },
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
@@ -75,9 +85,10 @@ class HomePage extends ConsumerWidget {
                       final delta = _monthDelta(trend);
                       return PaHeroBalance(
                         amount: data.solde,
-                        label: l.home_balance_label,
-                        ctaLabel: l.home_action_deposit,
-                        onDeposit: () => _openDeposit(context),
+                        // Le hero présente désormais l'épargne classique.
+                        label: 'Mon épargne',
+                        ctaLabel: 'Verser sur épargne',
+                        onDeposit: () => _openClassicDeposit(context),
                         pendingLabel: _pendingLabel(data),
                         onPendingTap: () => context.push('/savings/history'),
                         onRequestReveal: () => PinPromptSheet.show(context),
@@ -101,20 +112,25 @@ class HomePage extends ConsumerWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // ── Pills dissociés épargne vs cotisation ─────────
+                      // Le pill "Verser" générique brouillait la distinction
+                      // backend (épargne classique vs cotisation journalière) :
+                      // remplacé par 2 pills dédiés ouvrant chacun la sheet
+                      // appropriée. Carnet retiré (déjà dans le bottom nav).
                       PaActionPill(
-                        icon: Icons.add_card_outlined,
-                        label: l.home_action_deposit,
+                        icon: Icons.savings_outlined,
+                        label: l.home_action_savings,
+                        onTap: () => _openClassicDeposit(context),
+                      ),
+                      PaActionPill(
+                        icon: Icons.calendar_today_outlined,
+                        label: l.home_action_cotisation,
                         onTap: () => _openDeposit(context),
                       ),
                       PaActionPill(
                         icon: Icons.account_balance_outlined,
                         label: l.home_action_credit,
                         onTap: () => context.go('/credit'),
-                      ),
-                      PaActionPill(
-                        icon: Icons.menu_book_outlined,
-                        label: l.home_action_booklet,
-                        onTap: () => context.go('/booklet'),
                       ),
                       PaActionPill(
                         icon: Icons.history_rounded,
@@ -126,12 +142,14 @@ class HomePage extends ConsumerWidget {
                 ),
               ),
 
-              // ── Épargne classique (dissociée de la cotisation) ──
+              // ── Cotisation journalière (Article 4) — section secondaire,
+              //     dissociée de l'épargne maintenant que le hero principal
+              //     présente l'épargne.
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                  child: _ClassicSavingsCard(
-                    onDeposit: () => _openClassicDeposit(context),
+                  child: _CotisationCard(
+                    onDeposit: () => _openDeposit(context),
                   ),
                 ),
               ),
@@ -548,18 +566,19 @@ class _HeroError extends StatelessWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// Carte Épargne classique — produit dissocié de la cotisation (dépôt libre).
+// Carte Cotisation journalière — section secondaire de la Home maintenant
+// que l'épargne classique occupe le hero. Présente le solde cotisation +
+// CTA dédié vers le sheet de versement journalier (multi-jours pré-payé).
 // ───────────────────────────────────────────────────────────────────────────
 
-class _ClassicSavingsCard extends ConsumerWidget {
-  const _ClassicSavingsCard({required this.onDeposit});
+class _CotisationCard extends ConsumerWidget {
+  const _CotisationCard({required this.onDeposit});
 
   final VoidCallback onDeposit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppL10n.of(context);
-    final account = ref.watch(classicSavingsProvider);
+    final account = ref.watch(savingsProvider);
     final solde = account.maybeWhen(data: (a) => a.solde, orElse: () => null);
 
     return PaCard(
@@ -570,20 +589,21 @@ class _ClassicSavingsCard extends ConsumerWidget {
             width: 44,
             height: 44,
             decoration: const BoxDecoration(
-              color: PaColors.tealSurface,
+              color: PaColors.warningSurface,
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: const Icon(Icons.savings_outlined, color: PaColors.teal, size: 22),
+            child: const Icon(Icons.calendar_today_outlined,
+                color: PaColors.warning, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  l.classic_card_title,
-                  style: const TextStyle(
+                const Text(
+                  'Cotisation journalière',
+                  style: TextStyle(
                     color: PaColors.inkPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -591,7 +611,9 @@ class _ClassicSavingsCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  solde == null ? l.classic_card_sub : XAFFormatter.format(solde),
+                  solde == null
+                      ? 'Solde cumulé'
+                      : XAFFormatter.format(solde),
                   style: const TextStyle(
                     color: PaColors.inkMuted,
                     fontSize: 12.5,
@@ -613,9 +635,9 @@ class _ClassicSavingsCard extends ConsumerWidget {
                   gradient: PaGradients.ctaPill,
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text(
-                  l.classic_card_cta,
-                  style: const TextStyle(
+                child: const Text(
+                  'Verser ma cotisation',
+                  style: TextStyle(
                     color: PaColors.onTeal,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,

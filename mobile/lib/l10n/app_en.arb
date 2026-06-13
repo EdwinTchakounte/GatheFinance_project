@@ -28,8 +28,8 @@
 
   "profile_tile_states": "My statements",
   "profile_tile_states_sub": "Balance, outstanding, seniority.",
-  "profile_tile_contributions": "My savings",
-  "profile_tile_contributions_sub": "History of paid fees.",
+  "profile_tile_contributions": "My fees",
+  "profile_tile_contributions_sub": "History of fees paid to the cooperative.",
   "profile_tile_info": "My information",
   "profile_tile_info_sub": "Name, email, phone.",
   "profile_tile_password": "Security & password",
@@ -84,6 +84,7 @@
   "common_see_all": "See all",
 
   "tx_deposit": "Savings deposit",
+  "tx_deposit_cotisation": "Daily cotisation",
   "tx_withdrawal": "Withdrawal",
   "tx_interest": "Interest credited",
   "tx_balance_after": "Balance {amount}",
@@ -213,7 +214,7 @@
   "savings_history_unavailable": "History unavailable",
 
   "contrib_eyebrow": "Profile",
-  "contrib_title": "My savings",
+  "contrib_title": "My fees",
   "contrib_total_label": "Total paid to the cooperative",
   "contrib_type_inscription": "Registration fees",
   "contrib_type_adhesion": "Membership fees",
@@ -225,8 +226,8 @@
   "contrib_status_failed": "Failed",
   "contrib_ref": "Ref. {ref}",
   "contrib_empty_title": "No payment yet",
-  "contrib_empty_sub": "Your payments will show up here as they come.",
-  "contrib_error_title": "Savings unavailable",
+  "contrib_empty_sub": "Fees you pay to the cooperative will show up here.",
+  "contrib_error_title": "Fees unavailable",
 
   "states_title": "My statements",
   "states_releve_eyebrow": "Member statement",
@@ -315,6 +316,8 @@
   "inst_capital_interest": "Capital {capital} · Interest {interest}",
 
   "home_action_deposit": "Deposit",
+  "home_action_savings": "Savings",
+  "home_action_cotisation": "Cotisation",
   "home_action_credit": "Loan",
   "home_action_booklet": "Booklet",
   "home_action_history": "History",

@@ -238,13 +238,13 @@ abstract class AppL10n {
   /// No description provided for @profile_tile_contributions.
   ///
   /// In fr, this message translates to:
-  /// **'Mon épargne'**
+  /// **'Mes frais'**
   String get profile_tile_contributions;
 
   /// No description provided for @profile_tile_contributions_sub.
   ///
   /// In fr, this message translates to:
-  /// **'Historique des frais versés.'**
+  /// **'Historique des frais payés à la coopérative.'**
   String get profile_tile_contributions_sub;
 
   /// No description provided for @profile_tile_info.
@@ -546,6 +546,12 @@ abstract class AppL10n {
   /// In fr, this message translates to:
   /// **'Dépôt épargne'**
   String get tx_deposit;
+
+  /// No description provided for @tx_deposit_cotisation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Versement cotisation'**
+  String get tx_deposit_cotisation;
 
   /// No description provided for @tx_withdrawal.
   ///
@@ -1258,7 +1264,7 @@ abstract class AppL10n {
   /// No description provided for @contrib_title.
   ///
   /// In fr, this message translates to:
-  /// **'Mon épargne'**
+  /// **'Mes frais'**
   String get contrib_title;
 
   /// No description provided for @contrib_total_label.
@@ -1330,13 +1336,13 @@ abstract class AppL10n {
   /// No description provided for @contrib_empty_sub.
   ///
   /// In fr, this message translates to:
-  /// **'Tes versements d\'épargne apparaîtront ici au fur et à mesure.'**
+  /// **'Tes frais payés à la coopérative apparaîtront ici au fur et à mesure.'**
   String get contrib_empty_sub;
 
   /// No description provided for @contrib_error_title.
   ///
   /// In fr, this message translates to:
-  /// **'Épargne indisponible'**
+  /// **'Frais indisponibles'**
   String get contrib_error_title;
 
   /// No description provided for @states_title.
@@ -1830,6 +1836,18 @@ abstract class AppL10n {
   /// In fr, this message translates to:
   /// **'Verser'**
   String get home_action_deposit;
+
+  /// No description provided for @home_action_savings.
+  ///
+  /// In fr, this message translates to:
+  /// **'Épargne'**
+  String get home_action_savings;
+
+  /// No description provided for @home_action_cotisation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cotisation'**
+  String get home_action_cotisation;
 
   /// No description provided for @home_action_credit.
   ///

@@ -29,8 +29,8 @@
 
   "profile_tile_states": "Mes états",
   "profile_tile_states_sub": "Solde, encours, ancienneté.",
-  "profile_tile_contributions": "Mon épargne",
-  "profile_tile_contributions_sub": "Historique des frais versés.",
+  "profile_tile_contributions": "Mes frais",
+  "profile_tile_contributions_sub": "Historique des frais payés à la coopérative.",
   "profile_tile_info": "Mes informations",
   "profile_tile_info_sub": "Nom, e-mail, téléphone.",
   "profile_tile_password": "Sécurité & mot de passe",
@@ -91,6 +91,7 @@
   "common_see_all": "Voir tout",
 
   "tx_deposit": "Dépôt épargne",
+  "tx_deposit_cotisation": "Versement cotisation",
   "tx_withdrawal": "Retrait",
   "tx_interest": "Intérêts crédités",
   "tx_balance_after": "Solde {amount}",
@@ -274,7 +275,7 @@
   "savings_history_unavailable": "Historique indisponible",
 
   "contrib_eyebrow": "Profil",
-  "contrib_title": "Mon épargne",
+  "contrib_title": "Mes frais",
   "contrib_total_label": "Total versé à la coopérative",
   "contrib_type_inscription": "Frais d'inscription",
   "contrib_type_adhesion": "Frais d'adhésion",
@@ -289,8 +290,8 @@
     "placeholders": { "ref": { "type": "String" } }
   },
   "contrib_empty_title": "Aucun versement",
-  "contrib_empty_sub": "Tes versements d'épargne apparaîtront ici au fur et à mesure.",
-  "contrib_error_title": "Épargne indisponible",
+  "contrib_empty_sub": "Tes frais payés à la coopérative apparaîtront ici au fur et à mesure.",
+  "contrib_error_title": "Frais indisponibles",
 
   "states_title": "Mes états",
   "states_releve_eyebrow": "Mon relevé",
@@ -412,6 +413,8 @@
   },
 
   "home_action_deposit": "Verser",
+  "home_action_savings": "Épargne",
+  "home_action_cotisation": "Cotisation",
   "home_action_credit": "Crédit",
   "home_action_booklet": "Carnet",
   "home_action_history": "Historique",
