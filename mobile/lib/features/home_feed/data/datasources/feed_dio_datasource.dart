@@ -40,7 +40,11 @@ class FeedDioDataSource {
         url,
         queryParameters: {
           'type': 'cms.BlogPostPage',
-          'fields': 'excerpt,first_published_at,hero_image',
+          // hero_image n'est pas un champ filtrable Wagtail v2 dans la
+          // vue listing (400 "unknown fields"). On le récupère plus tard
+          // depuis le détail si besoin ; le carousel actuel fonctionne
+          // sans visuel.
+          'fields': 'excerpt,first_published_at',
           'limit': limit,
           'order': '-first_published_at',
         },

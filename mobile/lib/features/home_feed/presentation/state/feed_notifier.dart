@@ -35,10 +35,12 @@ class HomeFeedNotifier extends AutoDisposeAsyncNotifier<_FeedState> {
 
   Future<_FeedState> _load() async {
     final ds = ref.read(feedDataSourceProvider);
-    final results = await Future.wait([
-      ds.activeCampaigns(),
-      ds.latestArticles(),
-    ]);
+    // On charge les 2 listes indépendamment : si l'une plante (ex.
+    // erreur Wagtail), on affiche quand même l'autre côté UI plutôt
+    // que de masquer toute la home feed.
+    final campaignsF = ds.activeCampaigns().catchError((_) => <CampaignFlyer>[]);
+    final articlesF = ds.latestArticles().catchError((_) => <NewsArticle>[]);
+    final results = await Future.wait([campaignsF, articlesF]);
     return _FeedState(
       campaigns: results[0] as List<CampaignFlyer>,
       articles: results[1] as List<NewsArticle>,
