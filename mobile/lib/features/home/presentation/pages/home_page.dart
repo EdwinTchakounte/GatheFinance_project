@@ -6,7 +6,6 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/formatters/date_formatter.dart';
-import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/paysika/pa_action_pill.dart';
 import '../../../../core/widgets/paysika/pa_avatar.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
@@ -153,17 +152,10 @@ class HomePage extends ConsumerWidget {
                 ),
               ),
 
-              // ── Cotisation journalière (Article 4) — section secondaire,
-              //     dissociée de l'épargne maintenant que le hero principal
-              //     présente l'épargne.
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                  child: _CotisationCard(
-                    onDeposit: () => _openDeposit(context),
-                  ),
-                ),
-              ),
+              // NOTE : la card _CotisationCard a été retirée — la cotisation
+              // est désormais accessible via la pill "Cotisation" en haut, et
+              // le badge LOT 4 (commission 1%) sera réintégré ailleurs si
+              // besoin. Évite la redondance UI signalée par le client.
 
               // ── Carousel d'infos défilant (remplace « Mes services ») ──
               SliverToBoxAdapter(
@@ -577,65 +569,6 @@ class _HeroError extends StatelessWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// Badge info commission 1% (LOT 4) — affiché sur la card Cotisation.
-// Au tap, ouvre un dialog explicatif citant l'Article 4 du Règlement.
-// ───────────────────────────────────────────────────────────────────────────
-
-class _CommissionInfoBadge extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(999),
-      onTap: () => showDialog<void>(
-        context: context,
-        builder: (_) => AlertDialog(
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(20)),
-          ),
-          title: const Text('Commission mensuelle 1 %'),
-          content: const Text(
-            "Conformément à l'Article 4 du Règlement Intérieur, la "
-            "coopérative retient 1 % de ton solde cotisation à la fin de "
-            "chaque mois calendaire. Ce taux peut être ajusté par le "
-            'comité.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: PaColors.warningSurface,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.info_outline,
-                size: 12, color: PaColors.warning),
-            const SizedBox(width: 4),
-            const Text(
-              '1 % retenu en fin de mois',
-              style: TextStyle(
-                color: PaColors.warning,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-// ───────────────────────────────────────────────────────────────────────────
 // Bannière statut (CH-2) — affichée quand le membre n'est pas actif :
 // - temporaire (LOT 11) : compte créé après crédit campagne, doit payer
 //   ses frais d'inscription pour basculer actif et accéder à l'épargne.
@@ -725,94 +658,3 @@ class _StatusBanner extends StatelessWidget {
 }
 
 
-// ───────────────────────────────────────────────────────────────────────────
-// Carte Cotisation journalière — section secondaire de la Home maintenant
-// que l'épargne classique occupe le hero. Présente le solde cotisation +
-// CTA dédié vers le sheet de versement journalier (multi-jours pré-payé).
-// ───────────────────────────────────────────────────────────────────────────
-
-class _CotisationCard extends ConsumerWidget {
-  const _CotisationCard({required this.onDeposit});
-
-  final VoidCallback onDeposit;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final account = ref.watch(savingsProvider);
-    final solde = account.maybeWhen(data: (a) => a.solde, orElse: () => null);
-
-    return PaCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: PaColors.warningSurface,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.calendar_today_outlined,
-                color: PaColors.warning, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Cotisation journalière',
-                  style: TextStyle(
-                    color: PaColors.inkPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  solde == null
-                      ? 'Solde cumulé'
-                      : XAFFormatter.format(solde),
-                  style: const TextStyle(
-                    color: PaColors.inkMuted,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                // LOT 4 — Commission 1% prélevée en fin de mois calendaire
-                // par la coopérative (Article 4 du Règlement Intérieur).
-                // Affichage transparent pour le membre.
-                const SizedBox(height: 6),
-                _CommissionInfoBadge(),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onDeposit,
-              borderRadius: BorderRadius.circular(999),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-                decoration: BoxDecoration(
-                  gradient: PaGradients.ctaPill,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: const Text(
-                  'Verser ma cotisation',
-                  style: TextStyle(
-                    color: PaColors.onTeal,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

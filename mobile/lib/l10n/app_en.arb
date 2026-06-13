@@ -240,7 +240,7 @@
   "states_kpi_savings": "Savings balance",
   "states_kpi_credit": "Outstanding loan",
   "states_no_active_credit": "No active loan",
-  "states_kpi_contributions": "Payments made",
+  "states_kpi_contributions": "Fees paid",
   "states_kpi_seniority": "Seniority",
   "states_savings_detail": "Savings in detail",
   "states_balance_today": "Balance today",

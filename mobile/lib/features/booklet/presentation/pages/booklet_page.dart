@@ -418,6 +418,26 @@ class _OrderNewCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+                    const SizedBox(height: 6),
+                    // Le carnet est valide 1 an d'après le règlement
+                    // intérieur ; on l'affiche explicitement pour cadrer
+                    // l'attente avant le bouton commande.
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: PaColors.tealSurface,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'Validité 1 an',
+                        style: TextStyle(
+                          color: PaColors.teal,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

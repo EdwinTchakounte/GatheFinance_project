@@ -1414,7 +1414,7 @@ abstract class AppL10n {
   /// No description provided for @states_kpi_contributions.
   ///
   /// In fr, this message translates to:
-  /// **'Versements effectués'**
+  /// **'Frais payés'**
   String get states_kpi_contributions;
 
   /// No description provided for @states_kpi_seniority.

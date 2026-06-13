@@ -430,10 +430,19 @@ class _KpiTile extends StatelessWidget {
             child: Icon(icon, color: tint, size: 20),
           ),
           const Spacer(),
-          Text(label,
-              style: PaText.body(size: 12.5, color: PaColors.inkMuted)),
+          Text(
+            label,
+            style: PaText.body(size: 12.5, color: PaColors.inkMuted),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           const SizedBox(height: 2),
-          Text(value, style: PaText.amount(size: 17)),
+          Text(
+            value,
+            style: PaText.amount(size: 17),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           const SizedBox(height: 2),
           Text(
             full,

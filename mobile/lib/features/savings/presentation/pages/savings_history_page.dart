@@ -12,7 +12,7 @@ import '../../../../core/widgets/paysika/pa_transaction_tile.dart';
 import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/savings_transaction.dart';
-import '../state/savings_notifier.dart';
+import '../state/classic_savings_notifier.dart';
 
 /// Page Historique — style **Paysika** (palette navy/teal).
 ///
@@ -33,7 +33,9 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final savings = ref.watch(savingsProvider);
+    // Aligné sur le hero de la Home (épargne classique). L'historique
+    // cotisation reste accessible depuis Mes états (page states_page).
+    final savings = ref.watch(classicSavingsProvider);
     final l = AppL10n.of(context);
 
     return Scaffold(
@@ -67,7 +69,8 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
           Expanded(
             child: RefreshIndicator.adaptive(
               color: PaColors.teal,
-              onRefresh: () => ref.read(savingsProvider.notifier).refresh(),
+              onRefresh: () =>
+                  ref.read(classicSavingsProvider.notifier).refresh(),
               child: savings.when(
                 data: (data) => _List(
                   transactions: data.transactions,

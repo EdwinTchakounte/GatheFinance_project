@@ -723,7 +723,7 @@ class AppL10nFr extends AppL10n {
   String get states_no_active_credit => 'Aucun crédit actif';
 
   @override
-  String get states_kpi_contributions => 'Versements effectués';
+  String get states_kpi_contributions => 'Frais payés';
 
   @override
   String get states_kpi_seniority => 'Ancienneté';

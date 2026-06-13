@@ -722,7 +722,7 @@ class AppL10nEn extends AppL10n {
   String get states_no_active_credit => 'No active loan';
 
   @override
-  String get states_kpi_contributions => 'Payments made';
+  String get states_kpi_contributions => 'Fees paid';
 
   @override
   String get states_kpi_seniority => 'Seniority';

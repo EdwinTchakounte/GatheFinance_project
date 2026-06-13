@@ -1358,18 +1358,19 @@ class _LenderPayoutsEntryTile extends ConsumerWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// Carousel des 3 voies de crédit (CH-12 / LOT 12)
+// Carousel des voies de crédit éligibles au membre (LOT 12)
 //
 // Avant le chantier juin 2026, le membre voyait un seul bouton « Nouvelle
-// demande ». Depuis la refonte (3 produits + 3 voies), il existe :
-//   • SENIOR_BRC   — voie senior éligibles BRC, plafond = soldeEpargne × ratio
+// demande ». Depuis la refonte (3 produits + 3 voies), le membre voit
+// désormais ses voies disponibles :
+//   • SENIOR_BRC   — voie senior éligibles BRC, plafond = solde × ratio
 //   • AVALISTE     — voie classique avec garant désigné (LOT 10/18)
-//   • CAMPAGNE     — microcrédit social (LOT 11), pas d'endpoint membre actif
 //
-// Le carousel les expose côte à côte pour que le membre comprenne quelle
-// voie il vise *avant* d'ouvrir LoanRequestSheet — le routing réel reste
-// côté backend (LOT 15). Le tap appelle simplement `onTap` du parent qui
-// ouvre la sheet déjà existante (le backend décide la voie).
+// La voie CAMPAGNE n'est PAS exposée ici : elle est réservée aux
+// bénéficiaires non-adhérents (Membre TEMPORAIRE), recrutés via la
+// vitrine web. Les campagnes actives sont affichées séparément sur la
+// Home (cf. Phase 2 — section "Campagnes en cours") avec un bouton de
+// partage, mais elles ne donnent pas accès au formulaire crédit membre.
 // ───────────────────────────────────────────────────────────────────────────
 
 class _LoanRoutesCarousel extends StatelessWidget {
@@ -1416,17 +1417,6 @@ class _LoanRoutesCarousel extends StatelessWidget {
             statusLabel: 'Disponible',
             statusOk: true,
             onTap: onTap,
-          ),
-          const SizedBox(width: 12),
-          _LoanRouteCard(
-            icon: Icons.campaign_rounded,
-            iconColor: PaColors.warning,
-            iconBg: PaColors.warningSurface,
-            title: 'Campagne microcrédit',
-            subtitle: 'Sur invitation de la coopérative',
-            statusLabel: 'Sur invitation',
-            statusOk: false,
-            onTap: null,
           ),
         ],
       ),
