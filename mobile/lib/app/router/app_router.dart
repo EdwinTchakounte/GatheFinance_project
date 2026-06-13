@@ -7,6 +7,7 @@ import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/state/auth_notifier.dart';
 import '../../features/avaliste/presentation/pages/avaliste_mandats_page.dart';
+import '../../features/lender/presentation/pages/lender_page.dart';
 import '../../features/booklet/presentation/pages/booklet_page.dart';
 import '../../features/contributions/presentation/pages/contributions_page.dart';
 import '../../features/credit/presentation/pages/credit_page.dart';
@@ -193,6 +194,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'my-lender-payouts',
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const MyLenderPayoutsPage()),
+      ),
+
+      // LOT 19 — Espace prêteur complet (consent + tranches + funding 24h).
+      GoRoute(
+        path: '/me/lender',
+        name: 'my-lender',
+        pageBuilder: (context, state) =>
+            _paSlideFadePage(state, const LenderPage()),
       ),
 
       // Shell racine — 4 branches avec état indépendant.
