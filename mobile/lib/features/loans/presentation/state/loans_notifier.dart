@@ -11,6 +11,7 @@ import '../../domain/usecases/make_loan_repayment.dart';
 import '../../domain/usecases/pay_loan_request_study_fee.dart';
 import '../../domain/usecases/request_loan_renewal.dart';
 import '../../domain/usecases/submit_loan_request.dart';
+import '../../domain/usecases/upload_loan_request_attachment.dart';
 
 
 /// Liste des crédits actifs du membre — reload après chaque write.
@@ -92,6 +93,7 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>> {
     required String motif,
     LoanReceiveChannel? moyenReception,
     String? recipientPhone,
+    Map<String, Object?> extraValues = const {},
   }) async {
     final useCase = ref.read(submitLoanRequestUseCaseProvider);
     final submission = await useCase.call(
@@ -101,10 +103,29 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>> {
         motif: motif,
         moyenReception: moyenReception,
         recipientPhone: recipientPhone,
+        extraValues: extraValues,
       ),
     );
     await refresh();
     return submission;
+  }
+
+  /// CH-5 — Upload une pièce jointe sur un LoanRequest existant.
+  Future<void> uploadAttachment({
+    required int loanRequestId,
+    required String schemaFieldId,
+    required String filePath,
+    required String fileName,
+  }) async {
+    final useCase = ref.read(uploadLoanRequestAttachmentUseCaseProvider);
+    await useCase.call(
+      UploadLoanRequestAttachmentParams(
+        loanRequestId: loanRequestId,
+        schemaFieldId: schemaFieldId,
+        filePath: filePath,
+        fileName: fileName,
+      ),
+    );
   }
 
   /// CH-7 — Règle les frais d'étude de la demande EN_ATTENTE via Mobile Money.

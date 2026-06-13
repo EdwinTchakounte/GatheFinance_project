@@ -14,6 +14,7 @@ class SubmitLoanRequestParams {
     required this.motif,
     this.moyenReception,
     this.recipientPhone,
+    this.extraValues = const {},
   });
 
   final num montantDemande;
@@ -22,6 +23,8 @@ class SubmitLoanRequestParams {
   // CH-9 — Canal de réception choisi par le membre (optionnel pour rétro-compat).
   final LoanReceiveChannel? moyenReception;
   final String? recipientPhone;
+  // CH-5 — Champs scalaires extra du FormSchema actif (loan_request).
+  final Map<String, Object?> extraValues;
 }
 
 class SubmitLoanRequest
@@ -69,6 +72,7 @@ class SubmitLoanRequest
       motif: params.motif.trim(),
       moyenReception: params.moyenReception,
       recipientPhone: needsPhone ? phone : null,
+      extraValues: params.extraValues,
     );
   }
 }

@@ -1,3 +1,4 @@
+import '../../../forms/domain/entities/form_schema.dart';
 import '../../domain/entities/eligibility.dart';
 import '../../domain/entities/lender_payout.dart';
 import '../../domain/entities/loan.dart';
@@ -22,6 +23,8 @@ abstract class LoansRemoteDataSource {
     // CH-9 — Canal choisi par le membre. Optionnels pour rétro-compat.
     LoanReceiveChannel? moyenReception,
     String? recipientPhone,
+    // CH-5 — Champs scalaires extra du FormSchema actif.
+    Map<String, Object?> extraValues = const {},
   });
 
   /// CH-7 — Règle les frais d'étude (`frais_demande_credit`) via Mobile Money.
@@ -29,6 +32,18 @@ abstract class LoansRemoteDataSource {
   Future<void> payStudyFee({
     required String phone,
     required String network,
+  });
+
+  /// CH-5 — Récupère le FormSchema actif pour le formulaire de demande.
+  /// `null` si aucun schéma actif (mode legacy).
+  Future<FormSchema?> getActiveLoanRequestSchema();
+
+  /// CH-5 — Upload multipart d'une pièce jointe sur un LoanRequest existant.
+  Future<void> uploadLoanRequestAttachment({
+    required int loanRequestId,
+    required String schemaFieldId,
+    required String filePath,
+    required String fileName,
   });
 
   Future<Loan> repay({

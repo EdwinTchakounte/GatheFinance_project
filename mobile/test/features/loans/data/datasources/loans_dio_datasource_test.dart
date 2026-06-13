@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gathe_finance/core/network/api_client.dart';
+import 'package:gathe_finance/features/forms/domain/entities/form_schema.dart';
 import 'package:gathe_finance/features/loans/data/datasources/loans_dio_datasource.dart';
 import 'package:gathe_finance/features/loans/domain/entities/loan.dart';
 import 'package:gathe_finance/features/loans/domain/entities/loan_installment.dart';
@@ -201,6 +202,122 @@ void main() {
       final ds = LoansDioDataSource(_client(adapter));
       await ds.payStudyFee(phone: '+237699112233', network: 'mtn');
       // Pas de retour à valider — succès = pas d'exception.
+    });
+
+    test('submitRequest fusionne extraValues dans le body (CH-5)', () async {
+      final adapter = ScriptedAdapter()
+        ..on('/auth/csrf/', method: 'GET', status: 200)
+        ..on('/loans/requests/',
+            method: 'POST',
+            status: 200,
+            body: {
+              'loan_request': {
+                'id': 44,
+                'montant_demande': '120000',
+                'duree_mois': 3,
+                'motif': 'Test',
+                'statut': 'en_attente',
+                'date_soumission': '2026-06-13T08:00:00Z',
+              },
+              'route': 'senior_brc',
+            });
+      final ds = LoansDioDataSource(_client(adapter));
+      await ds.submitRequest(
+        montantDemande: 120000,
+        dureeMois: 3,
+        motif: 'Test',
+        extraValues: const {
+          'nom_complet': 'Jean Mballa',
+          'statut_pro': 'independant',
+        },
+      );
+      final init = adapter.recorded
+          .firstWhere((r) => r.path.contains('/loans/requests/'));
+      expect(init.body, contains('"nom_complet":"Jean Mballa"'));
+      expect(init.body, contains('"statut_pro":"independant"'));
+    });
+
+    test(
+        'getActiveLoanRequestSchema parse sections + champs typés (CH-5)',
+        () async {
+      final adapter = ScriptedAdapter()
+        ..on('/forms/schemas/loan_request/active/',
+            method: 'GET',
+            status: 200,
+            body: {
+              'id': 7,
+              'kind': 'loan_request',
+              'version': 3,
+              'title': 'Demande de crédit',
+              'description': 'Renseignez votre dossier',
+              'schema': {
+                'sections': [
+                  {
+                    'id': 'identity',
+                    'title': 'Identité',
+                    'fields': [
+                      {
+                        'id': 'nom_complet',
+                        'type': 'text',
+                        'label': 'Nom complet',
+                        'required': true,
+                        'max_length': 120,
+                      },
+                      {
+                        'id': 'statut_pro',
+                        'type': 'select',
+                        'label': 'Statut',
+                        'options': [
+                          {'value': 'salarie', 'label': 'Salarié'},
+                          {'value': 'indep', 'label': 'Indépendant'},
+                        ],
+                      },
+                      {
+                        'id': 'carte_cga',
+                        'type': 'file',
+                        'label': 'Carte CGA',
+                        'accept': 'image/*,application/pdf',
+                        'max_size_mb': 5,
+                        'condition': {
+                          'field': 'statut_pro',
+                          'operator': 'equals',
+                          'value': 'indep',
+                        },
+                      },
+                    ],
+                  },
+                ],
+              },
+            });
+      final ds = LoansDioDataSource(_client(adapter));
+      final schema = await ds.getActiveLoanRequestSchema();
+      expect(schema, isNotNull);
+      expect(schema!.kind, 'loan_request');
+      expect(schema.version, 3);
+      expect(schema.sections, hasLength(1));
+      final fields = schema.sections.first.fields;
+      expect(fields, hasLength(3));
+      expect(fields[0].type, FormFieldType.text);
+      expect(fields[0].required, isTrue);
+      expect(fields[0].maxLength, 120);
+      expect(fields[1].type, FormFieldType.select);
+      expect(fields[1].options.map((o) => o.value), ['salarie', 'indep']);
+      expect(fields[2].type, FormFieldType.file);
+      expect(fields[2].maxSizeMb, 5);
+      expect(fields[2].condition!.operator, FormFieldConditionOperator.equals);
+      expect(fields[2].condition!.value, 'indep');
+    });
+
+    test('getActiveLoanRequestSchema renvoie null sur 404 (legacy)',
+        () async {
+      final adapter = ScriptedAdapter()
+        ..on('/forms/schemas/loan_request/active/',
+            method: 'GET',
+            status: 404,
+            body: {'detail': 'Aucun schéma actif.'});
+      final ds = LoansDioDataSource(_client(adapter));
+      final schema = await ds.getActiveLoanRequestSchema();
+      expect(schema, isNull);
     });
 
     test('repay POST /payments/init/ type=remboursement + loan_id', () async {

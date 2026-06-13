@@ -6,15 +6,34 @@ import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
+import '../../../../core/di/providers.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/brand_loader.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../forms/domain/form_validation.dart';
+import '../../../forms/presentation/widgets/dynamic_fields.dart';
 import '../../domain/entities/eligibility.dart';
 import '../../domain/entities/loan_request.dart';
 import '../../domain/entities/loan_request_submission.dart';
 import '../../domain/loan_terms.dart';
 import '../state/loans_notifier.dart';
+
+/// CH-5 — Champs hardcoded du sheet : déjà rendus par l'UI métier dédiée
+/// (slider montant, sliders durée, motif, sélecteur canal). Le renderer
+/// dynamique exclut ces ids pour ne rien dupliquer côté membre.
+const Set<String> _hardcodedLoanFields = {
+  'montant_demande',
+  'duree_mois',
+  'motif',
+  'modalite_paiement',
+  'avaliste_numero',
+  'avaliste_nom',
+  'campaign_id',
+  'profil_cible',
+  'moyen_reception',
+  'recipient_phone',
+};
 
 /// Modale demande de crédit — 2 étapes :
 /// 1. Eligibility check + formulaire (montant slider + durée slider + motif)
@@ -62,6 +81,12 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   // CH-7 — Réseau choisi pour le paiement des frais ('mtn' | 'orange').
   String _feeNetwork = 'mtn';
   LoanRequestSubmission? _submission;
+
+  // CH-5 — Valeurs des champs supplémentaires du FormSchema actif. Le
+  // renderer expose des [PickedFile] pour les champs `file` ; le submit
+  // les sépare des scalaires pour appeler un upload multipart à part.
+  Map<String, Object?> _extraValues = {};
+  Map<String, String> _extraErrors = {};
 
   double _montant = 200000;
   // Durée NON saisie manuellement : dérivée du montant (Art. 7).
@@ -112,9 +137,43 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
+    // CH-5 — Validation locale des champs dynamiques (FormSchema actif).
+    final schema = ref.read(activeLoanRequestSchemaProvider).valueOrNull;
+    if (schema != null) {
+      final errs = validateSchema(
+        schema,
+        _extraValues,
+        excludeIds: _hardcodedLoanFields,
+      );
+      if (errs.isNotEmpty) {
+        setState(() => _extraErrors = errs);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Certains champs supplémentaires sont à compléter.',
+            ),
+          ),
+        );
+        return;
+      }
+      setState(() => _extraErrors = const {});
+    }
     HapticFeedback.mediumImpact();
     setState(() => _step = _Step.loading);
     try {
+      // CH-5 — Sépare les fichiers (PickedFile) des scalaires : seuls les
+      // scalaires partent dans le body POST ; les fichiers sont uploadés
+      // séparément après création du LoanRequest.
+      final scalarExtras = <String, Object?>{};
+      final fileEntries = <MapEntry<String, PickedFile>>[];
+      for (final entry in _extraValues.entries) {
+        final v = entry.value;
+        if (v is PickedFile) {
+          fileEntries.add(MapEntry(entry.key, v));
+        } else if (v != null && v != '') {
+          scalarExtras[entry.key] = v;
+        }
+      }
       final submission =
           await ref.read(loanRequestsProvider.notifier).submit(
                 montantDemande: _montant.round(),
@@ -122,7 +181,23 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 motif: _motifCtrl.text.trim(),
                 moyenReception: _canal,
                 recipientPhone: needsPhone ? phone : null,
+                extraValues: scalarExtras,
               );
+      // CH-5 — Upload best-effort des pièces jointes. Un échec d'upload ne
+      // bloque pas la création : la demande existe ; l'admin demandera
+      // un re-upload si besoin.
+      for (final entry in fileEntries) {
+        try {
+          await ref.read(loanRequestsProvider.notifier).uploadAttachment(
+                loanRequestId: submission.request.id,
+                schemaFieldId: entry.key,
+                filePath: entry.value.path,
+                fileName: entry.value.name,
+              );
+        } catch (_) {
+          // Best-effort — log silencieux côté mobile (pas d'analytics ici).
+        }
+      }
       if (!mounted) return;
       // CH-7 — Pré-remplit le téléphone côté paiement des frais : si le canal
       // de réception choisi est Tara MoMo, on reprend le numéro saisi ; sinon
@@ -357,6 +432,28 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                   ),
                 ],
               ),
+            ),
+
+            // CH-5 — Section dynamique : champs supplémentaires configurés
+            // par l'admin via FormSchema actif (`loan_request`). En 404 ou
+            // erreur transport, on garde le formulaire legacy intact.
+            Consumer(
+              builder: (context, ref, _) {
+                final schemaAsync =
+                    ref.watch(activeLoanRequestSchemaProvider);
+                final schema = schemaAsync.valueOrNull;
+                if (schema == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.l),
+                  child: DynamicFields(
+                    schema: schema,
+                    values: _extraValues,
+                    onChange: (v) => setState(() => _extraValues = v),
+                    excludeIds: _hardcodedLoanFields,
+                    errors: _extraErrors,
+                  ),
+                );
+              },
             ),
 
             const SizedBox(height: AppSpacing.xl),

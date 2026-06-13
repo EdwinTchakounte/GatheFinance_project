@@ -3,6 +3,7 @@ import '../../../../core/error/failures.dart';
 import '../../domain/entities/eligibility.dart';
 import '../../domain/entities/lender_payout.dart';
 import '../../domain/entities/loan.dart';
+import '../../../forms/domain/entities/form_schema.dart';
 import '../../domain/entities/loan_renewal.dart';
 import '../../domain/entities/loan_request.dart';
 import '../../domain/entities/loan_request_submission.dart';
@@ -47,6 +48,7 @@ class LoansRepositoryImpl implements LoansRepository {
     required String motif,
     LoanReceiveChannel? moyenReception,
     String? recipientPhone,
+    Map<String, Object?> extraValues = const {},
   }) =>
       _run(() => _remote.submitRequest(
             montantDemande: montantDemande,
@@ -54,6 +56,7 @@ class LoansRepositoryImpl implements LoansRepository {
             motif: motif,
             moyenReception: moyenReception,
             recipientPhone: recipientPhone,
+            extraValues: extraValues,
           ));
 
   @override
@@ -62,6 +65,24 @@ class LoansRepositoryImpl implements LoansRepository {
     required String network,
   }) =>
       _run(() => _remote.payStudyFee(phone: phone, network: network));
+
+  @override
+  Future<FormSchema?> getActiveLoanRequestSchema() =>
+      _run(_remote.getActiveLoanRequestSchema);
+
+  @override
+  Future<void> uploadLoanRequestAttachment({
+    required int loanRequestId,
+    required String schemaFieldId,
+    required String filePath,
+    required String fileName,
+  }) =>
+      _run(() => _remote.uploadLoanRequestAttachment(
+            loanRequestId: loanRequestId,
+            schemaFieldId: schemaFieldId,
+            filePath: filePath,
+            fileName: fileName,
+          ));
 
   @override
   Future<Loan> repay({

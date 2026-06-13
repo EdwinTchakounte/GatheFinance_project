@@ -3,6 +3,7 @@ import '../../domain/entities/eligibility.dart';
 import '../../domain/entities/lender_payout.dart';
 import '../../domain/entities/loan.dart';
 import '../../domain/entities/loan_installment.dart';
+import '../../../forms/domain/entities/form_schema.dart';
 import '../../domain/entities/loan_renewal.dart';
 import '../../domain/entities/loan_request.dart';
 import '../../domain/entities/loan_request_submission.dart';
@@ -163,6 +164,7 @@ class LoansMockDataSource implements LoansRemoteDataSource {
     required String motif,
     LoanReceiveChannel? moyenReception,
     String? recipientPhone,
+    Map<String, Object?> extraValues = const {},
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 600));
     final req = LoanRequestEntity(
@@ -187,6 +189,24 @@ class LoansMockDataSource implements LoansRemoteDataSource {
       nonRemboursable: true,
     );
     return LoanRequestSubmission(request: req, studyFee: studyFee);
+  }
+
+  @override
+  Future<FormSchema?> getActiveLoanRequestSchema() async {
+    // Mode mock : pas de schéma actif → l'UI rend uniquement les champs hardcoded.
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    return null;
+  }
+
+  @override
+  Future<void> uploadLoanRequestAttachment({
+    required int loanRequestId,
+    required String schemaFieldId,
+    required String filePath,
+    required String fileName,
+  }) async {
+    // Mock — simule un upload réussi sans rien faire.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
   }
 
   @override

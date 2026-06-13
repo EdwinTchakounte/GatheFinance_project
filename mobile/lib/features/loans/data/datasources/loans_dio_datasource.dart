@@ -7,12 +7,110 @@ import '../../domain/entities/eligibility.dart';
 import '../../domain/entities/lender_payout.dart';
 import '../../domain/entities/loan.dart';
 import '../../domain/entities/loan_installment.dart';
+import '../../../forms/domain/entities/form_schema.dart';
 import '../../domain/entities/loan_renewal.dart';
 import '../../domain/entities/loan_request.dart';
 import '../../domain/entities/loan_request_submission.dart';
 import 'loans_remote_datasource.dart';
 
 // -- Top-level helpers used by the datasource -------------------------------
+
+/// CH-5 — Désérialise un FormSchema renvoyé par
+/// `GET /forms/schemas/loan_request/active/`.
+FormSchema _parseFormSchema(Map<String, dynamic> json) {
+  final schemaJson = (json['schema'] as Map<String, dynamic>?) ?? const {};
+  final rawSections = (schemaJson['sections'] as List<dynamic>?) ?? const [];
+  return FormSchema(
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    kind: (json['kind'] as String?) ?? 'loan_request',
+    version: (json['version'] as num?)?.toInt() ?? 1,
+    title: (json['title'] as String?) ?? '',
+    description: json['description'] as String?,
+    sections: rawSections
+        .whereType<Map<String, dynamic>>()
+        .map(_parseSection)
+        .toList(growable: false),
+  );
+}
+
+FormSection _parseSection(Map<String, dynamic> json) {
+  final rawFields = (json['fields'] as List<dynamic>?) ?? const [];
+  return FormSection(
+    id: (json['id'] as String?) ?? '',
+    title: (json['title'] as String?) ?? '',
+    description: json['description'] as String?,
+    fields: rawFields
+        .whereType<Map<String, dynamic>>()
+        .map(_parseFormField)
+        .toList(growable: false),
+  );
+}
+
+FormSchemaField _parseFormField(Map<String, dynamic> json) {
+  final rawOptions = (json['options'] as List<dynamic>?) ?? const [];
+  final rawCondition = json['condition'] as Map<String, dynamic>?;
+  return FormSchemaField(
+    id: (json['id'] as String?) ?? '',
+    type: _parseFieldType((json['type'] as String?) ?? 'text'),
+    label: (json['label'] as String?) ?? '',
+    required: (json['required'] as bool?) ?? false,
+    placeholder: json['placeholder'] as String?,
+    helpText: json['help_text'] as String?,
+    maxLength: (json['max_length'] as num?)?.toInt(),
+    min: json['min'] as num?,
+    max: json['max'] as num?,
+    accept: json['accept'] as String?,
+    maxSizeMb: (json['max_size_mb'] as num?)?.toInt(),
+    options: rawOptions
+        .whereType<Map<String, dynamic>>()
+        .map((o) => FormFieldOption(
+              value: (o['value'] as Object?)?.toString() ?? '',
+              label: (o['label'] as String?) ?? '',
+            ))
+        .toList(growable: false),
+    condition: rawCondition == null ? null : _parseCondition(rawCondition),
+    isLocked: (json['is_locked'] as bool?) ?? false,
+  );
+}
+
+FormFieldType _parseFieldType(String raw) {
+  switch (raw) {
+    case 'email':
+      return FormFieldType.email;
+    case 'tel':
+      return FormFieldType.tel;
+    case 'number':
+      return FormFieldType.number;
+    case 'textarea':
+      return FormFieldType.textarea;
+    case 'select':
+      return FormFieldType.select;
+    case 'radio':
+      return FormFieldType.radio;
+    case 'checkbox':
+      return FormFieldType.checkbox;
+    case 'file':
+      return FormFieldType.file;
+    case 'date':
+      return FormFieldType.date;
+    case 'text':
+    default:
+      return FormFieldType.text;
+  }
+}
+
+FormFieldCondition _parseCondition(Map<String, dynamic> json) {
+  final op = (json['operator'] as String?) ?? 'equals';
+  return FormFieldCondition(
+    field: (json['field'] as String?) ?? '',
+    operator: switch (op) {
+      'not_equals' => FormFieldConditionOperator.notEquals,
+      'in' => FormFieldConditionOperator.inList,
+      _ => FormFieldConditionOperator.equals,
+    },
+    value: json['value'],
+  );
+}
 
 /// CH-7 — Désérialise le bloc `frais_a_payer` renvoyé par
 /// `POST /loans/requests/`. Renvoie `null` si le bloc est absent ou
@@ -113,6 +211,7 @@ class LoansDioDataSource implements LoansRemoteDataSource {
     required String motif,
     LoanReceiveChannel? moyenReception,
     String? recipientPhone,
+    Map<String, Object?> extraValues = const {},
   }) async {
     try {
       final body = <String, dynamic>{
@@ -127,6 +226,14 @@ class LoansDioDataSource implements LoansRemoteDataSource {
         if (recipientPhone != null && recipientPhone.trim().isNotEmpty) {
           body['recipient_phone'] = recipientPhone.trim();
         }
+      }
+      // CH-5 — Fusion des champs scalaires du FormSchema. Les champs hardcoded
+      // l'emportent (sécurité contre un id de field qui collisionne par
+      // accident avec une colonne métier). Le backend route le reste dans
+      // `extra_payload` via `apply_form_schema`.
+      for (final entry in extraValues.entries) {
+        if (entry.value == null) continue;
+        body.putIfAbsent(entry.key, () => entry.value);
       }
       final res = await _dio.post<Map<String, dynamic>>(
         '/loans/requests/',
@@ -162,6 +269,46 @@ class LoansDioDataSource implements LoansRemoteDataSource {
           'phone': phone,
           'network': network,
         },
+      );
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
+  Future<FormSchema?> getActiveLoanRequestSchema() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/forms/schemas/loan_request/active/',
+      );
+      final data = res.data;
+      if (data == null) return null;
+      return _parseFormSchema(data);
+    } on DioException catch (e) {
+      // 404 = aucun schéma actif → mode legacy. On normalise en null.
+      if (e.response?.statusCode == 404) return null;
+      throw mapDioError(e);
+    }
+  }
+
+  @override
+  Future<void> uploadLoanRequestAttachment({
+    required int loanRequestId,
+    required String schemaFieldId,
+    required String filePath,
+    required String fileName,
+  }) async {
+    try {
+      final form = FormData.fromMap({
+        'schema_field_id': schemaFieldId,
+        'fichier': await MultipartFile.fromFile(
+          filePath,
+          filename: fileName,
+        ),
+      });
+      await _dio.post<Map<String, dynamic>>(
+        '/loans/requests/$loanRequestId/attachments/',
+        data: form,
       );
     } on DioException catch (e) {
       throw mapDioError(e);

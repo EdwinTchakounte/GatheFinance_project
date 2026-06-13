@@ -1,3 +1,4 @@
+import '../../../forms/domain/entities/form_schema.dart';
 import '../entities/eligibility.dart';
 import '../entities/lender_payout.dart';
 import '../entities/loan.dart';
@@ -26,12 +27,17 @@ abstract class LoansRepository {
   /// CH-9 — [moyenReception] + [recipientPhone] : canal choisi par le membre
   /// pour recevoir le décaissement. Optionnels pour rétro-compat ; quand
   /// renseignés, le téléphone est obligatoire si le canal est Tara OM/MoMo.
+  ///
+  /// CH-5 — [extraValues] : valeurs scalaires des champs supplémentaires du
+  /// FormSchema actif (loan_request). Fusionnées dans le body POST et
+  /// routées par le backend dans `extra_payload`.
   Future<LoanRequestSubmission> submitRequest({
     required num montantDemande,
     required int dureeMois,
     required String motif,
     LoanReceiveChannel? moyenReception,
     String? recipientPhone,
+    Map<String, Object?> extraValues = const {},
   });
 
   /// CH-7 — Règle les frais d'étude de la demande EN_ATTENTE du membre via
@@ -41,6 +47,23 @@ abstract class LoansRepository {
   Future<void> payStudyFee({
     required String phone,
     required String network,
+  });
+
+  /// CH-5 — Récupère le `FormSchema` actif pour `loan_request`.
+  ///
+  /// Renvoie `null` si aucun schéma actif n'est défini côté admin (mode
+  /// legacy : seuls les champs hardcoded du sheet sont rendus). Les erreurs
+  /// transport sont propagées en `NetworkFailure`/`UnexpectedFailure`.
+  Future<FormSchema?> getActiveLoanRequestSchema();
+
+  /// CH-5 — Upload une pièce jointe pour un champ `file` du FormSchema sur
+  /// un LoanRequest existant. Multipart : `fichier` + `schema_field_id`.
+  /// Idempotent côté backend (re-upload remplace le précédent).
+  Future<void> uploadLoanRequestAttachment({
+    required int loanRequestId,
+    required String schemaFieldId,
+    required String filePath,
+    required String fileName,
   });
 
   /// Effectue un remboursement d'échéance via Mobile Money.
