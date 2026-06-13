@@ -73,4 +73,34 @@ class AuthRepositoryImpl implements AuthRepository {
       throw UnexpectedFailure(e.message);
     }
   }
+
+  @override
+  Future<void> requestPasswordReset({required String email}) async {
+    try {
+      await _remote.requestPasswordReset(email: email);
+    } on NetworkException catch (e) {
+      throw NetworkFailure(e.message);
+    } on ServerException catch (e) {
+      throw UnexpectedFailure(e.message);
+    }
+  }
+
+  @override
+  Future<String?> confirmPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    try {
+      return await _remote.confirmPasswordReset(
+        email: email,
+        code: code,
+        newPassword: newPassword,
+      );
+    } on NetworkException catch (e) {
+      throw NetworkFailure(e.message);
+    } on ServerException catch (e) {
+      throw UnexpectedFailure(e.message);
+    }
+  }
 }

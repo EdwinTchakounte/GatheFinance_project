@@ -70,4 +70,25 @@ class AuthMockDataSource implements AuthRemoteDataSource {
     }
     return null;
   }
+
+  @override
+  Future<void> requestPasswordReset({required String email}) async {
+    // Mock — no-op : pas d'envoi d'e-mail en mode démo.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+  }
+
+  @override
+  Future<String?> confirmPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    // Convention mock : code '000000' = succès.
+    if (code != '000000') return 'Code invalide ou expiré.';
+    if (newPassword.length < 8) {
+      return 'Le nouveau mot de passe doit faire au moins 8 caractères.';
+    }
+    return null;
+  }
 }

@@ -25,4 +25,15 @@ abstract class AuthRemoteDataSource {
     required String oldPassword,
     required String newPassword,
   });
+
+  /// POST /auth/password-reset/request/ — déclenche l'envoi d'un OTP.
+  Future<void> requestPasswordReset({required String email});
+
+  /// POST /auth/password-reset/confirm/ — valide l'OTP + change le mot de passe.
+  /// `null` = succès, sinon un message d'erreur à afficher (code faux, mdp faible, …).
+  Future<String?> confirmPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  });
 }

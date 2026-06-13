@@ -47,6 +47,16 @@ class _ScriptedAuthDs implements AuthRemoteDataSource {
     required String oldPassword,
     required String newPassword,
   }) async => null;
+
+  @override
+  Future<void> requestPasswordReset({required String email}) async {}
+
+  @override
+  Future<String?> confirmPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async => null;
 }
 
 void main() {

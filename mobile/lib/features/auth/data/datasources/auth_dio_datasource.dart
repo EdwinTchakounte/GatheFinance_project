@@ -143,6 +143,52 @@ class AuthDioDataSource implements AuthRemoteDataSource {
       throw mapDioError(e);
     }
   }
+
+  @override
+  Future<void> requestPasswordReset({required String email}) async {
+    try {
+      await _client.primeCsrf();
+      await _dio.post<void>(
+        '/auth/password-reset/request/',
+        data: {'email': email.trim()},
+      );
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
+  Future<String?> confirmPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    try {
+      await _client.primeCsrf();
+      await _dio.post<void>(
+        '/auth/password-reset/confirm/',
+        data: {
+          'email': email.trim(),
+          'code': code.trim(),
+          'new_password': newPassword,
+        },
+      );
+      return null;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        final body = e.response?.data;
+        if (body is Map<String, dynamic>) {
+          final detail = body['detail'];
+          if (detail is String && detail.isNotEmpty) return detail;
+        }
+        return 'Code invalide ou expiré.';
+      }
+      if (e.response?.statusCode == 429) {
+        return 'Trop de tentatives — réessayez dans une heure.';
+      }
+      throw mapDioError(e);
+    }
+  }
 }
 
 Member _toMember(Map<String, dynamic> data) {

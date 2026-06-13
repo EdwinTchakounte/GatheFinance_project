@@ -400,6 +400,26 @@ TEMPLATES = [
         ),
         "variables": ["prenom", "numero_dossier", "reliquat"],
     },
+    # ───────────────────────────────────────────────────────────────────────
+    # Auth — mot de passe oublié (OTP 6 chiffres, expire en ttl_minutes)
+    # ───────────────────────────────────────────────────────────────────────
+    {
+        "code": "auth.password_reset_otp",
+        "objet": "Code de réinitialisation Gathé Finance",
+        "corps_html": (
+            "<p>Bonjour {prenom},</p>"
+            "<p>Vous avez demandé la réinitialisation de votre mot de passe. "
+            "Voici votre code à 6 chiffres :</p>"
+            "<p style=\"font-size:28px;font-weight:700;letter-spacing:6px;"
+            "background:#f4f6f8;padding:14px 22px;display:inline-block;"
+            "border-radius:8px;color:#102a43;\">{code}</p>"
+            "<p>Ce code est valable <strong>{ttl_minutes} minutes</strong> "
+            "et ne peut être utilisé qu'une seule fois.</p>"
+            "<p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet "
+            "e-mail — votre mot de passe restera inchangé.</p>"
+        ),
+        "variables": ["prenom", "code", "ttl_minutes"],
+    },
 ]
 
 

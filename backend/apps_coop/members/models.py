@@ -496,3 +496,57 @@ class Document(TimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.type_doc} · {self.nom_original or self.fichier.name}"
+
+
+class PasswordResetCode(TimestampedModel):
+    """OTP à 6 chiffres pour le flow "mot de passe oublié" (mobile + portail).
+
+    Stocke un hash SHA-256 du code clair (jamais le code en clair). Un seul
+    code actif par utilisateur à la fois : la demande d'un nouveau code
+    invalide les précédents. Anti-bruteforce : ``attempts`` plafonné à 5,
+    au-delà le code est marqué consommé. Expire 15 minutes après émission.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="password_reset_codes",
+    )
+    code_hash = models.CharField(
+        max_length=64,
+        help_text="SHA-256 hex du code clair (6 chiffres). Jamais le code lui-même.",
+    )
+    expires_at = models.DateTimeField(
+        help_text="Au-delà : code invalide même si non utilisé.",
+    )
+    used_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Posé à la consommation (succès OU 5 essais échoués).",
+    )
+    attempts = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Nombre d'essais infructueux. ≥ 5 → code consumé.",
+    )
+    ip_request = models.GenericIPAddressField(null=True, blank=True)
+    ip_confirm = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "used_at"]),
+            models.Index(fields=["expires_at"]),
+        ]
+
+    def __str__(self) -> str:
+        state = "utilisé" if self.used_at else ("expiré" if self.is_expired else "valide")
+        return f"PasswordResetCode({self.user_id}) · {state}"
+
+    @property
+    def is_expired(self) -> bool:
+        from django.utils import timezone
+
+        return timezone.now() >= self.expires_at
+
+    @property
+    def is_consumed(self) -> bool:
+        return self.used_at is not None or self.attempts >= 5

@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/state/auth_notifier.dart';
 import '../../features/avaliste/presentation/pages/avaliste_mandats_page.dart';
@@ -103,6 +104,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/login',
         name: 'login',
         builder: (context, state) => const LoginPage(),
+      ),
+      // Mot de passe oublié — accessible depuis le login, sans auth.
+      GoRoute(
+        path: '/auth/forgot-password',
+        name: 'forgot-password',
+        pageBuilder: (context, state) =>
+            _paSlideFadePage(state, const ForgotPasswordPage()),
       ),
 
       // Configuration du PIN (1er login) + déverrouillage (ouverture app).

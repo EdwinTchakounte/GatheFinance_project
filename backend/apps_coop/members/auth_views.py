@@ -259,3 +259,221 @@ def change_password(request):
         user_agent=request.META.get("HTTP_USER_AGENT", ""),
     )
     return Response({"detail": "Mot de passe modifié."})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Mot de passe oublié — flow OTP 6 chiffres par e-mail
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _PasswordResetThrottle(ScopedRateThrottle):
+    scope = "auth-password-reset"
+
+
+def _hash_code(code: str) -> str:
+    """SHA-256 hex du code clair. Pas de salt — l'attaquant a déjà l'e-mail."""
+    import hashlib
+
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
+@extend_schema(
+    tags=["auth"],
+    summary="Demander un code de réinitialisation de mot de passe",
+    description=(
+        "Génère un code OTP 6 chiffres expirant en 15 minutes et l'envoie par "
+        "e-mail (template `auth.password_reset_otp`). Anti-énumération : "
+        "renvoie toujours 200 même si l'e-mail n'existe pas. Throttle : 5/h/IP."
+    ),
+    request={
+        "application/json": {
+            "type": "object",
+            "required": ["email"],
+            "properties": {"email": {"type": "string", "format": "email"}},
+        }
+    },
+    responses={200: OpenApiResponse(description="Code envoyé (réponse opaque)")},
+)
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([_PasswordResetThrottle])
+def request_password_reset(request):
+    import secrets
+    from datetime import timedelta
+
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+
+    from .models import PasswordResetCode
+
+    email = (request.data.get("email") or "").strip().lower()
+    if not email:
+        # On reste opaque même sur l'erreur de format (anti-énumération).
+        return Response({"detail": "Si un compte existe, un code a été envoyé."})
+
+    User = get_user_model()
+    user = User.objects.filter(email__iexact=email).first()
+    if user is None:
+        record(
+            action="auth.password_reset.requested_unknown",
+            entite_type="User",
+            entite_id=None,
+            details={"email": email},
+            ip=client_ip(request),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        )
+        return Response({"detail": "Si un compte existe, un code a été envoyé."})
+
+    # Invalide les codes précédents non utilisés.
+    PasswordResetCode.objects.filter(
+        user=user, used_at__isnull=True,
+    ).update(used_at=timezone.now())
+
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    PasswordResetCode.objects.create(
+        user=user,
+        code_hash=_hash_code(code),
+        expires_at=timezone.now() + timedelta(minutes=15),
+        ip_request=client_ip(request),
+    )
+
+    # Envoi e-mail Brevo. Best-effort : on n'expose rien si le mail échoue
+    # (le membre verra qu'aucun mail n'arrive et pourra retenter).
+    try:
+        from apps_coop.notifications.services import send_template
+
+        send_template(
+            "auth.password_reset_otp",
+            to=user.email,
+            context={
+                "prenom": (
+                    getattr(getattr(user, "member", None), "prenom", None)
+                    or user.first_name
+                    or ""
+                ),
+                "code": code,
+                "ttl_minutes": 15,
+            },
+            member=getattr(user, "member", None),
+        )
+    except Exception:  # noqa: BLE001 — best-effort
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "send_template(auth.password_reset_otp) failed for user=%s", user.id,
+        )
+
+    record(
+        action="auth.password_reset.requested",
+        entite_type="User",
+        entite_id=user.id,
+        details={"email": email},
+        ip=client_ip(request),
+        user_agent=request.META.get("HTTP_USER_AGENT", ""),
+    )
+    return Response({"detail": "Si un compte existe, un code a été envoyé."})
+
+
+@extend_schema(
+    tags=["auth"],
+    summary="Confirmer la réinitialisation avec un code OTP",
+    description=(
+        "Vérifie le code OTP reçu par e-mail puis change le mot de passe. "
+        "Le code expire 15 min après émission, est consommé au 1er succès, "
+        "et plafonné à 5 essais. Throttle : 5/h/IP."
+    ),
+    request={
+        "application/json": {
+            "type": "object",
+            "required": ["email", "code", "new_password"],
+            "properties": {
+                "email": {"type": "string", "format": "email"},
+                "code": {"type": "string", "minLength": 6, "maxLength": 6},
+                "new_password": {"type": "string", "format": "password"},
+            },
+        }
+    },
+    responses={
+        200: OpenApiResponse(description="Mot de passe réinitialisé"),
+        400: OpenApiResponse(description="Code invalide, expiré ou mot de passe trop faible"),
+    },
+)
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([_PasswordResetThrottle])
+def confirm_password_reset(request):
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+    from django.utils import timezone
+
+    from .models import PasswordResetCode
+
+    email = (request.data.get("email") or "").strip().lower()
+    code = (request.data.get("code") or "").strip()
+    new_password = request.data.get("new_password") or ""
+
+    # Réponse générique pour ne pas distinguer "email inconnu" de "code faux".
+    invalid = Response(
+        {"detail": "Code invalide ou expiré."},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+    if not (email and code and new_password):
+        return invalid
+    if len(code) != 6 or not code.isdigit():
+        return invalid
+
+    User = get_user_model()
+    user = User.objects.filter(email__iexact=email).first()
+    if user is None:
+        return invalid
+
+    # On prend le code actif le plus récent.
+    record_qs = PasswordResetCode.objects.filter(
+        user=user, used_at__isnull=True, expires_at__gt=timezone.now(),
+    ).order_by("-created_at")
+    reset = record_qs.first()
+    if reset is None or reset.attempts >= 5:
+        return invalid
+
+    if reset.code_hash != _hash_code(code):
+        reset.attempts += 1
+        if reset.attempts >= 5:
+            reset.used_at = timezone.now()
+        reset.save(update_fields=["attempts", "used_at"])
+        record(
+            action="auth.password_reset.failed_attempt",
+            entite_type="User",
+            entite_id=user.id,
+            details={"attempts": reset.attempts},
+            ip=client_ip(request),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        )
+        return invalid
+
+    # Validation du nouveau mot de passe (longueur, complexité Django).
+    try:
+        validate_password(new_password, user=user)
+    except ValidationError as exc:
+        return Response(
+            {"detail": " ".join(exc.messages)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+    reset.used_at = timezone.now()
+    reset.ip_confirm = client_ip(request)
+    reset.save(update_fields=["used_at", "ip_confirm"])
+
+    record(
+        action="auth.password_reset.completed",
+        entite_type="User",
+        entite_id=user.id,
+        details={},
+        ip=client_ip(request),
+        user_agent=request.META.get("HTTP_USER_AGENT", ""),
+    )
+    return Response({"detail": "Mot de passe réinitialisé."})

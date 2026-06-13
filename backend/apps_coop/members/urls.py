@@ -11,6 +11,17 @@ urlpatterns = [
     path("auth/logout/", auth_views.logout_view, name="auth-logout"),
     path("auth/me/", auth_views.me_view, name="auth-me"),
     path("auth/change-password/", auth_views.change_password, name="auth-change-password"),
+    # Mot de passe oublié — flow OTP par e-mail (mobile + portail).
+    path(
+        "auth/password-reset/request/",
+        auth_views.request_password_reset,
+        name="auth-password-reset-request",
+    ),
+    path(
+        "auth/password-reset/confirm/",
+        auth_views.confirm_password_reset,
+        name="auth-password-reset-confirm",
+    ),
 
     # Member self-service
     path("members/me/", views.MemberMeView.as_view(), name="member-me"),

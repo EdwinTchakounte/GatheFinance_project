@@ -251,6 +251,8 @@ REST_FRAMEWORK = {
         "user": "1000/hour",
         "form-submit": "10/hour",
         "auth-login": "20/hour",
+        # Mot de passe oublié — 5/h/IP suffit (cas réels rares + anti-bruteforce).
+        "auth-password-reset": "5/hour",
     },
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 25,

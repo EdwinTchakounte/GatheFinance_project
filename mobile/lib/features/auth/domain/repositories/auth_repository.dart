@@ -25,4 +25,17 @@ abstract class AuthRepository {
     required String oldPassword,
     required String newPassword,
   });
+
+  /// Demande l'envoi d'un OTP de réinitialisation à l'adresse fournie.
+  /// Anti-énumération : succès systématique côté backend (réponse opaque)
+  /// même si l'e-mail n'existe pas.
+  Future<void> requestPasswordReset({required String email});
+
+  /// Valide l'OTP et change le mot de passe. Renvoie un message d'erreur
+  /// (`null` = succès) — l'UI distingue mauvais code vs mot de passe faible.
+  Future<String?> confirmPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  });
 }
