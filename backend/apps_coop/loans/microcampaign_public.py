@@ -62,6 +62,13 @@ def _row(c: MicrocreditCampaign, request) -> dict:
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def public_active_campaigns(request):
+    """Pagination simple `?limit=N&offset=M`.
+
+    Renvoie ``{count, next, previous, results}`` à l'image de DRF, pour
+    que le mobile puisse charger les pages suivantes au scroll. `limit`
+    par défaut 10, plafonné à 50 pour éviter qu'un client demande tout
+    en une fois.
+    """
     today = timezone.localdate()
     qs = (
         MicrocreditCampaign.objects.filter(
@@ -83,4 +90,32 @@ def public_active_campaigns(request):
             "flyer",
         )
     )
-    return Response({"results": [_row(c, request) for c in qs]})
+
+    try:
+        limit = int(request.GET.get("limit", 10))
+    except (TypeError, ValueError):
+        limit = 10
+    try:
+        offset = int(request.GET.get("offset", 0))
+    except (TypeError, ValueError):
+        offset = 0
+    limit = max(1, min(limit, 50))
+    offset = max(0, offset)
+
+    total = qs.count()
+    items = qs[offset : offset + limit]
+    base = request.build_absolute_uri(request.path)
+
+    def _link(off: int) -> str | None:
+        if off < 0 or off >= total:
+            return None
+        return f"{base}?limit={limit}&offset={off}"
+
+    return Response(
+        {
+            "count": total,
+            "next": _link(offset + limit) if offset + limit < total else None,
+            "previous": _link(offset - limit) if offset > 0 else None,
+            "results": [_row(c, request) for c in items],
+        }
+    )

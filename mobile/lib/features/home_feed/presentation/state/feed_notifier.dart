@@ -4,66 +4,158 @@ import '../../../../core/di/providers.dart';
 import '../../data/datasources/feed_dio_datasource.dart';
 import '../../domain/entities/feed_item.dart';
 
-/// Notifier maintenant les 2 listes en RAM. `autoDispose` avec `.keepAlive()`
-/// suit la stratégie cache : on garde les données entre navigations rapides,
-/// mais on libère si l'utilisateur sort longtemps. Le pull-to-refresh de la
-/// Home force un re-fetch frais via `refresh()`.
 final feedDataSourceProvider = Provider<FeedDioDataSource>((ref) {
   return FeedDioDataSource(ref.watch(apiClientProvider));
 });
 
-class _FeedState {
-  const _FeedState({
+const int _kPageSize = 10;
+
+/// État partagé pour les 2 carousels : items chargés cumulés + flags
+/// de pagination. Le widget peut demander `loadMore(kind)` lorsqu'il
+/// arrive en bout de scroll.
+class FeedState {
+  const FeedState({
     required this.campaigns,
+    required this.campaignsHasNext,
+    required this.campaignsLoading,
     required this.articles,
+    required this.articlesHasNext,
+    required this.articlesLoading,
   });
 
   final List<CampaignFlyer> campaigns;
+  final bool campaignsHasNext;
+  final bool campaignsLoading;
   final List<NewsArticle> articles;
+  final bool articlesHasNext;
+  final bool articlesLoading;
 
-  bool get isEmpty => campaigns.isEmpty && articles.isEmpty;
+  static const empty = FeedState(
+    campaigns: [],
+    campaignsHasNext: false,
+    campaignsLoading: false,
+    articles: [],
+    articlesHasNext: false,
+    articlesLoading: false,
+  );
+
+  FeedState copyWith({
+    List<CampaignFlyer>? campaigns,
+    bool? campaignsHasNext,
+    bool? campaignsLoading,
+    List<NewsArticle>? articles,
+    bool? articlesHasNext,
+    bool? articlesLoading,
+  }) {
+    return FeedState(
+      campaigns: campaigns ?? this.campaigns,
+      campaignsHasNext: campaignsHasNext ?? this.campaignsHasNext,
+      campaignsLoading: campaignsLoading ?? this.campaignsLoading,
+      articles: articles ?? this.articles,
+      articlesHasNext: articlesHasNext ?? this.articlesHasNext,
+      articlesLoading: articlesLoading ?? this.articlesLoading,
+    );
+  }
 }
 
-class HomeFeedNotifier extends AutoDisposeAsyncNotifier<_FeedState> {
+class HomeFeedNotifier extends AutoDisposeAsyncNotifier<FeedState> {
   @override
-  Future<_FeedState> build() async {
+  Future<FeedState> build() async {
     // Garde la donnée même si plus aucun widget watch — la Home dispose
-    // du Notifier en navigation latérale et le re-fetcherait inutilement.
+    // souvent du Notifier en navigation latérale et le re-fetcherait
+    // inutilement.
     ref.keepAlive();
-    return _load();
+    return _loadInitial();
   }
 
-  Future<_FeedState> _load() async {
+  Future<FeedState> _loadInitial() async {
     final ds = ref.read(feedDataSourceProvider);
-    // On charge les 2 listes indépendamment : si l'une plante (ex.
-    // erreur Wagtail), on affiche quand même l'autre côté UI plutôt
-    // que de masquer toute la home feed.
-    final campaignsF = ds.activeCampaigns().catchError((_) => <CampaignFlyer>[]);
-    final articlesF = ds.latestArticles().catchError((_) => <NewsArticle>[]);
-    final results = await Future.wait([campaignsF, articlesF]);
-    return _FeedState(
-      campaigns: results[0] as List<CampaignFlyer>,
-      articles: results[1] as List<NewsArticle>,
+    // Chargements parallèles avec catchError indépendant : si l'une
+    // plante, l'autre s'affiche quand même.
+    final campF =
+        ds.activeCampaigns(limit: _kPageSize, offset: 0).catchError((_) {
+      return const FeedPage<CampaignFlyer>(
+        items: [],
+        total: 0,
+        hasNext: false,
+        nextOffset: 0,
+      );
+    });
+    final newsF = ds.latestArticles(limit: _kPageSize, offset: 0).catchError((_) {
+      return const FeedPage<NewsArticle>(
+        items: [],
+        total: 0,
+        hasNext: false,
+        nextOffset: 0,
+      );
+    });
+    final results = await Future.wait([campF, newsF]);
+    final camp = results[0] as FeedPage<CampaignFlyer>;
+    final news = results[1] as FeedPage<NewsArticle>;
+    return FeedState(
+      campaigns: camp.items,
+      campaignsHasNext: camp.hasNext,
+      campaignsLoading: false,
+      articles: news.items,
+      articlesHasNext: news.hasNext,
+      articlesLoading: false,
     );
   }
 
   Future<void> refresh() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(_load);
+    state = await AsyncValue.guard(_loadInitial);
+  }
+
+  /// Charge la page suivante de campagnes en cumul. Idempotent : ne fait
+  /// rien si `campaignsLoading` ou `!campaignsHasNext`.
+  Future<void> loadMoreCampaigns() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    if (current.campaignsLoading || !current.campaignsHasNext) return;
+    state = AsyncData(current.copyWith(campaignsLoading: true));
+    try {
+      final page = await ref.read(feedDataSourceProvider).activeCampaigns(
+            limit: _kPageSize,
+            offset: current.campaigns.length,
+          );
+      state = AsyncData(
+        current.copyWith(
+          campaigns: [...current.campaigns, ...page.items],
+          campaignsHasNext: page.hasNext,
+          campaignsLoading: false,
+        ),
+      );
+    } catch (_) {
+      state = AsyncData(current.copyWith(campaignsLoading: false));
+    }
+  }
+
+  /// Charge la page suivante d'articles en cumul.
+  Future<void> loadMoreArticles() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    if (current.articlesLoading || !current.articlesHasNext) return;
+    state = AsyncData(current.copyWith(articlesLoading: true));
+    try {
+      final page = await ref.read(feedDataSourceProvider).latestArticles(
+            limit: _kPageSize,
+            offset: current.articles.length,
+          );
+      state = AsyncData(
+        current.copyWith(
+          articles: [...current.articles, ...page.items],
+          articlesHasNext: page.hasNext,
+          articlesLoading: false,
+        ),
+      );
+    } catch (_) {
+      state = AsyncData(current.copyWith(articlesLoading: false));
+    }
   }
 }
 
 final homeFeedProvider =
-    AsyncNotifierProvider.autoDispose<HomeFeedNotifier, _FeedState>(
+    AsyncNotifierProvider.autoDispose<HomeFeedNotifier, FeedState>(
   HomeFeedNotifier.new,
 );
-
-/// Exposés séparément pour que la Home puisse afficher l'un ou l'autre
-/// pendant que le second charge encore.
-final activeCampaignsProvider = Provider.autoDispose<List<CampaignFlyer>>((ref) {
-  return ref.watch(homeFeedProvider).valueOrNull?.campaigns ?? const [];
-});
-
-final latestArticlesProvider = Provider.autoDispose<List<NewsArticle>>((ref) {
-  return ref.watch(homeFeedProvider).valueOrNull?.articles ?? const [];
-});
