@@ -82,6 +82,7 @@ class SavingsMockDataSource implements SavingsRemoteDataSource {
     required String phone,
     required String network,
     bool isPlacement = false,
+    int nbJoursCouverts = 1,
   }) async {
     // Simule l'appel Tara + le webhook
     await Future<void>.delayed(const Duration(milliseconds: 1900));

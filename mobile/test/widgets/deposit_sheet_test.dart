@@ -23,6 +23,7 @@ class _FakeDataSource extends Fake implements SavingsRemoteDataSource {
     required String phone,
     required String network,
     bool isPlacement = false,
+    int nbJoursCouverts = 1,
   }) async {
     depositCalls += 1;
     last = Fixtures.savings(solde: 365000 + amount);

@@ -9,6 +9,7 @@ import '../../../../core/widgets/brand_loader.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../savings/domain/collecte_terms.dart';
 import '../../../savings/presentation/state/classic_savings_notifier.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
 
@@ -55,6 +56,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   // CH-3 — Sous-canal placement (épargne classique uniquement). Reste false
   // pour la cotisation.
   bool _isPlacement = false;
+  // LOT 6 — Nombre de jours pré-payés (cotisation uniquement). 1 = mode
+  // normal, > 1 = multi-jours (montant verrouillé à _nbJours × kCollecteMinPerDay).
+  int _nbJoursCouverts = 1;
 
   late _Step _step;
   num? _committedAmount;
@@ -103,6 +107,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             amount: amount,
             phone: _phoneCtrl.text,
             network: network,
+            // LOT 6 — Multi-jours pré-payé (cotisation uniquement).
+            nbJoursCouverts: _nbJoursCouverts,
           );
     }
     if (!mounted) return;
@@ -444,6 +450,76 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
 
             const SizedBox(height: 22),
 
+            // LOT 6 — Sélecteur multi-jours pré-payés (cotisation uniquement).
+            // Le membre peut verser pour 1, 3, 5, 7, 15 ou 30 jours d'avance.
+            // Le montant est verrouillé sur N × kCollecteMinPerDay.
+            if (!widget.classic) ...[
+              const Text(
+                'COTISATION POUR…',
+                style: TextStyle(
+                  color: PaColors.inkSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 36,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: 6,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, i) {
+                    final values = [1, 3, 5, 7, 15, 30];
+                    final n = values[i];
+                    final selected = _nbJoursCouverts == n;
+                    return _DaysChip(
+                      label: n == 1 ? '1 jour' : '$n jours',
+                      selected: selected,
+                      onTap: () {
+                        setState(() {
+                          _nbJoursCouverts = n;
+                          _amountCtrl.text =
+                              '${n * kCollecteMinPerDay}';
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+              if (_nbJoursCouverts > 1) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: PaColors.tealSurface,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.bolt_outlined,
+                          size: 16, color: PaColors.teal),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Pré-paiement $_nbJoursCouverts jours × ${XAFFormatter.format(kCollecteMinPerDay)} = ${XAFFormatter.format(_nbJoursCouverts * kCollecteMinPerDay)}',
+                          style: const TextStyle(
+                            color: PaColors.navy,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+            ],
+
             // Montant — input geant inline
             Text(
               l.common_amount,
@@ -458,6 +534,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             TextFormField(
               controller: _amountCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: false),
+              // Quand on est en multi-jours, le montant est verrouillé.
+              readOnly: !widget.classic && _nbJoursCouverts > 1,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (_) => setState(() {}),
               style: const TextStyle(
@@ -945,6 +1023,50 @@ class _AmountChip extends StatelessWidget {
 
 
 /// CH-3 — Carte « Placement » vs « Libre » dans l'étape kindChoice.
+/// LOT 6 — Pastille du sélecteur multi-jours pré-payé sur la cotisation.
+class _DaysChip extends StatelessWidget {
+  const _DaysChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? PaColors.teal : PaColors.cardBg,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? PaColors.teal : PaColors.line,
+            width: 1,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : PaColors.inkPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
 class _KindCard extends StatelessWidget {
   const _KindCard({
     required this.icon,

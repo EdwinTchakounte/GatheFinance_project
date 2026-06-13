@@ -25,6 +25,7 @@ class SavingsRepositoryImpl implements SavingsRepository {
     required String phone,
     required String network,
     bool isPlacement = false,
+    int nbJoursCouverts = 1,
   }) async {
     try {
       return await _remote.deposit(
@@ -32,6 +33,7 @@ class SavingsRepositoryImpl implements SavingsRepository {
         phone: phone,
         network: network,
         isPlacement: isPlacement,
+        nbJoursCouverts: nbJoursCouverts,
       );
     } on NetworkException catch (e) {
       throw NetworkFailure(e.message);

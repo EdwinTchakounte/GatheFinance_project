@@ -12,6 +12,7 @@ class DepositSavingsParams {
     required this.phone,
     required this.network,
     this.isPlacement = false,
+    this.nbJoursCouverts = 1,
   });
 
   final num amount;
@@ -19,6 +20,8 @@ class DepositSavingsParams {
   final String network;
   // CH-3 — Sous-canal placement (épargne classique uniquement).
   final bool isPlacement;
+  // LOT 6 — Nombre de jours pré-payés (cotisation uniquement).
+  final int nbJoursCouverts;
 }
 
 class DepositSavings extends UseCase<SavingsAccount, DepositSavingsParams> {
@@ -35,6 +38,7 @@ class DepositSavings extends UseCase<SavingsAccount, DepositSavingsParams> {
       phone: params.phone,
       network: params.network,
       isPlacement: params.isPlacement,
+      nbJoursCouverts: params.nbJoursCouverts,
     );
   }
 }

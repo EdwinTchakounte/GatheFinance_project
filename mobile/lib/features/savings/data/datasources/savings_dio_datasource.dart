@@ -53,6 +53,7 @@ class SavingsDioDataSource implements SavingsRemoteDataSource {
     required String phone,
     required String network,
     bool isPlacement = false,
+    int nbJoursCouverts = 1,
   }) async {
     try {
       final body = <String, dynamic>{
@@ -68,6 +69,13 @@ class SavingsDioDataSource implements SavingsRemoteDataSource {
       // que l'on cible bien l'épargne classique pour rester explicite.
       if (isPlacement && kind == SavingsAccountKind.classique) {
         body['is_placement'] = true;
+      }
+      // LOT 6 — Multi-jours pré-payé : valide UNIQUEMENT pour la cotisation
+      // journalière (type=`epargne`). Le backend rejette `nb_jours_couverts>1`
+      // sur les autres types. On ne propage qu'à partir de 2 jours pour
+      // garder le wire compact.
+      if (nbJoursCouverts > 1 && kind == SavingsAccountKind.cotisation) {
+        body['nb_jours_couverts'] = nbJoursCouverts;
       }
       await _dio.post<Map<String, dynamic>>(
         '/payments/init/',

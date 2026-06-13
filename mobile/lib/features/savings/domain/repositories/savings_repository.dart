@@ -18,5 +18,7 @@ abstract class SavingsRepository {
     required String phone,
     required String network,
     bool isPlacement = false,
+    // LOT 6 — Multi-jours pré-payé (cotisation uniquement, max 30 j.).
+    int nbJoursCouverts = 1,
   });
 }

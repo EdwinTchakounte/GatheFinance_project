@@ -18,15 +18,25 @@ class SavingsNotifier extends AsyncNotifier<SavingsAccount> {
   }
 
   /// Lance un dépôt — émet `loading` puis `data` ou `error`.
+  ///
+  /// LOT 6 — [nbJoursCouverts] > 1 active le mode multi-jours pré-payé sur
+  /// la collecte journalière. Le backend valide montant = nb × min_per_day
+  /// et plafonne à 30 jours.
   Future<void> deposit({
     required num amount,
     required String phone,
     required String network,
+    int nbJoursCouverts = 1,
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
       () => _deposit.call(
-        DepositSavingsParams(amount: amount, phone: phone, network: network),
+        DepositSavingsParams(
+          amount: amount,
+          phone: phone,
+          network: network,
+          nbJoursCouverts: nbJoursCouverts,
+        ),
       ),
     );
   }
