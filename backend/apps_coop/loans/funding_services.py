@@ -565,8 +565,9 @@ def _reallocate(fr: LoanFundingRequest) -> None:
                 "loan.funding.exhausted",
                 member=fr.loan.member,
                 context={
+                    "prenom": fr.loan.member.prenom,
                     "loan_dossier": fr.loan.numero_dossier,
-                    "deficit": str(int(deficit)),
+                    "deficit": f"{int(deficit):,}".replace(",", " "),
                 },
             )
         except Exception:  # noqa: BLE001
