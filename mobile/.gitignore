@@ -49,3 +49,8 @@ windows/flutter/ephemeral/
 # Coverage
 coverage/
 test/.test_coverage.dart
+
+# Android signing artefacts (NE JAMAIS COMMIT)
+android/keystore/
+android/keystore/*.jks
+android/keystore/*.keystore

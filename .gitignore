@@ -79,3 +79,22 @@ mobile/.idea/
 
 # Artefacts intermédiaires de scripts/build-pdfs.mjs (HTML -> PDF via Playwright)
 docs/*.html
+
+# Android signing artefacts (NE JAMAIS COMMIT)
+mobile/android/keystore/
+mobile/android/keystore/*.jks
+mobile/android/keystore/*.keystore
+
+# Artefacts release Play Store (AAB binaires lourds) — gardés hors git, on
+# garde les .md d'audit/plan/checklist en revanche.
+audit/release/
+audit/release/*.aab
+audit/release/*.apk
+
+# Brouillons livre projet (PDF, captures Playwright/adb, ~90 Mo)
+livre_projet/
+
+# Captures parasites laissées à la racine pendant les sessions
+/capture_rh.jpeg
+/capture_*.png
+/capture_*.jpeg
