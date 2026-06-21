@@ -132,10 +132,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Flutter 3.27
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.27.x"
+          # Latest stable. Le pubspec demande intl ^0.20.2 qui necessite
+          # le SDK Flutter >= 3.32 (flutter_localizations pinne intl).
           channel: stable
           cache: true
 

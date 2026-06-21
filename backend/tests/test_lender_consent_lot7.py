@@ -26,6 +26,7 @@ from apps_coop.savings.lender_services import (
     revoke_consent,
 )
 from apps_coop.savings.models import (
+    ClassicSavingsAccount,
     LenderConsent,
     LenderTranche,
 )
