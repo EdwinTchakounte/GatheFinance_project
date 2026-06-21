@@ -73,10 +73,9 @@ services:
   # Backend Django + Wagtail
   # ---------------------------------------------------------------------------
   backend:
-    build:
-      context: ../backend
-      target: prod
-    image: gathe-finance/backend:prod
+    # Image construite par GitHub Actions (.github/workflows/release.yml)
+    # et publiée sur GHCR. Override via .env.prod : GATHE_IMAGE_TAG=latest|main|sha-XXXX
+    image: ghcr.io/edwintchakounte/gathefinance_project/backend:${GATHE_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       <<: *backend-env
@@ -117,7 +116,7 @@ services:
   # Scheduler django-q2 (intérêts mensuel, retards quotidien, réconciliation)
   # ---------------------------------------------------------------------------
   qcluster:
-    image: gathe-finance/backend:prod
+    image: ghcr.io/edwintchakounte/gathefinance_project/backend:${GATHE_IMAGE_TAG:-latest}
     restart: unless-stopped
     command: ["python", "manage.py", "qcluster"]
     environment:
@@ -133,14 +132,10 @@ services:
   # Frontends Next.js (3 workspaces séparés)
   # ---------------------------------------------------------------------------
   site:
-    build:
-      context: ../frontend
-      target: runner-site
-      args:
-        CMS_API_URL: http://backend:8000
-        NEXT_PUBLIC_SITE_URL: https://${SITE_DOMAIN}
-        NEXT_PUBLIC_PORTAL_URL: https://${PORTAL_DOMAIN}
-    image: gathe-finance/site:prod
+    # Image GHCR. NEXT_PUBLIC_* sont déjà embedded au build par la CI
+    # (cf. .github/workflows/release.yml). Si tu changes de domaine,
+    # mets aussi à jour les vars dans le workflow et re-pushe.
+    image: ghcr.io/edwintchakounte/gathefinance_project/site:${GATHE_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -159,13 +154,7 @@ services:
       - "traefik.http.services.gathe-site.loadbalancer.server.port=3000"
 
   portal:
-    build:
-      context: ../frontend
-      target: runner-portal
-      args:
-        BACKEND_INTERNAL_URL: http://backend:8000
-        NEXT_PUBLIC_SITE_URL: https://${SITE_DOMAIN}
-    image: gathe-finance/portal:prod
+    image: ghcr.io/edwintchakounte/gathefinance_project/portal:${GATHE_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -182,13 +171,7 @@ services:
       - "traefik.http.services.gathe-portal.loadbalancer.server.port=3000"
 
   admin:
-    build:
-      context: ../frontend
-      target: runner-admin
-      args:
-        BACKEND_INTERNAL_URL: http://backend:8000
-        NEXT_PUBLIC_PORTAL_URL: https://${PORTAL_DOMAIN}
-    image: gathe-finance/admin:prod
+    image: ghcr.io/edwintchakounte/gathefinance_project/admin:${GATHE_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       NODE_ENV: production
