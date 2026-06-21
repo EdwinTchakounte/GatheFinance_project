@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import Optional
 
 from django.db import transaction
 from django.utils import timezone

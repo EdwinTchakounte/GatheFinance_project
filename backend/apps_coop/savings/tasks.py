@@ -479,7 +479,6 @@ def epargne_anniversary_processing() -> dict:
     ``cycle_courant``) ; transitions de state machine seulement si elles
     représentent un progrès.
     """
-    from datetime import timedelta
 
     from apps_coop.audit.services import (
         get_int_setting,

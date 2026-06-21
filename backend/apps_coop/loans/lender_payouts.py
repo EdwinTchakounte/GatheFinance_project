@@ -22,10 +22,8 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Iterable
 
 from django.db import transaction
-from django.db.models import Sum
 from django.utils import timezone
 
 from apps_coop.audit.services import get_str_setting, record as record_audit

@@ -47,7 +47,6 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from apps_coop.audit.services import record as record_audit
 from apps_coop.loans.avaliste_services import request_avaliste_consent
 from apps_coop.loans.funding_services import request_funding
 from apps_coop.loans.models import (

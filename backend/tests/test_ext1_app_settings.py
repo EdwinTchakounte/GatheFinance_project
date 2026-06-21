@@ -7,7 +7,7 @@ seedée ou si la valeur est invalide.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -23,7 +23,6 @@ from apps_coop.loans.tasks import (
 )
 from apps_coop.savings.cutoff import (
     COLLECTION_LOCATION,
-    DAILY_CUTOFF_HOUR,
     compute_value_date,
     get_collection_location,
 )

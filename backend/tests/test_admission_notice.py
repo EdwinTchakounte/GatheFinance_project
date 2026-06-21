@@ -3,10 +3,8 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
-from django.utils import timezone
 
 from apps_coop.loans.models import Loan, LoanRequest
-from apps_coop.members.models import MembershipRequest
 from apps_coop.members.services import approve_membership_request
 
 from tests.factories import MembershipRequestFactory

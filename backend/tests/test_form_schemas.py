@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import pytest
 from django.core.management import call_command
-from django.urls import reverse
 from rest_framework.test import APIClient
 
 from apps_coop.forms.models import FormSchema

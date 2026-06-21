@@ -31,7 +31,6 @@ from apps_coop.loans.models import (
     LenderInterestPayout,
     Loan,
     LoanInstallment,
-    LoanRepayment,
     LoanRequest,
 )
 from apps_coop.loans.services import generate_installments_flat_interest

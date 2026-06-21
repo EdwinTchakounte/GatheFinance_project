@@ -28,7 +28,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
 from apps_coop.audit.models import AppSetting, AuditLog
-from apps_coop.loans.models import Loan, LoanRenewal, LoanRequest
+from apps_coop.loans.models import LoanRequest
 from apps_coop.loans.services import (
     approve_loan_renewal,
     approve_loan_request,

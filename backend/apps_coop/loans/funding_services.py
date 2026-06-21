@@ -35,7 +35,7 @@ from apps_coop.audit.services import (
 )
 from apps_coop.members.models import Member
 from apps_coop.savings.lender_services import active_lenders_with_capacity
-from apps_coop.savings.models import LenderConsent, LenderTranche
+from apps_coop.savings.models import LenderTranche
 
 from .models import (
     LenderAllocation,

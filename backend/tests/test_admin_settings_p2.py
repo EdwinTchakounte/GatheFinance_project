@@ -8,7 +8,6 @@ Couvre :
 from __future__ import annotations
 
 import pytest
-from django.urls import reverse
 from rest_framework.test import APIClient
 
 from apps_coop.audit.models import AppSetting, AuditLog

@@ -12,7 +12,6 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
-from django.utils import timezone
 
 from apps_coop.audit.models import AppSetting
 from apps_coop.loans.microcampaign_services import (

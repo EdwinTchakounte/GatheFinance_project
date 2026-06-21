@@ -21,7 +21,6 @@ from rest_framework.test import APIClient
 
 from apps_coop.audit.models import AuditLog
 from apps_coop.loans.models import LoanRequest, MicrocreditCampaign
-from tests.factories import MemberFactory
 
 
 pytestmark = pytest.mark.django_db

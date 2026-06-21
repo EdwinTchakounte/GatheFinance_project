@@ -234,7 +234,6 @@ def _send_welcome_email(member: Member, to_email: str) -> None:
     try:
         from decimal import Decimal
 
-        from apps_coop.notifications.services import send_template
         from apps_coop.payments.models import FeeType
 
         # « Première cotisation » = frais d'adhésion + frais d'inscription

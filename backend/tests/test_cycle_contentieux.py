@@ -15,7 +15,7 @@ from decimal import Decimal
 import pytest
 from django.utils import timezone
 
-from apps_coop.audit.models import AppSetting, AuditLog
+from apps_coop.audit.models import AuditLog
 from apps_coop.loans.models import Loan, LoanInstallment, LoanRequest
 from apps_coop.loans.services import (
     apply_global_penalty,

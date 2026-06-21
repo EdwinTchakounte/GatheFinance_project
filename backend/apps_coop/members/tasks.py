@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
-from django.db.models import F
 from django.utils import timezone
 
 from apps_coop.audit.services import (

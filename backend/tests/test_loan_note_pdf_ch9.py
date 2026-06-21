@@ -29,7 +29,6 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
 from rest_framework.test import APIClient
 
 from apps_coop.loans.models import Loan, LoanRequest

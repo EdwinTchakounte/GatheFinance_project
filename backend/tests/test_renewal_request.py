@@ -13,7 +13,6 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
-from django.urls import reverse
 from django.utils import timezone
 
 from apps_coop.loans.models import Loan, LoanRenewal, LoanRequest

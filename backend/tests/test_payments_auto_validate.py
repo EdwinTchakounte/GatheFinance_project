@@ -146,7 +146,7 @@ def test_disburse_loan_via_tara_auto_active(active_member, admin_user):
     """Mode test ON → décaissement Tara joue immédiatement le webhook,
     le Loan bascule en `actif` avec `date_decaissement` fixée."""
     from datetime import date
-    from apps_coop.loans.models import Loan, LoanInstallment, LoanRequest
+    from apps_coop.loans.models import Loan, LoanRequest
     from apps_coop.loans.services import disburse_loan_via_tara
     from apps_coop.payments.models import Payment
 

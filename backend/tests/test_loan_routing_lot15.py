@@ -10,16 +10,13 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
-from django.contrib.auth.models import Group
 from rest_framework.test import APIClient
 
-from apps_coop.audit.models import AppSetting
 from apps_coop.loans.models import (
     AvalisteConsent,
     LoanRequest,
     MicrocreditCampaign,
 )
-from apps_coop.members.models import Member
 from apps_coop.payments.models import FeeType
 from apps_coop.savings.models import ClassicSavingsAccount
 

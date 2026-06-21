@@ -9,11 +9,9 @@ Couvre :
 from __future__ import annotations
 
 from decimal import Decimal
-from io import BytesIO
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps_coop.loans.models import LoanRequest

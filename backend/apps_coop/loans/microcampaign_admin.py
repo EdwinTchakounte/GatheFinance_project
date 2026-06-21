@@ -17,7 +17,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import serializers, status

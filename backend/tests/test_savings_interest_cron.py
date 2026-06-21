@@ -12,7 +12,7 @@ import pytest
 
 from apps_coop.audit.models import AppSetting
 from apps_coop.savings.cutoff import MIN_BALANCE_FOR_INTEREST, MONTHLY_INTEREST_RATE
-from apps_coop.savings.models import SavingsAccount, SavingsTransaction
+from apps_coop.savings.models import SavingsTransaction
 from apps_coop.savings.tasks import crediter_interets_mensuels
 
 

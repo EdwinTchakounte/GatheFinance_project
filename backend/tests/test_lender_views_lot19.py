@@ -20,7 +20,6 @@ from apps_coop.audit.models import AppSetting
 from apps_coop.loans.funding_services import request_funding
 from apps_coop.loans.models import (
     LenderConsentRequest,
-    LoanFundingRequest,
     LoanRequest,
 )
 from apps_coop.loans.models import Loan

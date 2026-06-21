@@ -455,7 +455,7 @@ def _phase_penalite_globale(today) -> tuple[int, int]:
 
     Retourne ``(appliquees, notifications_envoyees)``.
     """
-    from apps_coop.loans.models import Loan, LoanInstallment
+    from apps_coop.loans.models import Loan
     from apps_coop.loans.services import apply_global_penalty
     from apps_coop.notifications.events import emit_event
 

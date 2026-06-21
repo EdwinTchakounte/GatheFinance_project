@@ -25,7 +25,7 @@ from rest_framework.response import Response
 from apps_coop.members.permissions import IsMember
 
 from apps_coop.loans.funding_services import respond_to_consent_request
-from apps_coop.loans.models import LenderConsentRequest, LoanFundingRequest
+from apps_coop.loans.models import LenderConsentRequest
 
 from .lender_services import (
     add_tranche,

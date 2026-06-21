@@ -30,12 +30,11 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
 from apps_coop.audit.models import AppSetting, AuditLog
-from apps_coop.loans.models import Loan, LoanRequest
+from apps_coop.loans.models import LoanRequest
 from apps_coop.loans.services import (
     approve_loan_request,
     disburse_loan_manual,
     disburse_loan_via_tara,
-    generate_installments_flat_interest,
 )
 from apps_coop.payments.models import Payment
 from tests.factories import MemberFactory, UserFactory

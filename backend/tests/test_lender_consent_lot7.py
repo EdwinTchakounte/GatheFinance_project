@@ -26,8 +26,6 @@ from apps_coop.savings.lender_services import (
     revoke_consent,
 )
 from apps_coop.savings.models import (
-    ClassicSavingsAccount,
-    ClassicSavingsAccount as _CSA,  # alias to avoid shadowing
     LenderConsent,
     LenderTranche,
 )

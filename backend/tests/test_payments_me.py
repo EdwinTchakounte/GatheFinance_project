@@ -12,7 +12,6 @@ import uuid
 from decimal import Decimal
 
 import pytest
-from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 

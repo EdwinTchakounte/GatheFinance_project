@@ -14,9 +14,7 @@ Endpoints exposés (montés dans ``urls.py``) :
 """
 from __future__ import annotations
 
-from decimal import Decimal
 
-from django.db import transaction
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes

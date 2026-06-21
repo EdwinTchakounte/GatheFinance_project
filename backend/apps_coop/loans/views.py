@@ -6,7 +6,6 @@ Next.js admin is up. In the meantime the Django admin in
 """
 from __future__ import annotations
 
-import uuid
 
 from django.db import transaction
 from django.utils import timezone

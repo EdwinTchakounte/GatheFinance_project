@@ -14,7 +14,7 @@ from decimal import Decimal
 import pytest
 from django.utils import timezone
 
-from apps_coop.loans.models import Loan, LoanInstallment, LoanRenewal, LoanRequest
+from apps_coop.loans.models import Loan, LoanRenewal, LoanRequest
 from apps_coop.members.models import BookletOrder
 from apps_coop.payments.models import Payment
 from apps_coop.payments.services import handle_webhook_event

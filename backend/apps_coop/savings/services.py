@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from calendar import monthrange
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 from django.db import transaction
