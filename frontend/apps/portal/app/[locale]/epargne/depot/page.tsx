@@ -33,18 +33,20 @@ function DepositForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // Context :
-  //   "savings"          → standard savings deposit (default)
-  //   "credit-fees"      → frais de dossier crédit (montant depuis FeeType)
-  //   "loan-repayment"   → remboursement d'une échéance (loan_id obligatoire)
+  //   "savings"             → collecte journalière (défaut)
+  //   "epargne-classique"   → dépôt sur l'épargne classique (CH-3)
+  //   "credit-fees"         → frais de dossier crédit (montant depuis FeeType)
+  //   "loan-repayment"      → remboursement d'une échéance (loan_id obligatoire)
   // NB : la reconduction est SANS frais → plus de contexte "loan-renewal".
   const context = searchParams.get("context") ?? "savings";
   const loanIdParam = searchParams.get("loan");
   const isCreditFees = context === "credit-fees";
   const isLoanRepayment = context === "loan-repayment";
+  const isEpargneClassique = context === "epargne-classique";
   const loanId = loanIdParam ? Number(loanIdParam) : null;
   // Helper: la page renvoie vers /credit pour tout ce qui touche au crédit.
   const isCreditContext = isCreditFees || isLoanRepayment;
-  // Le choix de canal (Tara vs agence) ne concerne que le dépôt épargne.
+  // Le choix de canal (Tara vs agence) ne concerne que la collecte journalière.
   const offerChannelChoice = context === "savings";
 
   const [form, setForm] = useState<FormState>(INITIAL);
@@ -53,6 +55,11 @@ function DepositForm() {
   const [payment, setPayment] = useState<PaymentRead | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [simulating, setSimulating] = useState(false);
+  // CH-3 — Sous-canal placement : "libre" = retrait à tout moment,
+  // "placement" = crée une tranche prêteur (admin l'allouera à un crédit).
+  const [placementMode, setPlacementMode] = useState<"libre" | "placement">(
+    "libre",
+  );
 
   // Prime CSRF + pre-fill amount according to context.
   useEffect(() => {
@@ -109,11 +116,14 @@ function DepositForm() {
           ? "frais_demande_credit"
           : isLoanRepayment
             ? "remboursement"
-            : "epargne",
+            : isEpargneClassique
+              ? "epargne_classique"
+              : "epargne",
         montant: Number(form.montant),
         phone: form.phone,
         network: form.network,
         loan_id: isLoanRepayment ? loanId : null,
+        is_placement: isEpargneClassique && placementMode === "placement",
       });
       setPayment(result.payment);
     } catch (err) {
@@ -157,14 +167,18 @@ function DepositForm() {
               ? "Payer les frais de dossier"
               : isLoanRepayment
                 ? "Rembourser mon crédit"
-                : "Verser mon épargne"}
+                : isEpargneClassique
+                  ? "Verser sur mon épargne classique"
+                  : "Verser mon épargne"}
           </h1>
           <p className="mt-2 text-sm text-ink-600">
             {isCreditFees
               ? "Règle les frais de demande de crédit pour que ta demande passe en instruction."
               : isLoanRepayment
                 ? "Le montant sera imputé en FIFO sur tes échéances (plus anciennes d'abord)."
-                : "Épargne journalière suggérée : 1 000 FCFA. Tu restes libre de modifier."}
+                : isEpargneClassique
+                  ? "Tu peux verser librement (retrait à tout moment) ou choisir de placer ce dépôt (financement de crédit + part des intérêts)."
+                  : "Épargne journalière suggérée : 1 000 FCFA. Tu restes libre de modifier."}
           </p>
         </header>
 
@@ -242,6 +256,57 @@ function DepositForm() {
               Retour au tableau de bord
             </button>
           </div>
+        ) : null}
+
+        {/* CH-3 — choix libre/placement (épargne classique uniquement) */}
+        {isEpargneClassique && !payment ? (
+          <section className="mb-6 rounded-md border border-line-200 bg-paper p-6">
+            <h2 className="font-display text-xs font-semibold uppercase tracking-[0.14em] text-ink-600">
+              Que veux-tu faire de cet argent ?
+            </h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setPlacementMode("libre")}
+                aria-pressed={placementMode === "libre"}
+                className={
+                  "rounded-md border p-4 text-left transition-colors " +
+                  (placementMode === "libre"
+                    ? "border-blue-700 bg-blue-50 ring-2 ring-blue-700/20"
+                    : "border-line-200 bg-paper hover:border-line-400")
+                }
+              >
+                <p className="text-sm font-semibold text-ink-900">Libre</p>
+                <p className="mt-1 text-xs text-ink-600">
+                  Retrait à tout moment. Pas d&apos;intérêt généré.
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlacementMode("placement")}
+                aria-pressed={placementMode === "placement"}
+                className={
+                  "rounded-md border p-4 text-left transition-colors " +
+                  (placementMode === "placement"
+                    ? "border-emerald bg-emerald/10 ring-2 ring-emerald/20"
+                    : "border-line-200 bg-paper hover:border-line-400")
+                }
+              >
+                <p className="text-sm font-semibold text-ink-900">Placement</p>
+                <p className="mt-1 text-xs text-ink-600">
+                  La coop peut financer un crédit avec ce dépôt. Tu touches une
+                  part des intérêts au remboursement.
+                </p>
+              </button>
+            </div>
+            {placementMode === "placement" ? (
+              <p className="mt-3 text-xs text-ink-500">
+                Le dépôt sera bloqué tant qu&apos;il finance un crédit, puis
+                redeviendra retirable à la clôture du crédit. Le taux de
+                partage est fixé par l&apos;administration.
+              </p>
+            ) : null}
+          </section>
         ) : null}
 
         {/* Form Mobile Money — visible until a Payment is created

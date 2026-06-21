@@ -21,37 +21,83 @@ type FormState = {
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
+/**
+ * CH-2 (chantier juin 2026) — Activation conditionnée au paiement des **3** frais.
+ *
+ * Le membre doit régler successivement (dans n'importe quel ordre) :
+ *  1. Frais d'adhésion        (FeeType code ``ADHESION``, défaut 10 000 FCFA)
+ *  2. Frais d'inscription     (``INSCRIPTION``, défaut 2 000 FCFA)
+ *  3. Frais de carnet         (``CARNET``, défaut 1 000 FCFA)
+ *
+ * Le hook backend ``_activate_member_if_fees_settled`` ne bascule le Member
+ * à ``ACTIF`` que lorsque les 3 paiements sont validés ; tant qu'il en
+ * manque un, ``identity.member.statut`` reste ``SUSPENDU``.
+ */
+const FEE_STEPS = [
+  {
+    code: "ADHESION",
+    paymentType: "frais_adhesion" as const,
+    label: "Frais d'adhésion",
+    description: "Cotisation d'entrée dans la coopérative.",
+  },
+  {
+    code: "INSCRIPTION",
+    paymentType: "frais_inscription" as const,
+    label: "Frais d'inscription",
+    description: "Ouverture de votre dossier membre.",
+  },
+  {
+    code: "CARNET",
+    paymentType: "frais_carnet" as const,
+    label: "Frais de carnet",
+    description: "Édition de votre carnet de cotisations.",
+  },
+];
+
+type FeeStatus = "paid" | "pending" | "unpaid";
+
+type FeeRow = {
+  code: string;
+  paymentType: PaymentInitInput["type"];
+  label: string;
+  description: string;
+  montant: number;
+  status: FeeStatus;
+  payment?: PaymentRead;
+};
+
 
 export default function PortalActivationPage() {
   const router = useRouter();
   const [form, setForm] = useState<FormState>({ network: "MTN", phone: "" });
   const [identity, setIdentity] = useState<Identity | null>(null);
-  const [feeMontant, setFeeMontant] = useState<string>("5000");
+  const [feesByCode, setFeesByCode] = useState<Record<string, { montant: string }>>({});
+  const [memberPayments, setMemberPayments] = useState<PaymentRead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [payment, setPayment] = useState<PaymentRead | null>(null);
+  const [submittingCode, setSubmittingCode] = useState<string | null>(null);
+  const [activePayment, setActivePayment] = useState<PaymentRead | null>(null);
+  const [activeStepCode, setActiveStepCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [simulating, setSimulating] = useState(false);
 
-  // Load identity + the ADHESION fee amount from FeeType (admin-editable).
+  // Chargement initial : identité + barème frais + historique paiements du membre.
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const [me, fees] = await Promise.all([
+        const [me, fees, payments] = await Promise.all([
           portalApi.me(),
-          portalApi.payments.fees().catch(() => ({}) as Record<string, { montant: string }>),
+          portalApi.payments.fees().catch(() => ({}) as Record<string, { libelle: string; montant: string }>),
+          portalApi.payments.me().catch(() => ({ results: [] as PaymentRead[] })),
         ]);
         if (cancelled) return;
         setIdentity(me);
-        // ADHESION fee from DB; falls back to 5000 if not seeded.
-        if (fees && fees["ADHESION"]?.montant) setFeeMontant(fees["ADHESION"].montant);
-        // Already active? → no need to activate. Send to dashboard.
+        setFeesByCode(fees as Record<string, { montant: string }>);
+        setMemberPayments(payments.results || []);
         if (me.member && me.member.statut === "actif") {
           router.replace("/");
           return;
         }
-        // No member profile (= staff session)? Send to dashboard, it handles the case.
         if (!me.member) {
           router.replace("/");
           return;
@@ -74,58 +120,114 @@ export default function PortalActivationPage() {
     };
   }, [router]);
 
-  // Auto-poll the payment status every 2s while `en_attente`. As soon as it
-  // turns `valide`, the _hook_adhesion has flipped Member.statut to actif —
-  // we then send the user to the dashboard.
+  // Polling sur le paiement en cours — toutes les 2s tant qu'il est en_attente.
+  // Au passage à `valide`, on rafraîchit l'identité (le hook backend a peut-être
+  // basculé le Member à ACTIF si c'était le 3e frais) et la liste des paiements.
   useEffect(() => {
-    if (!payment || payment.statut !== "en_attente") return;
-    const id = payment.id;
+    if (!activePayment || activePayment.statut !== "en_attente") return;
+    const id = activePayment.id;
     const timer = window.setInterval(async () => {
       try {
         const updated = await portalApi.payments.detail(id);
-        setPayment(updated);
-        if (updated.statut !== "en_attente") window.clearInterval(timer);
+        setActivePayment(updated);
+        if (updated.statut !== "en_attente") {
+          window.clearInterval(timer);
+          // Resync : nouveau statut Member + nouvelle liste de payments validés.
+          const [me, payments] = await Promise.all([
+            portalApi.me(),
+            portalApi.payments.me().catch(() => ({ results: [] as PaymentRead[] })),
+          ]);
+          setIdentity(me);
+          setMemberPayments(payments.results || []);
+          if (me.member?.statut === "actif") {
+            // Les 3 frais sont payés → le hook backend nous a activés.
+            // On affiche la confirmation puis on redirige (cf. ci-dessous).
+          }
+        }
       } catch {
         /* swallow */
       }
     }, 2000);
     return () => window.clearInterval(timer);
-  }, [payment]);
+  }, [activePayment]);
 
-  async function onSubmit(e: React.FormEvent) {
+  function getStatusForCode(code: string): { status: FeeStatus; payment?: PaymentRead } {
+    const targetType = FEE_STEPS.find((s) => s.code === code)?.paymentType;
+    if (!targetType) return { status: "unpaid" };
+    const valid = memberPayments.find(
+      (p) => p.type === targetType && p.statut === "valide",
+    );
+    if (valid) return { status: "paid", payment: valid };
+    const pending = memberPayments.find(
+      (p) => p.type === targetType && p.statut === "en_attente",
+    );
+    if (pending) return { status: "pending", payment: pending };
+    return { status: "unpaid" };
+  }
+
+  const rows: FeeRow[] = FEE_STEPS.map((step) => {
+    const { status, payment } = getStatusForCode(step.code);
+    const montantStr = feesByCode[step.code]?.montant ?? "0";
+    return {
+      ...step,
+      montant: Number(montantStr),
+      status,
+      payment,
+    };
+  });
+
+  const totalAmount = rows.reduce((sum, r) => sum + r.montant, 0);
+  const paidCount = rows.filter((r) => r.status === "paid").length;
+  const allPaid = paidCount === rows.length;
+  const isActivated = identity?.member?.statut === "actif";
+
+  async function onSubmitFee(e: React.FormEvent, row: FeeRow) {
     e.preventDefault();
-    if (submitting) return;
+    if (submittingCode) return;
+    if (!form.phone) {
+      setError("Indique ton numéro de téléphone Mobile Money.");
+      return;
+    }
     setError(null);
-    setSubmitting(true);
+    setSubmittingCode(row.code);
+    setActiveStepCode(row.code);
     try {
       const result = await portalApi.payments.init({
-        type: "frais_adhesion",
-        montant: Number(feeMontant),
+        type: row.paymentType,
+        montant: row.montant,
         phone: form.phone,
         network: form.network,
       });
-      setPayment(result.payment);
+      setActivePayment(result.payment);
+      // Marque le payment en attente côté local pour rendu immédiat
+      setMemberPayments((prev) => [result.payment, ...prev]);
     } catch (err) {
       const apiErr = err as ApiError;
-      setError(apiErr.detail ?? "Impossible d'initier le paiement des frais d'adhésion.");
+      setError(apiErr.detail ?? `Impossible d'initier le paiement (${row.label}).`);
+      setActiveStepCode(null);
     } finally {
-      setSubmitting(false);
+      setSubmittingCode(null);
     }
   }
 
   async function onSimulate() {
-    if (!payment || simulating) return;
+    if (!activePayment || simulating) return;
     setSimulating(true);
     setError(null);
     try {
-      const updated = await portalApi.payments.devConfirm(payment.id);
-      setPayment(updated);
+      const updated = await portalApi.payments.devConfirm(activePayment.id);
+      setActivePayment(updated);
     } catch (err) {
       const apiErr = err as ApiError;
       setError(apiErr.detail ?? "Échec de la simulation.");
     } finally {
       setSimulating(false);
     }
+  }
+
+  function resetActivePayment() {
+    setActivePayment(null);
+    setActiveStepCode(null);
   }
 
   if (loading) {
@@ -136,7 +238,9 @@ export default function PortalActivationPage() {
     );
   }
 
-  const memberName = identity?.member ? `${identity.member.prenom} ${identity.member.nom}`.trim() : "";
+  const memberName = identity?.member
+    ? `${identity.member.prenom} ${identity.member.nom}`.trim()
+    : "";
 
   return (
     <main className="py-12 lg:py-16">
@@ -147,139 +251,39 @@ export default function PortalActivationPage() {
             Bienvenue{memberName ? `, ${memberName}` : ""} !
           </h1>
           <p className="mt-3 text-sm text-ink-600">
-            Ta demande d'adhésion a été approuvée. Pour activer ton compte
-            membre et accéder à tous les services, règle tes frais d'adhésion.
+            Ta demande d'adhésion a été approuvée. Pour activer ton compte,
+            règle les <strong>3 frais d'adhésion</strong> ci-dessous (dans
+            n'importe quel ordre).
           </p>
         </header>
 
-        {/* Form — visible until a Payment is created */}
-        {!payment ? (
-          <form
-            onSubmit={onSubmit}
-            className="rounded-md border border-line-200 bg-paper p-7"
-          >
-            <div className="rounded-md bg-cream p-5 text-center">
-              <p className="font-display text-[0.72rem] font-medium uppercase tracking-[0.14em] text-ink-600">
-                Frais d'adhésion
-              </p>
-              <p className="mt-1 font-editorial text-4xl font-medium leading-none text-ink-900">
-                {Number(feeMontant).toLocaleString("fr-FR")} XAF
-              </p>
-              <p className="mt-2 text-xs text-ink-600">
-                Payé une seule fois. Donne accès à l'épargne, au crédit et à
-                tous les services de la coopérative.
-              </p>
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-ink-900" htmlFor="network">
-                  Réseau Mobile Money
-                </label>
-                <select
-                  id="network"
-                  name="network"
-                  required
-                  value={form.network}
-                  onChange={(e) => setForm({ ...form, network: e.target.value as FormState["network"] })}
-                  className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
-                >
-                  <option value="MTN">MTN Mobile Money</option>
-                  <option value="ORANGE">Orange Money</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ink-900" htmlFor="phone">
-                  Numéro de téléphone
-                </label>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  required
-                  inputMode="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="6XX XX XX XX"
-                  className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
-                />
-              </div>
-            </div>
-
-            {error ? (
-              <p
-                role="alert"
-                className="mt-4 rounded-md border border-terra-400/40 bg-terra-50/60 px-3 py-2 text-sm text-terra-700"
-              >
-                {error}
-              </p>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className={buttonClasses({ variant: "success", size: "lg", fullWidth: true }) + " mt-7"}
-            >
-              {submitting ? "Initialisation…" : "Payer mes frais d'adhésion"}
-            </button>
-          </form>
-        ) : null}
-
-        {/* Pending */}
-        {payment && payment.statut === "en_attente" ? (
-          <div className="rounded-md border border-line-200 bg-paper p-7">
-            <p className="font-editorial text-xl font-medium text-ink-900">
-              En attente de confirmation
+        {/* Bandeau de progression */}
+        <div className="mb-6 rounded-md border border-line-200 bg-paper px-5 py-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-ink-700">
+              <strong>{paidCount}</strong> sur <strong>{rows.length}</strong> frais réglés
             </p>
-            <p className="mt-3 text-sm text-ink-600">
-              Un code USSD vient d'être poussé sur ton téléphone{" "}
-              <span className="font-mono">{form.phone}</span>. Saisis ton code
-              PIN MoMo pour valider le paiement de{" "}
-              <strong>{Number(payment.montant).toLocaleString("fr-FR")} XAF</strong>.
+            <p className="font-editorial text-lg text-ink-900">
+              {totalAmount.toLocaleString("fr-FR")} XAF au total
             </p>
-            <p className="mt-2 text-xs text-ink-600">
-              Référence : <span className="font-mono">{payment.reference_externe || payment.id}</span>
-            </p>
-
-            {error ? (
-              <p
-                role="alert"
-                className="mt-4 rounded-md border border-terra-400/40 bg-terra-50/60 px-3 py-2 text-sm text-terra-700"
-              >
-                {error}
-              </p>
-            ) : null}
-
-            {IS_DEV ? (
-              <div className="mt-7 rounded-md border-2 border-dashed border-terra-500/60 bg-terra-50/30 p-4">
-                <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-terra-700">
-                  🛠️ Mode dev — sans clés Tara
-                </p>
-                <p className="mt-1 text-xs text-ink-600">
-                  Simule la confirmation Tara comme si tu venais de saisir ton PIN.
-                </p>
-                <button
-                  type="button"
-                  onClick={onSimulate}
-                  disabled={simulating}
-                  className={buttonClasses({ variant: "secondary", size: "sm", fullWidth: true }) + " mt-3"}
-                >
-                  {simulating ? "Simulation en cours…" : "Simuler la confirmation Tara"}
-                </button>
-              </div>
-            ) : null}
           </div>
-        ) : null}
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-line-200">
+            <div
+              className="h-full bg-emerald transition-all"
+              style={{ width: `${(paidCount / rows.length) * 100}%` }}
+            />
+          </div>
+        </div>
 
-        {/* Success — Member is now ACTIF */}
-        {payment && payment.statut === "valide" ? (
-          <div className="rounded-md border border-emerald/40 bg-emerald/5 p-7 text-center">
+        {/* Confirmation — Membre activé */}
+        {isActivated && (
+          <div className="mb-6 rounded-md border border-emerald/40 bg-emerald/5 p-7 text-center">
             <p className="font-editorial text-2xl font-medium text-emerald">
               ✓ Compte activé
             </p>
             <p className="mt-3 text-sm text-ink-700">
-              Ton paiement a été reçu. Tu peux maintenant utiliser tous les
-              services de la coopérative — épargne, crédit, transferts.
+              Les 3 frais d'adhésion ont été reçus. Tu peux maintenant utiliser
+              tous les services de la coopérative — épargne, crédit, transferts.
             </p>
             <button
               onClick={() => router.replace("/")}
@@ -288,25 +292,213 @@ export default function PortalActivationPage() {
               Accéder à mon espace
             </button>
           </div>
-        ) : null}
+        )}
 
-        {/* Rejected */}
-        {payment && payment.statut === "rejete" ? (
-          <div className="rounded-md border border-terra-400/40 bg-terra-50/60 p-7">
-            <p className="font-editorial text-xl font-medium text-terra-700">
-              Paiement rejeté
+        {/* Coordonnées Mobile Money — saisies une seule fois pour tous les frais */}
+        {!isActivated && !allPaid && (
+          <div className="mb-6 rounded-md border border-line-200 bg-paper p-5">
+            <p className="font-display text-[0.72rem] font-medium uppercase tracking-[0.14em] text-ink-600">
+              Tes coordonnées Mobile Money
             </p>
-            <p className="mt-3 text-sm text-ink-700">
-              Motif : {payment.motif_rejet || "Inconnu."}
-            </p>
-            <button
-              onClick={() => setPayment(null)}
-              className={buttonClasses({ variant: "secondary", size: "md" }) + " mt-5"}
-            >
-              Réessayer
-            </button>
+            <div className="mt-3 grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-ink-900" htmlFor="network">
+                  Réseau
+                </label>
+                <select
+                  id="network"
+                  name="network"
+                  value={form.network}
+                  onChange={(e) =>
+                    setForm({ ...form, network: e.target.value as FormState["network"] })
+                  }
+                  className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                >
+                  <option value="MTN">MTN Mobile Money</option>
+                  <option value="ORANGE">Orange Money</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-ink-900" htmlFor="phone">
+                  Numéro
+                </label>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  inputMode="tel"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="6XX XX XX XX"
+                  className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                />
+              </div>
+            </div>
           </div>
-        ) : null}
+        )}
+
+        {error && (
+          <p
+            role="alert"
+            className="mb-4 rounded-md border border-terra-400/40 bg-terra-50/60 px-3 py-2 text-sm text-terra-700"
+          >
+            {error}
+          </p>
+        )}
+
+        {/* Liste des 3 frais */}
+        {!isActivated && (
+          <ul className="space-y-3">
+            {rows.map((row) => {
+              const isActiveStep =
+                activeStepCode === row.code &&
+                activePayment &&
+                activePayment.statut === "en_attente";
+
+              return (
+                <li
+                  key={row.code}
+                  className={`rounded-md border bg-paper p-5 transition-all ${
+                    row.status === "paid"
+                      ? "border-emerald/40 bg-emerald/5"
+                      : isActiveStep
+                      ? "border-blue-700/40 bg-blue-50/40"
+                      : "border-line-200"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                            row.status === "paid"
+                              ? "bg-emerald text-white"
+                              : isActiveStep
+                              ? "bg-blue-700 text-white"
+                              : "bg-line-200 text-ink-700"
+                          }`}
+                        >
+                          {row.status === "paid" ? "✓" : ""}
+                        </span>
+                        <p className="font-editorial text-lg text-ink-900">
+                          {row.label}
+                        </p>
+                      </div>
+                      <p className="mt-1 text-xs text-ink-600">
+                        {row.description}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-editorial text-lg text-ink-900">
+                        {row.montant.toLocaleString("fr-FR")} XAF
+                      </p>
+                      {row.status === "paid" && (
+                        <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald">
+                          Payé
+                        </p>
+                      )}
+                      {isActiveStep && (
+                        <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-blue-700">
+                          En attente PIN
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action : bouton pour payer ce frais */}
+                  {row.status === "unpaid" && !isActiveStep && (
+                    <form onSubmit={(e) => onSubmitFee(e, row)} className="mt-4">
+                      <button
+                        type="submit"
+                        disabled={!!submittingCode || !form.phone}
+                        className={buttonClasses({
+                          variant: "success",
+                          size: "sm",
+                          fullWidth: true,
+                        })}
+                      >
+                        {submittingCode === row.code
+                          ? "Initialisation…"
+                          : `Payer ${row.montant.toLocaleString("fr-FR")} XAF`}
+                      </button>
+                    </form>
+                  )}
+
+                  {/* Action : retry si rejeté */}
+                  {row.status === "pending" &&
+                    row.payment &&
+                    row.payment.id !== activePayment?.id && (
+                      <p className="mt-3 text-xs text-ink-500">
+                        Paiement déjà initié — vérifie ton téléphone.
+                      </p>
+                    )}
+
+                  {/* Sous-bloc « en attente PIN » + simulateur dev */}
+                  {isActiveStep && activePayment && (
+                    <div className="mt-4 space-y-3 border-t border-line-200 pt-4">
+                      <p className="text-xs text-ink-600">
+                        Un code USSD vient d'être poussé sur ton téléphone{" "}
+                        <span className="font-mono">{form.phone}</span>. Saisis
+                        ton code PIN MoMo pour valider.
+                      </p>
+                      <p className="text-[11px] text-ink-500">
+                        Référence :{" "}
+                        <span className="font-mono">
+                          {activePayment.reference_externe || activePayment.id}
+                        </span>
+                      </p>
+                      {IS_DEV && (
+                        <div className="rounded-md border-2 border-dashed border-terra-500/60 bg-terra-50/30 p-3">
+                          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-terra-700">
+                            🛠️ Mode dev
+                          </p>
+                          <button
+                            type="button"
+                            onClick={onSimulate}
+                            disabled={simulating}
+                            className={
+                              buttonClasses({
+                                variant: "secondary",
+                                size: "sm",
+                                fullWidth: true,
+                              }) + " mt-2"
+                            }
+                          >
+                            {simulating ? "Simulation…" : "Simuler la confirmation Tara"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Sous-bloc « rejeté » */}
+                  {isActiveStep === false &&
+                    activeStepCode === row.code &&
+                    activePayment &&
+                    activePayment.statut === "rejete" && (
+                      <div className="mt-4 rounded-md border border-terra-400/40 bg-terra-50/60 p-3">
+                        <p className="text-sm font-medium text-terra-700">
+                          Paiement rejeté
+                        </p>
+                        <p className="mt-1 text-xs text-ink-600">
+                          Motif : {activePayment.motif_rejet || "inconnu."}
+                        </p>
+                        <button
+                          onClick={resetActivePayment}
+                          className={
+                            buttonClasses({ variant: "secondary", size: "sm" }) +
+                            " mt-3"
+                          }
+                        >
+                          Réessayer
+                        </button>
+                      </div>
+                    )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Container>
     </main>
   );
