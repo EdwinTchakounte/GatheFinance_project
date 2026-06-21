@@ -41,6 +41,30 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}:32\d{2}$",
 ]
 
+# CSRF — Django ne supporte PAS de regex sur CSRF_TRUSTED_ORIGINS, juste
+# une liste explicite de schéma+host+port. Côté backend Docker, on ne peut
+# pas découvrir l'IP LAN du host à la volée → on génère la totalité des
+# adresses RFC1918 (10.x.x.x, 192.168.x.x, 172.16-31.x.x) sur les ports
+# vitrine/portail/admin/api (3200-3202 + 8200). C'est verbeux mais ça
+# élimine le "CSRF Failed: Origin checking failed" quand on ouvre l'admin
+# depuis n'importe quel poste du même wifi.
+_LAN_PORTS = (3200, 3201, 3202, 8200)
+# Sous-réseaux les plus probables côté box résidentielle / wifi mobile.
+# Si tu changes de sous-réseau (genre 192.168.43.x du hotspot), ajoute la
+# ligne correspondante ou passe l'origin en CSRF_TRUSTED_ORIGINS via .env.
+_LAN_HOSTS = [
+    *(f"192.168.0.{i}" for i in range(1, 255)),
+    *(f"192.168.1.{i}" for i in range(1, 255)),
+    *(f"192.168.43.{i}" for i in range(1, 255)),  # hotspot Android
+    *(f"10.0.0.{i}" for i in range(1, 255)),
+]
+CSRF_TRUSTED_ORIGINS = [
+    *(f"http://localhost:{p}" for p in _LAN_PORTS),
+    *(f"http://127.0.0.1:{p}" for p in _LAN_PORTS),
+    *(f"http://{h}:{p}" for h in _LAN_HOSTS for p in _LAN_PORTS),
+    *env.list("CSRF_TRUSTED_ORIGINS", default=[]),
+]
+
 INTERNAL_IPS = ["127.0.0.1"]
 
 # debug-toolbar / django-extensions are optional dev conveniences.

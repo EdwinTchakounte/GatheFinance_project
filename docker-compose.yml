@@ -44,7 +44,12 @@ services:
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:-dev-revalidate-secret}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:3200,http://127.0.0.1:3200}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000,http://localhost:8200,http://127.0.0.1:8200,http://localhost:3200,http://127.0.0.1:3200}
-      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
+      # Email : fallback console si non défini. Renseigner EMAIL_BACKEND +
+      # BREVO_API_KEY + DEFAULT_FROM_EMAIL dans .env pour activer les
+      # vrais envois via Brevo HTTP API (cf. anymail.backends.brevo).
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@gathe-finance.com}
       DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-admin}
       DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:-adminadmin}
       DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-admin@gathe-finance.com}
@@ -78,7 +83,12 @@ services:
       DJANGO_DEBUG: "true"
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-insecure-change-me}
       DATABASE_URL: postgres://${POSTGRES_USER:-gathe}:${POSTGRES_PASSWORD:-gathe}@db:5432/${POSTGRES_DB:-gathe_site}
-      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
+      # Email — même config que backend (Brevo si BREVO_API_KEY défini,
+      # sinon console). Le qcluster envoie les emails des crons (retards,
+      # intérêts crédités, etc.).
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@gathe-finance.com}
       # Tara — le cron de réconciliation horaire interroge le statut des
       # paiements en attente ; il a donc besoin des mêmes credentials.
       TARA_API_KEY: ${TARA_API_KEY:-}
