@@ -20,10 +20,31 @@ async function readError(response: Response): Promise<ApiError> {
   } catch {
     body = await response.text().catch(() => "");
   }
-  const detail =
-    typeof body === "object" && body !== null && "detail" in body
-      ? String((body as { detail?: unknown }).detail)
-      : undefined;
+  // Ordre de résolution du message affiché à l'utilisateur :
+  //   1. ``body.detail`` (forme DRF standard pour les 4xx métier)
+  //   2. ``body.<field>`` (DRF ValidationError — on prend les 3 premiers
+  //      champs et on les humanise en "nom : Champ requis.")
+  //   3. ``body`` string brut (fallback si le backend ne renvoie pas du
+  //      JSON propre — utile pour le 500 + ngrok HTML page)
+  let detail: string | undefined;
+  if (typeof body === "object" && body !== null) {
+    const obj = body as Record<string, unknown>;
+    if ("detail" in obj && obj.detail != null) {
+      detail = String(obj.detail);
+    } else {
+      const pairs: string[] = [];
+      for (const [field, value] of Object.entries(obj).slice(0, 3)) {
+        if (Array.isArray(value) && value.length > 0) {
+          pairs.push(`${field} : ${String(value[0])}`);
+        } else if (typeof value === "string") {
+          pairs.push(`${field} : ${value}`);
+        }
+      }
+      if (pairs.length > 0) detail = pairs.join(" — ");
+    }
+  } else if (typeof body === "string" && body.trim().length > 0) {
+    detail = body.slice(0, 240);
+  }
   return { status: response.status, detail, body };
 }
 

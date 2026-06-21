@@ -20,6 +20,7 @@ import {
   Clock,
   FileText,
   BellRing,
+  FileEdit,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
@@ -71,6 +72,8 @@ const NAV: NavItem[] = [
   { href: "/cooperative-asset", label: "Documents officiels", icon: FileText },
   // Annonces broadcast — message libre admin → membres (Notification in-app).
   { href: "/announcements", label: "Annonces", icon: BellRing },
+  // CH-4 — Moteur de formulaires dynamiques (adhésion, crédit, reconduction).
+  { href: "/forms", label: "Formulaires", icon: FileEdit },
 ];
 
 

@@ -14,12 +14,11 @@ import {
   ZoomIn,
   Trash2,
   Search,
-  X,
-  Download,
 } from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
 
+import { DocumentPreview } from "@/components/document-preview";
 import { ExportMenu } from "@/components/export-menu";
 import { Modal } from "@/components/modal";
 import {
@@ -246,79 +245,16 @@ function Inner() {
       )}
 
       {flyerPreview && flyerPreview.flyer_url && (
-        <FlyerPreviewModal
-          row={flyerPreview}
+        <DocumentPreview
+          url={flyerPreview.flyer_url}
+          name={`Flyer — ${flyerPreview.nom}`}
+          subtitle={`Profil : ${flyerPreview.profil_cible} · ${formatDate(
+            flyerPreview.date_debut,
+          )} → ${formatDate(flyerPreview.date_fin)}`}
           onClose={() => setFlyerPreview(null)}
         />
       )}
     </main>
-  );
-}
-
-
-function FlyerPreviewModal({
-  row,
-  onClose,
-}: {
-  row: MicrocampaignRow;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  const url = row.flyer_url!;
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex flex-col bg-ink-900/85 backdrop-blur-sm"
-    >
-      <header className="flex items-center justify-between border-b border-white/10 px-6 py-3 text-paper">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{row.nom}</p>
-          <p className="truncate text-xs text-paper/60">
-            Profil : {row.profil_cible} · {formatDate(row.date_debut)} →{" "}
-            {formatDate(row.date_fin)}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-paper hover:bg-white/20"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Télécharger
-          </a>
-          <button
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-paper hover:bg-white/20"
-          >
-            <X className="h-3.5 w-3.5" />
-            Fermer (Esc)
-          </button>
-        </div>
-      </header>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="flex flex-1 items-center justify-center overflow-auto p-6"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={url}
-          alt={`Flyer ${row.nom}`}
-          className="max-h-full max-w-full rounded-md bg-paper shadow-2xl"
-        />
-      </div>
-    </div>
   );
 }
 

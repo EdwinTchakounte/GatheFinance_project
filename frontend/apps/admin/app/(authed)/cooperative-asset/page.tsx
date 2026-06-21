@@ -1,10 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FileText, Upload, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+  FileText,
+  Upload,
+  CheckCircle2,
+  AlertCircle,
+  ZoomIn,
+} from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
 
+import { DocumentPreview } from "@/components/document-preview";
 import { adminApi, type ApiError } from "@/lib/api";
 
 
@@ -34,6 +41,7 @@ export default function CooperativeAssetPage() {
     text: string;
   } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -147,14 +155,24 @@ export default function CooperativeAssetPage() {
                   {r.uploaded_by ? `par ${r.uploaded_by}` : ""}
                 </p>
                 {r.url && (
-                  <a
-                    href={r.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-800"
-                  >
-                    Télécharger le PDF actuel →
-                  </a>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewOpen(true)}
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-800"
+                    >
+                      <ZoomIn className="h-3.5 w-3.5" />
+                      Aperçu du PDF
+                    </button>
+                    <a
+                      href={r.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-ink-700"
+                    >
+                      Télécharger →
+                    </a>
+                  </div>
                 )}
               </div>
             ) : (
@@ -189,6 +207,15 @@ export default function CooperativeAssetPage() {
           </div>
         </div>
       </section>
+
+      {previewOpen && r?.url && (
+        <DocumentPreview
+          url={r.url}
+          name={r.name || "Règlement intérieur"}
+          subtitle="Règlement intérieur de la coopérative"
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
     </main>
   );
 }
