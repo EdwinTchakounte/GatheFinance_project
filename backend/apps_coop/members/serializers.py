@@ -22,6 +22,19 @@ LANG_CHOICES = ("fr", "en")
 STATUT_PRO_CHOICES = tuple(c[0] for c in MembershipRequest.StatutPro.choices)
 
 
+_MAX_PIECE_SIZE = 5 * 1024 * 1024  # 5 MB par pièce — borne anti-abus.
+
+
+def _validate_piece_size(value):
+    """Raise ``ValidationError`` si la pièce dépasse ``_MAX_PIECE_SIZE``."""
+    if value and value.size > _MAX_PIECE_SIZE:
+        raise serializers.ValidationError(
+            f"Le fichier est trop volumineux ({value.size // 1024} ko). "
+            f"Taille maximum autorisée : {_MAX_PIECE_SIZE // 1024 // 1024} Mo."
+        )
+    return value
+
+
 class MembershipPublicSerializer(serializers.Serializer):
     """Body of ``POST /api/forms/adhesion/`` — anonymous, captcha-protected.
 
@@ -33,8 +46,9 @@ class MembershipPublicSerializer(serializers.Serializer):
       - contact d'urgence (nom, lien, téléphone)
       - motivation libre
 
-    Les pièces justificatives (CNI, plan de localisation) sont remises à
-    l'entretien physique (Article 3) et uploadées par l'admin.
+    Pièces obligatoires uploadées par le demandeur (mobile + vitrine) :
+    CNI recto, CNI verso, plan de localisation, photo d'identité.
+    Le payload doit être encodé ``multipart/form-data``.
     """
 
     # Identity
@@ -63,6 +77,25 @@ class MembershipPublicSerializer(serializers.Serializer):
 
     message = serializers.CharField(required=False, allow_blank=True)
     language = serializers.ChoiceField(choices=LANG_CHOICES, default="fr")
+
+    # Pièces — optionnelles à la candidature publique (vitrine peut
+    # soumettre en JSON sans fichiers). Per Art.3 du Règlement, la collecte
+    # finale des 4 pièces (CNI recto/verso, plan localisation, photo
+    # identité) se fait à l'entretien d'admission, géré par l'admin.
+    # Le mobile peut quand même envoyer les fichiers en avance via
+    # multipart/form-data, ils seront acceptés et attachés à la requête.
+    cni_recto = serializers.FileField(
+        required=False, allow_null=True, validators=[_validate_piece_size],
+    )
+    cni_verso = serializers.FileField(
+        required=False, allow_null=True, validators=[_validate_piece_size],
+    )
+    plan_localisation = serializers.FileField(
+        required=False, allow_null=True, validators=[_validate_piece_size],
+    )
+    photo_identite = serializers.ImageField(
+        required=False, allow_null=True, validators=[_validate_piece_size],
+    )
 
     # Anti-spam — same scheme as ContactSerializer.
     website = serializers.CharField(required=False, allow_blank=True, write_only=True)
@@ -95,6 +128,7 @@ class MembershipPublicSerializer(serializers.Serializer):
             "name", "email", "phone", "whatsapp", "city",
             "quartier_localite", "statut_pro", "urgence_nom",
             "urgence_lien", "urgence_phone", "message", "language",
+            "cni_recto", "cni_verso", "plan_localisation", "photo_identite",
         }
         try:
             from apps_coop.forms.services import apply_form_schema
@@ -128,6 +162,10 @@ class MembershipPublicSerializer(serializers.Serializer):
             urgence_phone=validated_data.get("urgence_phone", "").strip(),
             motivation=validated_data.get("message", ""),
             language=validated_data.get("language", "fr"),
+            cni_recto=validated_data.get("cni_recto"),
+            cni_verso=validated_data.get("cni_verso"),
+            plan_localisation=validated_data.get("plan_localisation"),
+            photo_identite=validated_data.get("photo_identite"),
             ip_address=meta.get("ip_address"),
             user_agent=meta.get("user_agent", "")[:400],
             extra_payload=extra_payload,
@@ -142,6 +180,10 @@ class MembershipRequestReadSerializer(serializers.ModelSerializer):
     """Compact admin view of a request — used by the admin dashboard listing."""
 
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    cni_recto_url = serializers.SerializerMethodField()
+    cni_verso_url = serializers.SerializerMethodField()
+    plan_localisation_url = serializers.SerializerMethodField()
+    photo_identite_url = serializers.SerializerMethodField()
 
     class Meta:
         model = MembershipRequest
@@ -151,11 +193,37 @@ class MembershipRequestReadSerializer(serializers.ModelSerializer):
             "city", "quartier_localite", "statut_pro",
             "urgence_nom", "urgence_lien", "urgence_phone",
             "motivation",
+            "cni_recto_url", "cni_verso_url",
+            "plan_localisation_url", "photo_identite_url",
             "date_entretien", "entretien_avis", "entretien_favorable",
             "statut", "statut_display", "motif_rejet",
             "created_at", "date_decision",
         )
         read_only_fields = fields
+
+    def _abs_url(self, fieldfile):
+        if not fieldfile:
+            return None
+        request = self.context.get("request")
+        try:
+            url = fieldfile.url
+        except (ValueError, AttributeError):
+            return None
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
+
+    def get_cni_recto_url(self, obj):
+        return self._abs_url(obj.cni_recto)
+
+    def get_cni_verso_url(self, obj):
+        return self._abs_url(obj.cni_verso)
+
+    def get_plan_localisation_url(self, obj):
+        return self._abs_url(obj.plan_localisation)
+
+    def get_photo_identite_url(self, obj):
+        return self._abs_url(obj.photo_identite)
 
 
 class MembershipApproveSerializer(serializers.Serializer):

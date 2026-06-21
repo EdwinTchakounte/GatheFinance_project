@@ -210,8 +210,13 @@ class MembershipRequest(TimestampedModel):
     Member + SavingsAccount atomically.
 
     Les champs collectés sont alignés sur l'Article 2 du Règlement Intérieur.
-    Les **pièces** (CNI, plan de localisation) sont remises à l'entretien
-    physique (Article 3) et téléversées par l'admin via ``Document``.
+
+    Pièces téléversées par le demandeur lui-même au moment de la soumission
+    (mobile / vitrine) : CNI recto, CNI verso, plan de localisation, photo
+    d'identité. Les pièces sont obligatoires côté serializer mais nullable au
+    niveau du modèle pour préserver l'historique des demandes legacy créées
+    avant cette évolution. L'admin peut compléter / remplacer ces pièces
+    pendant l'entretien (Article 3) via le Django admin.
     """
 
     class StatutPro(models.TextChoices):
@@ -273,6 +278,35 @@ class MembershipRequest(TimestampedModel):
     form_schema_version = models.PositiveIntegerField(
         null=True, blank=True,
         help_text="Version du FormSchema 'adhesion' actif lors de la soumission.",
+    )
+
+    # Pièces téléversées par le demandeur (mobile / vitrine).
+    # Le serializer public les rend obligatoires, mais on garde
+    # ``null=True, blank=True`` ici pour ne pas casser la migration sur les
+    # demandes legacy (avant cette évolution) qui n'ont aucun fichier.
+    cni_recto = models.FileField(
+        upload_to="coop/adhesion/cni/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="CNI face recto (image ou PDF).",
+    )
+    cni_verso = models.FileField(
+        upload_to="coop/adhesion/cni/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="CNI face verso (image ou PDF).",
+    )
+    plan_localisation = models.FileField(
+        upload_to="coop/adhesion/plan/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="Plan ou photo du domicile (image ou PDF).",
+    )
+    photo_identite = models.ImageField(
+        upload_to="coop/adhesion/photo/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="Selfie / photo portrait du demandeur.",
     )
 
     # Traceability — for abuse review / forensic.
