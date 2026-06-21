@@ -141,7 +141,10 @@ def record_judicial_decision(
     biens_saisissables: Optional[list] = None,
 ) -> JudicialEscalation:
     """EN_INSTANCE → DECISION_RENDUE. Idempotent si déjà ``DECISION_RENDUE``."""
-    locked = JudicialEscalation.objects.select_for_update().select_related(
+    # ``of=("self",)`` : on ne verrouille que la JudicialEscalation. La
+    # jointure sur ``loan`` reste un SELECT simple, sinon Postgres refuse
+    # le FOR UPDATE sur la nullable side du LEFT OUTER JOIN.
+    locked = JudicialEscalation.objects.select_for_update(of=("self",)).select_related(
         "loan"
     ).get(pk=escalation.pk)
 
@@ -196,7 +199,9 @@ def record_judicial_execution(
     crédit si le solde tombe à 0. Idempotent — un second appel sur une
     escalade ``EXECUTEE`` est un no-op (les biens/montant sont déjà gravés).
     """
-    locked = JudicialEscalation.objects.select_for_update().select_related(
+    # ``of=("self",)`` : verrouille uniquement la JudicialEscalation, pas le
+    # Loan en jointure. Cohérent avec PG sur les LEFT OUTER JOIN nullable.
+    locked = JudicialEscalation.objects.select_for_update(of=("self",)).select_related(
         "loan"
     ).get(pk=escalation.pk)
 

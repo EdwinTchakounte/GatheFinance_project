@@ -290,7 +290,10 @@ def seize_for_loan(loan) -> SeizureResult:
     """
     from .models import Loan
 
-    locked: Loan = Loan.objects.select_for_update().select_related(
+    # ``loan_request__avaliste`` est nullable → LEFT OUTER JOIN.
+    # ``of=("self",)`` limite le verrou à la ligne Loan, ce qui évite
+    # le refus PG « FOR UPDATE cannot be applied to the nullable side ».
+    locked: Loan = Loan.objects.select_for_update(of=("self",)).select_related(
         "member", "loan_request__avaliste"
     ).get(pk=loan.pk)
 

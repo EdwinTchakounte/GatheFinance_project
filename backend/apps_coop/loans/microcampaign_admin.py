@@ -410,7 +410,10 @@ def admin_campaign_close(request, pk: int):
 @transaction.atomic
 def admin_loan_request_campaign_decide(request, pk: int):
     try:
-        lr = LoanRequest.objects.select_for_update().select_related(
+        # ``microcampaign`` est nullable → LEFT OUTER JOIN incompatible avec un
+        # FOR UPDATE global. ``of=("self",)`` ne verrouille que la ligne
+        # LoanRequest, les jointures restent en SELECT simple.
+        lr = LoanRequest.objects.select_for_update(of=("self",)).select_related(
             "member", "microcampaign"
         ).get(pk=pk)
     except LoanRequest.DoesNotExist:
