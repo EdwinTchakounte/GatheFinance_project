@@ -77,7 +77,7 @@ void main() {
                 'provider_code': 'tara',
               },
             ],
-          });
+          },);
     final ds = ContributionsDioDataSource(_client(adapter));
     final res = await ds.fetchMine();
     expect(res, hasLength(2)); // 2 frais retenus, epargne + remboursement exclus
@@ -105,7 +105,7 @@ void main() {
                 'created_at': '2026-05-01T10:00:00Z',
               },
             ],
-          });
+          },);
     final ds = ContributionsDioDataSource(_client(adapter));
     final res = await ds.fetchMine();
     expect(res.first.statut, ContributionStatus.echec);

@@ -8,7 +8,6 @@ import 'package:gathe_finance/core/widgets/paysika/pa_button.dart';
 import 'package:gathe_finance/features/home/presentation/widgets/deposit_sheet.dart';
 import 'package:gathe_finance/features/savings/data/datasources/savings_remote_datasource.dart';
 import 'package:gathe_finance/features/savings/domain/entities/savings_account.dart';
-import 'package:mocktail/mocktail.dart';
 
 import '../helpers/fixtures.dart';
 
@@ -85,7 +84,7 @@ void main() {
     await tester.tap(find.text("À l'agence"));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining("On te garde une place"), findsOneWidget);
+    expect(find.textContaining('On te garde une place'), findsOneWidget);
     expect(find.text('Compris'), findsOneWidget);
     // Pas de formulaire — donc pas de bouton "Confirmer le versement".
     expect(find.text('Confirmer le versement'), findsNothing);

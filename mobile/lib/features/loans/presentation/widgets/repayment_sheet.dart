@@ -185,7 +185,7 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
                           const SizedBox(height: 2),
                           Text(
                             l.rep_remaining_due(
-                                XAFFormatter.format(next.restantDu)),
+                                XAFFormatter.format(next.restantDu),),
                             style: AppTypography.bodySmall.copyWith(
                               color: PaColors.navyDeep,
                             ),
@@ -275,7 +275,7 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
                   child: Text('+237  ', style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                     fontWeight: FontWeight.w600,
-                  )),
+                  ),),
                 ),
                 prefixIconConstraints:
                     const BoxConstraints(minWidth: 0, minHeight: 0),
@@ -453,7 +453,7 @@ class _NetworkChip extends StatelessWidget {
             ),
             if (selected)
               const Icon(Icons.check_circle_rounded,
-                  size: 18, color: PaColors.teal),
+                  size: 18, color: PaColors.teal,),
           ],
         ),
       ),

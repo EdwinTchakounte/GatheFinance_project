@@ -63,13 +63,13 @@ class ScriptedAdapter implements HttpClientAdapter {
       path: path,
       body: bodyText,
       query: Map<String, dynamic>.from(options.queryParameters),
-    ));
+    ),);
 
     final bytes = match.body == null
         ? Uint8List(0)
         : utf8.encode(match.body is String
             ? match.body as String
-            : jsonEncode(match.body));
+            : jsonEncode(match.body),);
     return ResponseBody.fromBytes(
       bytes,
       match.status,

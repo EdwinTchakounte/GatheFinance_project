@@ -1,4 +1,3 @@
-import 'dart:ui' show FontVariation;
 
 import 'package:flutter/material.dart';
 
@@ -56,7 +55,7 @@ class AppTypography {
 
   // Eyebrow — accent brand (terraDark) — OK sur clair ET sombre.
   static TextStyle get eyebrow => _v('Inter', 11, FontWeight.w700,
-      letterSpacing: 1.6, color: AppColors.terraDark);
+      letterSpacing: 1.6, color: AppColors.terraDark,);
 
   // Label / boutons — pas de color
   static TextStyle get labelLarge => _v('Inter', 15, FontWeight.w600);

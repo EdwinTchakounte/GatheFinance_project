@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +11,10 @@ import '../../features/booklet/presentation/pages/booklet_page.dart';
 import '../../features/contributions/presentation/pages/contributions_page.dart';
 import '../../features/credit/presentation/pages/credit_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
+import '../../features/home_feed/domain/entities/feed_item.dart';
+import '../../features/home_feed/presentation/pages/campaigns_list_page.dart';
+import '../../features/home_feed/presentation/pages/news_detail_page.dart';
+import '../../features/home_feed/presentation/pages/news_list_page.dart';
 import '../../features/help/presentation/pages/help_contact_page.dart';
 import '../../features/loans/presentation/pages/my_lender_payouts_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
@@ -180,6 +183,38 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             _paSlideFadePage(state, const HelpContactPage()),
       ),
 
+      // Liste in-app des campagnes (Voir plus du carousel Home).
+      // Pop avec un `campaign_id` (int) → la Home rouvre le sheet crédit
+      // pré-rempli sur la voie campagne.
+      GoRoute(
+        path: '/campaigns',
+        name: 'campaigns',
+        pageBuilder: (context, state) =>
+            _paSlideFadePage(state, const CampaignsListPage()),
+      ),
+
+      // Liste in-app des actualités (Voir plus du carousel Home).
+      GoRoute(
+        path: '/news',
+        name: 'news',
+        pageBuilder: (context, state) =>
+            _paSlideFadePage(state, const NewsListPage()),
+      ),
+
+      // Détail d'une actualité — l'article est passé en `extra` pour un
+      // rendu instantané ; la page fetch le body Wagtail en arrière-plan.
+      GoRoute(
+        path: '/news/:id',
+        name: 'news-detail',
+        pageBuilder: (context, state) {
+          final article = state.extra as NewsArticle?;
+          if (article == null) {
+            return _paSlideFadePage(state, const NewsListPage());
+          }
+          return _paSlideFadePage(state, NewsDetailPage(article: article));
+        },
+      ),
+
       // Mandats d'avaliste — pushée depuis la page Crédit.
       GoRoute(
         path: '/avaliste/mandats',
@@ -215,28 +250,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               name: 'home',
               builder: (context, state) => const HomePage(),
             ),
-          ]),
+          ],),
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/credit',
               name: 'credit',
               builder: (context, state) => const CreditPage(),
             ),
-          ]),
+          ],),
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/booklet',
               name: 'booklet',
               builder: (context, state) => const BookletPage(),
             ),
-          ]),
+          ],),
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/profile',
               name: 'profile',
               builder: (context, state) => const ProfilePage(),
             ),
-          ]),
+          ],),
         ],
       ),
     ],

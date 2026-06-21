@@ -81,10 +81,10 @@ Future<Uint8List> buildRelevePdf(RelevePdfData d) async {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(label,
-                style: const pw.TextStyle(color: _muted, fontSize: 10)),
+                style: const pw.TextStyle(color: _muted, fontSize: 10),),
             pw.Text(value,
                 style: pw.TextStyle(
-                    color: _ink, fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                    color: _ink, fontSize: 11, fontWeight: pw.FontWeight.bold,),),
           ],
         ),
       );
@@ -105,11 +105,11 @@ Future<Uint8List> buildRelevePdf(RelevePdfData d) async {
                 pw.Image(logo, height: 42),
                 pw.SizedBox(height: 8),
                 pw.Text(d.docTitle,
-                    style: const pw.TextStyle(color: _ink, fontSize: 13)),
+                    style: const pw.TextStyle(color: _ink, fontSize: 13),),
               ],
             ),
             pw.Text(d.issuedOn,
-                style: const pw.TextStyle(color: _muted, fontSize: 9)),
+                style: const pw.TextStyle(color: _muted, fontSize: 9),),
           ],
         ),
         pw.SizedBox(height: 6),
@@ -128,14 +128,14 @@ Future<Uint8List> buildRelevePdf(RelevePdfData d) async {
         // ── Tableau des opérations ───────────────────────────────
         pw.Text(d.txHeader,
             style: pw.TextStyle(
-                color: _ink, fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                color: _ink, fontSize: 12, fontWeight: pw.FontWeight.bold,),),
         pw.SizedBox(height: 8),
         pw.TableHelper.fromTextArray(
           headers: [d.colDate, d.colLabel, d.colAmount],
           data: d.rows,
           border: null,
           headerStyle: pw.TextStyle(
-              color: _muted, fontSize: 9, fontWeight: pw.FontWeight.bold),
+              color: _muted, fontSize: 9, fontWeight: pw.FontWeight.bold,),
           headerDecoration: const pw.BoxDecoration(
             border: pw.Border(bottom: pw.BorderSide(color: _line, width: 1)),
           ),
@@ -157,7 +157,7 @@ Future<Uint8List> buildRelevePdf(RelevePdfData d) async {
       footer: (context) => pw.Padding(
         padding: const pw.EdgeInsets.only(top: 12),
         child: pw.Text(d.footer,
-            style: const pw.TextStyle(color: _muted, fontSize: 8)),
+            style: const pw.TextStyle(color: _muted, fontSize: 8),),
       ),
     ),
   );

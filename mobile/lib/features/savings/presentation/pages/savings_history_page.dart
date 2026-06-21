@@ -348,7 +348,7 @@ class _EmptyState extends StatelessWidget {
           width: 64,
           height: 64,
           margin: const EdgeInsets.only(bottom: 20),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: PaColors.tealSurface,
             shape: BoxShape.circle,
           ),

@@ -214,7 +214,7 @@ class _EmptyView extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.savings_rounded,
-                size: 30, color: PaColors.teal),
+                size: 30, color: PaColors.teal,),
           ),
           const SizedBox(height: 16),
           const Text(

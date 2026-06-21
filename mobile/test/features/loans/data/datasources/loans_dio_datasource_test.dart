@@ -72,7 +72,7 @@ void main() {
               'motifs_ineligibilite': ['Un crédit est déjà en cours.'],
               'solde_epargne': '50000',
               'ratio_garantie': '0.1',
-            });
+            },);
       final ds = LoansDioDataSource(_client(adapter));
       final e = await ds.eligibility();
       expect(e.eligible, isFalse);
@@ -83,7 +83,7 @@ void main() {
     test('myActiveLoans parse Loan + installments', () async {
       final adapter = ScriptedAdapter()
         ..on('/loans/me/active/',
-            method: 'GET', status: 200, body: [_loanPayload()]);
+            method: 'GET', status: 200, body: [_loanPayload()],);
       final ds = LoansDioDataSource(_client(adapter));
       final loans = await ds.myActiveLoans();
       expect(loans, hasLength(1));
@@ -116,7 +116,7 @@ void main() {
                 'statut': 'rejetee_campagne',
                 'date_soumission': '2026-06-02T08:00:00Z',
               },
-            ]);
+            ],);
       final ds = LoansDioDataSource(_client(adapter));
       final reqs = await ds.myRequests();
       expect(reqs, hasLength(2));
@@ -143,7 +143,7 @@ void main() {
                 'date_soumission': '2026-06-01T08:00:00Z',
               },
               'route': 'senior_brc',
-            });
+            },);
       final ds = LoansDioDataSource(_client(adapter));
       final submission = await ds.submitRequest(
         montantDemande: 150000,
@@ -178,7 +178,7 @@ void main() {
                 'non_remboursable': true,
                 'notice': 'Ces frais sont non-remboursables.',
               },
-            });
+            },);
       final ds = LoansDioDataSource(_client(adapter));
       final submission = await ds.submitRequest(
         montantDemande: 200000,
@@ -198,7 +198,7 @@ void main() {
         ..on('/payments/init/',
             method: 'POST',
             status: 200,
-            body: {'payment': {'id': 99}});
+            body: {'payment': {'id': 99}},);
       final ds = LoansDioDataSource(_client(adapter));
       await ds.payStudyFee(phone: '+237699112233', network: 'mtn');
       // Pas de retour à valider — succès = pas d'exception.
@@ -220,7 +220,7 @@ void main() {
                 'date_soumission': '2026-06-13T08:00:00Z',
               },
               'route': 'senior_brc',
-            });
+            },);
       final ds = LoansDioDataSource(_client(adapter));
       await ds.submitRequest(
         montantDemande: 120000,
@@ -288,7 +288,7 @@ void main() {
                   },
                 ],
               },
-            });
+            },);
       final ds = LoansDioDataSource(_client(adapter));
       final schema = await ds.getActiveLoanRequestSchema();
       expect(schema, isNotNull);
@@ -314,7 +314,7 @@ void main() {
         ..on('/forms/schemas/loan_request/active/',
             method: 'GET',
             status: 404,
-            body: {'detail': 'Aucun schéma actif.'});
+            body: {'detail': 'Aucun schéma actif.'},);
       final ds = LoansDioDataSource(_client(adapter));
       final schema = await ds.getActiveLoanRequestSchema();
       expect(schema, isNull);
@@ -326,9 +326,9 @@ void main() {
         ..on('/payments/init/',
             method: 'POST',
             status: 200,
-            body: {'payment': {'id': 1}})
+            body: {'payment': {'id': 1}},)
         ..on('/loans/me/active/',
-            method: 'GET', status: 200, body: [_loanPayload(id: 7)]);
+            method: 'GET', status: 200, body: [_loanPayload(id: 7)],);
       final ds = LoansDioDataSource(_client(adapter));
       await ds.repay(
         loanId: 7,
@@ -356,8 +356,8 @@ void main() {
                 'statut': 'demandee',
                 'date_demande': '2026-06-01T08:00:00Z',
                 'frais_reconduction_payment_id': null,
-              }
-            });
+              },
+            },);
       final ds = LoansDioDataSource(_client(adapter));
       final r = await ds.requestRenewal(loanId: 7, comptant: true);
       expect(r.statut, LoanRenewalStatus.demandee);

@@ -1,6 +1,7 @@
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/savings_account.dart';
+import '../../domain/entities/withdrawal_request.dart';
 import '../../domain/repositories/savings_repository.dart';
 import '../datasources/savings_remote_datasource.dart';
 
@@ -35,6 +36,40 @@ class SavingsRepositoryImpl implements SavingsRepository {
         isPlacement: isPlacement,
         nbJoursCouverts: nbJoursCouverts,
       );
+    } on NetworkException catch (e) {
+      throw NetworkFailure(e.message);
+    } on ServerException catch (e) {
+      throw UnexpectedFailure(e.message);
+    }
+  }
+
+  @override
+  Future<WithdrawalRequest> requestWithdrawal({
+    required num amount,
+    required String motif,
+    required WithdrawalChannel channel,
+    String recipientPhone = '',
+    MomoNetwork? network,
+  }) async {
+    try {
+      return await _remote.requestWithdrawal(
+        amount: amount,
+        motif: motif,
+        channel: channel,
+        recipientPhone: recipientPhone,
+        network: network,
+      );
+    } on NetworkException catch (e) {
+      throw NetworkFailure(e.message);
+    } on ServerException catch (e) {
+      throw UnexpectedFailure(e.message);
+    }
+  }
+
+  @override
+  Future<List<WithdrawalRequest>> listMyWithdrawals() async {
+    try {
+      return await _remote.listMyWithdrawals();
     } on NetworkException catch (e) {
       throw NetworkFailure(e.message);
     } on ServerException catch (e) {

@@ -25,7 +25,7 @@ void main() {
       when(() => repo.signIn(
             email: params.email,
             password: params.password,
-          )).thenAnswer((_) async => member);
+          ),).thenAnswer((_) async => member);
 
       final result = await useCase.call(params);
 
@@ -40,7 +40,7 @@ void main() {
       when(() => repo.signIn(
             email: any(named: 'email'),
             password: any(named: 'password'),
-          )).thenThrow(const AuthFailure('bad creds'));
+          ),).thenThrow(const AuthFailure('bad creds'));
 
       expect(() => useCase.call(params), throwsA(isA<AuthFailure>()));
     });
@@ -49,7 +49,7 @@ void main() {
       when(() => repo.signIn(
             email: any(named: 'email'),
             password: any(named: 'password'),
-          )).thenThrow(const NetworkFailure());
+          ),).thenThrow(const NetworkFailure());
 
       expect(() => useCase.call(params), throwsA(isA<NetworkFailure>()));
     });

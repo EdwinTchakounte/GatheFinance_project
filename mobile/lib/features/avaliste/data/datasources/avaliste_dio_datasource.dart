@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exceptions.dart';
+import '../../domain/entities/avaliste_candidate.dart';
 import '../../domain/entities/avaliste_mandat.dart';
 import 'avaliste_remote_datasource.dart';
 
@@ -55,6 +56,35 @@ class AvalisteDioDataSource implements AvalisteRemoteDataSource {
       throw mapDioError(e);
     }
   }
+
+  @override
+  Future<List<AvalisteCandidate>> searchEligible({required String query}) async {
+    if (query.trim().length < 2) return const [];
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/members/search-avaliste/',
+        queryParameters: {'q': query.trim()},
+      );
+      final raw = (res.data?['results'] as List<dynamic>?) ?? const [];
+      return raw
+          .map((e) => _parseCandidate(e as Map<String, dynamic>))
+          .toList(growable: false);
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+}
+
+AvalisteCandidate _parseCandidate(Map<String, dynamic> json) {
+  return AvalisteCandidate(
+    numeroMembre: (json['numero_membre'] as String?) ?? '',
+    nom: (json['nom'] as String?) ?? '',
+    prenom: (json['prenom'] as String?) ?? '',
+    isSenior: (json['is_senior'] as bool?) ?? true,
+    soldeTotal: num.tryParse('${json['solde_total']}') ?? 0,
+    cautionsEngagees: num.tryParse('${json['cautions_engagees']}') ?? 0,
+    capaciteCaution: num.tryParse('${json['capacite_caution']}') ?? 0,
+  );
 }
 
 AvalisteMandat _parseMandat(Map<String, dynamic> json) {

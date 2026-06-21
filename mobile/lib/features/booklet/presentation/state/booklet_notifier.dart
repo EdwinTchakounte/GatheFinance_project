@@ -31,4 +31,4 @@ class BookletNotifier extends AsyncNotifier<List<BookletOrder>> {
 
 final bookletProvider =
     AsyncNotifierProvider<BookletNotifier, List<BookletOrder>>(
-        BookletNotifier.new);
+        BookletNotifier.new,);

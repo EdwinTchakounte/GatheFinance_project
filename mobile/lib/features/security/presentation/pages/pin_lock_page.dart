@@ -5,17 +5,21 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
+import '../../../../core/widgets/paysika/pa_brand_hero.dart';
+import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
 import '../../data/biometric_service.dart';
 import '../state/pin_notifier.dart';
-import '../widgets/pin_brand_badge.dart';
 import '../widgets/pin_keypad.dart';
 
-/// Écran de déverrouillage par PIN (à l'ouverture de l'app, façon Paysika).
+/// Écran de déverrouillage par PIN — **refonte soft 2026-06-18**.
 ///
-/// Premium : halo dégradé vert→bleu derrière le logo, dots animés, et — si la
-/// biométrie est activée — auto-prompt empreinte à l'ouverture + touche dédiée.
+/// - Mini hero brand aurore (vert→bleu→navy) + logo "pont" qui chevauche
+///   la frontière vers la zone crème.
+/// - Welcome + prompt centrés dans la zone crème.
+/// - Dots PIN + clavier soft posé dessous.
+/// - Status bar transparente + icônes claires (immersif).
 class PinLockPage extends ConsumerStatefulWidget {
   const PinLockPage({super.key});
 
@@ -32,7 +36,6 @@ class _PinLockPageState extends ConsumerState<PinLockPage> {
   @override
   void initState() {
     super.initState();
-    // Auto-prompt biométrique à l'ouverture si activé.
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybePromptBiometric());
   }
 
@@ -97,48 +100,86 @@ class _PinLockPageState extends ConsumerState<PinLockPage> {
     final firstName = member?.prenom ?? '';
     final canBio = ref.watch(pinProvider).valueOrNull?.canUseBiometric ?? false;
 
-    return Scaffold(
-      backgroundColor: PaColors.canvas,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const Spacer(flex: 2),
-            const PinBrandBadge(),
-            const SizedBox(height: 26),
-            Text(
-              firstName.isEmpty ? l.pin_welcome_back : l.pin_hello(firstName),
-              style: PaText.heading(size: 22),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error ? l.pin_wrong : l.pin_unlock_prompt,
-              textAlign: TextAlign.center,
-              style: PaText.body(
-                size: 13.5,
-                color: _error ? PaColors.danger : PaColors.inkMuted,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: PaColors.canvas,
+        body: PaPatternBackground(
+          patternOpacity: 0.30,
+          child: Column(
+            children: [
+              // ── Mini hero aurore + logo pont ──
+              Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.bottomCenter,
+                children: [
+                  PaBrandHero(
+                    bottomRadius: 28,
+                    contentPadding:
+                        const EdgeInsets.fromLTRB(20, 10, 20, 46),
+                    child: const SizedBox(height: 14),
+                  ),
+                  const Positioned(
+                    bottom: -34,
+                    child: PaBrandHeroBridgeLogo(size: 68),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 30),
-            PinDots(length: _len, filled: _entry.length, error: _error),
-            const Spacer(flex: 2),
-            PinKeypad(
-              onDigit: _onDigit,
-              onBackspace: _onBackspace,
-              onBiometric: canBio ? _biometric : null,
-            ),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: () {
-                ref.read(authProvider.notifier).signOut();
-                context.go('/login');
-              },
-              child: Text(
-                l.pin_use_other_account,
-                style: PaText.label(size: 13, color: PaColors.inkMuted),
+              const SizedBox(height: 46),
+
+              // ── Welcome + prompt ──
+              Text(
+                firstName.isEmpty ? l.pin_welcome_back : l.pin_hello(firstName),
+                style: PaText.heading(size: 20, weight: FontWeight.w700),
               ),
-            ),
-            const Spacer(),
-          ],
+              const SizedBox(height: 6),
+              Text(
+                _error ? l.pin_wrong : l.pin_unlock_prompt,
+                textAlign: TextAlign.center,
+                style: PaText.body(
+                  size: 13.5,
+                  color: _error ? PaColors.danger : PaColors.inkSecondary,
+                  height: 1.4,
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // ── Dots PIN ──
+              PinDots(length: _len, filled: _entry.length, error: _error),
+
+              const Spacer(),
+
+              // ── Keypad ──
+              PinKeypad(
+                onDigit: _onDigit,
+                onBackspace: _onBackspace,
+                onBiometric: canBio ? _biometric : null,
+              ),
+
+              const SizedBox(height: 6),
+              TextButton(
+                onPressed: () {
+                  ref.read(authProvider.notifier).signOut();
+                  context.go('/login');
+                },
+                child: Text(
+                  l.pin_use_other_account,
+                  style: PaText.label(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: PaColors.inkSecondary,
+                  ),
+                ),
+              ),
+              SizedBox(
+                height: MediaQuery.viewPaddingOf(context).bottom + 6,
+              ),
+            ],
+          ),
         ),
       ),
     );

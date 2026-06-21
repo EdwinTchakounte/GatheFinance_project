@@ -5,67 +5,47 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
-import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
+import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../state/onboarding_notifier.dart';
 
 class _Slide {
-  const _Slide({
-    required this.image,
-    required this.icon,
-    required this.eyebrow,
-    required this.title,
-    required this.body,
-    required this.accent,
-  });
+  const _Slide({required this.icon, required this.title, required this.body});
 
-  final String image;
   final IconData icon;
-  final String eyebrow;
   final String title;
   final String body;
-  final Color accent;
 }
 
 List<_Slide> _buildSlides(AppL10n l) => <_Slide>[
       _Slide(
-        image: 'assets/images/father-daughter-saving.jpg',
         icon: Icons.savings_outlined,
-        eyebrow: l.onb_slide1_eyebrow,
         title: l.onb_slide1_title,
         body: l.onb_slide1_body,
-        accent: PaColors.success,
       ),
       _Slide(
-        image: 'assets/images/entrepreneurs.jpg',
-        icon: Icons.trending_up_rounded,
-        eyebrow: l.onb_slide2_eyebrow,
+        icon: Icons.account_balance_outlined,
         title: l.onb_slide2_title,
         body: l.onb_slide2_body,
-        accent: PaColors.teal,
       ),
       _Slide(
-        image: 'assets/images/cooperative-investment.jpg',
         icon: Icons.diversity_3_rounded,
-        eyebrow: l.onb_slide3_eyebrow,
         title: l.onb_slide3_title,
         body: l.onb_slide3_body,
-        accent: PaColors.warning,
-      ),
-      _Slide(
-        image: 'assets/images/family.jpg',
-        icon: Icons.handshake_outlined,
-        eyebrow: l.onb_slide4_eyebrow,
-        title: l.onb_slide4_title,
-        body: l.onb_slide4_body,
-        accent: PaColors.teal,
       ),
     ];
 
+/// Onboarding refonte 2026-06-18 — **minimal, façon capture_rh.jpeg**.
+///
+/// - Hero gradient bleu pleine largeur, **coins bas arrondis** type vague.
+/// - Cercle blanc contenant l'icône du slide, centré dans le hero.
+/// - Titre Sora blanc XL.
+/// - Zone crème doodle dessous : 1 phrase body + dots + CTA.
+/// - Pas d'eyebrow, pas d'image hero, pas de chip, pas de badge.
 class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
 
@@ -105,345 +85,225 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final slides = _buildSlides(l);
     final isLast = _index == slides.length - 1;
 
     return Scaffold(
-      backgroundColor: PaColors.appBg,
-      body: SafeArea(
+      backgroundColor: PaColors.canvas,
+      body: PaPatternBackground(
+        patternOpacity: 0.32,
         child: Column(
           children: [
-            // Header avec "Passer" + eyebrow
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenH,
-                AppSpacing.s,
-                AppSpacing.screenH,
-                0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    l.onb_eyebrow_welcome.toUpperCase(),
-                    style: const TextStyle(
-                      color: PaColors.inkMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.6,
+            // ── Hero bleu pleine largeur, coins bas arrondis ──
+            _BlueHero(
+              slide: slides[_index],
+              total: slides.length,
+              current: _index,
+              onSkip: isLast ? null : _finish,
+            ),
+            // ── Body + CTA dans la zone crème ──
+            Expanded(
+              child: PageView.builder(
+                controller: _ctrl,
+                itemCount: slides.length,
+                onPageChanged: (i) {
+                  unawaited(HapticFeedback.selectionClick());
+                  setState(() => _index = i);
+                },
+                itemBuilder: (context, i) => Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 24, 28, 0),
+                  child: SingleChildScrollView(
+                    child: Text(
+                      slides[i].body,
+                      style: PaText.body(
+                        size: 15,
+                        color: PaColors.inkSecondary,
+                        height: 1.55,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                  AnimatedSwitcher(
+                ),
+              ),
+            ),
+            // ── Dots + CTA ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _Dots(count: slides.length, current: _index),
+                  const SizedBox(height: AppSpacing.l),
+                  PaButton(
+                    label: isLast ? l.onb_start : l.onb_continue,
+                    onPressed: () => _next(isLast: isLast),
+                  ),
+                  AnimatedOpacity(
                     duration: const Duration(milliseconds: 220),
-                    child: isLast
-                        ? const SizedBox(key: ValueKey('empty'), width: 1)
-                        : TextButton(
-                            key: const ValueKey('skip'),
-                            onPressed: _finish,
-                            child: Text(
-                              l.onb_skip,
-                              style: const TextStyle(
-                                color: PaColors.inkMuted,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
+                    opacity: isLast ? 1 : 0,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.s),
+                      child: Text(
+                        l.onb_consent,
+                        textAlign: TextAlign.center,
+                        style: PaText.body(
+                          size: 11.5,
+                          color: PaColors.inkMuted,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-              // Slides
-              Expanded(
-                child: PageView.builder(
-                  controller: _ctrl,
-                  itemCount: slides.length,
-                  onPageChanged: (i) {
-                    unawaited(HapticFeedback.selectionClick());
-                    setState(() => _index = i);
-                  },
-                  itemBuilder: (context, i) => _SlideView(
-                    slide: slides[i],
-                    index: i,
-                    pageController: _ctrl,
-                  ),
-                ),
-              ),
 
-              // Indicateur + CTA
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.screenH,
-                  AppSpacing.l,
-                  AppSpacing.screenH,
-                  AppSpacing.l,
-                ),
-                child: Column(
-                  children: [
-                    _RailIndicator(count: slides.length, current: _index),
-                    const SizedBox(height: AppSpacing.xl),
-                    PaButton(
-                      label: isLast ? l.onb_start : l.onb_continue,
-                      onPressed: () => _next(isLast: isLast),
+/// Bloc hero bleu avec coins bas arrondis (vague), cercle blanc + icône
+/// centré, titre Sora blanc XL.
+class _BlueHero extends StatelessWidget {
+  const _BlueHero({
+    required this.slide,
+    required this.total,
+    required this.current,
+    required this.onSkip,
+  });
+
+  final _Slide slide;
+  final int total;
+  final int current;
+  final VoidCallback? onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            PaColors.blue, // #2563EB
+            PaColors.navy, // #1E3A8A
+          ],
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(36),
+          bottomRight: Radius.circular(36),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Row top : index + Passer
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${current + 1} / $total',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
                     ),
-                    const SizedBox(height: AppSpacing.s),
-                    AnimatedOpacity(
-                      duration: const Duration(milliseconds: 220),
-                      opacity: isLast ? 1 : 0,
-                      child: Text(
-                        l.onb_consent,
-                        textAlign: TextAlign.center,
-                        style: AppTypography.bodySmall.copyWith(
-                          color: scheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  if (onSkip != null)
+                    TextButton(
+                      onPressed: onSkip,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text(
+                        'Passer',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  ],
+                ],
+              ),
+              const SizedBox(height: 18),
+              // Cercle blanc + icône
+              Center(
+                child: Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.95),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.10),
+                        blurRadius: 20,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Icon(slide.icon, color: PaColors.blue, size: 44),
+                ),
+              ),
+              const SizedBox(height: 22),
+              // Titre slide
+              Text(
+                slide.title,
+                textAlign: TextAlign.center,
+                style: PaText.display(
+                  size: 24,
+                  weight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: -0.4,
                 ),
               ),
             ],
           ),
         ),
+      ),
     );
   }
 }
 
 
-class _SlideView extends StatelessWidget {
-  const _SlideView({
-    required this.slide,
-    required this.index,
-    required this.pageController,
-  });
-
-  final _Slide slide;
-  final int index;
-  final PageController pageController;
-
-  /// Position relative à la page courante :
-  ///   0   = slide active
-  ///   -1  = slide précédente (à gauche)
-  ///   +1  = slide suivante (à droite)
-  double _offset() {
-    if (!pageController.hasClients ||
-        pageController.position.haveDimensions == false) {
-      return 0;
-    }
-    return (pageController.page ?? pageController.initialPage.toDouble()) -
-        index;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AnimatedBuilder(
-      animation: pageController,
-      builder: (context, _) {
-        final offset = _offset();
-        // Parallax inverse : l'image « reste » légèrement pendant le swipe.
-        final imageShift = offset * -32;
-        // Le texte fade dès qu'on s'éloigne du centre.
-        final textOpacity = (1 - offset.abs() * 1.6).clamp(0.0, 1.0);
-        final textShiftY = offset.abs() * 14;
-        // Légère mise à l'échelle de l'image pour donner de la profondeur.
-        final imageScale = 1 - offset.abs() * 0.04;
-
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenH,
-            AppSpacing.m,
-            AppSpacing.screenH,
-            AppSpacing.l,
-          ),
-          // Scrollable → aucun overflow possible même avec une police agrandie
-          // ou un texte long (slide coopérative). Reste statique si ça tient.
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Hero image — vignette + filtre accent + badge pill
-                AspectRatio(
-                  aspectRatio: 1.2,
-                child: Transform.scale(
-                  scale: imageScale,
-                  child: ClipRRect(
-                    borderRadius: AppRadii.cardHero,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // Image sur-dimensionnée pour le parallax
-                        Transform.translate(
-                          offset: Offset(imageShift, 0),
-                          child: OverflowBox(
-                            maxWidth: double.infinity,
-                            child: Image.asset(
-                              slide.image,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                        // Vignette + teinte accent légère pour cohérence brand
-                        Positioned.fill(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  slide.accent.withValues(alpha: 0.06),
-                                  Colors.transparent,
-                                  slide.accent.withValues(alpha: 0.22),
-                                ],
-                                stops: const [0, 0.45, 1],
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Filet vertical institutionnel (gauche)
-                        Positioned(
-                          top: 22,
-                          bottom: 22,
-                          left: 0,
-                          child: Container(
-                            width: 3,
-                            color: slide.accent,
-                          ),
-                        ),
-                        // Badge pill (icône + libellé) — façon AfDB/UN
-                        Positioned(
-                          top: 18,
-                          left: 22,
-                          child: Container(
-                            padding: const EdgeInsets.fromLTRB(10, 6, 14, 6),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.94),
-                              borderRadius: BorderRadius.circular(999),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.10),
-                                  blurRadius: 14,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(slide.icon, size: 16, color: slide.accent),
-                                const SizedBox(width: 7),
-                                Text(
-                                  slide.eyebrow,
-                                  style: AppTypography.labelMedium.copyWith(
-                                    color: PaColors.navy,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: AppSpacing.l),
-
-              // Bloc texte : fade + slide vertical synchronisés
-              Opacity(
-                opacity: textOpacity,
-                child: Transform.translate(
-                  offset: Offset(0, textShiftY),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Mini filet horizontal accent — note éditoriale
-                      Container(
-                        height: 2,
-                        width: 32,
-                        margin: const EdgeInsets.only(bottom: AppSpacing.m),
-                        color: slide.accent,
-                      ),
-                      Text(
-                        slide.title,
-                        style: AppTypography.displayLarge
-                            .copyWith(color: scheme.onSurface),
-                      ),
-                      const SizedBox(height: AppSpacing.m),
-                      Text(
-                        slide.body,
-                        style: AppTypography.bodyLarge.copyWith(
-                          color: scheme.onSurface.withValues(alpha: 0.7),
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-
-/// Indicateur de progression posé sur un rail continu. Le segment actif
-/// s'allonge en cobalt ; les autres restent en line subtil. Donne une lecture
-/// instantanée de l'avancée sans le côté « pastilles » des onboarding bon
-/// marché.
-class _RailIndicator extends StatelessWidget {
-  const _RailIndicator({required this.count, required this.current});
+class _Dots extends StatelessWidget {
+  const _Dots({required this.count, required this.current});
 
   final int count;
   final int current;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 6,
-      child: LayoutBuilder(
-        builder: (context, c) {
-          const gap = 6.0;
-          final segWidth = (c.maxWidth - gap * (count - 1)) / count;
-          return Stack(
-            children: [
-              Row(
-                children: List.generate(count, (i) {
-                  final active = i == current;
-                  final done = i < current;
-                  return Padding(
-                    padding: EdgeInsets.only(right: i == count - 1 ? 0 : gap),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 320),
-                      curve: Curves.easeOutCubic,
-                      width: segWidth,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: done
-                            ? scheme.primary.withValues(alpha: 0.45)
-                            : active
-                                ? scheme.primary
-                                : scheme.outline,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ],
-          );
-        },
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (i) {
+        final active = i == current;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          width: active ? 22 : 7,
+          height: 7,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: active ? PaColors.blue : PaColors.inkFaint,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        );
+      }),
     );
   }
 }

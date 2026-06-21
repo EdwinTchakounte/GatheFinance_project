@@ -25,9 +25,9 @@ void main() {
           montantDemande: 40000,
           dureeMois: 12,
           motif: 'Achat outillage pro pour ma boutique',
-        )),
+        ),),
         throwsA(isA<ValidationFailure>()
-            .having((f) => f.field, 'field', 'montant')),
+            .having((f) => f.field, 'field', 'montant'),),
       );
     });
 
@@ -37,9 +37,9 @@ void main() {
           montantDemande: 200000,
           dureeMois: 2,
           motif: 'Achat outillage pro pour ma boutique',
-        )),
+        ),),
         throwsA(isA<ValidationFailure>()
-            .having((f) => f.field, 'field', 'duree')),
+            .having((f) => f.field, 'field', 'duree'),),
       );
     });
 
@@ -49,7 +49,7 @@ void main() {
           montantDemande: 200000,
           dureeMois: 40,
           motif: 'Achat outillage pro pour ma boutique',
-        )),
+        ),),
         throwsA(isA<ValidationFailure>()),
       );
     });
@@ -60,9 +60,9 @@ void main() {
           montantDemande: 200000,
           dureeMois: 12,
           motif: '   short  ',
-        )),
+        ),),
         throwsA(isA<ValidationFailure>()
-            .having((f) => f.field, 'field', 'motif')),
+            .having((f) => f.field, 'field', 'motif'),),
       );
     });
 
@@ -72,20 +72,20 @@ void main() {
             montantDemande: 200000,
             dureeMois: 12,
             motif: 'Achat outillage pro',
-          )).thenAnswer((_) async => created);
+          ),).thenAnswer((_) async => created);
 
       final result = await useCase.call(const SubmitLoanRequestParams(
         montantDemande: 200000,
         dureeMois: 12,
         motif: '  Achat outillage pro  ',
-      ));
+      ),);
 
       expect(result, created);
       verify(() => repo.submitRequest(
             montantDemande: 200000,
             dureeMois: 12,
             motif: 'Achat outillage pro',
-          )).called(1);
+          ),).called(1);
     });
   });
 }

@@ -1,180 +1,131 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_shimmer.dart';
 import '../../domain/entities/feed_item.dart';
 import '../state/feed_notifier.dart';
 
-/// Section "Campagnes en cours" — carousel horizontal des flyers actifs,
-/// avec lazy-load au scroll (charge la page suivante à 200px de la fin).
-class CampaignsSection extends ConsumerStatefulWidget {
-  const CampaignsSection({super.key, required this.onSeeMore});
+/// Section "Campagnes en cours" — carousel horizontal des flyers actifs.
+///
+/// Sur la Home on n'affiche que les 2 plus récentes (date_fin ASC côté
+/// backend). Le bouton "Voir plus" route vers la page in-app `/campaigns`
+/// qui montre la liste complète paginée — c'est elle qui charge la page
+/// suivante au scroll, pas la Home.
+class CampaignsSection extends ConsumerWidget {
+  const CampaignsSection({
+    super.key,
+    required this.onSeeMore,
+    this.onTapCampaign,
+  });
   final VoidCallback onSeeMore;
+  final void Function(CampaignFlyer c)? onTapCampaign;
+
+  /// Limite imposée par le brief client : seules les 2 plus récentes sur Home.
+  static const int kHomeLimit = 2;
 
   @override
-  ConsumerState<CampaignsSection> createState() => _CampaignsSectionState();
-}
-
-class _CampaignsSectionState extends ConsumerState<CampaignsSection> {
-  final ScrollController _ctrl = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.removeListener(_onScroll);
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_ctrl.position.pixels >
-        _ctrl.position.maxScrollExtent - 200) {
-      ref.read(homeFeedProvider.notifier).loadMoreCampaigns();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final feed = ref.watch(homeFeedProvider).valueOrNull;
-    final campaigns = feed?.campaigns ?? const <CampaignFlyer>[];
-    if (campaigns.isEmpty) return const SizedBox.shrink();
-    final showSpinner = feed?.campaignsLoading ?? false;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final feedAsync = ref.watch(homeFeedProvider);
+    final feed = feedAsync.valueOrNull;
+    final all = feed?.campaigns ?? const <CampaignFlyer>[];
+    // Loading : on montre des skeletons soft plutôt qu'un blanc complet.
+    final isLoading = feedAsync.isLoading && feed == null;
+    if (!isLoading && all.isEmpty) return const SizedBox.shrink();
+    final campaigns = all.take(kHomeLimit).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionHeader(
           title: 'Campagnes en cours',
-          onSeeMore: widget.onSeeMore,
+          onSeeMore: onSeeMore,
+          loading: isLoading,
         ),
         SizedBox(
-          height: 226,
+          height: 256,
           child: ListView.separated(
-            controller: _ctrl,
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             physics: const BouncingScrollPhysics(),
-            itemCount: campaigns.length + (showSpinner ? 1 : 0),
+            itemCount: isLoading ? 2 : campaigns.length,
             separatorBuilder: (_, __) => const SizedBox(width: 14),
-            itemBuilder: (_, i) {
-              if (i >= campaigns.length) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: PaColors.teal,
-                      ),
-                    ),
-                  ),
-                );
-              }
-              return _CampaignCard(c: campaigns[i]);
-            },
+            itemBuilder: (_, i) => isLoading
+                ? const _SkeletonCard(width: 272, withChip: true)
+                : _CampaignCard(c: campaigns[i], onTap: onTapCampaign),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
       ],
     );
   }
 }
 
 /// Section "Actualités" — articles avec image de couverture.
-class NewsSection extends ConsumerStatefulWidget {
-  const NewsSection({super.key, required this.onSeeMore});
+///
+/// Sur la Home on n'affiche que les 3 plus récentes — la page in-app `/news`
+/// se charge de la pagination complète.
+class NewsSection extends ConsumerWidget {
+  const NewsSection({
+    super.key,
+    required this.onSeeMore,
+    this.onTapArticle,
+  });
   final VoidCallback onSeeMore;
+  final void Function(NewsArticle a)? onTapArticle;
+
+  static const int kHomeLimit = 3;
 
   @override
-  ConsumerState<NewsSection> createState() => _NewsSectionState();
-}
-
-class _NewsSectionState extends ConsumerState<NewsSection> {
-  final ScrollController _ctrl = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.removeListener(_onScroll);
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_ctrl.position.pixels >
-        _ctrl.position.maxScrollExtent - 200) {
-      ref.read(homeFeedProvider.notifier).loadMoreArticles();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final feed = ref.watch(homeFeedProvider).valueOrNull;
-    final articles = feed?.articles ?? const <NewsArticle>[];
-    if (articles.isEmpty) return const SizedBox.shrink();
-    final showSpinner = feed?.articlesLoading ?? false;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final feedAsync = ref.watch(homeFeedProvider);
+    final feed = feedAsync.valueOrNull;
+    final all = feed?.articles ?? const <NewsArticle>[];
+    final isLoading = feedAsync.isLoading && feed == null;
+    if (!isLoading && all.isEmpty) return const SizedBox.shrink();
+    final articles = all.take(kHomeLimit).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionHeader(title: 'Actualités', onSeeMore: widget.onSeeMore),
+        _SectionHeader(
+          title: 'Actualités',
+          onSeeMore: onSeeMore,
+          loading: isLoading,
+        ),
         SizedBox(
-          height: 250,
+          height: 278,
           child: ListView.separated(
-            controller: _ctrl,
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             physics: const BouncingScrollPhysics(),
-            itemCount: articles.length + (showSpinner ? 1 : 0),
+            itemCount: isLoading ? 2 : articles.length,
             separatorBuilder: (_, __) => const SizedBox(width: 14),
-            itemBuilder: (_, i) {
-              if (i >= articles.length) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: PaColors.teal,
-                      ),
-                    ),
-                  ),
-                );
-              }
-              return _ArticleCard(a: articles[i]);
-            },
+            itemBuilder: (_, i) => isLoading
+                ? const _SkeletonCard(width: 268, withChip: true)
+                : _ArticleCard(a: articles[i], onTap: onTapArticle),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
       ],
     );
   }
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.onSeeMore});
+  const _SectionHeader({
+    required this.title,
+    required this.onSeeMore,
+    this.loading = false,
+  });
   final String title;
   final VoidCallback onSeeMore;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 16, 10),
+      padding: const EdgeInsets.fromLTRB(20, 14, 16, 10),
       child: Row(
         children: [
           Expanded(
@@ -182,45 +133,162 @@ class _SectionHeader extends StatelessWidget {
               title,
               style: const TextStyle(
                 color: PaColors.inkPrimary,
-                fontSize: 17,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.2,
               ),
             ),
           ),
-          TextButton(
-            onPressed: onSeeMore,
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              minimumSize: const Size(0, 0),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Voir plus',
-                  style: TextStyle(
-                    color: PaColors.teal,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
+          if (loading)
+            const _DotsLoading()
+          else
+            TextButton(
+              onPressed: onSeeMore,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                minimumSize: const Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Voir plus',
+                    style: TextStyle(
+                      color: PaColors.teal,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                SizedBox(width: 2),
-                Icon(Icons.chevron_right_rounded,
-                    color: PaColors.teal, size: 18),
-              ],
+                  SizedBox(width: 2),
+                  Icon(Icons.chevron_right_rounded,
+                      color: PaColors.teal, size: 17,),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 }
 
+
+/// 3 petits dots animés pour signaler "chargement en cours" dans un header,
+/// plus discret qu'un CircularProgressIndicator.
+class _DotsLoading extends StatefulWidget {
+  const _DotsLoading();
+  @override
+  State<_DotsLoading> createState() => _DotsLoadingState();
+}
+
+class _DotsLoadingState extends State<_DotsLoading>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) {
+        final t = _ctrl.value;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            final phase = (t + i * 0.18) % 1.0;
+            final opacity = (0.25 + 0.75 * (1 - (phase - 0.5).abs() * 2))
+                .clamp(0.25, 1.0);
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1.5),
+              child: Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: PaColors.teal.withValues(alpha: opacity),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+}
+
+
+/// Skeleton card uniforme pour les sections en chargement (campagnes + actus).
+/// Image placeholder shimmer + 2-3 lignes de texte shimmer + chip optionnel.
+class _SkeletonCard extends StatelessWidget {
+  const _SkeletonCard({required this.width, this.withChip = false});
+
+  final double width;
+  final bool withChip;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: PaCard(
+        padding: EdgeInsets.zero,
+        child: PaShimmer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image placeholder
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: PaColors.line,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (withChip) ...[
+                      const PaShimmerBox(width: 60, height: 14, borderRadius: 4),
+                      const SizedBox(height: 10),
+                    ],
+                    const PaShimmerBox(width: 200, height: 13, borderRadius: 4),
+                    const SizedBox(height: 8),
+                    const PaShimmerBox(width: 140, height: 11, borderRadius: 4),
+                    const SizedBox(height: 6),
+                    const PaShimmerBox(width: 90, height: 11, borderRadius: 4),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CampaignCard extends StatelessWidget {
-  const _CampaignCard({required this.c});
+  const _CampaignCard({required this.c, this.onTap});
   final CampaignFlyer c;
+  final void Function(CampaignFlyer c)? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -228,7 +296,7 @@ class _CampaignCard extends StatelessWidget {
       width: 272,
       child: PaCard(
         padding: EdgeInsets.zero,
-        onTap: () => _openVitrineCampaigns(),
+        onTap: onTap == null ? null : () => onTap!(c),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -236,7 +304,7 @@ class _CampaignCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(20),
+                    top: Radius.circular(10),
                   ),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
@@ -259,18 +327,25 @@ class _CampaignCard extends StatelessWidget {
                   left: 10,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                        horizontal: 9, vertical: 5,),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.55),
-                      borderRadius: BorderRadius.circular(999),
+                      color: Colors.white.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: Text(
                       c.profilCible.toUpperCase(),
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: PaColors.teal,
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
+                        letterSpacing: 1.4,
                       ),
                     ),
                   ),
@@ -297,7 +372,7 @@ class _CampaignCard extends StatelessWidget {
                   Row(
                     children: [
                       const Icon(Icons.payments_outlined,
-                          size: 14, color: PaColors.teal),
+                          size: 14, color: PaColors.teal,),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -317,7 +392,7 @@ class _CampaignCard extends StatelessWidget {
                   Row(
                     children: [
                       const Icon(Icons.event_outlined,
-                          size: 13, color: PaColors.inkMuted),
+                          size: 13, color: PaColors.inkMuted,),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -353,11 +428,6 @@ class _CampaignCard extends StatelessWidget {
 
   static String _d(DateTime dt) =>
       '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}';
-
-  Future<void> _openVitrineCampaigns() async {
-    final uri = Uri.parse('http://10.93.197.210:3200/services/micro-credit');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
 }
 
 class _PlaceholderFlyer extends StatelessWidget {
@@ -384,7 +454,7 @@ class _PlaceholderFlyer extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.campaign_outlined,
-                color: PaColors.teal, size: 36),
+                color: PaColors.teal, size: 36,),
             const SizedBox(height: 8),
             Text(
               label.toUpperCase(),
@@ -406,8 +476,9 @@ class _PlaceholderFlyer extends StatelessWidget {
 }
 
 class _ArticleCard extends StatelessWidget {
-  const _ArticleCard({required this.a});
+  const _ArticleCard({required this.a, this.onTap});
   final NewsArticle a;
+  final void Function(NewsArticle a)? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -415,13 +486,13 @@ class _ArticleCard extends StatelessWidget {
       width: 268,
       child: PaCard(
         padding: EdgeInsets.zero,
-        onTap: () => _openArticle(a.htmlUrl),
+        onTap: onTap == null ? null : () => onTap!(a),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
+                top: Radius.circular(10),
               ),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
@@ -444,18 +515,18 @@ class _ArticleCard extends StatelessWidget {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                        horizontal: 9, vertical: 4,),
                     decoration: BoxDecoration(
-                      color: PaColors.warningSurface,
-                      borderRadius: BorderRadius.circular(999),
+                      color: PaColors.blue.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
                       'ACTUALITÉ',
                       style: TextStyle(
-                        color: PaColors.warning,
+                        color: PaColors.blue,
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
+                        letterSpacing: 1.4,
                       ),
                     ),
                   ),
@@ -491,12 +562,6 @@ class _ArticleCard extends StatelessWidget {
     );
   }
 
-  Future<void> _openArticle(String url) async {
-    if (url.isEmpty) return;
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
 }
 
 class _PlaceholderArticle extends StatelessWidget {

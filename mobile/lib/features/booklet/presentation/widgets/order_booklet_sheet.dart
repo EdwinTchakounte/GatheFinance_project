@@ -116,7 +116,7 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
             const _Grabber(),
             const SizedBox(height: AppSpacing.l),
             Text(l.bko_title,
-                style: AppTypography.headingMedium),
+                style: AppTypography.headingMedium,),
             const SizedBox(height: 4),
             Text(
               l.bko_sub,
@@ -158,7 +158,7 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
                   child: Text('+237  ', style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                     fontWeight: FontWeight.w600,
-                  )),
+                  ),),
                 ),
                 prefixIconConstraints:
                     const BoxConstraints(minWidth: 0, minHeight: 0),
@@ -182,7 +182,7 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Icon(Icons.menu_book_rounded,
-                      size: 18, color: PaColors.warning),
+                      size: 18, color: PaColors.warning,),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -356,7 +356,7 @@ class _NetworkChip extends StatelessWidget {
             ),
             if (selected)
               const Icon(Icons.check_circle_rounded,
-                  size: 18, color: PaColors.teal),
+                  size: 18, color: PaColors.teal,),
           ],
         ),
       ),

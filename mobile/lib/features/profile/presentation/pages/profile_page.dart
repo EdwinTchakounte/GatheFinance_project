@@ -13,6 +13,7 @@ import '../../../security/presentation/state/pin_notifier.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/logo_mark.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
+import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
@@ -37,17 +38,8 @@ class ProfilePage extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l.profile_eyebrow.toUpperCase(), style: PaText.eyebrow()),
-                  const SizedBox(height: 3),
-                  Text(l.profile_title, style: PaText.heading(size: 22)),
-                ],
-              ),
-            ),
+            // Header compact — band gradient soft vert→bleu
+            PaGradientHeaderBand(title: l.profile_title),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(
@@ -201,9 +193,9 @@ class ProfilePage extends ConsumerWidget {
                       width: 36,
                       height: 36,
                       margin: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: PaColors.dangerSurface,
-                        borderRadius: const BorderRadius.all(AppRadii.r12),
+                        borderRadius: BorderRadius.all(AppRadii.r12),
                       ),
                       child: const Icon(
                         Icons.logout_rounded,
@@ -240,11 +232,11 @@ class ProfilePage extends ConsumerWidget {
               const SizedBox(height: AppSpacing.xxl),
 
               // Footer marque
-              Center(
+              const Center(
                 child: Opacity(
                   opacity: 0.55,
                   child: Column(
-                    children: const [
+                    children: [
                       LogoMark(size: LogoSize.small),
                       SizedBox(height: 6),
                       Text(
@@ -529,7 +521,7 @@ class _BiometricTile extends ConsumerWidget {
                   borderRadius: const BorderRadius.all(AppRadii.r12),
                 ),
                 child: const Icon(Icons.fingerprint_rounded,
-                    size: 18, color: PaColors.teal),
+                    size: 18, color: PaColors.teal,),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -537,7 +529,7 @@ class _BiometricTile extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(l.profile_tile_biometric,
-                        style: AppTypography.labelLarge),
+                        style: AppTypography.labelLarge,),
                     const SizedBox(height: 2),
                     Text(
                       l.profile_tile_biometric_sub,
@@ -876,7 +868,7 @@ class _MyInfoSheetState extends ConsumerState<_MyInfoSheet> {
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                      horizontal: 16, vertical: 14,),
                   decoration: BoxDecoration(
                     color: PaColors.appBg,
                     borderRadius: BorderRadius.circular(12),
@@ -893,7 +885,7 @@ class _MyInfoSheetState extends ConsumerState<_MyInfoSheet> {
                         ),
                       ),
                       const Icon(Icons.lock_outline_rounded,
-                          size: 16, color: PaColors.inkMuted),
+                          size: 16, color: PaColors.inkMuted,),
                     ],
                   ),
                 ),
@@ -1068,7 +1060,7 @@ class _PasswordSheetState extends ConsumerState<_PasswordSheet>
                 suffixIcon: IconButton(
                   icon: Icon(_hideOld
                       ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined),
+                      : Icons.visibility_off_outlined,),
                   color: PaColors.inkMuted,
                   onPressed: () => setState(() => _hideOld = !_hideOld),
                 ),
@@ -1090,7 +1082,7 @@ class _PasswordSheetState extends ConsumerState<_PasswordSheet>
                 suffixIcon: IconButton(
                   icon: Icon(_hideNew
                       ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined),
+                      : Icons.visibility_off_outlined,),
                   color: PaColors.inkMuted,
                   onPressed: () => setState(() => _hideNew = !_hideNew),
                 ),
@@ -1129,7 +1121,7 @@ class _PasswordSheetState extends ConsumerState<_PasswordSheet>
                 child: Row(
                   children: [
                     const Icon(Icons.error_outline,
-                        color: PaColors.danger, size: 18),
+                        color: PaColors.danger, size: 18,),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -1184,7 +1176,7 @@ class _PasswordSheetState extends ConsumerState<_PasswordSheet>
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.check_rounded,
-                  color: PaColors.success, size: 36),
+                  color: PaColors.success, size: 36,),
             ),
           ),
           const SizedBox(height: 18),

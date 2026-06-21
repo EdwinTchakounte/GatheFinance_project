@@ -11,7 +11,7 @@ void main() {
       localizationsDelegates: AppL10n.localizationsDelegates,
       supportedLocales: AppL10n.supportedLocales,
       home: Scaffold(body: child),
-    ));
+    ),);
   }
 
   testWidgets('InstallmentTile — payée affiche le pill success', (tester) async {

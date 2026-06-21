@@ -326,13 +326,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             child: Column(
               children: [
                 _AgencyRow(
-                    icon: Icons.place_outlined, label: l.dep_agency_place),
+                    icon: Icons.place_outlined, label: l.dep_agency_place,),
                 const SizedBox(height: 10),
                 _AgencyRow(
-                    icon: Icons.schedule_outlined, label: l.dep_agency_hours),
+                    icon: Icons.schedule_outlined, label: l.dep_agency_hours,),
                 const SizedBox(height: 10),
                 _AgencyRow(
-                    icon: Icons.timer_outlined, label: l.dep_agency_cutoff),
+                    icon: Icons.timer_outlined, label: l.dep_agency_cutoff,),
               ],
             ),
           ),
@@ -400,7 +400,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                 borderRadius: BorderRadius.circular(999),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
+                      horizontal: 12, vertical: 6,),
                   decoration: BoxDecoration(
                     color: _isPlacement
                         ? PaColors.tealSurface
@@ -500,7 +500,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                   child: Row(
                     children: [
                       const Icon(Icons.bolt_outlined,
-                          size: 16, color: PaColors.teal),
+                          size: 16, color: PaColors.teal,),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -722,7 +722,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
           const SizedBox(height: 8),
           Text(
             l.dep_waiting_body(
-                _network.label, XAFFormatter.format(_committedAmount ?? 0)),
+                _network.label, XAFFormatter.format(_committedAmount ?? 0),),
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: PaColors.inkMuted,
@@ -1130,7 +1130,7 @@ class _KindCard extends StatelessWidget {
                     ),
                     if (selected)
                       Icon(Icons.check_circle_rounded,
-                          color: accent, size: 20),
+                          color: accent, size: 20,),
                   ],
                 ),
                 const SizedBox(height: 6),

@@ -53,7 +53,7 @@ class PaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = borderRadius ?? BorderRadius.circular(24);
+    final radius = borderRadius ?? BorderRadius.circular(10);
     final isElevated = elevation == PaCardElevation.elevated;
 
     // Fond : couleur forcée > dégradé fourni > dégradé vert par défaut (elevated)

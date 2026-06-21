@@ -28,7 +28,7 @@ class _ScriptedNotifsDs implements NotificationsRemoteDataSource {
               body: n.body,
               createdAt: n.createdAt,
               read: true,
-            ))
+            ),)
         .toList();
   }
 
@@ -45,7 +45,7 @@ class _ScriptedNotifsDs implements NotificationsRemoteDataSource {
                 createdAt: n.createdAt,
                 read: true,
               )
-            : n)
+            : n,)
         .toList();
   }
 }

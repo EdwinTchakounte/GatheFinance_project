@@ -137,12 +137,12 @@ class _SlideCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: slide.onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
           decoration: BoxDecoration(
             gradient: slide.gradient,
             color: bgColor,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(10),
             boxShadow: [
               BoxShadow(
                 color: hasGradient
@@ -227,7 +227,7 @@ class _SlideCard extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: PaText.body(
-                                size: 12.5, color: subColor, height: 1.3),
+                                size: 12.5, color: subColor, height: 1.3,),
                           ),
                         ],
                       ),

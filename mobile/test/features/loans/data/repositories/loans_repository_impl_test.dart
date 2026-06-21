@@ -42,10 +42,10 @@ void main() {
             montant: any(named: 'montant'),
             phone: any(named: 'phone'),
             network: any(named: 'network'),
-          )).thenThrow(const ServerException('Validation', 400));
+          ),).thenThrow(const ServerException('Validation', 400));
       expect(
         () => repo.repay(
-            loanId: 1, montant: 1000, phone: '6991', network: 'MTN'),
+            loanId: 1, montant: 1000, phone: '6991', network: 'MTN',),
         throwsA(isA<BusinessFailure>()),
       );
     });

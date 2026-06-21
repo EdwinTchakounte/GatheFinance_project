@@ -592,8 +592,14 @@ abstract class AppL10n {
   /// No description provided for @login_subtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Connecte-toi à ton compte pour gérer ton épargne,\nsuivre tes crédits et commander un carnet.'**
+  /// **'Pilotez votre épargne, suivez vos crédits.'**
   String get login_subtitle;
+
+  /// No description provided for @login_sub_under_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Identifiez-vous pour accéder à votre compte.'**
+  String get login_sub_under_title;
 
   /// No description provided for @login_email_label.
   ///
@@ -660,6 +666,12 @@ abstract class AppL10n {
   /// In fr, this message translates to:
   /// **'Devenir membre'**
   String get login_become_member;
+
+  /// No description provided for @login_not_member.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pas encore membre ?'**
+  String get login_not_member;
 
   /// No description provided for @login_security_tip.
   ///
@@ -2206,31 +2218,31 @@ abstract class AppL10n {
   /// No description provided for @biometric_reason_unlock.
   ///
   /// In fr, this message translates to:
-  /// **'Confirme ton identité pour déverrouiller Gathé Finance'**
+  /// **'Empreinte pour ouvrir ton espace Gathe Finance'**
   String get biometric_reason_unlock;
 
   /// No description provided for @biometric_reason_enable.
   ///
   /// In fr, this message translates to:
-  /// **'Confirme ton empreinte pour activer le déverrouillage rapide'**
+  /// **'Pose ton empreinte pour activer l\'ouverture rapide'**
   String get biometric_reason_enable;
 
   /// No description provided for @biometric_signin_title.
   ///
   /// In fr, this message translates to:
-  /// **'Déverrouillage'**
+  /// **'Gathe Finance'**
   String get biometric_signin_title;
 
   /// No description provided for @biometric_hint.
   ///
   /// In fr, this message translates to:
-  /// **'Vérifie ton empreinte'**
+  /// **'Touche le capteur pour ouvrir ton espace'**
   String get biometric_hint;
 
   /// No description provided for @biometric_cancel_button.
   ///
   /// In fr, this message translates to:
-  /// **'Utiliser le code'**
+  /// **'Utiliser le code PIN'**
   String get biometric_cancel_button;
 
   /// No description provided for @releve_pdf_title.
@@ -3109,6 +3121,66 @@ abstract class AppL10n {
   /// **'Motivation (optionnel)'**
   String get mf_section_motivation;
 
+  /// No description provided for @mf_section_pieces.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pièces justificatives'**
+  String get mf_section_pieces;
+
+  /// No description provided for @mf_pieces_intro.
+  ///
+  /// In fr, this message translates to:
+  /// **'Toutes les pièces sont obligatoires (image ou PDF, 5 Mo max).'**
+  String get mf_pieces_intro;
+
+  /// No description provided for @mf_piece_cni_recto.
+  ///
+  /// In fr, this message translates to:
+  /// **'CNI — recto'**
+  String get mf_piece_cni_recto;
+
+  /// No description provided for @mf_piece_cni_verso.
+  ///
+  /// In fr, this message translates to:
+  /// **'CNI — verso'**
+  String get mf_piece_cni_verso;
+
+  /// No description provided for @mf_piece_plan.
+  ///
+  /// In fr, this message translates to:
+  /// **'Plan de localisation'**
+  String get mf_piece_plan;
+
+  /// No description provided for @mf_piece_photo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Photo d\'identité'**
+  String get mf_piece_photo;
+
+  /// No description provided for @mf_piece_tap_to_pick.
+  ///
+  /// In fr, this message translates to:
+  /// **'Toucher pour choisir un fichier'**
+  String get mf_piece_tap_to_pick;
+
+  /// No description provided for @mf_piece_remove.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer le fichier'**
+  String get mf_piece_remove;
+
+  /// No description provided for @mf_piece_too_large.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fichier trop volumineux (5 Mo max).'**
+  String get mf_piece_too_large;
+
+  /// No description provided for @mf_pieces_required.
+  ///
+  /// In fr, this message translates to:
+  /// **'Téléverse les 4 pièces avant d\'envoyer la demande.'**
+  String get mf_pieces_required;
+
   /// No description provided for @mf_whatsapp.
   ///
   /// In fr, this message translates to:
@@ -3186,6 +3258,234 @@ abstract class AppL10n {
   /// In fr, this message translates to:
   /// **'La coopérative va étudier ton dossier et te convoquer à un entretien d\'admission.'**
   String get mf_sent_body;
+
+  /// No description provided for @wd_action.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer'**
+  String get wd_action;
+
+  /// No description provided for @wd_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Demander un retrait'**
+  String get wd_title;
+
+  /// No description provided for @wd_subtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Disponible : {balance}'**
+  String wd_subtitle(String balance);
+
+  /// No description provided for @wd_channel_presentiel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Espèces (agence)'**
+  String get wd_channel_presentiel;
+
+  /// No description provided for @wd_channel_momo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mobile Money'**
+  String get wd_channel_momo;
+
+  /// No description provided for @wd_field_amount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Montant'**
+  String get wd_field_amount;
+
+  /// No description provided for @wd_field_motif.
+  ///
+  /// In fr, this message translates to:
+  /// **'Raison du retrait'**
+  String get wd_field_motif;
+
+  /// No description provided for @wd_field_motif_hint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ex. urgence familiale, frais scolarité…'**
+  String get wd_field_motif_hint;
+
+  /// No description provided for @wd_field_phone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Numéro Mobile Money'**
+  String get wd_field_phone;
+
+  /// No description provided for @wd_field_network.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réseau'**
+  String get wd_field_network;
+
+  /// No description provided for @wd_err_required.
+  ///
+  /// In fr, this message translates to:
+  /// **'Obligatoire'**
+  String get wd_err_required;
+
+  /// No description provided for @wd_err_min_500.
+  ///
+  /// In fr, this message translates to:
+  /// **'Minimum 500 XAF'**
+  String get wd_err_min_500;
+
+  /// No description provided for @wd_err_over_balance.
+  ///
+  /// In fr, this message translates to:
+  /// **'Montant supérieur au solde disponible.'**
+  String get wd_err_over_balance;
+
+  /// No description provided for @wd_err_phone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Numéro invalide'**
+  String get wd_err_phone;
+
+  /// No description provided for @wd_cta_submit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Envoyer la demande'**
+  String get wd_cta_submit;
+
+  /// No description provided for @wd_cta_close.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fermer'**
+  String get wd_cta_close;
+
+  /// No description provided for @wd_disclaimer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le solde est débité dès l\'envoi. L\'admin valide la sortie (espèces ou payout MOMO) sous 24 h.'**
+  String get wd_disclaimer;
+
+  /// No description provided for @wd_success_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Demande envoyée à la coopérative'**
+  String get wd_success_title;
+
+  /// No description provided for @wd_recap_amount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Montant'**
+  String get wd_recap_amount;
+
+  /// No description provided for @wd_recap_channel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Canal'**
+  String get wd_recap_channel;
+
+  /// No description provided for @wd_recap_status.
+  ///
+  /// In fr, this message translates to:
+  /// **'Statut'**
+  String get wd_recap_status;
+
+  /// No description provided for @wd_loading.
+  ///
+  /// In fr, this message translates to:
+  /// **'Envoi de la demande…'**
+  String get wd_loading;
+
+  /// No description provided for @offline_banner.
+  ///
+  /// In fr, this message translates to:
+  /// **'Hors-ligne — données du {when}'**
+  String offline_banner(String when);
+
+  /// No description provided for @lreq_avaliste_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Désigner un avaliste'**
+  String get lreq_avaliste_title;
+
+  /// No description provided for @lreq_avaliste_subtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Membre senior+BRC qui garantit le crédit (§7.2).'**
+  String get lreq_avaliste_subtitle;
+
+  /// No description provided for @lreq_avaliste_search_hint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher un membre (numéro ou nom)'**
+  String get lreq_avaliste_search_hint;
+
+  /// No description provided for @lreq_avaliste_saturated.
+  ///
+  /// In fr, this message translates to:
+  /// **'Plafond atteint ({amount} engagés)'**
+  String lreq_avaliste_saturated(String amount);
+
+  /// No description provided for @lreq_avaliste_capacity.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dispo {amount} ({numero})'**
+  String lreq_avaliste_capacity(String amount, String numero);
+
+  /// No description provided for @lreq_avaliste_picked.
+  ///
+  /// In fr, this message translates to:
+  /// **'Avaliste : {nom} ({numero})'**
+  String lreq_avaliste_picked(String nom, String numero);
+
+  /// No description provided for @lreq_avaliste_clear.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer'**
+  String get lreq_avaliste_clear;
+
+  /// No description provided for @lreq_avaliste_required.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisis un avaliste dans la liste (ou décoche).'**
+  String get lreq_avaliste_required;
+
+  /// No description provided for @lreq_avaliste_search_empty.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun membre éligible trouvé pour cette recherche.'**
+  String get lreq_avaliste_search_empty;
+
+  /// No description provided for @lreq_campaign_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Postuler à une campagne'**
+  String get lreq_campaign_title;
+
+  /// No description provided for @lreq_campaign_subtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Crédit ciblé par la coopérative (ex. commerçants, agriculteurs).'**
+  String get lreq_campaign_subtitle;
+
+  /// No description provided for @lreq_campaign_pick.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisir une campagne'**
+  String get lreq_campaign_pick;
+
+  /// No description provided for @lreq_campaign_required.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisis une campagne dans la liste (ou décoche).'**
+  String get lreq_campaign_required;
+
+  /// No description provided for @lreq_campaign_none.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune campagne active en ce moment. Réessaie plus tard ou décoche pour faire une demande standard.'**
+  String get lreq_campaign_none;
+
+  /// No description provided for @lreq_campaign_error.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de charger les campagnes : {error}'**
+  String lreq_campaign_error(String error);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

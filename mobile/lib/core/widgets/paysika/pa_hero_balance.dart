@@ -83,7 +83,7 @@ class _PaHeroBalanceState extends State<PaHeroBalance> {
     return Container(
       decoration: BoxDecoration(
         gradient: PaGradients.heroAurore,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(14),
         // Ombre colorée profonde — donne le « flotte sur la page » premium.
         boxShadow: [
           BoxShadow(
@@ -101,7 +101,7 @@ class _PaHeroBalanceState extends State<PaHeroBalance> {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(14),
         child: Stack(
           children: [
             // Halo blanc top-right — profondeur premium signature.

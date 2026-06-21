@@ -264,8 +264,10 @@ class AppL10nEn extends AppL10n {
   String get login_title => 'Welcome back';
 
   @override
-  String get login_subtitle =>
-      'Sign in to your account to manage your savings,\ntrack your loans and order a passbook.';
+  String get login_subtitle => 'Manage your savings, track your loans.';
+
+  @override
+  String get login_sub_under_title => 'Sign in to access your account.';
 
   @override
   String get login_email_label => 'Email address';
@@ -299,6 +301,9 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get login_become_member => 'Become a member';
+
+  @override
+  String get login_not_member => 'Not a member yet?';
 
   @override
   String get login_security_tip =>
@@ -1156,20 +1161,20 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get biometric_reason_unlock =>
-      'Confirm your identity to unlock Gathé Finance';
+      'Fingerprint to open your Gathe Finance space';
 
   @override
   String get biometric_reason_enable =>
-      'Confirm your fingerprint to enable quick unlock';
+      'Touch the sensor to enable quick unlock';
 
   @override
-  String get biometric_signin_title => 'Unlock';
+  String get biometric_signin_title => 'Gathe Finance';
 
   @override
-  String get biometric_hint => 'Verify your fingerprint';
+  String get biometric_hint => 'Touch the sensor to open your space';
 
   @override
-  String get biometric_cancel_button => 'Use code';
+  String get biometric_cancel_button => 'Use PIN code';
 
   @override
   String get releve_pdf_title => 'Account statement';
@@ -1657,6 +1662,37 @@ class AppL10nEn extends AppL10n {
   String get mf_section_motivation => 'Motivation (optional)';
 
   @override
+  String get mf_section_pieces => 'Supporting documents';
+
+  @override
+  String get mf_pieces_intro =>
+      'All four documents are required (image or PDF, 5 MB max).';
+
+  @override
+  String get mf_piece_cni_recto => 'ID card — front';
+
+  @override
+  String get mf_piece_cni_verso => 'ID card — back';
+
+  @override
+  String get mf_piece_plan => 'Location plan';
+
+  @override
+  String get mf_piece_photo => 'ID photo';
+
+  @override
+  String get mf_piece_tap_to_pick => 'Tap to pick a file';
+
+  @override
+  String get mf_piece_remove => 'Remove file';
+
+  @override
+  String get mf_piece_too_large => 'File too large (5 MB max).';
+
+  @override
+  String get mf_pieces_required => 'Upload all 4 documents before submitting.';
+
+  @override
   String get mf_whatsapp => 'WhatsApp (optional)';
 
   @override
@@ -1696,4 +1732,136 @@ class AppL10nEn extends AppL10n {
   @override
   String get mf_sent_body =>
       'The cooperative will review your file and invite you to an admission interview.';
+
+  @override
+  String get wd_action => 'Withdraw';
+
+  @override
+  String get wd_title => 'Request a withdrawal';
+
+  @override
+  String wd_subtitle(String balance) {
+    return 'Available: $balance';
+  }
+
+  @override
+  String get wd_channel_presentiel => 'Cash (branch)';
+
+  @override
+  String get wd_channel_momo => 'Mobile Money';
+
+  @override
+  String get wd_field_amount => 'Amount';
+
+  @override
+  String get wd_field_motif => 'Reason';
+
+  @override
+  String get wd_field_motif_hint => 'Ex. family emergency, school fees…';
+
+  @override
+  String get wd_field_phone => 'Mobile Money number';
+
+  @override
+  String get wd_field_network => 'Network';
+
+  @override
+  String get wd_err_required => 'Required';
+
+  @override
+  String get wd_err_min_500 => 'Minimum 500 XAF';
+
+  @override
+  String get wd_err_over_balance => 'Amount exceeds your available balance.';
+
+  @override
+  String get wd_err_phone => 'Invalid number';
+
+  @override
+  String get wd_cta_submit => 'Send request';
+
+  @override
+  String get wd_cta_close => 'Close';
+
+  @override
+  String get wd_disclaimer =>
+      'Balance is debited on submission. Admin validates payout (cash or MOMO) within 24 h.';
+
+  @override
+  String get wd_success_title => 'Request sent to the cooperative';
+
+  @override
+  String get wd_recap_amount => 'Amount';
+
+  @override
+  String get wd_recap_channel => 'Channel';
+
+  @override
+  String get wd_recap_status => 'Status';
+
+  @override
+  String get wd_loading => 'Sending request…';
+
+  @override
+  String offline_banner(String when) {
+    return 'Offline — data from $when';
+  }
+
+  @override
+  String get lreq_avaliste_title => 'Designate a guarantor';
+
+  @override
+  String get lreq_avaliste_subtitle =>
+      'Senior+BRC member who backs the loan (§7.2).';
+
+  @override
+  String get lreq_avaliste_search_hint => 'Search a member (number or name)';
+
+  @override
+  String lreq_avaliste_saturated(String amount) {
+    return 'Capacity reached ($amount committed)';
+  }
+
+  @override
+  String lreq_avaliste_capacity(String amount, String numero) {
+    return 'Available $amount ($numero)';
+  }
+
+  @override
+  String lreq_avaliste_picked(String nom, String numero) {
+    return 'Guarantor: $nom ($numero)';
+  }
+
+  @override
+  String get lreq_avaliste_clear => 'Clear';
+
+  @override
+  String get lreq_avaliste_required =>
+      'Pick a guarantor from the list (or uncheck).';
+
+  @override
+  String get lreq_avaliste_search_empty =>
+      'No eligible member found for this search.';
+
+  @override
+  String get lreq_campaign_title => 'Apply to a campaign';
+
+  @override
+  String get lreq_campaign_subtitle => 'Targeted loan (e.g. traders, farmers).';
+
+  @override
+  String get lreq_campaign_pick => 'Choose a campaign';
+
+  @override
+  String get lreq_campaign_required =>
+      'Pick a campaign from the list (or uncheck).';
+
+  @override
+  String get lreq_campaign_none =>
+      'No active campaign right now. Try later or uncheck to make a standard request.';
+
+  @override
+  String lreq_campaign_error(String error) {
+    return 'Could not load campaigns: $error';
+  }
 }

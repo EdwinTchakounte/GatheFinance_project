@@ -11,13 +11,26 @@ import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/brand_loader.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../avaliste/domain/entities/avaliste_candidate.dart';
 import '../../../forms/domain/form_validation.dart';
 import '../../../forms/presentation/widgets/dynamic_fields.dart';
+import '../../../home_feed/domain/entities/feed_item.dart';
+import '../../../home_feed/presentation/state/feed_notifier.dart';
 import '../../domain/entities/eligibility.dart';
 import '../../domain/entities/loan_request.dart';
 import '../../domain/entities/loan_request_submission.dart';
 import '../../domain/loan_terms.dart';
 import '../state/loans_notifier.dart';
+
+/// Campagnes micro-crédit actives — fetch unique à l'ouverture du sheet quand
+/// le membre coche "Je postule à une campagne". Paginé côté backend mais on
+/// se contente des 50 premières (les listes sont courtes en pratique).
+final _activeCampaignsForPickerProvider =
+    FutureProvider.autoDispose<List<CampaignFlyer>>((ref) async {
+  final ds = ref.read(feedDataSourceProvider);
+  final page = await ds.activeCampaigns(limit: 50, offset: 0);
+  return page.items;
+});
 
 /// CH-5 — Champs hardcoded du sheet : déjà rendus par l'UI métier dédiée
 /// (slider montant, sliders durée, motif, sélecteur canal). Le renderer
@@ -39,11 +52,24 @@ const Set<String> _hardcodedLoanFields = {
 /// 1. Eligibility check + formulaire (montant slider + durée slider + motif)
 /// 2. Success (demande créée, lien vers paiement frais à venir)
 class LoanRequestSheet extends ConsumerStatefulWidget {
-  const LoanRequestSheet({super.key, required this.eligibility});
+  const LoanRequestSheet({
+    super.key,
+    required this.eligibility,
+    this.prefillCampaignId,
+  });
 
   final Eligibility eligibility;
 
-  static Future<void> show(BuildContext context, Eligibility eligibility) {
+  /// Id de campagne à présélectionner — utilisé quand le sheet est ouvert
+  /// depuis la Home ou la liste in-app `/campaigns`. Active automatiquement
+  /// la voie campagne du formulaire.
+  final int? prefillCampaignId;
+
+  static Future<void> show(
+    BuildContext context,
+    Eligibility eligibility, {
+    int? prefillCampaignId,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -56,7 +82,10 @@ class LoanRequestSheet extends ConsumerStatefulWidget {
       backgroundColor: Theme.of(context).colorScheme.surface,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheet),
-      builder: (_) => LoanRequestSheet(eligibility: eligibility),
+      builder: (_) => LoanRequestSheet(
+        eligibility: eligibility,
+        prefillCampaignId: prefillCampaignId,
+      ),
     );
   }
 
@@ -78,6 +107,12 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   bool _withAvaliste = false;
   final _avalisteNumeroCtrl = TextEditingController();
   final _avalisteNomCtrl = TextEditingController();
+  // §6 / LOT 11 — Voie campagne : si une campagne est sélectionnée, le
+  // backend route vers EligibilityRoute.CAMPAGNE et applique les paramètres
+  // (taux, recouvrement) de la campagne. Mutuellement exclusif avec
+  // [_withAvaliste] côté UI.
+  bool _withCampaign = false;
+  int? _selectedCampaignId;
   // CH-9 — Canal de réception choisi par le membre + numéro Mobile Money.
   final _phoneCtrl = TextEditingController();
   // CH-7 — Numéro Mobile Money pour régler les frais d'étude.
@@ -111,6 +146,12 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       vsync: this,
       duration: const Duration(milliseconds: 700),
     );
+    // §6 / LOT 11 — Si la sheet est ouverte depuis une carte campagne sur
+    // la Home, on présélectionne la voie campagne avec l'id passé.
+    if (widget.prefillCampaignId != null) {
+      _withCampaign = true;
+      _selectedCampaignId = widget.prefillCampaignId;
+    }
   }
 
   @override
@@ -141,6 +182,15 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
           content: Text(
             "Renseigne le numéro et le nom de l'avaliste (ou décoche).",
           ),
+        ),
+      );
+      return;
+    }
+    // §6 / LOT 11 — Voie campagne : si activée, exiger un id sélectionné.
+    if (_withCampaign && _selectedCampaignId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppL10n.of(context).lreq_campaign_required),
         ),
       );
       return;
@@ -200,6 +250,12 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       if (_withAvaliste) {
         scalarExtras['avaliste_numero'] = avalisteNumero;
         scalarExtras['avaliste_nom'] = avalisteNom;
+      }
+      // §6 / LOT 11 — Voie campagne : le backend route automatiquement
+      // sur EligibilityRoute.CAMPAGNE quand `campaign_id` est présent et
+      // valide (le serveur vérifie que la campagne est active).
+      if (_withCampaign && _selectedCampaignId != null) {
+        scalarExtras['campaign_id'] = _selectedCampaignId;
       }
       final submission =
           await ref.read(loanRequestsProvider.notifier).submit(
@@ -308,16 +364,16 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     final cap = widget.eligibility.plafondMax.toDouble();
     final maxSlider = cap > kMinLoanAmount ? cap : kMinLoanAmount.toDouble();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _Grabber(),
-            const SizedBox(height: AppSpacing.l),
+            const SizedBox(height: AppSpacing.xl),
             Text(l.lreq_title, style: AppTypography.headingMedium),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.s),
             Text(
               l.lreq_intro,
               style: AppTypography.bodySmall.copyWith(
@@ -385,8 +441,14 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
 
             const SizedBox(height: AppSpacing.l),
 
-            // --- Récapitulatif échéancier (dérivé du montant + modalité) ---
-            _ScheduleRecap(bd: _bd),
+            // --- Récap période + montant par échéance (CH-11 source) ---
+            //
+            // On NE montre PAS de tableau "intérêts par échéance" car les
+            // intérêts sont retenus à la source dès le décaissement
+            // (mode_retenue_interets = source). Chaque échéance contient
+            // UNIQUEMENT du capital. On annonce aussi explicitement le
+            // montant net que le membre recevra.
+            _RepaymentRecap(bd: _bd),
 
             const SizedBox(height: AppSpacing.l),
 
@@ -418,48 +480,157 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
               dense: true,
               contentPadding: EdgeInsets.zero,
               value: _withAvaliste,
-              onChanged: (v) => setState(() => _withAvaliste = v),
+              onChanged: (v) => setState(() {
+                _withAvaliste = v;
+                // Mutuellement exclusif avec la voie campagne.
+                if (v) {
+                  _withCampaign = false;
+                  _selectedCampaignId = null;
+                }
+              }),
               title: Text(
-                'Désigner un avaliste',
+                AppL10n.of(context).lreq_avaliste_title,
                 style: AppTypography.labelMedium,
               ),
-              subtitle: const Text(
-                'Membre senior+BRC qui garantit le crédit (§7.2).',
-                style: TextStyle(fontSize: 12),
+              subtitle: Text(
+                AppL10n.of(context).lreq_avaliste_subtitle,
+                style: const TextStyle(fontSize: 12),
               ),
             ),
             if (_withAvaliste) ...[
               const SizedBox(height: AppSpacing.s),
-              TextFormField(
-                controller: _avalisteNumeroCtrl,
-                style: AppTypography.bodyLarge,
-                textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
-                  hintText: 'Numéro d\'identification (ex. GF-2024-0042)',
-                  prefixIcon: Icon(Icons.badge_outlined, size: 20),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
+              _AvalistePicker(
+                onPicked: (c) {
+                  _avalisteNumeroCtrl.text = c.numeroMembre;
+                  _avalisteNomCtrl.text = c.nom;
+                  // Force le redessin pour afficher le candidat sélectionné.
+                  setState(() {});
+                },
               ),
-              const SizedBox(height: AppSpacing.s),
-              TextFormField(
-                controller: _avalisteNomCtrl,
-                style: AppTypography.bodyLarge,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  hintText: 'Nom de famille de l\'avaliste',
-                  prefixIcon: Icon(Icons.person_outline, size: 20),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              if (_avalisteNumeroCtrl.text.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.s),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: PaColors.tealSurface,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: PaColors.teal, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          AppL10n.of(context).lreq_avaliste_picked(
+                            _avalisteNomCtrl.text,
+                            _avalisteNumeroCtrl.text,
+                          ),
+                          style: const TextStyle(fontSize: 13, color: PaColors.inkPrimary),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        tooltip: AppL10n.of(context).lreq_avaliste_clear,
+                        onPressed: () => setState(() {
+                          _avalisteNumeroCtrl.clear();
+                          _avalisteNomCtrl.clear();
+                        }),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: AppSpacing.m),
             ] else
               const SizedBox(height: AppSpacing.m),
 
+            // --- §6 / LOT 11 — Postuler à une campagne micro-crédit ---
+            //
+            // Si activé, le membre choisit dans la liste des campagnes
+            // ouvertes (récupérées via /api/v1/loans/campaigns/active/).
+            // Le backend routera automatiquement sur EligibilityRoute.CAMPAGNE
+            // en fonction du champ `campaign_id` injecté dans le body.
+            // Mutuellement exclusif avec le toggle avaliste : sélectionner
+            // l'un décoche automatiquement l'autre.
+            SwitchListTile.adaptive(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: _withCampaign,
+              onChanged: (v) => setState(() {
+                _withCampaign = v;
+                if (v) _withAvaliste = false;
+                if (!v) _selectedCampaignId = null;
+              }),
+              title: Text(
+                AppL10n.of(context).lreq_campaign_title,
+                style: AppTypography.labelMedium,
+              ),
+              subtitle: Text(
+                AppL10n.of(context).lreq_campaign_subtitle,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+            if (_withCampaign) ...[
+              const SizedBox(height: AppSpacing.s),
+              Consumer(
+                builder: (context, ref, _) {
+                  final async = ref.watch(_activeCampaignsForPickerProvider);
+                  return async.when(
+                    data: (campaigns) {
+                      if (campaigns.isEmpty) {
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF7E6),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            AppL10n.of(context).lreq_campaign_none,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        );
+                      }
+                      return DropdownButtonFormField<int>(
+                        initialValue: _selectedCampaignId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          hintText: AppL10n.of(context).lreq_campaign_pick,
+                          prefixIcon: const Icon(Icons.campaign_outlined, size: 20),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12,),
+                        ),
+                        items: [
+                          for (final c in campaigns)
+                            DropdownMenuItem<int>(
+                              value: c.id,
+                              child: Text(
+                                '${c.nom} · ${XAFFormatter.formatCompact(c.montantMin)}–${XAFFormatter.formatCompact(c.montantMax)}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => _selectedCampaignId = v),
+                      );
+                    },
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: LinearProgressIndicator(minHeight: 2),
+                    ),
+                    error: (e, _) => Text(
+                      AppL10n.of(context)
+                          .lreq_campaign_error(e.toString()),
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: AppSpacing.m),
+            ],
+
             // --- CH-9 — Canal de réception du décaissement ---
             Text('Comment recevoir l\'argent ?',
-                style: AppTypography.labelMedium),
+                style: AppTypography.labelMedium,),
             const SizedBox(height: AppSpacing.s),
             _ChannelPicker(
               selected: _canal,
@@ -495,7 +666,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
               child: Row(
                 children: [
                   const Icon(Icons.info_outline_rounded,
-                      size: 18, color: PaColors.warning),
+                      size: 18, color: PaColors.warning,),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -553,7 +724,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
           const BrandLoader(size: BrandLoaderSize.large),
           const SizedBox(height: 24),
           Text(AppL10n.of(context).lreq_sending,
-              style: AppTypography.headingSmall),
+              style: AppTypography.headingSmall,),
         ],
       ),
     );
@@ -582,7 +753,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 ),
                 alignment: Alignment.center,
                 child: const Icon(Icons.check_rounded,
-                    color: PaColors.success, size: 34),
+                    color: PaColors.success, size: 34,),
               ),
             ),
             const SizedBox(height: 16),
@@ -707,12 +878,12 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 color: PaColors.tealSurface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded,
-                      size: 18, color: PaColors.teal),
-                  const SizedBox(width: 10),
-                  const Expanded(
+                  Icon(Icons.info_outline_rounded,
+                      size: 18, color: PaColors.teal,),
+                  SizedBox(width: 10),
+                  Expanded(
                     child: Text(
                       'Vous allez recevoir une notification Mobile Money sur '
                       'ce numéro pour valider le paiement.',
@@ -768,7 +939,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
             ),
             alignment: Alignment.center,
             child: const Icon(Icons.payments_outlined,
-                color: PaColors.success, size: 38),
+                color: PaColors.success, size: 38,),
           ),
           const SizedBox(height: 18),
           const Text(
@@ -833,7 +1004,7 @@ class _StudyFeeCard extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.receipt_long_rounded,
-                  size: 18, color: PaColors.warning),
+                  size: 18, color: PaColors.warning,),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -979,15 +1150,34 @@ class _ModalityChip extends StatelessWidget {
 }
 
 
-/// Récapitulatif de l'échéancier dérivé du montant (Articles 5, 7, 8).
-class _ScheduleRecap extends StatelessWidget {
-  const _ScheduleRecap({required this.bd});
+/// Récap période + montant par échéance — aligné CH-11 (mode source).
+///
+/// Sous le régime CH-11, les intérêts (10 %) sont **retenus à la source dès
+/// le décaissement** (`mode_retenue_interets = source`, cf.
+/// `seed_demo_credits.py:252` et `LoanCreate.disburse_loan`). Conséquence
+/// directe pour l'UI : chaque échéance contient **uniquement du capital**.
+/// On NE doit donc PAS afficher de tableau "intérêts par échéance" /
+/// "intérêts totaux à payer en plus" — ce serait factuellement faux.
+///
+/// Ce widget montre les seules informations encore vraies :
+///   • Durée de remboursement (mois)
+///   • Nombre + cadence d'échéances
+///   • Montant par échéance (capital ÷ nb d'échéances)
+///   • Net que le membre recevra (montant − intérêts source) — important
+///     pour qu'il ne soit pas surpris au décaissement.
+class _RepaymentRecap extends StatelessWidget {
+  const _RepaymentRecap({required this.bd});
 
   final LoanBreakdown bd;
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
+    final montantNet = bd.montant - bd.interetsTotaux;
+    final cadenceLabel = switch (bd.modalite) {
+      PaymentModality.journalier => 'journalières',
+      PaymentModality.hebdomadaire => 'hebdomadaires',
+      PaymentModality.mensuel => 'mensuelles',
+    };
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1002,7 +1192,7 @@ class _ScheduleRecap extends StatelessWidget {
               const Icon(Icons.event_note_outlined, size: 18, color: PaColors.teal),
               const SizedBox(width: 8),
               Text(
-                l.lreq_schedule,
+                'Remboursement',
                 style: AppTypography.labelMedium.copyWith(
                   color: PaColors.navy,
                   fontWeight: FontWeight.w700,
@@ -1011,16 +1201,37 @@ class _ScheduleRecap extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          _row(l.lreq_duration, l.states_months(bd.dureeMois)),
-          _row(l.lreq_interest, XAFFormatter.format(bd.interetsTotaux)),
-          _row(l.lreq_total, XAFFormatter.format(bd.montantTotalDu),
-              strong: true),
-          const Divider(height: 18, color: PaColors.line),
+          _row('Durée', '${bd.dureeMois} mois'),
           _row(
-            l.lreq_installments('${bd.nbEcheances}'),
-            l.lreq_per_time(XAFFormatter.format(bd.montantParEcheance)),
+            '${bd.nbEcheances} échéances $cadenceLabel',
+            XAFFormatter.format(bd.capitalParEcheance),
             strong: true,
             accent: true,
+          ),
+          const Divider(height: 18, color: PaColors.line),
+          // CH-11 — Mention explicite : intérêts retenus à la source.
+          // Le membre voit en clair le net qu'il touche pour ne pas être
+          // surpris au moment du décaissement.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 1),
+                child: Icon(Icons.bolt_rounded, size: 14, color: PaColors.success),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Vous recevrez ${XAFFormatter.format(montantNet)} net — '
+                  'les intérêts (10 %) sont retenus dès le décaissement.',
+                  style: const TextStyle(
+                    color: PaColors.inkSecondary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1028,7 +1239,7 @@ class _ScheduleRecap extends StatelessWidget {
   }
 
   Widget _row(String label, String value,
-      {bool strong = false, bool accent = false}) {
+      {bool strong = false, bool accent = false,}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -1115,12 +1326,194 @@ class _ChannelPicker extends StatelessWidget {
                   ),
                   if (selected == entry.$1)
                     const Icon(Icons.check_circle_rounded,
-                        size: 20, color: PaColors.teal),
+                        size: 20, color: PaColors.teal,),
                 ],
               ),
             ),
           ),
           if (entry != _options.last) const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+/// Typeahead picker pour la sélection d'un avaliste éligible (§7.2).
+/// Recherche debounced 300 ms sur `/members/search-avaliste/?q=…`. Le membre
+/// tape un préfixe de numéro ou un fragment de nom et choisit dans la liste —
+/// remplace la saisie texte libre du numéro+nom qui était sujette aux fautes.
+class _AvalistePicker extends ConsumerStatefulWidget {
+  const _AvalistePicker({required this.onPicked});
+
+  final ValueChanged<AvalisteCandidate> onPicked;
+
+  @override
+  ConsumerState<_AvalistePicker> createState() => _AvalistePickerState();
+}
+
+class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
+  final _ctrl = TextEditingController();
+  List<AvalisteCandidate> _results = const [];
+  bool _loading = false;
+  String? _error;
+  int _debounceToken = 0;
+
+  Future<void> _search(String q) async {
+    final token = ++_debounceToken;
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (token != _debounceToken) return;
+    if (q.trim().length < 2) {
+      setState(() {
+        _results = const [];
+        _error = null;
+      });
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final ds = ref.read(avalisteDataSourceProvider);
+      final list = await ds.searchEligible(query: q);
+      if (token != _debounceToken) return;
+      setState(() {
+        _results = list;
+        _loading = false;
+      });
+    } catch (e) {
+      if (token != _debounceToken) return;
+      setState(() {
+        _results = const [];
+        _loading = false;
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _ctrl,
+          onChanged: _search,
+          decoration: InputDecoration(
+            hintText: AppL10n.of(context).lreq_avaliste_search_hint,
+            prefixIcon: const Icon(Icons.search, size: 20),
+            suffixIcon: _loading
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : null,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            _error!,
+            style: const TextStyle(color: Colors.red, fontSize: 12),
+          ),
+        ],
+        if (_results.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Container(
+            constraints: const BoxConstraints(maxHeight: 220),
+            decoration: BoxDecoration(
+              color: PaColors.paper,
+              border:
+                  Border.all(color: PaColors.inkMuted.withValues(alpha: 0.2)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: _results.length,
+              separatorBuilder: (_, __) =>
+                  const Divider(height: 1, color: PaColors.line),
+              itemBuilder: (_, i) {
+                final c = _results[i];
+                // memory avaliste-cap-solde — capacite_caution = solde -
+                // cautions engagées. Si 0, on désactive le tap : ce membre
+                // est plein, désigner serait refusé par le backend.
+                final saturated = c.capaciteCaution <= 0;
+                final capacityLabel = c.soldeTotal > 0
+                    ? AppL10n.of(context).lreq_avaliste_capacity(
+                        XAFFormatter.formatCompact(c.capaciteCaution),
+                        c.numeroMembre,
+                      )
+                    : c.numeroMembre;
+                return ListTile(
+                  dense: true,
+                  enabled: !saturated,
+                  leading: Icon(
+                    saturated
+                        ? Icons.do_not_disturb_on_outlined
+                        : Icons.person_outline,
+                    color: saturated
+                        ? PaColors.inkMuted
+                        : PaColors.teal,
+                    size: 20,
+                  ),
+                  title: Text(
+                    '${c.prenom} ${c.nom}',
+                    style: TextStyle(
+                      color: saturated ? PaColors.inkMuted : PaColors.inkPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    saturated
+                        ? AppL10n.of(context).lreq_avaliste_saturated(
+                            XAFFormatter.formatCompact(c.cautionsEngagees),
+                          )
+                        : capacityLabel,
+                    style: TextStyle(
+                      color: saturated
+                          ? const Color(0xFFB3261E)
+                          : PaColors.inkMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                  trailing: saturated
+                      ? null
+                      : const Icon(Icons.check_rounded,
+                          color: PaColors.teal, size: 18,),
+                  onTap: saturated
+                      ? null
+                      : () {
+                          widget.onPicked(c);
+                          _ctrl.clear();
+                          setState(() => _results = const []);
+                        },
+                );
+              },
+            ),
+          ),
+        ],
+        if (_ctrl.text.length >= 2 &&
+            _results.isEmpty &&
+            !_loading &&
+            _error == null) ...[
+          const SizedBox(height: 6),
+          Text(
+            AppL10n.of(context).lreq_avaliste_search_empty,
+            style: const TextStyle(color: PaColors.inkMuted, fontSize: 12),
+          ),
         ],
       ],
     );

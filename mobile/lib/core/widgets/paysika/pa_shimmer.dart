@@ -123,25 +123,25 @@ class PaShimmerList extends StatelessWidget {
       child: Column(
         children: [
           for (var i = 0; i < count; i++) ...[
-            Row(
+            const Row(
               children: [
-                const PaShimmerBox(
+                PaShimmerBox(
                   width: 40,
                   height: 40,
                   borderRadius: 20,
                 ),
-                const SizedBox(width: 14),
+                SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       PaShimmerBox(width: 160, height: 14),
                       SizedBox(height: 6),
                       PaShimmerBox(width: 90, height: 11),
                     ],
                   ),
                 ),
-                const PaShimmerBox(width: 64, height: 14),
+                PaShimmerBox(width: 64, height: 14),
               ],
             ),
             if (i < count - 1) SizedBox(height: spacing),

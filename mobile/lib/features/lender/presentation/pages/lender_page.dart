@@ -45,7 +45,7 @@ class LenderPage extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.error_outline,
-                            color: PaColors.danger, size: 26),
+                            color: PaColors.danger, size: 26,),
                         const SizedBox(height: 8),
                         const Text(
                           'Espace prêteur indisponible',
@@ -85,13 +85,13 @@ class _LenderBody extends ConsumerWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Row(
             children: [
-              const BackButton(color: PaColors.inkPrimary),
-              const SizedBox(width: 4),
-              const Text(
+              BackButton(color: PaColors.inkPrimary),
+              SizedBox(width: 4),
+              Text(
                 'Espace prêteur',
                 style: TextStyle(
                   color: PaColors.inkPrimary,
@@ -124,7 +124,7 @@ class _LenderBody extends ConsumerWidget {
           TextButton.icon(
             onPressed: () => _doRevoke(context, ref),
             icon: const Icon(Icons.logout_rounded,
-                size: 18, color: PaColors.danger),
+                size: 18, color: PaColors.danger,),
             label: const Text(
               'Révoquer ma convention prêteur',
               style: TextStyle(color: PaColors.danger),
@@ -203,7 +203,7 @@ class _LenderBody extends ConsumerWidget {
           SnackBar(
             content: Text(accept
                 ? 'Funding accepté.'
-                : 'Funding refusé.'),
+                : 'Funding refusé.',),
           ),
         );
       }
@@ -306,7 +306,7 @@ class _OptInCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(Icons.volunteer_activism_rounded,
-              color: PaColors.teal, size: 28),
+              color: PaColors.teal, size: 28,),
           const SizedBox(height: 10),
           const Text(
             'Devenir prêteur',
@@ -320,7 +320,7 @@ class _OptInCard extends StatelessWidget {
           const Text(
             'Une partie de ton épargne classique pourra financer les crédits '
             "d'autres membres. Tu reçois 50 % des intérêts générés, "
-            "conformément au §5 du Règlement.",
+            'conformément au §5 du Règlement.',
             style: TextStyle(
               color: PaColors.inkSecondary,
               fontSize: 13,
@@ -363,7 +363,7 @@ class _ConsentCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.verified_user_outlined,
-                color: PaColors.success, size: 22),
+                color: PaColors.success, size: 22,),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -434,14 +434,14 @@ class _TotalsCard extends StatelessWidget {
           Container(width: 6, height: 6, decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
-          )),
+          ),),
           const SizedBox(width: 10),
           Expanded(
             child: Text(label,
                 style: const TextStyle(
                   color: PaColors.inkSecondary,
                   fontSize: 13.5,
-                )),
+                ),),
           ),
           Text(
             XAFFormatter.format(amount),
@@ -628,7 +628,7 @@ class _StatutChip extends StatelessWidget {
       LenderTrancheStatut.disponible => ('Disponible', PaColors.successSurface, PaColors.success),
       LenderTrancheStatut.engagee => ('Engagée', PaColors.warningSurface, PaColors.warning),
       LenderTrancheStatut.liberee => ('Libérée', PaColors.tealSurface, PaColors.teal),
-      LenderTrancheStatut.annulee => ('Annulée', Color(0xFFEAEDF1), PaColors.inkMuted),
+      LenderTrancheStatut.annulee => ('Annulée', const Color(0xFFEAEDF1), PaColors.inkMuted),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

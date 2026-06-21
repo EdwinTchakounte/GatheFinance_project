@@ -102,7 +102,7 @@ class NotificationsPage extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Icon(Icons.error_outline,
-                        color: PaColors.danger, size: 24),
+                        color: PaColors.danger, size: 24,),
                     const SizedBox(height: 8),
                     Text(
                       l.notifs_unavailable,
@@ -116,7 +116,7 @@ class NotificationsPage extends ConsumerWidget {
                     Text(
                       e.toString(),
                       style: const TextStyle(
-                          color: PaColors.inkMuted, fontSize: 12.5),
+                          color: PaColors.inkMuted, fontSize: 12.5,),
                     ),
                   ],
                 ),
@@ -215,7 +215,7 @@ class _NotifCard extends StatelessWidget {
                   Container(
                     width: 8,
                     height: 8,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: PaColors.teal,
                       shape: BoxShape.circle,
                     ),
@@ -254,7 +254,7 @@ class _EmptyState extends StatelessWidget {
           child: Container(
             width: 80,
             height: 80,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: PaColors.tealSurface,
               shape: BoxShape.circle,
             ),

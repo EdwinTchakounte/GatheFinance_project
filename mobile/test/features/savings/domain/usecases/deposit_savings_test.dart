@@ -24,9 +24,9 @@ void main() {
           amount: 50,
           phone: '699112233',
           network: 'MTN',
-        )),
+        ),),
         throwsA(isA<ValidationFailure>()
-            .having((f) => f.field, 'field', 'amount')),
+            .having((f) => f.field, 'field', 'amount'),),
       );
       verifyZeroInteractions(repo);
     });
@@ -37,20 +37,20 @@ void main() {
             amount: 100,
             phone: '699112233',
             network: 'MTN',
-          )).thenAnswer((_) async => updated);
+          ),).thenAnswer((_) async => updated);
 
       final result = await useCase.call(const DepositSavingsParams(
         amount: 100,
         phone: '699112233',
         network: 'MTN',
-      ));
+      ),);
 
       expect(result, updated);
       verify(() => repo.deposit(
             amount: 100,
             phone: '699112233',
             network: 'MTN',
-          )).called(1);
+          ),).called(1);
     });
 
     test('propage les Failures du repo (ex. BusinessFailure)', () {
@@ -58,14 +58,14 @@ void main() {
             amount: any(named: 'amount'),
             phone: any(named: 'phone'),
             network: any(named: 'network'),
-          )).thenThrow(const BusinessFailure('Compte suspendu'));
+          ),).thenThrow(const BusinessFailure('Compte suspendu'));
 
       expect(
         () => useCase.call(const DepositSavingsParams(
           amount: 5000,
           phone: '699112233',
           network: 'MTN',
-        )),
+        ),),
         throwsA(isA<BusinessFailure>()),
       );
     });

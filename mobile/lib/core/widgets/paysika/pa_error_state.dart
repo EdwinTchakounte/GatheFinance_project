@@ -45,7 +45,7 @@ class PaErrorState extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: const Icon(Icons.cloud_off_rounded,
-                color: PaColors.danger, size: 22),
+                color: PaColors.danger, size: 22,),
           ),
           const SizedBox(height: 14),
           Text(

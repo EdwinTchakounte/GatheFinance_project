@@ -5,10 +5,6 @@
 /// `10.0.2.2`. Sur device physique, surcharger :
 ///
 ///   flutter run --dart-define=API_BASE_URL=https://api.gathe-finance.horus-lab.com
-///
-/// Pour les tests / le build CI, on peut aussi forcer le mode mock :
-///
-///   flutter run --dart-define=USE_MOCKS=true
 class ApiConfig {
   ApiConfig._();
 
@@ -25,13 +21,6 @@ class ApiConfig {
 
   /// URL complète préfixée (concaténation pratique).
   static String get apiBase => '$baseUrl$apiPrefix';
-
-  /// Bascule globale "tout est mocké" — utilisée par le DI pour ne pas
-  /// instancier la couche HTTP quand on développe sans backend.
-  static const bool useMocks = bool.fromEnvironment(
-    'USE_MOCKS',
-    defaultValue: false,
-  );
 
   /// Timeout réseau par défaut (connect + receive).
   static const Duration timeout = Duration(seconds: 25);

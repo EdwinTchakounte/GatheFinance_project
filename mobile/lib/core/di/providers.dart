@@ -2,25 +2,24 @@
 /// couches (data → domain → presentation).
 ///
 /// Convention :
-///   - `xxxDataSourceProvider`   → instance singleton de la datasource
+///   - `xxxDataSourceProvider`   → instance singleton de la datasource (Dio)
 ///   - `xxxRepositoryProvider`   → impl consommant la datasource
 ///   - `xxxUseCaseProvider`      → use case consommant le repository
 ///   - Les notifiers (`AsyncNotifierProvider`) consomment uniquement les usecases.
 ///
-/// Pour basculer sur l'API réelle : remplacer `XxxMockDataSource()` par
-/// `XxxDioDataSource(dio)` dans ce fichier — rien d'autre à toucher.
+/// Les datasources mockées en mémoire ont été supprimées (2026-06) : toutes
+/// les features parlent au backend via Dio. Pour le dev offline, utiliser le
+/// stack docker local plutôt que des mocks.
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../network/api_client.dart';
-import '../network/api_config.dart';
 import '../usecases/usecase.dart';
 
 // ---- Auth -----------------------------------------------------------------
 import '../../features/auth/data/datasources/auth_dio_datasource.dart';
 import '../../features/auth/data/datasources/membership_dio_datasource.dart';
-import '../../features/auth/data/datasources/auth_mock_datasource.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
@@ -31,18 +30,16 @@ import '../../features/auth/domain/usecases/sign_in.dart';
 import '../../features/auth/domain/usecases/sign_out.dart';
 
 // ---- Savings --------------------------------------------------------------
-import '../../features/savings/data/datasources/classic_savings_mock_datasource.dart';
 import '../../features/savings/data/datasources/savings_dio_datasource.dart';
-import '../../features/savings/data/datasources/savings_mock_datasource.dart';
 import '../../features/savings/data/datasources/savings_remote_datasource.dart';
 import '../../features/savings/data/repositories/savings_repository_impl.dart';
 import '../../features/savings/domain/repositories/savings_repository.dart';
 import '../../features/savings/domain/usecases/deposit_savings.dart';
 import '../../features/savings/domain/usecases/get_my_savings.dart';
+import '../../features/savings/domain/usecases/request_withdrawal.dart';
 
 // ---- Loans ----------------------------------------------------------------
 import '../../features/loans/data/datasources/loans_dio_datasource.dart';
-import '../../features/loans/data/datasources/loans_mock_datasource.dart';
 import '../../features/loans/data/datasources/loans_remote_datasource.dart';
 import '../../features/loans/data/repositories/loans_repository_impl.dart';
 import '../../features/loans/domain/repositories/loans_repository.dart';
@@ -59,7 +56,6 @@ import '../../features/loans/domain/usecases/upload_loan_request_attachment.dart
 
 // ---- Booklet --------------------------------------------------------------
 import '../../features/booklet/data/datasources/booklet_dio_datasource.dart';
-import '../../features/booklet/data/datasources/booklet_mock_datasource.dart';
 import '../../features/booklet/data/datasources/booklet_remote_datasource.dart';
 import '../../features/booklet/data/repositories/booklet_repository_impl.dart';
 import '../../features/booklet/domain/repositories/booklet_repository.dart';
@@ -68,7 +64,6 @@ import '../../features/booklet/domain/usecases/order_booklet.dart';
 
 // ---- Notifications --------------------------------------------------------
 import '../../features/notifications/data/datasources/notifications_dio_datasource.dart';
-import '../../features/notifications/data/datasources/notifications_mock_datasource.dart';
 import '../../features/notifications/data/datasources/notifications_remote_datasource.dart';
 import '../../features/notifications/data/repositories/notifications_repository_impl.dart';
 import '../../features/notifications/domain/repositories/notifications_repository.dart';
@@ -77,7 +72,6 @@ import '../../features/notifications/domain/usecases/mark_notification_read.dart
 
 // ---- Avaliste (LOT 21) ----------------------------------------------------
 import '../../features/avaliste/data/datasources/avaliste_dio_datasource.dart';
-import '../../features/avaliste/data/datasources/avaliste_mock_datasource.dart';
 import '../../features/avaliste/data/datasources/avaliste_remote_datasource.dart';
 import '../../features/avaliste/data/repositories/avaliste_repository_impl.dart';
 import '../../features/avaliste/domain/repositories/avaliste_repository.dart';
@@ -96,8 +90,6 @@ import '../../features/onboarding/domain/usecases/onboarding_usecases.dart';
 
 /// Client HTTP partagé (Dio + cookies). Lance une erreur explicite si on
 /// tente de l'utiliser sans avoir bootstrappé `ApiClient.create()` dans `main()`.
-/// En mode mocks (`USE_MOCKS=true`) il n'est jamais lu : les datasources
-/// renvoient des données en mémoire.
 final apiClientProvider = Provider<ApiClient>((ref) {
   throw StateError(
     'ApiClient non initialisé — main() doit override apiClientProvider '
@@ -105,15 +97,21 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   );
 });
 
+/// Cross-feature : campagne micro-crédit présélectionnée par l'utilisateur
+/// depuis la Home (carousel "Campagnes en cours" → tap sur une carte) ou
+/// depuis la liste in-app `/campaigns`. Lu par la page Crédit qui ouvre
+/// alors automatiquement le sheet de demande avec la voie campagne activée
+/// et l'id renseigné. La valeur est consommée une seule fois puis réinitialisée
+/// à `null` par le consommateur.
+final pendingCampaignSelectionProvider = StateProvider<int?>((ref) => null);
+
 
 // ===========================================================================
 // AUTH
 // ===========================================================================
 
 final authDataSourceProvider = Provider<AuthRemoteDataSource>(
-  (ref) => ApiConfig.useMocks
-      ? AuthMockDataSource()
-      : AuthDioDataSource(ref.watch(apiClientProvider)),
+  (ref) => AuthDioDataSource(ref.watch(apiClientProvider)),
 );
 
 final authRepositoryProvider = Provider<AuthRepository>(
@@ -148,12 +146,10 @@ final getCurrentMemberUseCaseProvider = Provider<GetCurrentMember>(
 // ===========================================================================
 
 final savingsDataSourceProvider = Provider<SavingsRemoteDataSource>(
-  (ref) => ApiConfig.useMocks
-      ? SavingsMockDataSource()
-      : SavingsDioDataSource(
-          ref.watch(apiClientProvider),
-          SavingsAccountKind.cotisation,
-        ),
+  (ref) => SavingsDioDataSource(
+    ref.watch(apiClientProvider),
+    SavingsAccountKind.cotisation,
+  ),
 );
 
 final savingsRepositoryProvider = Provider<SavingsRepository>(
@@ -168,14 +164,29 @@ final depositSavingsUseCaseProvider = Provider<DepositSavings>(
   (ref) => DepositSavings(ref.watch(savingsRepositoryProvider)),
 );
 
+// Retrait épargne — sur le compte cotisation. Le solde est débité atomiquement
+// côté backend ; admin valide ensuite (présentiel) ou payout Tara (MOMO).
+final requestWithdrawalUseCaseProvider = Provider<RequestWithdrawal>(
+  (ref) => RequestWithdrawal(ref.watch(savingsRepositoryProvider)),
+);
+
+final listMyWithdrawalsUseCaseProvider = Provider<ListMyWithdrawals>(
+  (ref) => ListMyWithdrawals(ref.watch(savingsRepositoryProvider)),
+);
+
+/// État asynchrone de la liste des retraits du membre. Re-fetché à chaque
+/// invalidation (ouverture de la page historique, après un nouveau retrait).
+final myWithdrawalsProvider = FutureProvider.autoDispose((ref) async {
+  final useCase = ref.watch(listMyWithdrawalsUseCaseProvider);
+  return useCase.call(const NoParams());
+});
+
 // Épargne classique — dissociée de la cotisation (endpoint distinct).
 final classicSavingsDataSourceProvider = Provider<SavingsRemoteDataSource>(
-  (ref) => ApiConfig.useMocks
-      ? ClassicSavingsMockDataSource()
-      : SavingsDioDataSource(
-          ref.watch(apiClientProvider),
-          SavingsAccountKind.classique,
-        ),
+  (ref) => SavingsDioDataSource(
+    ref.watch(apiClientProvider),
+    SavingsAccountKind.classique,
+  ),
 );
 
 final classicSavingsRepositoryProvider = Provider<SavingsRepository>(
@@ -196,9 +207,7 @@ final depositClassicSavingsUseCaseProvider = Provider<DepositSavings>(
 // ===========================================================================
 
 final loansDataSourceProvider = Provider<LoansRemoteDataSource>(
-  (ref) => ApiConfig.useMocks
-      ? LoansMockDataSource()
-      : LoansDioDataSource(ref.watch(apiClientProvider)),
+  (ref) => LoansDioDataSource(ref.watch(apiClientProvider)),
 );
 
 final loansRepositoryProvider = Provider<LoansRepository>(
@@ -286,9 +295,7 @@ final myLenderPayoutsProvider = FutureProvider.autoDispose((ref) async {
 // ===========================================================================
 
 final bookletDataSourceProvider = Provider<BookletRemoteDataSource>(
-  (ref) => ApiConfig.useMocks
-      ? BookletMockDataSource()
-      : BookletDioDataSource(ref.watch(apiClientProvider)),
+  (ref) => BookletDioDataSource(ref.watch(apiClientProvider)),
 );
 
 final bookletRepositoryProvider = Provider<BookletRepository>(
@@ -309,9 +316,7 @@ final orderBookletUseCaseProvider = Provider<OrderBooklet>(
 // ===========================================================================
 
 final notificationsDataSourceProvider = Provider<NotificationsRemoteDataSource>(
-  (ref) => ApiConfig.useMocks
-      ? NotificationsMockDataSource()
-      : NotificationsDioDataSource(ref.watch(apiClientProvider)),
+  (ref) => NotificationsDioDataSource(ref.watch(apiClientProvider)),
 );
 
 final notificationsRepositoryProvider = Provider<NotificationsRepository>(
@@ -364,9 +369,7 @@ final resetOnboardingUseCaseProvider = Provider<ResetOnboarding>(
 // ===========================================================================
 
 final avalisteDataSourceProvider = Provider<AvalisteRemoteDataSource>(
-  (ref) => ApiConfig.useMocks
-      ? AvalisteMockDataSource()
-      : AvalisteDioDataSource(ref.watch(apiClientProvider)),
+  (ref) => AvalisteDioDataSource(ref.watch(apiClientProvider)),
 );
 
 final avalisteRepositoryProvider = Provider<AvalisteRepository>(

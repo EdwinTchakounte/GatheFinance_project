@@ -45,7 +45,7 @@ void main() {
                 'created_at': '2026-06-02T08:00:00Z',
               },
             ],
-          });
+          },);
     final ds = BookletDioDataSource(_client(adapter));
     final orders = await ds.myOrders();
     expect(orders, hasLength(3));
@@ -62,7 +62,7 @@ void main() {
       ..on('/payments/init/',
           method: 'POST',
           status: 200,
-          body: {'payment': {'id': 1}})
+          body: {'payment': {'id': 1}},)
       ..on('/booklet/me/',
           method: 'GET',
           status: 200,
@@ -77,7 +77,7 @@ void main() {
                 'created_at': '2026-06-04T10:00:00Z',
               },
             ],
-          });
+          },);
     final ds = BookletDioDataSource(_client(adapter));
     final order = await ds.order(phone: '+237699112233', network: 'MTN');
     expect(order.id, 42);
@@ -94,11 +94,11 @@ void main() {
       ..on('/payments/init/',
           method: 'POST',
           status: 200,
-          body: {'payment': {'id': 1}})
+          body: {'payment': {'id': 1}},)
       ..on('/booklet/me/',
           method: 'GET',
           status: 200,
-          body: {'results': <Map<String, dynamic>>[]});
+          body: {'results': <Map<String, dynamic>>[]},);
     final ds = BookletDioDataSource(_client(adapter));
     final order = await ds.order(phone: '+237', network: 'WAVE');
     expect(order.id, 0);

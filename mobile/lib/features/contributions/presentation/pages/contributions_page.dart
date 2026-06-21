@@ -40,7 +40,7 @@ class ContributionsPage extends ConsumerWidget {
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.arrow_back_rounded,
-                          color: PaColors.inkPrimary),
+                          color: PaColors.inkPrimary,),
                       tooltip: l.common_back,
                     ),
                     Expanded(
@@ -48,10 +48,10 @@ class ContributionsPage extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(l.contrib_eyebrow.toUpperCase(),
-                              style: PaText.eyebrow()),
+                              style: PaText.eyebrow(),),
                           const SizedBox(height: 3),
                           Text(l.contrib_title,
-                              style: PaText.heading(size: 22)),
+                              style: PaText.heading(size: 22),),
                         ],
                       ),
                     ),
@@ -96,7 +96,7 @@ class ContributionsPage extends ConsumerWidget {
                         loading: () => const SliverToBoxAdapter(
                           child: Padding(
                             padding: EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
+                                horizontal: 16, vertical: 8,),
                             child: PaCard(
                               padding: EdgeInsets.all(18),
                               child: SkeletonList(lines: 5),
@@ -157,7 +157,7 @@ class _TotalCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(l.contrib_total_label,
-                    style: PaText.body(size: 13, color: PaColors.inkSecondary)),
+                    style: PaText.body(size: 13, color: PaColors.inkSecondary),),
                 const SizedBox(height: 4),
                 Text(
                   XAFFormatter.format(total),
@@ -234,7 +234,7 @@ class _TimelineRow extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(meta.label,
-                              style: PaText.label(size: 14)),
+                              style: PaText.label(size: 14),),
                         ),
                         _StatusBadge(status: contribution.statut),
                       ],
@@ -250,7 +250,7 @@ class _TimelineRow extends StatelessWidget {
                         Text(
                           AppDateFormatter.long(contribution.date),
                           style: PaText.body(
-                              size: 12.5, color: PaColors.inkMuted),
+                              size: 12.5, color: PaColors.inkMuted,),
                         ),
                       ],
                     ),
@@ -267,7 +267,7 @@ class _TimelineRow extends StatelessWidget {
                           Text(
                             l.contrib_ref(contribution.reference!),
                             style: PaText.body(
-                                size: 11.5, color: PaColors.inkMuted),
+                                size: 11.5, color: PaColors.inkMuted,),
                           ),
                         ],
                       ),
@@ -283,7 +283,7 @@ class _TimelineRow extends StatelessWidget {
   }
 
   ({IconData icon, Color tint, String label}) _metaFor(
-      ContributionType t, AppL10n l) {
+      ContributionType t, AppL10n l,) {
     switch (t) {
       case ContributionType.fraisInscription:
         return (

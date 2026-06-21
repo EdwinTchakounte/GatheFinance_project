@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
-import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
@@ -32,18 +32,9 @@ class BookletPage extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            // ── Header FIXE ──────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l.booklet_eyebrow.toUpperCase(), style: PaText.eyebrow()),
-                  const SizedBox(height: 3),
-                  Text(l.booklet_title, style: PaText.heading(size: 22)),
-                ],
-              ),
-            ),
+            // ── Header FIXE compact — band gradient soft vert→bleu ──────
+            PaGradientHeaderBand(title: l.booklet_title),
+            const SizedBox(height: 12),
             Expanded(
               child: RefreshIndicator.adaptive(
           color: PaColors.teal,
@@ -424,7 +415,7 @@ class _OrderNewCard extends StatelessWidget {
                     // l'attente avant le bouton commande.
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
+                          horizontal: 8, vertical: 3,),
                       decoration: BoxDecoration(
                         color: PaColors.tealSurface,
                         borderRadius: BorderRadius.circular(999),
@@ -498,7 +489,7 @@ class _Step extends StatelessWidget {
         Container(
           width: 26,
           height: 26,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: PaColors.tealSurface,
             shape: BoxShape.circle,
           ),

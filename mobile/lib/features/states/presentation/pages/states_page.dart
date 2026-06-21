@@ -21,6 +21,7 @@ import '../../../contributions/presentation/state/contributions_notifier.dart';
 import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
+import '../../../savings/presentation/widgets/withdraw_sheet.dart';
 import '../../data/releve_pdf_service.dart';
 import 'releve_preview_page.dart';
 
@@ -53,7 +54,7 @@ class StatesPage extends ConsumerWidget {
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.arrow_back_rounded,
-                          color: PaColors.inkPrimary),
+                          color: PaColors.inkPrimary,),
                       tooltip: l.common_back,
                     ),
                     Expanded(
@@ -61,11 +62,16 @@ class StatesPage extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(l.profile_eyebrow.toUpperCase(),
-                              style: PaText.eyebrow()),
+                              style: PaText.eyebrow(),),
                           const SizedBox(height: 3),
                           Text(l.states_title, style: PaText.heading(size: 22)),
                         ],
                       ),
+                    ),
+                    savings.when(
+                      data: (d) => _WithdrawAction(soldeDisponible: d.solde),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
                     ),
                   ],
                 ),
@@ -151,7 +157,7 @@ class StatesPage extends ConsumerWidget {
                       ),
                       const SizedBox(height: 22),
                       Text(l.states_savings_detail,
-                          style: PaText.label(size: 15)),
+                          style: PaText.label(size: 15),),
                       const SizedBox(height: 12),
                       savings.when(
                         data: (d) => _DetailCard(
@@ -206,19 +212,19 @@ class StatesPage extends ConsumerWidget {
                                       CrossAxisAlignment.start,
                                   children: [
                                     Text(l.states_contrib_detail_title,
-                                        style: PaText.label(size: 14)),
+                                        style: PaText.label(size: 14),),
                                     const SizedBox(height: 2),
                                     Text(
                                       l.states_contrib_detail_sub,
                                       style: PaText.body(
                                           size: 12.5,
-                                          color: PaColors.inkMuted),
+                                          color: PaColors.inkMuted,),
                                     ),
                                   ],
                                 ),
                               ),
                               const Icon(Icons.chevron_right_rounded,
-                                  color: PaColors.inkFaint),
+                                  color: PaColors.inkFaint,),
                             ],
                           ),
                         ),
@@ -230,7 +236,7 @@ class StatesPage extends ConsumerWidget {
                         variant: PaButtonVariant.outline,
                         onPressed: () =>
                             _exportPdf(context, ref, savings.valueOrNull,
-                                memberAsync.valueOrNull, totalCotisations, l),
+                                memberAsync.valueOrNull, totalCotisations, l,),
                       ),
                     ],
                   ),
@@ -333,7 +339,7 @@ class _ReleveCard extends StatelessWidget {
           Row(
             children: [
               Text(l.states_releve_eyebrow.toUpperCase(),
-                  style: PaText.eyebrow()),
+                  style: PaText.eyebrow(),),
               const Spacer(),
               Container(
                 padding:
@@ -358,7 +364,7 @@ class _ReleveCard extends StatelessWidget {
             children: [
               _MetaItem(icon: Icons.tag_rounded, text: memberNumber),
               _MetaItem(
-                  icon: Icons.event_outlined, text: l.states_releve_on(today)),
+                  icon: Icons.event_outlined, text: l.states_releve_on(today),),
             ],
           ),
           if (dateAdhesion != null) ...[
@@ -543,7 +549,7 @@ class _DetailCard extends StatelessWidget {
                   Expanded(
                     child: Text(lines[i].$1,
                         style: PaText.body(
-                            size: 14, color: PaColors.inkSecondary)),
+                            size: 14, color: PaColors.inkSecondary,),),
                   ),
                   Text(lines[i].$2, style: PaText.amount(size: 15)),
                 ],
@@ -554,6 +560,57 @@ class _DetailCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Bouton "Retirer" en header de Mes états — déclenche le sheet de demande
+/// de retrait sur le compte cotisation (la sheet récupère le solde via le
+/// même `savingsProvider` ; on le passe ici pour borner la saisie côté UI).
+class _WithdrawAction extends StatelessWidget {
+  const _WithdrawAction({required this.soldeDisponible});
+
+  final num soldeDisponible;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final disabled = soldeDisponible < 500;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: TextButton.icon(
+        onPressed: disabled ? null : () => _open(context),
+        icon: const Icon(Icons.north_east_rounded, size: 18),
+        label: Text(l.wd_action),
+        style: TextButton.styleFrom(
+          foregroundColor: PaColors.teal,
+          backgroundColor: PaColors.tealSurface,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _open(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+      ),
+      backgroundColor: PaColors.paper,
+      barrierColor: PaColors.navyDeep.withValues(alpha: 0.55),
+      enableDrag: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(28),
+        ),
+      ),
+      builder: (_) => WithdrawSheet(soldeDisponible: soldeDisponible),
     );
   }
 }

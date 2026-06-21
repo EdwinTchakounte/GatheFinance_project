@@ -6,7 +6,6 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'app/app.dart';
 import 'core/di/providers.dart';
 import 'core/network/api_client.dart';
-import 'core/network/api_config.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,19 +16,15 @@ Future<void> main() async {
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.dark,
-  ));
+  ),);
 
-  // Initialise le client HTTP (cookies persistants) — sauf en mode mocks
-  // (--dart-define=USE_MOCKS=true) où aucune connexion réseau n'est tentée.
-  final overrides = <Override>[];
-  if (!ApiConfig.useMocks) {
-    final apiClient = await ApiClient.create();
-    overrides.add(apiClientProvider.overrideWithValue(apiClient));
-  }
+  // Initialise le client HTTP (cookies persistants). Toujours requis — les
+  // datasources mockées ont été supprimées en 2026-06 (chemins prod only).
+  final apiClient = await ApiClient.create();
 
   runApp(
     ProviderScope(
-      overrides: overrides,
+      overrides: [apiClientProvider.overrideWithValue(apiClient)],
       child: const GatheApp(),
     ),
   );

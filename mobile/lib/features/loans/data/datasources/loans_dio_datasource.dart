@@ -66,7 +66,7 @@ FormSchemaField _parseFormField(Map<String, dynamic> json) {
         .map((o) => FormFieldOption(
               value: (o['value'] as Object?)?.toString() ?? '',
               label: (o['label'] as String?) ?? '',
-            ))
+            ),)
         .toList(growable: false),
     condition: rawCondition == null ? null : _parseCondition(rawCondition),
     isLocked: (json['is_locked'] as bool?) ?? false,

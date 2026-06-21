@@ -264,8 +264,11 @@ class AppL10nFr extends AppL10n {
   String get login_title => 'Bon retour';
 
   @override
-  String get login_subtitle =>
-      'Connecte-toi à ton compte pour gérer ton épargne,\nsuivre tes crédits et commander un carnet.';
+  String get login_subtitle => 'Pilotez votre épargne, suivez vos crédits.';
+
+  @override
+  String get login_sub_under_title =>
+      'Identifiez-vous pour accéder à votre compte.';
 
   @override
   String get login_email_label => 'Adresse email';
@@ -299,6 +302,9 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get login_become_member => 'Devenir membre';
+
+  @override
+  String get login_not_member => 'Pas encore membre ?';
 
   @override
   String get login_security_tip =>
@@ -1161,20 +1167,20 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get biometric_reason_unlock =>
-      'Confirme ton identité pour déverrouiller Gathé Finance';
+      'Empreinte pour ouvrir ton espace Gathe Finance';
 
   @override
   String get biometric_reason_enable =>
-      'Confirme ton empreinte pour activer le déverrouillage rapide';
+      'Pose ton empreinte pour activer l\'ouverture rapide';
 
   @override
-  String get biometric_signin_title => 'Déverrouillage';
+  String get biometric_signin_title => 'Gathe Finance';
 
   @override
-  String get biometric_hint => 'Vérifie ton empreinte';
+  String get biometric_hint => 'Touche le capteur pour ouvrir ton espace';
 
   @override
-  String get biometric_cancel_button => 'Utiliser le code';
+  String get biometric_cancel_button => 'Utiliser le code PIN';
 
   @override
   String get releve_pdf_title => 'Relevé de compte';
@@ -1667,6 +1673,38 @@ class AppL10nFr extends AppL10n {
   String get mf_section_motivation => 'Motivation (optionnel)';
 
   @override
+  String get mf_section_pieces => 'Pièces justificatives';
+
+  @override
+  String get mf_pieces_intro =>
+      'Toutes les pièces sont obligatoires (image ou PDF, 5 Mo max).';
+
+  @override
+  String get mf_piece_cni_recto => 'CNI — recto';
+
+  @override
+  String get mf_piece_cni_verso => 'CNI — verso';
+
+  @override
+  String get mf_piece_plan => 'Plan de localisation';
+
+  @override
+  String get mf_piece_photo => 'Photo d\'identité';
+
+  @override
+  String get mf_piece_tap_to_pick => 'Toucher pour choisir un fichier';
+
+  @override
+  String get mf_piece_remove => 'Retirer le fichier';
+
+  @override
+  String get mf_piece_too_large => 'Fichier trop volumineux (5 Mo max).';
+
+  @override
+  String get mf_pieces_required =>
+      'Téléverse les 4 pièces avant d\'envoyer la demande.';
+
+  @override
   String get mf_whatsapp => 'WhatsApp (optionnel)';
 
   @override
@@ -1706,4 +1744,138 @@ class AppL10nFr extends AppL10n {
   @override
   String get mf_sent_body =>
       'La coopérative va étudier ton dossier et te convoquer à un entretien d\'admission.';
+
+  @override
+  String get wd_action => 'Retirer';
+
+  @override
+  String get wd_title => 'Demander un retrait';
+
+  @override
+  String wd_subtitle(String balance) {
+    return 'Disponible : $balance';
+  }
+
+  @override
+  String get wd_channel_presentiel => 'Espèces (agence)';
+
+  @override
+  String get wd_channel_momo => 'Mobile Money';
+
+  @override
+  String get wd_field_amount => 'Montant';
+
+  @override
+  String get wd_field_motif => 'Raison du retrait';
+
+  @override
+  String get wd_field_motif_hint => 'Ex. urgence familiale, frais scolarité…';
+
+  @override
+  String get wd_field_phone => 'Numéro Mobile Money';
+
+  @override
+  String get wd_field_network => 'Réseau';
+
+  @override
+  String get wd_err_required => 'Obligatoire';
+
+  @override
+  String get wd_err_min_500 => 'Minimum 500 XAF';
+
+  @override
+  String get wd_err_over_balance => 'Montant supérieur au solde disponible.';
+
+  @override
+  String get wd_err_phone => 'Numéro invalide';
+
+  @override
+  String get wd_cta_submit => 'Envoyer la demande';
+
+  @override
+  String get wd_cta_close => 'Fermer';
+
+  @override
+  String get wd_disclaimer =>
+      'Le solde est débité dès l\'envoi. L\'admin valide la sortie (espèces ou payout MOMO) sous 24 h.';
+
+  @override
+  String get wd_success_title => 'Demande envoyée à la coopérative';
+
+  @override
+  String get wd_recap_amount => 'Montant';
+
+  @override
+  String get wd_recap_channel => 'Canal';
+
+  @override
+  String get wd_recap_status => 'Statut';
+
+  @override
+  String get wd_loading => 'Envoi de la demande…';
+
+  @override
+  String offline_banner(String when) {
+    return 'Hors-ligne — données du $when';
+  }
+
+  @override
+  String get lreq_avaliste_title => 'Désigner un avaliste';
+
+  @override
+  String get lreq_avaliste_subtitle =>
+      'Membre senior+BRC qui garantit le crédit (§7.2).';
+
+  @override
+  String get lreq_avaliste_search_hint =>
+      'Rechercher un membre (numéro ou nom)';
+
+  @override
+  String lreq_avaliste_saturated(String amount) {
+    return 'Plafond atteint ($amount engagés)';
+  }
+
+  @override
+  String lreq_avaliste_capacity(String amount, String numero) {
+    return 'Dispo $amount ($numero)';
+  }
+
+  @override
+  String lreq_avaliste_picked(String nom, String numero) {
+    return 'Avaliste : $nom ($numero)';
+  }
+
+  @override
+  String get lreq_avaliste_clear => 'Effacer';
+
+  @override
+  String get lreq_avaliste_required =>
+      'Choisis un avaliste dans la liste (ou décoche).';
+
+  @override
+  String get lreq_avaliste_search_empty =>
+      'Aucun membre éligible trouvé pour cette recherche.';
+
+  @override
+  String get lreq_campaign_title => 'Postuler à une campagne';
+
+  @override
+  String get lreq_campaign_subtitle =>
+      'Crédit ciblé par la coopérative (ex. commerçants, agriculteurs).';
+
+  @override
+  String get lreq_campaign_pick => 'Choisir une campagne';
+
+  @override
+  String get lreq_campaign_required =>
+      'Choisis une campagne dans la liste (ou décoche).';
+
+  @override
+  String get lreq_campaign_none =>
+      'Aucune campagne active en ce moment. Réessaie plus tard ou décoche pour faire une demande standard.';
+
+  @override
+  String lreq_campaign_error(String error) {
+    return 'Impossible de charger les campagnes : $error';
+  }
 }

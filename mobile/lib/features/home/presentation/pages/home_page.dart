@@ -9,7 +9,8 @@ import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/widgets/paysika/pa_action_pill.dart';
 import '../../../../core/widgets/paysika/pa_avatar.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
-import '../../../../core/widgets/paysika/pa_hero_balance.dart';
+import '../../../../core/widgets/paysika/pa_dual_hero_balance.dart';
+import '../../../../core/widgets/paysika/pa_logo.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/paysika/pa_info_carousel.dart';
 import '../../../../core/widgets/paysika/pa_shimmer.dart';
@@ -20,7 +21,6 @@ import '../../../auth/domain/entities/member.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
 import '../../../home_feed/presentation/state/feed_notifier.dart';
 import '../../../home_feed/presentation/widgets/feed_sections.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../notifications/presentation/state/notifications_notifier.dart';
 import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
@@ -42,10 +42,11 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final member = ref.watch(authProvider).valueOrNull;
-    // Le héros principal présente désormais l'épargne classique (produit
-    // principal) ; la cotisation journalière apparaît dans la section
-    // secondaire juste en dessous.
-    final savings = ref.watch(classicSavingsProvider);
+    // Hero présente les 2 soldes (épargne classique + cotisation journalière)
+    // via un toggle segmenté ergonomique. La card hero est **pinned** hors
+    // du scroll : elle reste toujours visible quand on défile la Home.
+    final epargne = ref.watch(classicSavingsProvider);
+    final cotisation = ref.watch(savingsProvider);
     final l = AppL10n.of(context);
     final firstName = member?.prenom ?? l.profile_member_badge;
 
@@ -56,29 +57,37 @@ class HomePage extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            // ── Header FIXE (ne défile pas) ──────────────────────────────
+            // ── Header FIXE (ne défile pas) — logo + greeting + cloche ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
               child: _Header(
                 firstName: firstName,
                 unread: ref.watch(unreadNotifsCountProvider),
               ),
             ),
-            // CH-2 — Bannière statut quand le membre n'est pas encore actif
-            // (temporaire = micro-crédit campagne, doit payer ses frais ;
-            // suspendu = sanction administrative). On l'épingle hors du
-            // scroll pour qu'elle reste visible tant que l'action n'est
-            // pas faite.
+            // CH-2 — Bannière statut quand le membre n'est pas encore actif.
             if (member != null && member.statut != MemberStatus.actif)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
                 child: _StatusBanner(status: member.statut),
               ),
+            // ── Hero PINNED (sortie des slivers) — toggle dual balance ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+              child: _PinnedDualHero(
+                epargne: epargne,
+                cotisation: cotisation,
+                onEpargneDeposit: () => _openClassicDeposit(context),
+                onCotisationDeposit: () => _openDeposit(context),
+                onReveal: () => PinPromptSheet.show(context),
+                deltaLabelFmt: (s) => l.home_delta_this_month(s),
+              ),
+            ),
             Expanded(
               child: RefreshIndicator.adaptive(
           color: PaColors.teal,
           // Refresh global : on rafraîchit les 2 comptes pour que le hero
-          // (épargne) ET la section cotisation se mettent à jour ensemble.
+          // (épargne + cotisation) ET le feed se mettent à jour ensemble.
           onRefresh: () async {
             await Future.wait([
               ref.read(classicSavingsProvider.notifier).refresh(),
@@ -89,36 +98,6 @@ class HomePage extends ConsumerWidget {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              // ── Hero balance gradient aurore ───────────────────────────
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
-                  child: savings.when(
-                    data: (data) {
-                      final trend = _balanceTrend(data);
-                      final delta = _monthDelta(trend);
-                      return PaHeroBalance(
-                        amount: data.solde,
-                        // Le hero présente désormais l'épargne classique.
-                        label: 'Mon épargne',
-                        ctaLabel: 'Verser sur épargne',
-                        onDeposit: () => _openClassicDeposit(context),
-                        pendingLabel: _pendingLabel(data),
-                        onPendingTap: () => context.push('/savings/history'),
-                        onRequestReveal: () => PinPromptSheet.show(context),
-                        trend: trend,
-                        deltaLabel: delta == null
-                            ? null
-                            : l.home_delta_this_month(delta.$1),
-                        deltaPositive: delta?.$2 ?? true,
-                      );
-                    },
-                    loading: () => const _HeroSkeleton(),
-                    error: (e, _) => _HeroError(message: e.toString()),
-                  ),
-                ),
-              ),
-
               // ── Quick actions — 4 cercles outlined ─────────────────────
               SliverToBoxAdapter(
                 child: Padding(
@@ -164,14 +143,14 @@ class HomePage extends ConsumerWidget {
               // ── Section "Campagnes en cours" (LOT 11 micro-crédit) ──
               SliverToBoxAdapter(
                 child: CampaignsSection(
-                  onSeeMore: () => _openVitrineCampaigns(),
+                  onSeeMore: () => context.push('/campaigns'),
                 ),
               ),
 
               // ── Section "Actualités" (Wagtail blog) ────────────────────
               SliverToBoxAdapter(
                 child: NewsSection(
-                  onSeeMore: () => _openVitrineNews(),
+                  onSeeMore: () => context.push('/news'),
                 ),
               ),
 
@@ -253,7 +232,7 @@ class HomePage extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 60),
-                  child: savings.when(
+                  child: epargne.when(
                     data: (data) => _RecentList(
                       transactions: data.transactions.take(4).toList(),
                     ),
@@ -311,49 +290,6 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  /// "Voir plus" sur la section Campagnes — délègue à la vitrine pour
-  /// l'instant (pas d'écran mobile dédié au listing détaillé).
-  static Future<void> _openVitrineCampaigns() async {
-    final uri = Uri.parse('http://10.93.197.210:3200/services/micro-credit');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  /// "Voir plus" sur la section Actualités — pousse vers le blog vitrine.
-  static Future<void> _openVitrineNews() async {
-    final uri = Uri.parse('http://10.93.197.210:3200/blog');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  /// Série des soldes (ancien → récent, max 8 points) pour la mini-courbe.
-  static List<num>? _balanceTrend(SavingsAccount data) {
-    final txs = [...data.transactions]
-      ..sort((a, b) => a.date.compareTo(b.date));
-    if (txs.length < 2) return null;
-    final series = txs.map((t) => t.soldeApres).toList();
-    return series.length > 8 ? series.sublist(series.length - 8) : series;
-  }
-
-  /// Variation sur la fenêtre de tendance : (label formaté, positif).
-  static (String, bool)? _monthDelta(List<num>? trend) {
-    if (trend == null || trend.length < 2) return null;
-    final first = trend.first.toDouble();
-    final last = trend.last.toDouble();
-    if (first <= 0) return null;
-    final pct = (last - first) / first * 100;
-    final positive = pct >= 0;
-    final formatted =
-        '${positive ? '+' : ''}${pct.toStringAsFixed(1).replaceAll('.', ',')} %';
-    return (formatted, positive);
-  }
-
-  /// Calcule le label "X opération(s) en attente" si pertinent, ou null.
-  static String? _pendingLabel(SavingsAccount data) {
-    final count = data.transactions
-        .where((t) => false)  // placeholder — Tara pending flow à brancher
-        .length;
-    if (count <= 0) return null;
-    return 'Voir $count opération${count > 1 ? 's' : ''} en attente';
-  }
 }
 
 
@@ -378,36 +314,131 @@ class _Header extends StatelessWidget {
             : hour < 18
                 ? l.home_greeting_afternoon
                 : l.home_greeting_evening;
-    return Row(
+    // Logo (haut-gauche) — avatar + greeting + cloche → tout sur une ligne
+    // sobre. Le logo donne la signature de marque sur chaque écran principal.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Avatar génératif — gradient unique dérivé du nom du membre
-        PaAvatar(seed: firstName, size: 44),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                greeting,
-                style: PaText.body(
-                  size: 12.5,
-                  weight: FontWeight.w500,
-                  color: PaColors.inkMuted,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                firstName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: PaText.heading(size: 19),
-              ),
-            ],
-          ),
+        // Ligne 1 : logo + cloche
+        Row(
+          children: [
+            const PaLogo(height: 26),
+            const Spacer(),
+            _NotifBell(unread: unread),
+          ],
         ),
-        _NotifBell(unread: unread),
+        const SizedBox(height: 10),
+        // Ligne 2 : avatar + greeting + prénom
+        Row(
+          children: [
+            PaAvatar(seed: firstName, size: 40),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    greeting,
+                    style: PaText.body(
+                      size: 12,
+                      weight: FontWeight.w500,
+                      color: PaColors.inkMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    firstName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: PaText.heading(size: 17),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ],
     );
+  }
+}
+
+
+/// Hero pinned dual-balance — résout les 2 AsyncValue et alimente
+/// `PaDualHeroBalance`. État loading/error géré localement pour ne pas
+/// casser le rendu pinned.
+class _PinnedDualHero extends StatelessWidget {
+  const _PinnedDualHero({
+    required this.epargne,
+    required this.cotisation,
+    required this.onEpargneDeposit,
+    required this.onCotisationDeposit,
+    required this.onReveal,
+    required this.deltaLabelFmt,
+  });
+
+  final AsyncValue<SavingsAccount> epargne;
+  final AsyncValue<SavingsAccount> cotisation;
+  final VoidCallback onEpargneDeposit;
+  final VoidCallback onCotisationDeposit;
+  final Future<bool> Function() onReveal;
+  final String Function(String) deltaLabelFmt;
+
+  @override
+  Widget build(BuildContext context) {
+    // Si l'une des sources est en erreur, on dégrade gracieusement avec
+    // un fallback 0 plutôt que de cacher tout le hero. Le pinned doit
+    // toujours rester visible — c'est sa raison d'être.
+    final ePart = epargne.valueOrNull;
+    final cPart = cotisation.valueOrNull;
+    if (ePart == null && cPart == null) {
+      // Vraiment rien à montrer (premier chargement) → skeleton.
+      return const _HeroSkeleton();
+    }
+    final eTrend = ePart != null ? _balanceTrend(ePart) : null;
+    final eDelta = _monthDelta(eTrend);
+    final cTrend = cPart != null ? _balanceTrend(cPart) : null;
+    final cDelta = _monthDelta(cTrend);
+    return PaDualHeroBalance(
+      savings: PaHeroSlot(
+        amount: ePart?.solde ?? 0,
+        label: 'Mon épargne',
+        ctaLabel: 'Verser sur épargne',
+        onDeposit: onEpargneDeposit,
+        trend: eTrend,
+        deltaLabel: eDelta == null ? null : deltaLabelFmt(eDelta.$1),
+        deltaPositive: eDelta?.$2 ?? true,
+      ),
+      cotisation: PaHeroSlot(
+        amount: cPart?.solde ?? 0,
+        label: 'Ma cotisation',
+        ctaLabel: 'Payer ma cotisation',
+        onDeposit: onCotisationDeposit,
+        trend: cTrend,
+        deltaLabel: cDelta == null ? null : deltaLabelFmt(cDelta.$1),
+        deltaPositive: cDelta?.$2 ?? true,
+      ),
+      onRequestReveal: onReveal,
+    );
+  }
+
+  static List<num>? _balanceTrend(SavingsAccount data) {
+    final txs = [...data.transactions]
+      ..sort((a, b) => a.date.compareTo(b.date));
+    if (txs.length < 2) return null;
+    final series = txs.map((t) => t.soldeApres).toList();
+    return series.length > 8 ? series.sublist(series.length - 8) : series;
+  }
+
+  static (String, bool)? _monthDelta(List<num>? trend) {
+    if (trend == null || trend.length < 2) return null;
+    final first = trend.first.toDouble();
+    final last = trend.last.toDouble();
+    if (first <= 0) return null;
+    final pct = (last - first) / first * 100;
+    final positive = pct >= 0;
+    final formatted =
+        '${positive ? '+' : ''}${pct.toStringAsFixed(1).replaceAll('.', ',')} %';
+    return (formatted, positive);
   }
 }
 
@@ -565,38 +596,6 @@ class _HeroSkeleton extends StatelessWidget {
 }
 
 
-class _HeroError extends StatelessWidget {
-  const _HeroError({required this.message});
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
-    return PaCard(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.error_outline, color: PaColors.danger, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            l.home_balance_unavailable,
-            style: const TextStyle(
-              color: PaColors.danger,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            message,
-            style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 
 // ───────────────────────────────────────────────────────────────────────────

@@ -34,7 +34,7 @@ void main() {
           amount: any(named: 'amount'),
           phone: any(named: 'phone'),
           network: any(named: 'network'),
-        )).thenThrow(const ServerException('Boom'));
+        ),).thenThrow(const ServerException('Boom'));
     expect(
       () => repo.deposit(amount: 1000, phone: '6991', network: 'MTN'),
       throwsA(isA<UnexpectedFailure>()),

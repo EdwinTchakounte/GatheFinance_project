@@ -22,9 +22,9 @@ void main() {
       () => useCase.call(const OrderBookletParams(
         phone: '69911',
         network: 'MTN',
-      )),
+      ),),
       throwsA(isA<ValidationFailure>()
-          .having((f) => f.field, 'field', 'phone')),
+          .having((f) => f.field, 'field', 'phone'),),
     );
     verifyZeroInteractions(repo);
   });
@@ -34,12 +34,12 @@ void main() {
     when(() => repo.order(
           phone: '699 11 22 33',
           network: 'MTN',
-        )).thenAnswer((_) async => order);
+        ),).thenAnswer((_) async => order);
 
     final result = await useCase.call(const OrderBookletParams(
       phone: '699 11 22 33',
       network: 'MTN',
-    ));
+    ),);
 
     expect(result, order);
   });

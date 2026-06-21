@@ -42,7 +42,7 @@ void main() {
     test('fetchMine parse solde + transactions', () async {
       final adapter = ScriptedAdapter()
         ..on('/savings/me/',
-            method: 'GET', status: 200, body: _accountPayload);
+            method: 'GET', status: 200, body: _accountPayload,);
       final ds = SavingsDioDataSource(
         _client(adapter),
         SavingsAccountKind.cotisation,
@@ -63,9 +63,9 @@ void main() {
         ..on('/payments/init/',
             method: 'POST',
             status: 200,
-            body: {'payment': {'id': 1}})
+            body: {'payment': {'id': 1}},)
         ..on('/savings/me/',
-            method: 'GET', status: 200, body: _accountPayload);
+            method: 'GET', status: 200, body: _accountPayload,);
       final ds = SavingsDioDataSource(
         _client(adapter),
         SavingsAccountKind.cotisation,
@@ -84,7 +84,7 @@ void main() {
     test('fetchMine appelle /savings/classic/me/', () async {
       final adapter = ScriptedAdapter()
         ..on('/savings/classic/me/',
-            method: 'GET', status: 200, body: _accountPayload);
+            method: 'GET', status: 200, body: _accountPayload,);
       final ds = SavingsDioDataSource(
         _client(adapter),
         SavingsAccountKind.classique,
@@ -99,9 +99,9 @@ void main() {
         ..on('/payments/init/',
             method: 'POST',
             status: 200,
-            body: {'payment': {'id': 1}})
+            body: {'payment': {'id': 1}},)
         ..on('/savings/classic/me/',
-            method: 'GET', status: 200, body: _accountPayload);
+            method: 'GET', status: 200, body: _accountPayload,);
       final ds = SavingsDioDataSource(
         _client(adapter),
         SavingsAccountKind.classique,
@@ -121,9 +121,9 @@ void main() {
         ..on('/payments/init/',
             method: 'POST',
             status: 200,
-            body: {'payment': {'id': 1}})
+            body: {'payment': {'id': 1}},)
         ..on('/savings/classic/me/',
-            method: 'GET', status: 200, body: _accountPayload);
+            method: 'GET', status: 200, body: _accountPayload,);
       final ds = SavingsDioDataSource(
         _client(adapter),
         SavingsAccountKind.classique,
@@ -146,9 +146,9 @@ void main() {
         ..on('/payments/init/',
             method: 'POST',
             status: 200,
-            body: {'payment': {'id': 1}})
+            body: {'payment': {'id': 1}},)
         ..on('/savings/me/',
-            method: 'GET', status: 200, body: _accountPayload);
+            method: 'GET', status: 200, body: _accountPayload,);
       final ds = SavingsDioDataSource(
         _client(adapter),
         SavingsAccountKind.cotisation,

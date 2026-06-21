@@ -1,11 +1,16 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/widgets/brand_loader.dart';
+import '../../../../core/widgets/paysika/pa_brand_hero.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../forms/domain/form_validation.dart';
 import '../../../forms/presentation/widgets/dynamic_fields.dart';
@@ -17,7 +22,25 @@ const Set<String> _hardcodedAdhesionFields = {
   'name', 'email', 'phone', 'whatsapp', 'city',
   'quartier_localite', 'statut_pro', 'urgence_nom',
   'urgence_lien', 'urgence_phone', 'message', 'language',
+  'cni_recto', 'cni_verso', 'plan_localisation', 'photo_identite',
 };
+
+/// Taille max d'une pièce uploadée — alignée sur le serializer backend
+/// (`_MAX_PIECE_SIZE` dans `apps_coop/members/serializers.py`).
+const int _kMaxPieceBytes = 5 * 1024 * 1024;
+
+/// Extensions acceptées pour les pièces "document" (CNI + plan). On reste
+/// volontairement permissif (image + PDF) car les utilisateurs photographient
+/// souvent la pièce avec le smartphone.
+const List<String> _kDocExts = ['jpg', 'jpeg', 'png', 'pdf', 'heic'];
+
+/// Une seule pièce uploadée — sert au `_FilePickerTile` pour les 4 champs.
+class _Piece {
+  const _Piece({required this.file, required this.name, required this.size});
+  final File file;
+  final String name;
+  final int size;
+}
 
 enum _Step { form, loading, success }
 
@@ -75,6 +98,14 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
   final _motivationCtrl = TextEditingController();
   _StatutPro? _statutPro;
 
+  // Pièces obligatoires uploadées par le demandeur. `null` tant que pas
+  // choisies. Validées au moment du `_submit` (taille + présence).
+  _Piece? _cniRecto;
+  _Piece? _cniVerso;
+  _Piece? _planLocalisation;
+  _Piece? _photoIdentite;
+  String? _piecesError;
+
   _Step _step = _Step.form;
   late final AnimationController _checkCtrl;
 
@@ -125,8 +156,52 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
     }
   }
 
+  Future<void> _pickPiece({
+    required bool imageOnly,
+    required ValueChanged<_Piece> onPicked,
+  }) async {
+    try {
+      final res = await FilePicker.pickFiles(
+        type: imageOnly ? FileType.image : FileType.custom,
+        allowedExtensions: imageOnly ? null : _kDocExts,
+        allowMultiple: false,
+        withData: false,
+      );
+      if (res == null || res.files.isEmpty) return;
+      final f = res.files.single;
+      final path = f.path;
+      if (path == null) return;
+      final size = f.size;
+      if (size > _kMaxPieceBytes) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppL10n.of(context).mf_piece_too_large)),
+        );
+        return;
+      }
+      onPicked(_Piece(file: File(path), name: f.name, size: size));
+    } on PlatformException {
+      // Permission refusée ou picker indisponible — silencieux.
+    }
+  }
+
+  bool get _allPiecesPicked =>
+      _cniRecto != null &&
+      _cniVerso != null &&
+      _planLocalisation != null &&
+      _photoIdentite != null;
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    // Pièces obligatoires : ne tentons pas le réseau si l'une manque.
+    if (!_allPiecesPicked) {
+      setState(() => _piecesError = AppL10n.of(context).mf_pieces_required);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).mf_pieces_required)),
+      );
+      return;
+    }
+    setState(() => _piecesError = null);
     // CH-5 — Validation locale des champs dynamiques avant l'envoi.
     final schema = ref.read(activeAdhesionSchemaProvider).valueOrNull;
     if (schema != null) {
@@ -161,11 +236,12 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
         throw 'Captcha indisponible — réessaie dans un instant.';
       }
       // 2. Construit le body backend depuis les hardcoded + extras (scalaires).
+      //    On passe par une Map<String,Object?> ; le datasource convertit en
+      //    FormData multipart (pièces + champs texte) en gardant les fichiers.
       final scalarExtras = <String, Object?>{};
       for (final entry in _extraValues.entries) {
         final v = entry.value;
-        // Le sheet adhésion ne supporte pas les uploads — le backend les
-        // accepterait mais le serializer public est text-only (multipart KO).
+        // Le sheet adhésion ne porte pas (encore) d'upload via FormSchema.
         if (v is PickedFile) continue;
         if (v != null && v != '') scalarExtras[entry.key] = v;
       }
@@ -184,6 +260,11 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
         'language': 'fr',
         'captcha_token': challenge.token,
         'captcha_answer': answer.toString(),
+        // Pièces (FileFields backend) — déjà validées non-null en amont.
+        'cni_recto': _cniRecto!.file,
+        'cni_verso': _cniVerso!.file,
+        'plan_localisation': _planLocalisation!.file,
+        'photo_identite': _photoIdentite!.file,
         ...scalarExtras,
       };
       final err = await ds.submit(body: body);
@@ -238,29 +319,47 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(height: 10),
+        // Grabber discret tout en haut
+        const SizedBox(height: 6),
         const _Grabber(),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              l.mf_title,
-              style: const TextStyle(
-                color: PaColors.inkPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
+        const SizedBox(height: 6),
+        // Hero aurore + logo pont (transition vers cream)
+        Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomCenter,
+          children: [
+            PaBrandHero(
+              bottomRadius: 26,
+              contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 48),
+              child: Center(
+                child: Text(
+                  l.mf_title,
+                  textAlign: TextAlign.center,
+                  style: PaText.display(
+                    size: 19,
+                    weight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: -0.3,
+                  ),
+                ),
               ),
             ),
-          ),
+            const Positioned(
+              bottom: -32,
+              child: PaBrandHeroBridgeLogo(size: 64),
+            ),
+          ],
         ),
+        const SizedBox(height: 44),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              l.mf_intro,
-              style: const TextStyle(color: PaColors.inkMuted, fontSize: 13.5, height: 1.4),
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 6),
+          child: Text(
+            l.mf_intro,
+            textAlign: TextAlign.center,
+            style: PaText.body(
+              size: 13,
+              color: PaColors.inkSecondary,
+              height: 1.5,
             ),
           ),
         ),
@@ -268,7 +367,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
           child: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
               children: [
                 _section(l.mf_section_identity),
                 Row(
@@ -281,13 +380,13 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
                 _field(_emailCtrl, l.common_email,
                     required: true,
                     keyboard: TextInputType.emailAddress,
-                    validator: _emailValidator),
+                    validator: _emailValidator,),
 
                 _section(l.mf_section_contact),
                 _field(_phoneCtrl, l.common_phone,
-                    required: true, keyboard: TextInputType.phone, prefix: '+237 '),
+                    required: true, keyboard: TextInputType.phone, prefix: '+237 ',),
                 _field(_whatsappCtrl, l.mf_whatsapp,
-                    keyboard: TextInputType.phone, prefix: '+237 '),
+                    keyboard: TextInputType.phone, prefix: '+237 ',),
 
                 _section(l.mf_section_location),
                 _field(_cityCtrl, l.mf_city, required: true),
@@ -302,17 +401,93 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
                   children: [
                     Expanded(
                         child: _field(_urgenceLienCtrl, l.mf_urgence_lien,
-                            required: true)),
+                            required: true,),),
                     const SizedBox(width: 10),
                     Expanded(
                         child: _field(_urgencePhoneCtrl, l.common_phone,
-                            required: true, keyboard: TextInputType.phone)),
+                            required: true, keyboard: TextInputType.phone,),),
                   ],
                 ),
 
                 _section(l.mf_section_motivation),
                 _field(_motivationCtrl, l.mf_motivation_q,
-                    maxLines: 3),
+                    maxLines: 3,),
+
+                _section(l.mf_section_pieces),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    l.mf_pieces_intro,
+                    style: const TextStyle(
+                      color: PaColors.inkMuted,
+                      fontSize: 12.5,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+                _FilePickerTile(
+                  label: l.mf_piece_cni_recto,
+                  piece: _cniRecto,
+                  icon: Icons.badge_outlined,
+                  onPick: () => _pickPiece(
+                    imageOnly: false,
+                    onPicked: (p) => setState(() {
+                      _cniRecto = p;
+                      _piecesError = null;
+                    }),
+                  ),
+                  onClear: () => setState(() => _cniRecto = null),
+                ),
+                _FilePickerTile(
+                  label: l.mf_piece_cni_verso,
+                  piece: _cniVerso,
+                  icon: Icons.badge_outlined,
+                  onPick: () => _pickPiece(
+                    imageOnly: false,
+                    onPicked: (p) => setState(() {
+                      _cniVerso = p;
+                      _piecesError = null;
+                    }),
+                  ),
+                  onClear: () => setState(() => _cniVerso = null),
+                ),
+                _FilePickerTile(
+                  label: l.mf_piece_plan,
+                  piece: _planLocalisation,
+                  icon: Icons.map_outlined,
+                  onPick: () => _pickPiece(
+                    imageOnly: false,
+                    onPicked: (p) => setState(() {
+                      _planLocalisation = p;
+                      _piecesError = null;
+                    }),
+                  ),
+                  onClear: () => setState(() => _planLocalisation = null),
+                ),
+                _FilePickerTile(
+                  label: l.mf_piece_photo,
+                  piece: _photoIdentite,
+                  icon: Icons.face_outlined,
+                  onPick: () => _pickPiece(
+                    imageOnly: true,
+                    onPicked: (p) => setState(() {
+                      _photoIdentite = p;
+                      _piecesError = null;
+                    }),
+                  ),
+                  onClear: () => setState(() => _photoIdentite = null),
+                ),
+                if (_piecesError != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _piecesError!,
+                    style: const TextStyle(
+                      color: PaColors.danger,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
 
                 // CH-5 — Champs supplémentaires définis par l'admin via le
                 // FormSchema actif (kind=adhesion). En 404 ou erreur transport,
@@ -561,7 +736,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
               ),
               alignment: Alignment.center,
               child: const Icon(Icons.check_rounded,
-                  color: PaColors.success, size: 40),
+                  color: PaColors.success, size: 40,),
             ),
           ),
           const SizedBox(height: 20),
@@ -602,6 +777,123 @@ class _Grabber extends StatelessWidget {
         decoration: BoxDecoration(
           color: PaColors.line,
           borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _FilePickerTile extends StatelessWidget {
+  const _FilePickerTile({
+    required this.label,
+    required this.piece,
+    required this.icon,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  final String label;
+  final _Piece? piece;
+  final IconData icon;
+  final VoidCallback onPick;
+  final VoidCallback onClear;
+
+  String _formatSize(int bytes) {
+    if (bytes < 1024) return '$bytes o';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} ko';
+    return '${(bytes / 1024 / 1024).toStringAsFixed(1)} Mo';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filled = piece != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: filled ? null : onPick,
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: filled
+                  ? PaColors.successSurface.withValues(alpha: 0.55)
+                  : PaColors.cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: filled
+                    ? PaColors.success.withValues(alpha: 0.6)
+                    : PaColors.line,
+                width: filled ? 1.2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: filled ? PaColors.success : PaColors.tealSurface,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    filled ? Icons.check_rounded : icon,
+                    color: filled ? Colors.white : PaColors.teal,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          color: PaColors.inkPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        filled
+                            ? '${piece!.name} · ${_formatSize(piece!.size)}'
+                            : AppL10n.of(context).mf_piece_tap_to_pick,
+                        style: TextStyle(
+                          color: filled
+                              ? PaColors.success
+                              : PaColors.inkMuted,
+                          fontSize: 12,
+                          fontWeight: filled ? FontWeight.w600 : FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                if (filled)
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded,
+                        color: PaColors.inkMuted, size: 20,),
+                    onPressed: onClear,
+                    tooltip: AppL10n.of(context).mf_piece_remove,
+                  )
+                else
+                  const Icon(Icons.upload_outlined,
+                      color: PaColors.teal, size: 20,),
+              ],
+            ),
+          ),
         ),
       ),
     );

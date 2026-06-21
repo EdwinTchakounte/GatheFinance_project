@@ -35,9 +35,9 @@ class AmountText extends StatelessWidget {
       AmountSize.hero => AppTypography.displayXAF,
       AmountSize.large => AppTypography.displayLarge,
       AmountSize.medium => AppTypography.headingMedium.copyWith(
-          fontFeatures: const [FontFeature.tabularFigures()]),
+          fontFeatures: const [FontFeature.tabularFigures()],),
       AmountSize.small => AppTypography.bodyLarge.copyWith(
-          fontFeatures: const [FontFeature.tabularFigures()]),
+          fontFeatures: const [FontFeature.tabularFigures()],),
     };
     final unitStyle = AppTypography.labelMedium.copyWith(
       color: unitColor ?? muted,

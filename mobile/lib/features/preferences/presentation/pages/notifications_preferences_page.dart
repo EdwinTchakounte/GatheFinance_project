@@ -36,7 +36,7 @@ class NotificationsPreferencesPage extends ConsumerWidget {
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.arrow_back_rounded,
-                          color: PaColors.inkPrimary),
+                          color: PaColors.inkPrimary,),
                       tooltip: l.common_back,
                     ),
                     Expanded(
@@ -44,10 +44,10 @@ class NotificationsPreferencesPage extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(l.notifprefs_eyebrow.toUpperCase(),
-                              style: PaText.eyebrow()),
+                              style: PaText.eyebrow(),),
                           const SizedBox(height: 3),
                           Text(l.notifprefs_title,
-                              style: PaText.heading(size: 22)),
+                              style: PaText.heading(size: 22),),
                         ],
                       ),
                     ),
@@ -213,12 +213,12 @@ class _CategoryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(_catLabel(context, category),
-                        style: PaText.label(size: 14)),
+                        style: PaText.label(size: 14),),
                     const SizedBox(height: 2),
                     Text(
                       _catSubtitle(context, category),
                       style: PaText.body(
-                          size: 12.5, color: PaColors.inkSecondary),
+                          size: 12.5, color: PaColors.inkSecondary,),
                     ),
                   ],
                 ),
@@ -291,7 +291,7 @@ class _ChannelRow extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon,
-              size: 18, color: enabled ? PaColors.teal : PaColors.inkMuted),
+              size: 18, color: enabled ? PaColors.teal : PaColors.inkMuted,),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

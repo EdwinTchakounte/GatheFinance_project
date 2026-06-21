@@ -45,7 +45,7 @@ class SubmitLoanRequest
       );
     }
     if (params.dureeMois < _dureeMin || params.dureeMois > _dureeMax) {
-      throw ValidationFailure(
+      throw const ValidationFailure(
         'Durée attendue entre $_dureeMin et $_dureeMax mois.',
         field: 'duree',
       );

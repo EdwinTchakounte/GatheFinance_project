@@ -43,7 +43,7 @@ class PaButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final disabled = onPressed == null || loading;
     final isPrimary = variant == PaButtonVariant.primary;
-    final radius = BorderRadius.circular(999);
+    final radius = BorderRadius.circular(10);
 
     final fg = isPrimary ? PaColors.onTeal : PaColors.inkPrimary;
 

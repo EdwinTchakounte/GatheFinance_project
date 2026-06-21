@@ -42,8 +42,8 @@ class MandatCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: const [PaColors.teal, PaColors.tealDark],
+                  gradient: const LinearGradient(
+                    colors: [PaColors.teal, PaColors.tealDark],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

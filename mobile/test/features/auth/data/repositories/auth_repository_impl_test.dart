@@ -23,7 +23,7 @@ void main() {
       when(() => remote.signIn(
             email: any(named: 'email'),
             password: any(named: 'password'),
-          )).thenThrow(const CredentialsException('bad'));
+          ),).thenThrow(const CredentialsException('bad'));
       expect(
         () => repo.signIn(email: 'a@b', password: 'x'),
         throwsA(isA<AuthFailure>()),
@@ -34,7 +34,7 @@ void main() {
       when(() => remote.signIn(
             email: any(named: 'email'),
             password: any(named: 'password'),
-          )).thenThrow(const NetworkException());
+          ),).thenThrow(const NetworkException());
       expect(
         () => repo.signIn(email: 'a@b', password: 'x'),
         throwsA(isA<NetworkFailure>()),
@@ -45,7 +45,7 @@ void main() {
       when(() => remote.signIn(
             email: any(named: 'email'),
             password: any(named: 'password'),
-          )).thenThrow(const ServerException('boom'));
+          ),).thenThrow(const ServerException('boom'));
       expect(
         () => repo.signIn(email: 'a@b', password: 'x'),
         throwsA(isA<UnexpectedFailure>()),
@@ -57,7 +57,7 @@ void main() {
       when(() => remote.signIn(
             email: any(named: 'email'),
             password: any(named: 'password'),
-          )).thenAnswer((_) async => m);
+          ),).thenAnswer((_) async => m);
       expect(await repo.signIn(email: 'a@b', password: 'x'), m);
     });
   });

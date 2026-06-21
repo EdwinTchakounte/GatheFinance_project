@@ -94,7 +94,7 @@ class Loan {
   /// (Article 12).
   List<LoanInstallment> overdueInstallments(DateTime now) => installments
       .where((i) =>
-          i.statut != InstallmentStatus.payee && i.dateEcheance.isBefore(now))
+          i.statut != InstallmentStatus.payee && i.dateEcheance.isBefore(now),)
       .toList();
 
   /// Pénalité de retard totale exigible à [now] = 50 % des intérêts de chaque

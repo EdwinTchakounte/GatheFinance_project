@@ -57,7 +57,7 @@ class LoansRepositoryImpl implements LoansRepository {
             moyenReception: moyenReception,
             recipientPhone: recipientPhone,
             extraValues: extraValues,
-          ));
+          ),);
 
   @override
   Future<void> payStudyFee({
@@ -82,7 +82,7 @@ class LoansRepositoryImpl implements LoansRepository {
             schemaFieldId: schemaFieldId,
             filePath: filePath,
             fileName: fileName,
-          ));
+          ),);
 
   @override
   Future<Loan> repay({
@@ -96,7 +96,7 @@ class LoansRepositoryImpl implements LoansRepository {
             montant: montant,
             phone: phone,
             network: network,
-          ));
+          ),);
 
   @override
   Future<LoanRenewalEntity> requestRenewal({
@@ -106,5 +106,5 @@ class LoansRepositoryImpl implements LoansRepository {
       _run(() => _remote.requestRenewal(
             loanId: loanId,
             comptant: comptant,
-          ));
+          ),);
 }

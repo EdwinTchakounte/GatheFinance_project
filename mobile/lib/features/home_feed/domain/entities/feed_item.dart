@@ -12,6 +12,7 @@ class CampaignFlyer {
     required this.id,
     required this.nom,
     required this.profilCible,
+    required this.montantMin,
     required this.montantMax,
     required this.tauxInteret,
     required this.dateFin,
@@ -21,6 +22,7 @@ class CampaignFlyer {
   final int id;
   final String nom;
   final String profilCible;
+  final num montantMin;
   final num montantMax;
   final num tauxInteret;
   final DateTime dateFin;

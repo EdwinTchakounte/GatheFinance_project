@@ -4,6 +4,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exceptions.dart';
 import '../../domain/entities/savings_account.dart';
 import '../../domain/entities/savings_transaction.dart';
+import '../../domain/entities/withdrawal_request.dart';
 import 'savings_remote_datasource.dart';
 
 /// Type de compte ciblé par cette datasource : cotisation journalière (Art.4)
@@ -87,6 +88,105 @@ class SavingsDioDataSource implements SavingsRemoteDataSource {
       throw mapDioError(e);
     }
   }
+
+  @override
+  Future<WithdrawalRequest> requestWithdrawal({
+    required num amount,
+    required String motif,
+    required WithdrawalChannel channel,
+    String recipientPhone = '',
+    MomoNetwork? network,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'montant': amount,
+        'motif': motif,
+        'mode_paiement': _channelToApi(channel),
+      };
+      if (channel == WithdrawalChannel.momo) {
+        body['recipient_phone'] = recipientPhone;
+        body['network'] = _networkToApi(network!);
+      }
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/savings/withdrawal/',
+        data: body,
+      );
+      return _parseWithdrawal(response.data ?? const {});
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
+  Future<List<WithdrawalRequest>> listMyWithdrawals() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/savings/withdrawals/me/',
+      );
+      final results = (response.data?['results'] as List<dynamic>?) ?? const [];
+      return results
+          .map((e) => _parseWithdrawal(e as Map<String, dynamic>))
+          .toList(growable: false);
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+}
+
+String _channelToApi(WithdrawalChannel c) => switch (c) {
+      WithdrawalChannel.momo => 'momo',
+      WithdrawalChannel.presentiel => 'presentiel',
+    };
+
+String _networkToApi(MomoNetwork n) => switch (n) {
+      MomoNetwork.mtn => 'MTN',
+      MomoNetwork.orange => 'ORANGE',
+      MomoNetwork.wave => 'WAVE',
+      MomoNetwork.airtel => 'AIRTEL',
+    };
+
+WithdrawalChannel _channelFromApi(String raw) => switch (raw) {
+      'momo' => WithdrawalChannel.momo,
+      _ => WithdrawalChannel.presentiel,
+    };
+
+MomoNetwork? _networkFromApi(String? raw) => switch (raw) {
+      'MTN' => MomoNetwork.mtn,
+      'ORANGE' => MomoNetwork.orange,
+      'WAVE' => MomoNetwork.wave,
+      'AIRTEL' => MomoNetwork.airtel,
+      _ => null,
+    };
+
+WithdrawalStatus _statusFromApi(String? raw) => switch (raw) {
+      'approuvee' => WithdrawalStatus.approuvee,
+      'en_payout' => WithdrawalStatus.enPayout,
+      'completee' => WithdrawalStatus.completee,
+      'payout_failed' => WithdrawalStatus.payoutFailed,
+      'rejetee' => WithdrawalStatus.rejetee,
+      _ => WithdrawalStatus.enAttente,
+    };
+
+WithdrawalRequest _parseWithdrawal(Map<String, dynamic> json) {
+  return WithdrawalRequest(
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    montant: _num(json['montant']),
+    motif: (json['motif'] as String?) ?? '',
+    statut: _statusFromApi(json['statut'] as String?),
+    statutDisplay: (json['statut_display'] as String?) ?? '',
+    modePaiement: _channelFromApi((json['mode_paiement'] as String?) ?? ''),
+    modePaiementDisplay: (json['mode_paiement_display'] as String?) ?? '',
+    recipientPhoneMasked: (json['recipient_phone_masked'] as String?) ?? '',
+    network: _networkFromApi(json['network'] as String?),
+    motifRejet: (json['motif_rejet'] as String?) ?? '',
+    dateDemande: _date(json['date_demande']),
+    dateDecision: json['date_decision'] != null
+        ? _date(json['date_decision'])
+        : null,
+    handedOverAt: json['handed_over_at'] != null
+        ? _date(json['handed_over_at'])
+        : null,
+  );
 }
 
 SavingsAccount _parseAccount(Map<String, dynamic> json) {

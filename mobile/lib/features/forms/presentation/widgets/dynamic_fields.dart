@@ -42,7 +42,7 @@ class DynamicFields extends StatelessWidget {
               fields: s.fields
                   .where((f) => !excludeIds.contains(f.id))
                   .toList(growable: false),
-            ))
+            ),)
         .where((sv) => sv.fields.isNotEmpty)
         .toList(growable: false);
     if (filteredSections.isEmpty) return const SizedBox.shrink();
@@ -255,7 +255,7 @@ class _SelectInput extends StatelessWidget {
   Widget build(BuildContext context) {
     final current = value?.toString();
     return DropdownButtonFormField<String>(
-      value: field.options.any((o) => o.value == current) ? current : null,
+      initialValue: field.options.any((o) => o.value == current) ? current : null,
       isExpanded: true,
       hint: Text(field.placeholder ?? 'Choisir…'),
       items: [
@@ -294,7 +294,7 @@ class _RadioInput extends StatelessWidget {
             value: o.value,
             groupValue: current,
             title: Text(o.label,
-                style: const TextStyle(fontSize: 13.5, color: PaColors.inkPrimary)),
+                style: const TextStyle(fontSize: 13.5, color: PaColors.inkPrimary),),
             onChanged: onChange,
           ),
       ],
@@ -391,7 +391,7 @@ class _DateInput extends StatelessWidget {
         child: Row(
           children: [
             const Icon(Icons.calendar_today_outlined,
-                size: 18, color: PaColors.teal),
+                size: 18, color: PaColors.teal,),
             const SizedBox(width: 10),
             Expanded(
               child: Text(

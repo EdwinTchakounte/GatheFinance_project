@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_config.dart';
@@ -58,14 +61,44 @@ class MembershipDioDataSource {
   }
 
   /// Soumet la demande d'adhésion avec captcha déjà résolu.
+  ///
+  /// `body` peut contenir des valeurs `File` (Dart `dart:io`) pour les pièces
+  /// — elles sont alors envoyées en `multipart/form-data` via `FormData`.
+  /// S'il n'y a aucun `File`, on reste en JSON pour rétro-compat.
   /// Retourne `null` en succès, un message d'erreur sinon.
   Future<String?> submit({
     required Map<String, Object?> body,
   }) async {
     try {
+      final hasFile = body.values.any((v) => v is File);
+      Object payload = body;
+      Options? options;
+      if (hasFile) {
+        final form = FormData();
+        for (final entry in body.entries) {
+          final v = entry.value;
+          if (v == null) continue;
+          if (v is File) {
+            final filename = v.path.split('/').last;
+            form.files.add(MapEntry(
+              entry.key,
+              await MultipartFile.fromFile(
+                v.path,
+                filename: filename,
+                contentType: _guessMime(filename),
+              ),
+            ),);
+          } else {
+            form.fields.add(MapEntry(entry.key, v.toString()));
+          }
+        }
+        payload = form;
+        options = Options(contentType: 'multipart/form-data');
+      }
       await _dio.post<Map<String, dynamic>>(
         _formsRoot('/adhesion/'),
-        data: body,
+        data: payload,
+        options: options,
       );
       return null;
     } on DioException catch (e) {
@@ -85,6 +118,27 @@ class MembershipDioDataSource {
     }
   }
 }
+
+/// Devine le `MediaType` à partir de l'extension. On reste minimal — Dio /
+/// Django déduisent souvent eux-mêmes.
+MediaType? _guessMime(String filename) {
+  final i = filename.lastIndexOf('.');
+  if (i < 0) return null;
+  switch (filename.substring(i + 1).toLowerCase()) {
+    case 'jpg':
+    case 'jpeg':
+      return MediaType('image', 'jpeg');
+    case 'png':
+      return MediaType('image', 'png');
+    case 'heic':
+      return MediaType('image', 'heic');
+    case 'pdf':
+      return MediaType('application', 'pdf');
+    default:
+      return null;
+  }
+}
+
 
 class MembershipCaptchaChallenge {
   const MembershipCaptchaChallenge({
@@ -158,7 +212,7 @@ FormSchemaField _parseFormSchemaField(Map<String, dynamic> json) {
         .map((o) => FormFieldOption(
               value: (o['value'] as Object?)?.toString() ?? '',
               label: (o['label'] as String?) ?? '',
-            ))
+            ),)
         .toList(growable: false),
     condition: rawCondition == null ? null : _parseCondition(rawCondition),
     isLocked: (json['is_locked'] as bool?) ?? false,

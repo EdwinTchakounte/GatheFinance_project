@@ -75,7 +75,7 @@ class HelpContactPage extends StatelessWidget {
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.arrow_back_rounded,
-                          color: PaColors.inkPrimary),
+                          color: PaColors.inkPrimary,),
                       tooltip: l.common_back,
                     ),
                     Expanded(
@@ -83,7 +83,7 @@ class HelpContactPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(l.help_eyebrow.toUpperCase(),
-                              style: PaText.eyebrow()),
+                              style: PaText.eyebrow(),),
                           const SizedBox(height: 3),
                           Text(l.help_title, style: PaText.heading(size: 22)),
                         ],
@@ -103,7 +103,7 @@ class HelpContactPage extends StatelessWidget {
                     const SizedBox(height: 8),
                     PaCard(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 4),
+                          horizontal: 6, vertical: 4,),
                       child: Column(
                         children: [
                           for (int i = 0; i < faq.length; i++) ...[
@@ -294,12 +294,12 @@ class _FaqTileState extends State<_FaqTile> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(widget.item.icon,
-                        size: 18, color: widget.item.tint),
+                        size: 18, color: widget.item.tint,),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(widget.item.question,
-                        style: PaText.label(size: 14)),
+                        style: PaText.label(size: 14),),
                   ),
                   AnimatedRotation(
                     turns: _open ? 0.5 : 0,
@@ -323,7 +323,7 @@ class _FaqTileState extends State<_FaqTile> {
                         child: Text(
                           widget.item.answer,
                           style: PaText.body(
-                              size: 13, color: PaColors.inkSecondary),
+                              size: 13, color: PaColors.inkSecondary,),
                         ),
                       )
                     : const SizedBox.shrink(),
@@ -379,7 +379,7 @@ class _ContactTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: PaText.eyebrow(color: PaColors.inkMuted)),
+                    style: PaText.eyebrow(color: PaColors.inkMuted),),
                 const SizedBox(height: 3),
                 Text(
                   value,

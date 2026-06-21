@@ -79,7 +79,7 @@ class InstallmentTile extends StatelessWidget {
               children: [
                 Text(
                   l.inst_due_on(
-                      AppDateFormatter.short(installment.dateEcheance)),
+                      AppDateFormatter.short(installment.dateEcheance),),
                   style: AppTypography.labelLarge
                       .copyWith(color: scheme.onSurface),
                 ),

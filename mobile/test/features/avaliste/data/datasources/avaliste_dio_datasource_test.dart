@@ -59,7 +59,7 @@ void main() {
                 _mandatPayload(id: 1, statut: 'pending'),
                 _mandatPayload(id: 2, statut: 'accepted'),
               ],
-            });
+            },);
       final ds = AvalisteDioDataSource(_client(adapter));
 
       final res = await ds.list();
@@ -78,7 +78,7 @@ void main() {
         ..on('/loans/me/avaliste-mandats/',
             method: 'GET',
             status: 200,
-            body: {'pending': 0, 'results': <Map<String, dynamic>>[]});
+            body: {'pending': 0, 'results': <Map<String, dynamic>>[]},);
       final ds = AvalisteDioDataSource(_client(adapter));
 
       await ds.list(statut: AvalisteStatut.accepted);
@@ -88,7 +88,7 @@ void main() {
     test('results vide → liste vide, pendingCount 0', () async {
       final adapter = ScriptedAdapter()
         ..on('/loans/me/avaliste-mandats/',
-            method: 'GET', status: 200, body: {'results': <Map<String, dynamic>>[]});
+            method: 'GET', status: 200, body: {'results': <Map<String, dynamic>>[]},);
       final ds = AvalisteDioDataSource(_client(adapter));
       final res = await ds.list();
       expect(res.items, isEmpty);
@@ -103,7 +103,7 @@ void main() {
         ..on('/loans/me/avaliste-mandats/42/respond/',
             method: 'POST',
             status: 200,
-            body: _mandatPayload(id: 42, statut: 'accepted'));
+            body: _mandatPayload(id: 42, statut: 'accepted'),);
       final ds = AvalisteDioDataSource(_client(adapter));
 
       final r = await ds.respond(mandatId: 42, accept: true);
@@ -121,7 +121,7 @@ void main() {
         ..on('/loans/me/avaliste-mandats/42/respond/',
             method: 'POST',
             status: 200,
-            body: _mandatPayload(id: 42, statut: 'refused'));
+            body: _mandatPayload(id: 42, statut: 'refused'),);
       final ds = AvalisteDioDataSource(_client(adapter));
 
       await ds.respond(

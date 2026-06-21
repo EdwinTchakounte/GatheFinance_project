@@ -20,7 +20,7 @@ void main() {
     final container = tester.widget<Container>(find.descendant(
       of: find.byType(AppPill),
       matching: find.byType(Container),
-    ).first);
+    ).first,);
 
     final decoration = container.decoration as BoxDecoration?;
     expect(decoration?.color, AppColors.emeraldSurface);
@@ -31,7 +31,7 @@ void main() {
       label: 'En retard',
       tone: PillTone.danger,
       icon: Icons.error,
-    ));
+    ),);
     expect(find.byIcon(Icons.error), findsOneWidget);
   });
 }

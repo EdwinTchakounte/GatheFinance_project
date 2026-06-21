@@ -6,12 +6,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
-import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/network/api_config.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
@@ -42,6 +42,25 @@ class CreditPage extends ConsumerWidget {
     final requestsAsync = ref.watch(loanRequestsProvider);
     final l = AppL10n.of(context);
 
+    // §6 / LOT 11 — La Home (carousel campagnes) pousse l'id d'une campagne
+    // sélectionnée via ce StateProvider, puis route ici. Quand l'éligibilité
+    // est résolue, on ouvre automatiquement le sheet de demande avec la
+    // voie campagne pré-sélectionnée et l'id renseigné, puis on reset.
+    ref.listen<int?>(pendingCampaignSelectionProvider, (_, next) {
+      if (next == null) return;
+      final eligibility = ref.read(eligibilityProvider).valueOrNull;
+      if (eligibility == null) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        ref.read(pendingCampaignSelectionProvider.notifier).state = null;
+        LoanRequestSheet.show(
+          context,
+          eligibility,
+          prefillCampaignId: next,
+        );
+      });
+    });
+
     return Scaffold(
       backgroundColor: PaColors.canvas,
       body: PaPatternBackground(
@@ -49,18 +68,9 @@ class CreditPage extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            // ── Header FIXE ──────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l.credit_eyebrow.toUpperCase(), style: PaText.eyebrow()),
-                  const SizedBox(height: 3),
-                  Text(l.credit_title, style: PaText.heading(size: 22)),
-                ],
-              ),
-            ),
+            // ── Header FIXE compact — band gradient soft vert→bleu ──────
+            PaGradientHeaderBand(title: l.credit_title),
+            const SizedBox(height: 12),
             // ── Accès Mandats avaliste (LOT 21) ──────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -116,12 +126,12 @@ class CreditPage extends ConsumerWidget {
               //     côté backend (SENIOR_BRC / AVALISTE / CAMPAGNE). Cette
               //     section les rend visibles au membre avant qu'il ne
               //     soumette une demande, pour qu'il sache laquelle il vise.
-              SliverToBoxAdapter(
+              const SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                  padding: EdgeInsets.fromLTRB(20, 14, 20, 8),
                   child: Text(
                     'Vos voies de crédit',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: PaColors.inkPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -276,13 +286,13 @@ void _showIneligibilityDialog(BuildContext context, List<String> motifs) {
   showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text("Demande de crédit indisponible"),
+      title: const Text('Demande de crédit indisponible'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "Tu ne peux pas demander un nouveau crédit pour le moment :",
+            'Tu ne peux pas demander un nouveau crédit pour le moment :',
             style: TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 12),
@@ -292,7 +302,7 @@ void _showIneligibilityDialog(BuildContext context, List<String> motifs) {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("• ", style: TextStyle(fontWeight: FontWeight.w700)),
+                  const Text('• ', style: TextStyle(fontWeight: FontWeight.w700)),
                   Expanded(child: Text(m, style: const TextStyle(fontSize: 13.5))),
                 ],
               ),
@@ -406,7 +416,7 @@ class _LoanCard extends StatelessWidget {
               child: Row(
                 children: [
                   const Icon(Icons.bolt_rounded,
-                      size: 14, color: PaColors.success),
+                      size: 14, color: PaColors.success,),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -451,7 +461,7 @@ class _LoanCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             l.credit_repaid_pct(
-                (progression * 100).clamp(0, 100).toStringAsFixed(0)),
+                (progression * 100).clamp(0, 100).toStringAsFixed(0),),
             style: const TextStyle(color: PaColors.inkMuted, fontSize: 12),
           ),
 
@@ -514,7 +524,7 @@ class _LoanCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Icon(Icons.gavel_rounded,
-                      color: PaColors.danger, size: 18),
+                      color: PaColors.danger, size: 18,),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -665,7 +675,7 @@ class _RequestCard extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.picture_as_pdf_rounded,
-                      size: 16, color: PaColors.teal),
+                      size: 16, color: PaColors.teal,),
                   const SizedBox(width: 6),
                   Text(
                     'Télécharger ma note PDF',
@@ -830,7 +840,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                   style: TextStyle(
                       color: PaColors.inkSecondary,
                       fontSize: 13,
-                      fontWeight: FontWeight.w600)),
+                      fontWeight: FontWeight.w600,),),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -856,7 +866,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                   style: TextStyle(
                       color: PaColors.inkSecondary,
                       fontSize: 13,
-                      fontWeight: FontWeight.w600)),
+                      fontWeight: FontWeight.w600,),),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _phoneCtrl,
@@ -886,7 +896,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                              strokeWidth: 2, color: Colors.white,),
                         )
                       : const Text(
                           'Payer maintenant',
@@ -1007,7 +1017,7 @@ class _EmptyState extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.arrow_downward_rounded,
-                    color: PaColors.teal, size: 14),
+                    color: PaColors.teal, size: 14,),
                 const SizedBox(width: 4),
                 Text(
                   l.credit_empty_hint,

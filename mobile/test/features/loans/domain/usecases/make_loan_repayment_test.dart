@@ -24,9 +24,9 @@ void main() {
         montant: 50,
         phone: '699112233',
         network: 'MTN',
-      )),
+      ),),
       throwsA(isA<ValidationFailure>()
-          .having((f) => f.field, 'field', 'montant')),
+          .having((f) => f.field, 'field', 'montant'),),
     );
     verifyZeroInteractions(repo);
   });
@@ -38,14 +38,14 @@ void main() {
           montant: 46667,
           phone: '699112233',
           network: 'MTN',
-        )).thenAnswer((_) async => updated);
+        ),).thenAnswer((_) async => updated);
 
     final result = await useCase.call(const MakeLoanRepaymentParams(
       loanId: 1,
       montant: 46667,
       phone: '699112233',
       network: 'MTN',
-    ));
+    ),);
 
     expect(result.soldeRestant, 373333);
   });

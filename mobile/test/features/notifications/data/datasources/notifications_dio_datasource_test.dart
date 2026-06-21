@@ -62,7 +62,7 @@ void main() {
                 'created_at': '2026-05-28T08:00:00Z',
               },
             ],
-          });
+          },);
     final ds = NotificationsDioDataSource(_client(adapter));
     final list = await ds.list();
     expect(list, hasLength(5));
@@ -124,7 +124,7 @@ void main() {
                 'created_at': '2026-06-07T10:01:00Z',
               },
             ],
-          });
+          },);
     final ds = NotificationsDioDataSource(_client(adapter));
     final list = await ds.list();
     expect(list[0].title, 'Fermeture exceptionnelle');
@@ -153,7 +153,7 @@ void main() {
                 'created_at': '2026-06-01T10:00:00Z',
               },
             ],
-          });
+          },);
     final ds = NotificationsDioDataSource(_client(adapter));
     final list = await ds.list();
     expect(list.first.title, 'Payment Confirmed');

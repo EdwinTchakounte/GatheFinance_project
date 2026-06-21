@@ -73,7 +73,7 @@ void main() {
         ..on('/auth/login/',
             method: 'POST',
             status: 401,
-            body: {'detail': 'Identifiants invalides.'});
+            body: {'detail': 'Identifiants invalides.'},);
       final ds = AuthDioDataSource(_client(adapter));
 
       expect(
@@ -102,7 +102,7 @@ void main() {
     test('401 → null (non connecté, pas une erreur)', () async {
       final adapter = ScriptedAdapter()
         ..on('/auth/me/',
-            method: 'GET', status: 401, body: {'detail': 'Non authentifié'});
+            method: 'GET', status: 401, body: {'detail': 'Non authentifié'},);
       final ds = AuthDioDataSource(_client(adapter));
       expect(await ds.currentMember(), isNull);
     });
@@ -136,7 +136,7 @@ void main() {
         ..on('/auth/change-password/',
             method: 'POST',
             status: 400,
-            body: {'detail': 'Mot de passe actuel incorrect.'});
+            body: {'detail': 'Mot de passe actuel incorrect.'},);
       final ds = AuthDioDataSource(_client(adapter));
       final res = await ds.changePassword(
         oldPassword: 'wrong',

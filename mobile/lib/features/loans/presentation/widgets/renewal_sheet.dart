@@ -123,7 +123,7 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
           const SizedBox(height: 4),
           Text(
             l.ren_subtitle(widget.loan.numeroDossier,
-                XAFFormatter.format(widget.loan.soldeRestant)),
+                XAFFormatter.format(widget.loan.soldeRestant),),
             style: AppTypography.bodySmall.copyWith(
               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
               height: 1.45,
@@ -136,7 +136,7 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
           Row(
             children: [
               const Icon(Icons.event_repeat_rounded,
-                  size: 18, color: PaColors.teal),
+                  size: 18, color: PaColors.teal,),
               const SizedBox(width: 10),
               Text(
                 l.ren_extra_month,
@@ -182,7 +182,7 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Icon(Icons.info_outline_rounded,
-                    size: 18, color: PaColors.teal),
+                    size: 18, color: PaColors.teal,),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -218,7 +218,7 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
           const BrandLoader(size: BrandLoaderSize.large),
           const SizedBox(height: 24),
           Text(AppL10n.of(context).lreq_sending,
-              style: AppTypography.headingSmall),
+              style: AppTypography.headingSmall,),
         ],
       ),
     );
@@ -244,7 +244,7 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
               ),
               alignment: Alignment.center,
               child: const Icon(Icons.check_rounded,
-                  color: PaColors.success, size: 38),
+                  color: PaColors.success, size: 38,),
             ),
           ),
           const SizedBox(height: 18),
@@ -388,19 +388,19 @@ class _RecapBlock extends StatelessWidget {
       child: Column(
         children: [
           _row(context, l.ren_recap_interest,
-              XAFFormatter.format(interets), strong: false),
+              XAFFormatter.format(interets), strong: false,),
           const SizedBox(height: 10),
           Divider(height: 1, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 10),
           _row(context, l.ren_recap_total,
-              XAFFormatter.format(nouveauTotal), strong: true),
+              XAFFormatter.format(nouveauTotal), strong: true,),
         ],
       ),
     );
   }
 
   Widget _row(BuildContext context, String label, String value,
-      {required bool strong}) {
+      {required bool strong,}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

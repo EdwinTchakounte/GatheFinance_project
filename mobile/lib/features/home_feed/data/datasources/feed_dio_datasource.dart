@@ -50,7 +50,7 @@ class FeedDioDataSource {
     int offset = 0,
   }) async {
     try {
-      final url = '${ApiConfig.baseUrl}/api/v2/pages/';
+      const url = '${ApiConfig.baseUrl}/api/v2/pages/';
       final res = await _dio.get<Map<String, dynamic>>(
         url,
         queryParameters: {
@@ -87,6 +87,7 @@ class FeedDioDataSource {
       id: (json['id'] as num?)?.toInt() ?? 0,
       nom: (json['nom'] as String?) ?? '',
       profilCible: (json['profil_cible'] as String?) ?? '',
+      montantMin: num.tryParse('${json['montant_min']}') ?? 0,
       montantMax: num.tryParse('${json['montant_max']}') ?? 0,
       tauxInteret: num.tryParse('${json['taux_interet']}') ?? 0,
       dateFin: DateTime.tryParse((json['date_fin'] as String?) ?? '') ??

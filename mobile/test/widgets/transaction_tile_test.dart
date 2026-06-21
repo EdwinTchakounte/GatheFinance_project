@@ -11,7 +11,7 @@ void main() {
       localizationsDelegates: AppL10n.localizationsDelegates,
       supportedLocales: AppL10n.supportedLocales,
       home: Scaffold(body: child),
-    ));
+    ),);
   }
 
   testWidgets('TransactionTile — dépôt : libellé + signe + (positif)',

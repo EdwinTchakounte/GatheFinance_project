@@ -162,4 +162,4 @@ class EligibilityNotifier extends AsyncNotifier<Eligibility> {
 
 final eligibilityProvider =
     AsyncNotifierProvider<EligibilityNotifier, Eligibility>(
-        EligibilityNotifier.new);
+        EligibilityNotifier.new,);

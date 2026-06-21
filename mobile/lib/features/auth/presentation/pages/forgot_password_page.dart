@@ -163,7 +163,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             ),
             alignment: Alignment.center,
             child: const Icon(Icons.lock_reset_rounded,
-                color: PaColors.teal, size: 32),
+                color: PaColors.teal, size: 32,),
           ),
           const SizedBox(height: 22),
           const Text(
@@ -189,7 +189,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                   color: PaColors.inkSecondary,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2)),
+                  letterSpacing: 1.2,),),
           const SizedBox(height: 8),
           TextFormField(
             controller: _emailCtrl,
@@ -211,7 +211,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                 style: const TextStyle(
                     color: PaColors.danger,
                     fontSize: 13,
-                    fontWeight: FontWeight.w600)),
+                    fontWeight: FontWeight.w600,),),
           ],
           const SizedBox(height: 24),
           PaButton(
@@ -238,7 +238,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             ),
             alignment: Alignment.center,
             child: const Icon(Icons.mark_email_unread_outlined,
-                color: PaColors.teal, size: 30),
+                color: PaColors.teal, size: 30,),
           ),
           const SizedBox(height: 22),
           const Text(
@@ -264,7 +264,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                   color: PaColors.inkSecondary,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2)),
+                  letterSpacing: 1.2,),),
           const SizedBox(height: 8),
           TextFormField(
             controller: _codeCtrl,
@@ -293,7 +293,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                   color: PaColors.inkSecondary,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2)),
+                  letterSpacing: 1.2,),),
           const SizedBox(height: 8),
           TextFormField(
             controller: _pwCtrl,
@@ -324,7 +324,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                 style: const TextStyle(
                     color: PaColors.danger,
                     fontSize: 13,
-                    fontWeight: FontWeight.w600)),
+                    fontWeight: FontWeight.w600,),),
           ],
           const SizedBox(height: 22),
           PaButton(
@@ -346,7 +346,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                   },
             child: const Text('Renvoyer un code',
                 style: TextStyle(
-                    color: PaColors.teal, fontWeight: FontWeight.w700)),
+                    color: PaColors.teal, fontWeight: FontWeight.w700,),),
           ),
         ],
       ),
@@ -367,7 +367,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             ),
             alignment: Alignment.center,
             child: const Icon(Icons.check_rounded,
-                color: PaColors.success, size: 42),
+                color: PaColors.success, size: 42,),
           ),
           const SizedBox(height: 22),
           const Text(

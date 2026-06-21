@@ -25,7 +25,7 @@ void main() {
     when(() => remote.order(
           phone: any(named: 'phone'),
           network: any(named: 'network'),
-        )).thenThrow(const ServerException('Bad', 422));
+        ),).thenThrow(const ServerException('Bad', 422));
     expect(
       () => repo.order(phone: '699112233', network: 'MTN'),
       throwsA(isA<BusinessFailure>()),

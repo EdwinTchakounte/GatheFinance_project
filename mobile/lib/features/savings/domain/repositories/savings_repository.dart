@@ -1,11 +1,12 @@
 import '../entities/savings_account.dart';
+import '../entities/withdrawal_request.dart';
 
 abstract class SavingsRepository {
   /// Snapshot du compte d'épargne du membre courant (solde + N dernières opérations).
   Future<SavingsAccount> fetchMine();
 
   /// Lance un dépôt — renvoie la version du compte une fois le hook métier
-  /// appliqué côté backend. En mock : un dépôt validé synchroniquement.
+  /// appliqué côté backend.
   ///
   /// `phone` / `network` sont les coordonnées Mobile Money. `BusinessFailure`
   /// si le montant viole une règle (< 100 XAF, etc.).
@@ -21,4 +22,19 @@ abstract class SavingsRepository {
     // LOT 6 — Multi-jours pré-payé (cotisation uniquement, max 30 j.).
     int nbJoursCouverts = 1,
   });
+
+  /// Demande un retrait depuis le compte cotisation. Le solde est débité
+  /// atomiquement côté backend ; la demande passe en attente de validation
+  /// admin. Lance `BusinessFailure` si montant > solde ou si une demande est
+  /// déjà en attente.
+  Future<WithdrawalRequest> requestWithdrawal({
+    required num amount,
+    required String motif,
+    required WithdrawalChannel channel,
+    String recipientPhone = '',
+    MomoNetwork? network,
+  });
+
+  /// Liste des demandes de retrait du membre (les plus récentes d'abord).
+  Future<List<WithdrawalRequest>> listMyWithdrawals();
 }

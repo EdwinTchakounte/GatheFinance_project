@@ -3,18 +3,26 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/theme/app_radii.dart';
-import '../../../../app/theme/app_spacing.dart';
-import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
-import '../../../../core/widgets/eyebrow.dart';
-import '../../../../core/widgets/logo_mark.dart';
-import '../../../../core/widgets/paysika/pa_button.dart';
+import '../../../../app/theme/paysika/pa_typography.dart';
+import '../../../../core/widgets/paysika/pa_brand_hero.dart';
+import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../state/auth_notifier.dart';
 import '../widgets/membership_form_sheet.dart';
 import '../widgets/member_info_sheet.dart';
 
+/// Page de connexion — refonte **stricte** d'après `capture_rh.jpeg`
+/// (2026-06-18 itération 3, ref user) :
+///
+/// - **Hero bleu gradient** pleine largeur + coins bas arrondis (vague).
+/// - Cercle blanc contenant le logo Gathe, centré dans le hero.
+/// - Titre + baseline en blanc.
+/// - **Zone crème doodle** dessous avec : titre "Connexion à votre espace"
+///   + sub + card blanche aérée (labels w600 + inputs).
+/// - **CTA bleu gradient** avec icône flèche et "Se connecter".
+/// - 2 pills sous le CTA : "Mot de passe oublié" + "Devenir membre".
+/// - Footer faint "Gathe Finance · coopérative".
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -42,8 +50,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           email: _emailCtrl.text.trim(),
           password: _passCtrl.text,
         );
-    // Le redirect du router peut disposer cette page pendant l'await :
-    // on vérifie `mounted` AVANT de retoucher `ref`.
     if (!mounted) return;
     final state = ref.read(authProvider);
     state.whenOrNull(
@@ -58,240 +64,288 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final auth = ref.watch(authProvider);
     final loading = auth.isLoading;
     final l = AppL10n.of(context);
-    final scheme = Theme.of(context).colorScheme;
 
-    // Affiche un SnackBar discret en cas d'erreur
     ref.listen<AsyncValue<dynamic>>(authProvider, (prev, next) {
       next.whenOrNull(
         error: (err, _) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(err.toString())),
+            SnackBar(
+              content: Text(err.toString()),
+              backgroundColor: PaColors.danger,
+            ),
           );
         },
       );
     });
 
-    return Scaffold(
-      backgroundColor: PaColors.appBg,
-      body: ColoredBox(
-        color: PaColors.appBg,
-        child: SafeArea(
-          child: GestureDetector(
-            onTap: () => FocusScope.of(context).unfocus(),
-            behavior: HitTestBehavior.opaque,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenH,
-                AppSpacing.l,
-                AppSpacing.screenH,
-                AppSpacing.xxxl,
-              ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header avec logo
-                    Row(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: PaColors.canvas,
+      body: PaPatternBackground(
+        patternOpacity: 0.34,
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          behavior: HitTestBehavior.opaque,
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── Hero aurore + logo pont qui chevauche la frontière ──
+                  Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.bottomCenter,
+                    children: [
+                      PaBrandHero(
+                        contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 64),
+                        child: _HeroContent(title: l.appTitle, baseline: l.login_subtitle),
+                      ),
+                      const Positioned(
+                        bottom: -42,
+                        child: PaBrandHeroBridgeLogo(size: 84),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 60),
+
+                  // ── Titre "Connexion à votre espace" ─────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const LogoBadge(size: LogoSize.medium),
-                        const SizedBox(width: AppSpacing.m),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Eyebrow(l.home_eyebrow),
-                            const SizedBox(height: 2),
-                            Text(
-                              l.appTitle,
-                              style: AppTypography.headingSmall
-                                  .copyWith(color: scheme.onSurface),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: AppSpacing.huge),
-
-                    // Title
-                    Text(
-                      l.login_title,
-                      style: AppTypography.displayLarge
-                          .copyWith(color: scheme.onSurface),
-                    ),
-                    const SizedBox(height: AppSpacing.s),
-                    Text(
-                      l.login_subtitle,
-                      style: AppTypography.bodyLarge.copyWith(
-                        color: scheme.onSurface.withValues(alpha: 0.7),
-                        height: 1.45,
-                      ),
-                    ),
-
-                    const SizedBox(height: AppSpacing.xxxl),
-
-                    // Email
-                    _Field(
-                      controller: _emailCtrl,
-                      label: l.login_email_label,
-                      hint: l.login_email_hint,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      icon: Icons.mail_outline_rounded,
-                      enabled: !loading,
-                      validator: (v) {
-                        final t = (v ?? '').trim();
-                        if (t.isEmpty) return l.login_email_required;
-                        if (!t.contains('@')) return l.login_email_invalid;
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.m),
-
-                    // Password
-                    _Field(
-                      controller: _passCtrl,
-                      label: l.login_password_label,
-                      hint: '•••••••••',
-                      icon: Icons.lock_outline_rounded,
-                      obscureText: _obscure,
-                      autofillHints: const [AutofillHints.password],
-                      enabled: !loading,
-                      onSubmitted: (_) => _submit(),
-                      trailing: IconButton(
-                        tooltip: _obscure
-                            ? l.login_show_password
-                            : l.login_hide_password,
-                        icon: Icon(
-                          _obscure
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          color: scheme.onSurface.withValues(alpha: 0.5),
-                          size: 20,
-                        ),
-                        onPressed: () => setState(() => _obscure = !_obscure),
-                      ),
-                      validator: (v) {
-                        if ((v ?? '').isEmpty) return l.login_password_required;
-                        return null;
-                      },
-                    ),
-
-                    // Mot de passe oublié
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: loading
-                            ? null
-                            : () => context.push('/auth/forgot-password'),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(l.login_forgot_password),
-                      ),
-                    ),
-
-                    const SizedBox(height: AppSpacing.xl),
-
-                    // CTA principal
-                    PaButton(
-                      label: l.login_submit,
-                      loading: loading,
-                      onPressed: loading ? null : _submit,
-                    ),
-
-                    const SizedBox(height: AppSpacing.l),
-
-                    // Divider with text
-                    Row(
-                      children: [
-                        Expanded(child: Divider(color: scheme.outline)),
-                        const SizedBox(width: AppSpacing.s),
                         Text(
-                          l.common_or,
-                          style: TextStyle(
-                            color: scheme.onSurface.withValues(alpha: 0.5),
-                            fontSize: 12,
-                            letterSpacing: 1.5,
+                          l.login_title,
+                          style: PaText.display(
+                            size: 23,
+                            weight: FontWeight.w700,
+                            color: PaColors.inkPrimary,
+                            letterSpacing: -0.4,
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.s),
-                        Expanded(child: Divider(color: scheme.outline)),
+                        const SizedBox(height: 6),
+                        Text(
+                          l.login_sub_under_title,
+                          style: PaText.body(
+                            size: 13.5,
+                            color: PaColors.inkSecondary,
+                            height: 1.4,
+                          ),
+                        ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 18),
 
-                    const SizedBox(height: AppSpacing.l),
-
-                    // Secondary CTA — ouvre la modale d'explication + flow
-                    PaButton(
-                      label: l.login_become_member,
-                      variant: PaButtonVariant.outline,
-                      onPressed: loading
-                          ? null
-                          : () => MemberInfoSheet.show(
-                                context,
-                                onJoin: () =>
-                                    MembershipFormSheet.show(context),
-                              ),
-                    ),
-
-                    const SizedBox(height: AppSpacing.xxl),
-
-                    // Tip — fond cobalt soft, dark-aware
-                    Container(
-                      padding: const EdgeInsets.all(AppSpacing.l),
+                  // ── Card blanche avec form ──────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(18, 22, 18, 22),
                       decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHighest,
-                        borderRadius: AppRadii.card,
-                        border: Border.all(
-                          color: scheme.primary.withValues(alpha: 0.10),
-                        ),
+                        color: PaColors.paper,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
-                      child: Row(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.shield_outlined,
-                            size: 18,
-                            color: scheme.primary,
+                          _Label(l.login_email_label),
+                          const SizedBox(height: 8),
+                          _BoxField(
+                            controller: _emailCtrl,
+                            hint: l.login_email_hint,
+                            icon: Icons.person_outline_rounded,
+                            keyboardType: TextInputType.emailAddress,
+                            autofillHints: const [AutofillHints.email],
+                            enabled: !loading,
+                            validator: (v) {
+                              final t = (v ?? '').trim();
+                              if (t.isEmpty) return l.login_email_required;
+                              if (!t.contains('@')) return l.login_email_invalid;
+                              return null;
+                            },
                           ),
-                          const SizedBox(width: AppSpacing.s),
-                          Expanded(
-                            child: Text(
-                              l.login_security_tip,
-                              style: AppTypography.bodySmall.copyWith(
-                                color: scheme.onSurface
-                                    .withValues(alpha: 0.85),
-                                height: 1.5,
+                          const SizedBox(height: 16),
+                          _Label(l.login_password_label),
+                          const SizedBox(height: 8),
+                          _BoxField(
+                            controller: _passCtrl,
+                            hint: '•••••••••',
+                            icon: Icons.lock_outline_rounded,
+                            obscureText: _obscure,
+                            autofillHints: const [AutofillHints.password],
+                            enabled: !loading,
+                            onSubmitted: (_) => _submit(),
+                            trailing: IconButton(
+                              tooltip: _obscure
+                                  ? l.login_show_password
+                                  : l.login_hide_password,
+                              icon: Icon(
+                                _obscure
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                color: PaColors.inkMuted,
+                                size: 19,
                               ),
+                              onPressed: () =>
+                                  setState(() => _obscure = !_obscure),
                             ),
+                            validator: (v) {
+                              if ((v ?? '').isEmpty) {
+                                return l.login_password_required;
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 22),
+                          // ── CTA bleu gradient pleine largeur ──
+                          _BlueCta(
+                            label: l.login_submit,
+                            loading: loading,
+                            onPressed: loading ? null : _submit,
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // ── 2 pills sous le CTA — Row + Expanded sur 1 ligne ──
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _Pill(
+                            icon: Icons.lock_reset_outlined,
+                            label: l.login_forgot_password,
+                            onTap: loading
+                                ? null
+                                : () => context.push('/auth/forgot-password'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _Pill(
+                            icon: Icons.person_add_alt_1_outlined,
+                            label: l.login_become_member,
+                            onTap: loading
+                                ? null
+                                : () => MemberInfoSheet.show(
+                                      context,
+                                      onJoin: () =>
+                                          MembershipFormSheet.show(context),
+                                    ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  // ── Footer faint ───────────────────────────────────────
+                  Center(
+                    child: Text(
+                      'Gathe Finance · coopérative',
+                      style: PaText.body(
+                        size: 11.5,
+                        color: PaColors.inkMuted,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
           ),
         ),
+      ),
       ),
     );
   }
 }
 
 
-/// Champ de saisie standardisé pour le login — icône à gauche, label flottant,
-/// trailing optionnel (toggle visibility du password).
-class _Field extends StatelessWidget {
-  const _Field({
+/// Contenu posé dans le hero — juste titre + baseline. Le logo est posé
+/// en chevauchement via PaBrandHeroBridgeLogo, en dehors de ce widget.
+class _HeroContent extends StatelessWidget {
+  const _HeroContent({required this.title, required this.baseline});
+  final String title;
+  final String baseline;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 14),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: PaText.display(
+            size: 28,
+            weight: FontWeight.w700,
+            color: Colors.white,
+            letterSpacing: -0.4,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          baseline,
+          textAlign: TextAlign.center,
+          style: PaText.body(
+            size: 13.5,
+            color: Colors.white70,
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+class _Label extends StatelessWidget {
+  const _Label(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: PaText.label(
+        size: 13.5,
+        weight: FontWeight.w700,
+        color: PaColors.inkPrimary,
+      ),
+    );
+  }
+}
+
+
+/// Input boxé : icône à gauche, hint gris, fond paper, bordure subtile,
+/// focus border bleu. Hauteur 52, radius 12.
+class _BoxField extends StatefulWidget {
+  const _BoxField({
     required this.controller,
-    required this.label,
+    required this.hint,
     required this.icon,
-    this.hint,
     this.keyboardType,
     this.obscureText = false,
     this.trailing,
@@ -302,8 +356,7 @@ class _Field extends StatelessWidget {
   });
 
   final TextEditingController controller;
-  final String label;
-  final String? hint;
+  final String hint;
   final IconData icon;
   final TextInputType? keyboardType;
   final bool obscureText;
@@ -314,30 +367,209 @@ class _Field extends StatelessWidget {
   final bool enabled;
 
   @override
+  State<_BoxField> createState() => _BoxFieldState();
+}
+
+class _BoxFieldState extends State<_BoxField> {
+  final _focus = FocusNode();
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (_focus.hasFocus != _focused) {
+        setState(() => _focused = _focus.hasFocus);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      obscureText: obscureText,
-      enabled: enabled,
-      autofillHints: autofillHints,
-      onFieldSubmitted: onSubmitted,
-      validator: validator,
-      style: AppTypography.bodyLarge.copyWith(color: scheme.onSurface),
+      controller: widget.controller,
+      focusNode: _focus,
+      keyboardType: widget.keyboardType,
+      obscureText: widget.obscureText,
+      enabled: widget.enabled,
+      autofillHints: widget.autofillHints,
+      onFieldSubmitted: widget.onSubmitted,
+      validator: widget.validator,
+      style: PaText.body(
+        size: 15,
+        color: PaColors.inkPrimary,
+        weight: FontWeight.w500,
+      ),
       decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
+        isDense: true,
+        filled: true,
+        fillColor: PaColors.paper,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+        hintText: widget.hint,
+        hintStyle: PaText.body(size: 14, color: PaColors.inkMuted),
         prefixIcon: Padding(
-          padding: const EdgeInsets.only(left: 14, right: 8),
-          child: Icon(
-            icon,
-            size: 20,
-            color: scheme.onSurface.withValues(alpha: 0.65),
+          padding: const EdgeInsets.only(left: 16, right: 10),
+          child: Icon(widget.icon, size: 20, color: PaColors.inkSecondary),
+        ),
+        prefixIconConstraints:
+            const BoxConstraints(minWidth: 0, minHeight: 0),
+        suffixIcon: widget.trailing,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: PaColors.line, width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: PaColors.line, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: PaColors.blue, width: 1.4),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: PaColors.danger, width: 1),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: PaColors.danger, width: 1.4),
+        ),
+        errorStyle: PaText.body(size: 11.5, color: PaColors.danger),
+      ),
+    );
+  }
+}
+
+
+/// CTA bleu gradient pleine largeur avec icône flèche + label blanc.
+class _BlueCta extends StatelessWidget {
+  const _BlueCta({
+    required this.label,
+    required this.onPressed,
+    this.loading = false,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onPressed == null || loading;
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: disabled ? null : onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: disabled
+                    ? [PaColors.line, PaColors.line]
+                    : const [PaColors.blue, PaColors.navy],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: loading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.login_rounded,
+                          color: Colors.white,
+                          size: 19,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          label,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
         ),
-        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        suffixIcon: trailing,
+      ),
+    );
+  }
+}
+
+
+/// Pill compacte fond paper bordure hairline, icône bleu + label.
+class _Pill extends StatelessWidget {
+  const _Pill({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onTap == null;
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          decoration: BoxDecoration(
+            color: PaColors.paper,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: PaColors.line, width: 1),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: disabled ? PaColors.inkMuted : PaColors.blue,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: disabled ? PaColors.inkMuted : PaColors.inkPrimary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
