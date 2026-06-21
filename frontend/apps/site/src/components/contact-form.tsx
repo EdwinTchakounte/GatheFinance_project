@@ -6,8 +6,35 @@ import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 import { Button, cn } from "@gathe/ui";
 
+import {
+  DynamicFields,
+  validateDynamicFields,
+  type FormSchemaPayload,
+  type FormValues,
+} from "./form-renderer";
+
 type Endpoint = "contact" | "adhesion";
 type Status = "idle" | "submitting" | "success" | "error";
+
+// CH-4 — Champs adhésion câblés en dur dans ce formulaire vitrine. Tous les
+// autres champs du schéma `adhesion` actif sont rendus par <DynamicFields>.
+const HARDCODED_ADHESION_FIELDS = new Set([
+  "name", "email", "phone", "whatsapp", "city", "quartier_localite",
+  "statut_pro", "urgence_nom", "urgence_lien", "urgence_phone",
+  "message", "language",
+]);
+
+// Type local du schéma renvoyé par GET /api/v1/forms/schemas/adhesion/active/.
+// Le proxy Next côté vitrine relaie l'appel ; on ne charge le schéma que
+// pour l'endpoint "adhesion".
+type LoadedSchema = {
+  id: number;
+  kind: string;
+  version: number;
+  title: string;
+  description: string;
+  schema: { sections: Array<Record<string, unknown>> };
+};
 
 const inputCls =
   "block w-full rounded-[var(--radius-md)] border border-line-200 bg-surface-50 px-3.5 py-2.5 text-[0.9375rem] text-ink-900 " +
@@ -22,6 +49,10 @@ export function ContactForm({ endpoint, submitLabel }: { endpoint: Endpoint; sub
   const [status, setStatus] = useState<Status>("idle");
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const isAdhesion = endpoint === "adhesion";
+  // CH-4 — Schéma + valeurs des champs ajoutés via FormSchema 'adhesion'.
+  const [adhesionSchema, setAdhesionSchema] = useState<LoadedSchema | null>(null);
+  const [extraValues, setExtraValues] = useState<FormValues>({});
+  const [extraErrors, setExtraErrors] = useState<Record<string, string>>({});
 
   const loadChallenge = useCallback(async () => {
     try {
@@ -35,6 +66,26 @@ export function ContactForm({ endpoint, submitLabel }: { endpoint: Endpoint; sub
   useEffect(() => {
     void loadChallenge();
   }, [loadChallenge]);
+
+  // CH-4 — Charge le schéma actif d'adhésion (silencieux si indisponible).
+  useEffect(() => {
+    if (!isAdhesion) return;
+    let cancelled = false;
+    async function loadSchema() {
+      try {
+        const res = await fetch("/api/forms/schema/adhesion", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as LoadedSchema;
+        if (!cancelled) setAdhesionSchema(data);
+      } catch {
+        /* schéma optionnel — mode legacy */
+      }
+    }
+    void loadSchema();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdhesion]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -54,6 +105,20 @@ export function ContactForm({ endpoint, submitLabel }: { endpoint: Endpoint; sub
     }
     setErrors(nextErrors);
     if (Object.values(nextErrors).some(Boolean)) return;
+
+    // CH-4 — Valide les champs supplémentaires côté client.
+    if (isAdhesion && adhesionSchema) {
+      const errs = validateDynamicFields(
+        adhesionSchema as FormSchemaPayload,
+        extraValues,
+        HARDCODED_ADHESION_FIELDS,
+      );
+      if (Object.keys(errs).length > 0) {
+        setExtraErrors(errs);
+        return;
+      }
+      setExtraErrors({});
+    }
 
     setStatus("submitting");
     try {
@@ -81,11 +146,16 @@ export function ContactForm({ endpoint, submitLabel }: { endpoint: Endpoint; sub
           captcha_token: challenge?.token ?? "",
           captcha_answer: get("captcha_answer"),
           ...adhesionExtras,
+          // CH-4 — Champs ajoutés via FormSchema actif — routés vers
+          // MembershipRequest.extra_payload côté backend (apply_form_schema).
+          ...(isAdhesion ? extraValues : {}),
         }),
       });
       if (res.ok) {
         setStatus("success");
         form.reset();
+        setExtraValues({});
+        setExtraErrors({});
         void loadChallenge();
       } else {
         let serverErrors: Record<string, unknown> = {};
@@ -280,6 +350,19 @@ export function ContactForm({ endpoint, submitLabel }: { endpoint: Endpoint; sub
             </div>
           </fieldset>
         </>
+      ) : null}
+
+      {/* CH-4 — Section générée depuis le FormSchema actif d'adhésion. */}
+      {isAdhesion && adhesionSchema ? (
+        <div className="space-y-5">
+          <DynamicFields
+            schema={adhesionSchema as FormSchemaPayload}
+            values={extraValues}
+            onChange={setExtraValues}
+            excludeFieldIds={HARDCODED_ADHESION_FIELDS}
+            errors={extraErrors}
+          />
+        </div>
       ) : null}
 
       <div>
