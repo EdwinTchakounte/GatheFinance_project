@@ -1,0 +1,42 @@
+# Configuration ruff pour le backend Gathe Finance.
+#
+# Strategie : activer les checks "correctness" et "imports", laisser les
+# checks purement stylistiques en informatif (pas bloquant en CI).
+#
+# Cette config sera durcie progressivement dans un sprint cleanup dedie
+# (cf. task de suivi). Le code historique a beaucoup de :
+#   - unused locals dans les tests (factory_boy patterns "create + ignore")
+#   - forward references "Decimal" / "datetime | None" en annotations
+#   - imports lazy a l'interieur de fonctions pour eviter les cycles
+
+target-version = "py312"
+line-length = 120
+
+[lint]
+# `E` (pycodestyle errors) + `F` (Pyflakes) + `W` (warnings) = baseline saine.
+# `I` (isort) viendra dans un 2e temps avec un sweep d'auto-fix.
+select = ["E", "F", "W"]
+
+ignore = [
+    # E402 : module-level import out of order. Justification : on a beaucoup
+    # de "from django.conf import settings ; settings.configure(...)" qui doit
+    # tourner avant les imports Django subsequents.
+    "E402",
+    # E501 : ligne trop longue. line-length=120 est deja permissif ; quelques
+    # chaines URL/docstring depassent encore et c'est tolere.
+    "E501",
+    # E741 : variable name 'l'. Une occurrence legacy dans un test.
+    "E741",
+    # F401 : unused imports. Souvent volontaire (re-exports __init__.py).
+    "F401",
+    # F841 : unused locals. Frequent dans les tests qui creent des objets
+    # pour effet de bord (factory_boy) sans s'en servir directement apres.
+    "F841",
+    # F821 : undefined name. Faux positifs sur les forward references string
+    # ("Decimal", "datetime | None") et les imports lazy intra-fonction.
+    "F821",
+]
+
+[lint.per-file-ignores]
+# Les migrations Django sont auto-generees, on ne les lint pas.
+"*/migrations/*.py" = ["E", "F", "W"]
