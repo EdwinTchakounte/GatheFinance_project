@@ -15,7 +15,7 @@ from apps_coop.audit.services import client_ip, record as record_audit
 
 from . import services
 from .models import BRCDocument, Member, MembershipRequest
-from .permissions import IsAdmin, IsMember, IsStaff
+from .permissions import IsActiveMember, IsAdmin, IsMember, IsStaff
 from .serializers import (
     BRCDocumentAdminReadSerializer,
     BRCDocumentReadSerializer,
@@ -105,6 +105,65 @@ def booklet_orders_me(request):
 
     qs = BookletOrder.objects.filter(member=request.user.member).order_by("-created_at")
     return Response({"results": BookletOrderReadSerializer(qs, many=True).data})
+
+
+@extend_schema(
+    tags=["members"],
+    summary="Recherche d'avalistes éligibles (typeahead)",
+    description=(
+        "Renvoie jusqu'à 10 membres ACTIFS + SENIORS qui matchent `q` "
+        "(préfixe sur `numero_membre` OU sous-chaîne casefold sur `nom`). "
+        "Exclut le membre courant (ne peut pas être son propre garant). "
+        "Utilisé par le sheet mobile de demande de crédit (§7.2) pour "
+        "remplacer la saisie texte libre du numéro/nom avaliste par un "
+        "picker. La cap solde (memory note avaliste-cap-solde) sera "
+        "renseignée par un autre lot — le solde brut n'est pas exposé ici."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsActiveMember])
+def search_eligible_avalistes(request):
+    """Typeahead — préfix `q` ≥ 2 chars, autrement liste vide."""
+    from django.db.models import Q
+
+    me = request.user.member
+    q = (request.GET.get("q") or "").strip()
+    if len(q) < 2:
+        return Response({"results": []})
+
+    base = Member.objects.exclude(pk=me.pk).filter(statut=Member.Statut.ACTIF)
+    qs = base.filter(Q(numero_membre__icontains=q) | Q(nom__icontains=q))[:30]
+
+    # `is_senior` est un computed @property en Python — on filtre côté
+    # appli plutôt qu'en SQL pour rester aligné sur le seuil configurable
+    # (cf. apps_coop.members.models.Member.is_senior).
+    #
+    # Memory note `avaliste-cap-solde` : on expose la capacité de caution
+    # disponible (solde cumulé − cautions déjà engagées) pour que le mobile
+    # affiche un hint sous chaque candidat et désactive ceux qui n'ont plus
+    # de marge.
+    from apps_coop.loans.avaliste_services import member_caution_capacity
+
+    results = []
+    for m in qs:
+        if not m.is_senior:
+            continue
+        try:
+            solde, engaged, capacity = member_caution_capacity(m)
+        except Exception:  # noqa: BLE001 — best-effort, never block typeahead
+            solde = engaged = capacity = 0
+        results.append({
+            "numero_membre": m.numero_membre,
+            "nom": m.nom,
+            "prenom": m.prenom,
+            "is_senior": True,
+            "solde_total": str(solde),
+            "cautions_engagees": str(engaged),
+            "capacite_caution": str(capacity),
+        })
+        if len(results) >= 10:
+            break
+    return Response({"results": results})
 
 
 # ---------------------------------------------------------------------------

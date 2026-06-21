@@ -26,6 +26,12 @@ urlpatterns = [
     # Member self-service
     path("members/me/", views.MemberMeView.as_view(), name="member-me"),
     path("booklet/me/", views.booklet_orders_me, name="booklet-me"),
+    # Typeahead picker avaliste (§7.2)
+    path(
+        "members/search-avaliste/",
+        views.search_eligible_avalistes,
+        name="members-search-avaliste",
+    ),
 
     # Admin endpoints (Next.js admin dashboard)
     path("admin/dashboard/", views.admin_dashboard_kpis, name="admin-dashboard"),
