@@ -456,13 +456,90 @@ Test e-mail Brevo :
 
 ---
 
-## 15. Mises a jour futures
+## 15. Mises a jour futures (CD automatique)
 
-Une fois la stack en prod, le workflow standard pour deployer une nouvelle version :
+Une fois le 1er bootstrap fait (sections 1 a 14), les mises a jour
+suivantes sont entierement automatiques :
 
-1. Edwin push une fix sur la branche `main` du repo.
-2. GitHub Actions (`release.yml`) declenche, build les 4 images en parallele, pousse vers GHCR. Duree : 3 a 5 minutes. Suivre sur `https://github.com/EdwinTchakounte/GatheFinance_project/actions`.
-3. Une fois CI verte, sur le VPS :
+```
+Edwin push main
+  -> CI (ci.yml)         : tests pytest + lint + flutter, build 4 images GHCR
+  -> Deploy (deploy.yml) : SSH au VPS, pull + up -d, healthcheck, rollback si KO
+```
+
+Cycle complet : commit -> ~10 min plus tard, prod a jour. Aucune action
+humaine sur le VPS.
+
+### 15.1 Configurer les secrets GitHub (une seule fois)
+
+Le workflow `deploy.yml` a besoin de 3 secrets pour SSH sur le VPS.
+Sur GitHub : **Settings > Secrets and variables > Actions > New repository secret**.
+
+| Secret | Valeur | Comment l'obtenir |
+|---|---|---|
+| `VPS_HOST` | IP ou hostname du VPS Contabo | Demande a ton hebergeur Contabo |
+| `VPS_USER` | utilisateur SSH (souvent `root` ou un user sudo) | Celui que tu utilises pour `ssh user@host` |
+| `VPS_SSH_PRIVATE_KEY` | cle privee SSH (format OpenSSH, ed25519 recommande) | Voir 15.2 |
+| `VPS_DEPLOY_PATH` (optionnel) | chemin du repo sur le VPS, defaut `/opt/gathe-finance` | Ou tu as fait `git clone` |
+
+### 15.2 Generer une cle SSH dediee au CD
+
+Sur ton poste local (ou le VPS lui-meme) :
+
+```bash
+# Cree une cle ed25519 dediee au CI/CD (pas ta cle perso)
+ssh-keygen -t ed25519 -C "gathe-finance-ci" -f ~/.ssh/gathe_ci -N ""
+
+# Voir la cle publique a installer sur le VPS
+cat ~/.ssh/gathe_ci.pub
+
+# Voir la cle privee a coller dans le secret GitHub
+cat ~/.ssh/gathe_ci
+```
+
+Sur le VPS, ajoute la cle publique aux cles autorisees :
+
+```bash
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+echo "ssh-ed25519 AAAA... gathe-finance-ci" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+Test depuis ton poste local :
+
+```bash
+ssh -i ~/.ssh/gathe_ci <user>@<vps> "hostname && docker compose version"
+# Doit retourner sans demander de mot de passe.
+```
+
+Une fois OK, colle le contenu de `~/.ssh/gathe_ci` (cle PRIVEE) dans
+le secret GitHub `VPS_SSH_PRIVATE_KEY`. Inclus les lignes
+`-----BEGIN OPENSSH PRIVATE KEY-----` et `-----END OPENSSH PRIVATE KEY-----`.
+
+### 15.3 Comportement du workflow `deploy.yml`
+
+Une fois les secrets en place, le deploy auto fonctionne ainsi :
+
+1. Push sur `main` -> CI tourne (5-10 min).
+2. CI verte -> `deploy.yml` se declenche automatiquement.
+3. SSH au VPS, lit l'ancien `GATHE_IMAGE_TAG` du `.env.prod` (pour rollback).
+4. Met a jour le tag (par defaut `latest`), `docker compose pull`.
+5. `docker compose up -d --profile traefik` (recree uniquement les services dont l'image a change).
+6. Boucle 90s pour attendre que le healthcheck backend passe `healthy`.
+7. Si timeout, repin l'ancien tag dans `.env.prod` et re-up -> rollback automatique.
+8. Smoke test depuis le runner GitHub : 5 URLs publiques attendues en 2xx/3xx.
+9. Echec smoke -> job rouge, alerte (mais services deja redeployes au step 5).
+
+### 15.4 Deploy manuel (rollback ou rejouer)
+
+Pour deployer une version specifique sans push :
+
+1. Va sur https://github.com/EdwinTchakounte/GatheFinance_project/actions
+2. Clic sur le workflow **Deploy to prod** dans la sidebar.
+3. Bouton **Run workflow** -> renseigne `image_tag` (ex `sha-d1a416d` pour rollback).
+4. Lance.
+
+Mise a jour manuelle classique (sans le CD auto) :
 
 ```bash
 ssh <user>@<ip-contabo>
@@ -470,8 +547,6 @@ cd /opt/gathe-finance/infra
 docker compose -f docker-compose.prod.yml --env-file .env.prod pull
 docker compose -f docker-compose.prod.yml --env-file .env.prod --profile traefik up -d
 ```
-
-Duree totale du deploy : environ 30 secondes. Les migrations s'appliquent automatiquement au demarrage du nouveau backend. Pas besoin de `git pull` sur le VPS (le code source vit dans la CI, le VPS ne tire que les images).
 
 ---
 

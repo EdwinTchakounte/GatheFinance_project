@@ -1,0 +1,146 @@
+# Continuous Deployment vers le VPS Contabo.
+#
+# Declenchement :
+#   - workflow_run "CI" succeeded sur main -> deploy automatique
+#   - workflow_dispatch                     -> deploy manuel (rejouer ou pin tag)
+#
+# Pre-requis cote GitHub (Settings > Secrets and variables > Actions) :
+#   VPS_HOST              : IP ou hostname du VPS Contabo (ex: 12.34.56.78)
+#   VPS_USER              : utilisateur SSH (ex: root ou deploy)
+#   VPS_SSH_PRIVATE_KEY   : cle privee SSH (ed25519 recommande). La cle
+#                           publique doit etre dans ~/.ssh/authorized_keys
+#                           sur le VPS pour l'utilisateur VPS_USER.
+#   VPS_DEPLOY_PATH       : (optionnel) chemin du repo sur le VPS,
+#                           defaut /opt/gathe-finance
+#
+# Pre-requis cote VPS Contabo (1er bootstrap manuel via DEPLOYMENT.md) :
+#   - Repo clone dans /opt/gathe-finance (ou VPS_DEPLOY_PATH)
+#   - infra/.env.prod rempli avec secrets Django/Postgres/Brevo
+#   - docker login ghcr.io fait avec un PAT read:packages
+#   - DNS des 5 sous-domaines pointe vers le VPS
+#   - Au moins un "docker compose up -d --profile traefik" reussi
+#
+# Une fois le bootstrap fait, chaque push sur main declenche :
+#   1. CI (test + build + push GHCR)
+#   2. Si CI verte, deploy.yml SSH vers le VPS
+#   3. docker compose pull + up -d (les migrations s'appliquent au boot)
+#   4. Smoke tests sur les 5 endpoints publics
+#   5. En cas d'echec smoke, rollback automatique sur le tag precedent
+
+name: Deploy to prod
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Tag d'images GHCR a deployer (latest, main, sha-XXXX)"
+        required: false
+        default: "latest"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy on Contabo VPS
+    runs-on: ubuntu-latest
+
+    # Ne tourne que si CI verte OU dispatch manuel
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    environment:
+      name: production
+      url: https://gathe-finance.horus-lab.com
+
+    steps:
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Resolved tag: $(grep ^tag= "$GITHUB_OUTPUT" | cut -d= -f2)"
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          # Timeout deploy : 5 min max (pull + up + healthchecks)
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+
+            DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
+            NEW_TAG="${{ steps.tag.outputs.tag }}"
+            COMPOSE="docker compose -f docker-compose.prod.yml --env-file .env.prod"
+
+            cd "$DEPLOY_PATH/infra"
+
+            # Sauvegarder le tag actuel pour rollback
+            CURRENT_TAG=$(grep "^GATHE_IMAGE_TAG=" .env.prod | cut -d= -f2 || echo "latest")
+            echo ">>> Current tag: $CURRENT_TAG"
+            echo ">>> New tag:     $NEW_TAG"
+
+            # Mettre a jour le tag dans .env.prod (sed in-place, BSD-safe)
+            sed -i.bak "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$NEW_TAG/" .env.prod
+
+            # Pull
+            echo ">>> Pulling images..."
+            $COMPOSE pull
+
+            # Up -d (recreate uniquement si l'image a change)
+            echo ">>> Starting services..."
+            $COMPOSE --profile traefik up -d
+
+            # Attendre que le backend devienne healthy (max 90s)
+            echo ">>> Waiting for backend healthcheck..."
+            for i in $(seq 1 18); do
+              STATUS=$($COMPOSE ps --format json backend 2>/dev/null | grep -o '"Health":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+              echo "  attempt $i/18: backend=$STATUS"
+              if [ "$STATUS" = "healthy" ]; then
+                break
+              fi
+              if [ "$i" -eq "18" ]; then
+                echo "!!! Backend never became healthy. Rolling back to $CURRENT_TAG."
+                sed -i.bak "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$CURRENT_TAG/" .env.prod
+                $COMPOSE --profile traefik up -d
+                exit 1
+              fi
+              sleep 5
+            done
+
+            echo ">>> Deploy OK on $NEW_TAG"
+            $COMPOSE ps
+
+      - name: Smoke tests (from GitHub runner)
+        run: |
+          set -e
+          FAILED=0
+          for url in \
+            https://api.gathe-finance.horus-lab.com/api/v1/healthz/ \
+            https://gathe-finance.horus-lab.com/ \
+            https://portail.gathe-finance.horus-lab.com/ \
+            https://admin.gathe-finance.horus-lab.com/ \
+            https://cms.gathe-finance.horus-lab.com/admin/
+          do
+            code=$(curl -sLo /dev/null -w "%{http_code}" --max-time 15 "$url" || echo "000")
+            if [[ "$code" =~ ^(2|3) ]]; then
+              echo "✓ $url -> HTTP $code"
+            else
+              echo "✗ $url -> HTTP $code"
+              FAILED=$((FAILED+1))
+            fi
+          done
+          if [ "$FAILED" -gt 0 ]; then
+            echo "!!! $FAILED endpoint(s) en echec - investiguer."
+            exit 1
+          fi
+          echo "Tous les endpoints repondent OK."
