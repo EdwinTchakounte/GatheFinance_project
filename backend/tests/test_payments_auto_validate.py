@@ -146,12 +146,21 @@ def test_disburse_loan_via_tara_auto_active(active_member, admin_user):
     """Mode test ON → décaissement Tara joue immédiatement le webhook,
     le Loan bascule en `actif` avec `date_decaissement` fixée."""
     from datetime import date
-    from apps_coop.loans.models import Loan, LoanInstallment
+    from apps_coop.loans.models import Loan, LoanInstallment, LoanRequest
     from apps_coop.loans.services import disburse_loan_via_tara
     from apps_coop.payments.models import Payment
 
+    # LoanRequest préalable obligatoire (OneToOne PROTECT sur Loan).
+    lr = LoanRequest.objects.create(
+        member=active_member,
+        montant_demande=Decimal("100000"),
+        duree_mois=4,
+        motif="Test décaissement auto",
+        statut=LoanRequest.Statut.APPROUVEE,
+    )
     # Crée un Loan en attente de décaissement (pas encore actif).
     loan = Loan.objects.create(
+        loan_request=lr,
         member=active_member,
         numero_dossier="GF-CR-TEST-001",
         montant=Decimal("100000"),
@@ -184,11 +193,19 @@ def test_disburse_loan_via_tara_auto_active(active_member, admin_user):
 def test_disburse_loan_via_tara_off_reste_en_attente(active_member, admin_user):
     """Sans flag, le Payment reste EN_ATTENTE (attente webhook Tara)."""
     from datetime import date
-    from apps_coop.loans.models import Loan
+    from apps_coop.loans.models import Loan, LoanRequest
     from apps_coop.loans.services import disburse_loan_via_tara
     from apps_coop.payments.models import Payment
 
+    lr = LoanRequest.objects.create(
+        member=active_member,
+        montant_demande=Decimal("80000"),
+        duree_mois=3,
+        motif="Test décaissement off",
+        statut=LoanRequest.Statut.APPROUVEE,
+    )
     loan = Loan.objects.create(
+        loan_request=lr,
         member=active_member,
         numero_dossier="GF-CR-TEST-002",
         montant=Decimal("80000"),

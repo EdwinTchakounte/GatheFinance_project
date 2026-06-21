@@ -8,10 +8,12 @@ Couvre :
 """
 from __future__ import annotations
 
+import uuid
 from decimal import Decimal
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps_coop.payments.models import Payment
@@ -27,6 +29,7 @@ def member_client(active_member):
 @pytest.fixture
 def member_payments(active_member):
     """Crée 3 paiements (frais_adhesion, frais_inscription, epargne) du membre."""
+    now = timezone.now()
     p1 = Payment.objects.create(
         member=active_member,
         montant=Decimal("10000.00"),
@@ -35,7 +38,8 @@ def member_payments(active_member):
         statut=Payment.Statut.VALIDE,
         provider_code="tara",
         reference_externe="ref-1",
-        idempotency_key="idem-1",
+        idempotency_key=uuid.uuid4(),
+        date_versement=now,
     )
     p2 = Payment.objects.create(
         member=active_member,
@@ -45,7 +49,8 @@ def member_payments(active_member):
         statut=Payment.Statut.VALIDE,
         provider_code="tara",
         reference_externe="ref-2",
-        idempotency_key="idem-2",
+        idempotency_key=uuid.uuid4(),
+        date_versement=now,
     )
     p3 = Payment.objects.create(
         member=active_member,
@@ -55,7 +60,8 @@ def member_payments(active_member):
         statut=Payment.Statut.EN_ATTENTE,
         provider_code="tara",
         reference_externe="ref-3",
-        idempotency_key="idem-3",
+        idempotency_key=uuid.uuid4(),
+        date_versement=now,
     )
     return [p1, p2, p3]
 
@@ -99,7 +105,8 @@ def test_payments_me_isolation(member_client, member_payments, db):
         statut=Payment.Statut.VALIDE,
         provider_code="tara",
         reference_externe="ref-other",
-        idempotency_key="idem-other",
+        idempotency_key=uuid.uuid4(),
+        date_versement=timezone.now(),
     )
 
     other_client = APIClient()
