@@ -1,138 +1,391 @@
 """Idempotent seed of the transactional EmailTemplate rows.
 
-Run with ``python manage.py seed_email_templates``. Safe to re-run — only
-inserts missing codes, never overwrites an admin-edited template.
+Run with ``python manage.py seed_email_templates`` — par défaut idempotent
+(get_or_create). Ajouter ``--force`` pour réécrire les templates existants
+quand le design global change (ex. refonte 2026-06-18).
+
+Le wrapper visuel (header aurore + footer brand) est appliqué au moment
+de l'envoi par ``services._wrap_layout`` — ici on définit uniquement le
+``corps_html`` central.
 """
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand
 
+from apps_coop.notifications.email_blocks import (
+    amount,
+    callout,
+    closing,
+    code_block,
+    cta,
+    cta_secondary,
+    hi,
+    info_card,
+    lead,
+    p,
+    title,
+)
 from apps_coop.notifications.models import EmailTemplate
 
 
+def _join(*parts: str) -> str:
+    """Concatène les blocs avec un séparateur vide."""
+    return "".join(parts)
+
+
+# Toutes les templates utilisent ``hi("{prenom}")`` comme salutation
+# d'ouverture. Les placeholders entre accolades sont injectés au moment
+# de l'envoi via ``str.format(**context)``.
+
 TEMPLATES = [
+    # ────────────────────────────────────────────────────────────────────
+    # ADHÉSION (3 templates)
+    # ────────────────────────────────────────────────────────────────────
     {
         "code": "member.welcome",
         "objet": "Bienvenue chez Gathe Finance, {prenom} !",
-        "corps_html": (
-            "<p>Bonjour <strong>{prenom} {nom}</strong>,</p>"
-            "<p>Ta demande d'adhésion a été approuvée. Pour activer ton compte membre, "
-            "il te reste à régler tes frais d'adhésion de <strong>{frais_montant} XAF</strong>.</p>"
-            "<p>Connecte-toi à ton espace pour payer en quelques clics :<br>"
-            "<a href=\"{portal_url}/portal/activation\">{portal_url}/portal/activation</a></p>"
-            "<p>Numéro de membre : <strong>{numero_membre}</strong></p>"
-            "<p>L'équipe Gathe Finance</p>"
+        "corps_html": _join(
+            hi("{prenom} {nom}"),
+            title("Ta demande d'adhésion est approuvée"),
+            lead(
+                "Bonne nouvelle — le comité a validé ton dossier. Il ne reste "
+                "qu'une étape pour activer ton compte membre : régler tes frais "
+                "d'adhésion."
+            ),
+            info_card([
+                ("Numéro membre", "<strong>{numero_membre}</strong>"),
+                ("Frais d'adhésion", "<strong>{frais_montant} XAF</strong>"),
+                ("Validité", "Activation immédiate après paiement"),
+            ], tone="success"),
+            cta("Payer mes frais d'adhésion", "{portal_url}/portal/activation"),
+            p(
+                "Tu peux régler par Mobile Money depuis ton espace en quelques "
+                "clics, ou en espèces à l'agence Akwa Bercy."
+            ),
+            closing(),
         ),
         "variables": ["prenom", "nom", "numero_membre", "frais_montant", "portal_url"],
     },
     {
         "code": "member.activated",
         "objet": "Ton compte Gathe Finance est actif",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Ton paiement de <strong>{montant} XAF</strong> a été reçu, "
-            "ton compte membre (n° <strong>{numero_membre}</strong>) est désormais "
-            "<strong>actif</strong>.</p>"
-            "<p>Tu peux maintenant utiliser tous les services : épargne, crédit, transferts.<br>"
-            "<a href=\"{portal_url}/portal\">Accéder à mon espace</a></p>"
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton compte est désormais actif"),
+            lead(
+                "Ton paiement de <strong>{montant} XAF</strong> a bien été reçu. "
+                "Ton compte membre <strong>{numero_membre}</strong> est maintenant "
+                "actif — tous les services de la coopérative te sont ouverts."
+            ),
+            info_card([
+                ("Épargne", "Dépôts &amp; intérêts mensuels 1 %"),
+                ("Crédit", "BRC, avaliste, microcampagnes"),
+                ("Cotisations", "Journalière, hebdomadaire ou mensuelle"),
+            ], tone="success"),
+            cta("Accéder à mon espace", "{portal_url}/portal"),
+            closing(),
         ),
         "variables": ["prenom", "numero_membre", "montant", "portal_url"],
     },
     {
+        "code": "member.rejected",
+        "objet": "Ta demande d'adhésion à Gathe Finance",
+        "corps_html": _join(
+            hi("{prenom} {nom}"),
+            title("Ta demande n'a pas été retenue"),
+            lead(
+                "Après étude de ton dossier, le comité n'a pas pu retenir ta "
+                "demande d'adhésion à la coopérative pour le moment."
+            ),
+            callout("<strong>Motif communiqué :</strong> {motif}", tone="warn"),
+            p(
+                "Tu peux soumettre une nouvelle demande ultérieurement en "
+                "complétant ton dossier ou en sollicitant un entretien avec "
+                "l'agence."
+            ),
+            cta_secondary("En savoir plus", "{portal_url}"),
+            closing(),
+        ),
+        "variables": ["prenom", "nom", "motif", "portal_url"],
+    },
+    # ────────────────────────────────────────────────────────────────────
+    # ÉPARGNE (3 templates)
+    # ────────────────────────────────────────────────────────────────────
+    {
         "code": "savings.deposit_confirmed",
-        "objet": "Dépôt confirmé : {montant} XAF",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Ton dépôt de <strong>{montant} XAF</strong> sur ton compte d'épargne a bien été enregistré.</p>"
-            "<p>Nouveau solde : <strong>{solde_apres} XAF</strong></p>"
-            "<p><a href=\"{portal_url}/portal\">Voir mon espace</a></p>"
+        "objet": "Dépôt confirmé · {montant} XAF",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Dépôt enregistré"),
+            lead(
+                "Ton versement a bien été crédité sur ton compte d'épargne."
+            ),
+            amount("{montant}", label="Montant déposé"),
+            info_card([
+                ("Nouveau solde", "<strong>{solde_apres} XAF</strong>"),
+                ("Taux d'intérêt mensuel", "1 % (Art. 4 du Règlement)"),
+            ], tone="success"),
+            cta("Voir mon espace", "{portal_url}/portal"),
+            closing(),
         ),
         "variables": ["prenom", "montant", "solde_apres", "portal_url"],
     },
     {
+        "code": "savings.interest_credited",
+        "objet": "Intérêts d'épargne crédités — {period}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Tes intérêts sont crédités"),
+            lead(
+                "Tes intérêts d'épargne pour la période <strong>{period}</strong> "
+                "viennent d'être ajoutés à ton solde."
+            ),
+            amount("+{interets}", label="Intérêts crédités"),
+            info_card([
+                ("Période", "{period}"),
+                ("Taux mensuel", "1 % (Article 4)"),
+                ("Nouveau solde", "<strong>{solde_apres} XAF</strong>"),
+            ], tone="success"),
+            closing(),
+        ),
+        "variables": ["prenom", "period", "interets", "solde_apres"],
+    },
+    {
+        "code": "withdrawal.requested",
+        "objet": "Demande de retrait reçue · {montant} XAF",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Demande de retrait enregistrée"),
+            lead(
+                "Ta demande de retrait a bien été reçue. Elle est en attente "
+                "de validation par l'administration ; aucun montant n'a encore "
+                "été débité de ton compte."
+            ),
+            amount("{montant}", label="Montant demandé"),
+            callout(
+                "Tu recevras un email dès qu'une décision sera prise — "
+                "généralement sous 24 à 48 heures ouvrables.",
+                tone="info",
+            ),
+            cta("Voir mon espace", "{portal_url}/portal"),
+            closing(),
+        ),
+        "variables": ["prenom", "montant", "portal_url"],
+    },
+    {
+        "code": "withdrawal.approved",
+        "objet": "Retrait approuvé · {montant} XAF",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Retrait approuvé"),
+            lead(
+                "Ta demande de retrait a été <strong>validée</strong>. Le montant "
+                "a été débité de ton compte d'épargne et te sera remis selon le "
+                "canal convenu."
+            ),
+            amount("{montant}", label="Montant remis"),
+            cta("Voir mon historique", "{portal_url}/portal"),
+            closing(),
+        ),
+        "variables": ["prenom", "montant", "portal_url"],
+    },
+    {
+        "code": "withdrawal.rejected",
+        "objet": "Retrait de {montant} XAF non approuvé",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Retrait non approuvé"),
+            lead(
+                "Ta demande de retrait de <strong>{montant} XAF</strong> n'a pas "
+                "été approuvée. <strong>Aucun montant n'a été débité</strong> de "
+                "ton compte d'épargne."
+            ),
+            callout("<strong>Motif :</strong> {motif_rejet}", tone="warn"),
+            cta_secondary("Mon espace épargne", "{portal_url}/portal"),
+            closing(),
+        ),
+        "variables": ["prenom", "montant", "motif_rejet", "portal_url"],
+    },
+    # ────────────────────────────────────────────────────────────────────
+    # CRÉDIT — demande, approbation, décaissement, remboursement
+    # ────────────────────────────────────────────────────────────────────
+    {
+        "code": "loan_request.submitted",
+        "objet": "Demande de crédit reçue · {montant} XAF",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ta demande est enregistrée"),
+            lead(
+                "Nous avons bien reçu ta demande de crédit. Pour la mettre en "
+                "instruction, il te reste à régler les frais de dossier depuis "
+                "ton espace."
+            ),
+            info_card([
+                ("Montant demandé", "<strong>{montant} XAF</strong>"),
+                ("Frais de dossier", "<strong>{frais_montant} XAF</strong>"),
+                ("Statut", "En attente de paiement des frais"),
+            ], tone="info"),
+            cta("Régler et suivre ma demande", "{portal_url}/portal/credit"),
+            p(
+                "Les frais sont non-remboursables (Article 7 du Règlement). Le "
+                "comité statue dans un délai de 7 jours ouvrés après leur "
+                "réception."
+            ),
+            closing(),
+        ),
+        "variables": ["prenom", "montant", "frais_montant", "portal_url"],
+    },
+    {
         "code": "loan_request.fees_paid",
-        "objet": "Frais de dossier reçus — demande #{request_id} en instruction",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Les frais de dossier de <strong>{montant} XAF</strong> pour ta demande de crédit "
-            "<strong>#{request_id}</strong> ont été reçus.</p>"
-            "<p>Ta demande passe maintenant en <strong>instruction</strong>. Tu recevras un email "
-            "dès que le comité aura statué.</p>"
-            "<p><a href=\"{portal_url}/portal/credit\">Suivre ma demande</a></p>"
+        "objet": "Frais reçus — demande #{request_id} en instruction",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ta demande passe en instruction"),
+            lead(
+                "Les frais de dossier de <strong>{montant} XAF</strong> pour ta "
+                "demande de crédit <strong>#{request_id}</strong> ont bien été "
+                "reçus. Le comité étudie maintenant ton dossier."
+            ),
+            callout(
+                "Tu recevras un email dès que le comité aura statué, "
+                "généralement sous 7 jours ouvrés.",
+                tone="info",
+            ),
+            cta("Suivre ma demande", "{portal_url}/portal/credit"),
+            closing(),
         ),
         "variables": ["prenom", "request_id", "montant", "portal_url"],
     },
     {
+        "code": "loan_request.rejected",
+        "objet": "Ta demande de crédit n'a pas été retenue",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Demande non retenue"),
+            lead(
+                "Après étude de ton dossier, le comité n'a pas retenu ta "
+                "demande de crédit."
+            ),
+            callout("<strong>Motif :</strong> {motif}", tone="warn"),
+            p(
+                "Tu peux soumettre une nouvelle demande après avoir tenu compte "
+                "des remarques. N'hésite pas à solliciter un entretien à l'agence "
+                "pour préparer ton prochain dossier."
+            ),
+            cta_secondary("Mon espace crédit", "{portal_url}/portal/credit"),
+            closing(),
+        ),
+        "variables": ["prenom", "motif", "portal_url"],
+    },
+    {
         "code": "loan.approved",
-        "objet": "Ton crédit {numero_dossier} a été approuvé",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Bonne nouvelle — le comité a approuvé ton crédit :</p>"
-            "<ul>"
-            "<li>Dossier : <strong>{numero_dossier}</strong></li>"
-            "<li>Montant : <strong>{montant} XAF</strong></li>"
-            "<li>Durée : <strong>{duree_mois} mois</strong></li>"
-            "<li>Taux : <strong>{taux_pct} %/an</strong></li>"
-            "<li>1<sup>re</sup> échéance : <strong>{date_premiere}</strong></li>"
-            "</ul>"
-            "<p>L'échéancier complet est visible dans ton espace.<br>"
-            "<a href=\"{portal_url}/portal/credit\">Voir mon crédit</a></p>"
+        "objet": "Ton crédit {numero_dossier} est approuvé",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Bonne nouvelle — ton crédit est approuvé"),
+            lead(
+                "Le comité a validé ton crédit. Voici les conditions retenues :"
+            ),
+            info_card([
+                ("Dossier", "<strong>{numero_dossier}</strong>"),
+                ("Montant", "<strong>{montant} XAF</strong>"),
+                ("Durée", "{duree_mois} mois"),
+                ("Taux", "{taux_pct} %/an"),
+                ("1<sup>re</sup> échéance", "<strong>{date_premiere}</strong>"),
+            ], tone="success"),
+            cta("Voir mon échéancier", "{portal_url}/portal/credit"),
+            closing(),
         ),
-        "variables": ["prenom", "numero_dossier", "montant", "duree_mois", "taux_pct", "date_premiere", "portal_url"],
-    },
-    {
-        "code": "loan.repayment_confirmed",
-        "objet": "Remboursement de {montant} XAF reçu",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Ton remboursement de <strong>{montant} XAF</strong> sur le crédit "
-            "<strong>{numero_dossier}</strong> a été imputé.</p>"
-            "<p>Solde restant : <strong>{solde_restant} XAF</strong></p>"
-            "<p><a href=\"{portal_url}/portal/credit\">Voir mon crédit</a></p>"
-        ),
-        "variables": ["prenom", "montant", "numero_dossier", "solde_restant", "portal_url"],
-    },
-    {
-        "code": "booklet.ordered",
-        "objet": "Commande de carnet enregistrée",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Ton règlement de <strong>{montant} XAF</strong> pour la commande d'un carnet "
-            "d'épargne (n° membre <strong>{numero_membre}</strong>) a bien été reçu.</p>"
-            "<p>L'agence procède à l'impression. Tu seras averti(e) dès que ton carnet "
-            "sera disponible pour retrait.</p>"
-            "<p><a href=\"{portal_url}\">Mon espace membre</a></p>"
-        ),
-        "variables": ["prenom", "numero_membre", "montant", "portal_url"],
+        "variables": [
+            "prenom", "numero_dossier", "montant", "duree_mois",
+            "taux_pct", "date_premiere", "portal_url",
+        ],
     },
     {
         "code": "loan.disbursed",
         "objet": "Crédit {numero_dossier} décaissé",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Ton crédit <strong>{numero_dossier}</strong> d'un montant de "
-            "<strong>{montant} XAF</strong> a été décaissé sur ton compte Mobile Money.</p>"
-            "<p>Ta première échéance est attendue le <strong>{date_premiere}</strong>.</p>"
-            "<p><a href=\"{portal_url}/credit\">Voir mon échéancier</a></p>"
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton crédit a été décaissé"),
+            lead(
+                "Ton crédit a été versé sur ton compte Mobile Money. Les fonds "
+                "devraient être disponibles dans les prochaines minutes."
+            ),
+            amount("{montant}", label="Montant versé"),
+            info_card([
+                ("Dossier", "<strong>{numero_dossier}</strong>"),
+                ("1<sup>re</sup> échéance", "<strong>{date_premiere}</strong>"),
+                ("Note de demande PDF", "Disponible dans ton espace"),
+            ], tone="success"),
+            cta("Voir mon échéancier", "{portal_url}/credit"),
+            closing(),
         ),
         "variables": ["prenom", "numero_dossier", "montant", "date_premiere", "portal_url"],
     },
     {
+        "code": "loan.repayment_confirmed",
+        "objet": "Remboursement de {montant} XAF reçu",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Remboursement enregistré"),
+            lead(
+                "Ton remboursement a bien été imputé sur ton crédit "
+                "<strong>{numero_dossier}</strong>. Merci pour ta régularité."
+            ),
+            amount("{montant}", label="Montant remboursé"),
+            info_card([
+                ("Solde restant", "<strong>{solde_restant} XAF</strong>"),
+                ("Imputation", "FIFO sur tes échéances ouvertes"),
+            ], tone="success"),
+            cta("Voir mon crédit", "{portal_url}/portal/credit"),
+            closing(),
+        ),
+        "variables": ["prenom", "montant", "numero_dossier", "solde_restant", "portal_url"],
+    },
+    # ────────────────────────────────────────────────────────────────────
+    # RECONDUCTION
+    # ────────────────────────────────────────────────────────────────────
+    {
+        "code": "loan_renewal.requested",
+        "objet": "Demande de reconduction enregistrée · {numero_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Reconduction enregistrée"),
+            lead(
+                "Ta demande de reconduction du crédit "
+                "<strong>{numero_dossier}</strong> (prorogation de "
+                "<strong>{duree_mois} mois</strong>, Article 10) part en "
+                "décision du comité."
+            ),
+            callout(
+                "Tu recevras un email dès que le comité aura statué.",
+                tone="info",
+            ),
+            cta("Suivre ma demande", "{portal_url}/portal/credit"),
+            closing(),
+        ),
+        "variables": ["prenom", "numero_dossier", "duree_mois", "portal_url"],
+    },
+    {
         "code": "loan_renewal.approved",
-        "objet": "Reconduction approuvée — nouveau dossier {nouveau_dossier}",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Le comité a approuvé la reconduction de ton crédit "
-            "<strong>{ancien_dossier}</strong>.</p>"
-            "<ul>"
-            "<li>Nouveau dossier : <strong>{nouveau_dossier}</strong></li>"
-            "<li>Montant total dû : <strong>{montant_total_du} XAF</strong></li>"
-            "<li>Nouvelle durée : <strong>{duree_mois} mois</strong></li>"
-            "<li>Taux : <strong>{taux_pct} %/an</strong></li>"
-            "<li>1<sup>re</sup> échéance : <strong>{date_premiere}</strong></li>"
-            "</ul>"
-            "<p>Ton échéancier complet est disponible dans ton espace.<br>"
-            "<a href=\"{portal_url}/credit\">Voir mon crédit</a></p>"
+        "objet": "Reconduction approuvée · {nouveau_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ta reconduction est approuvée"),
+            lead(
+                "Le comité a validé la reconduction de ton crédit "
+                "<strong>{ancien_dossier}</strong>. Un nouveau dossier prend le "
+                "relais avec un échéancier ajusté."
+            ),
+            info_card([
+                ("Nouveau dossier", "<strong>{nouveau_dossier}</strong>"),
+                ("Montant total dû", "<strong>{montant_total_du} XAF</strong>"),
+                ("Nouvelle durée", "{duree_mois} mois"),
+                ("Taux", "{taux_pct} %/an"),
+                ("1<sup>re</sup> échéance", "<strong>{date_premiere}</strong>"),
+            ], tone="success"),
+            cta("Voir mon crédit", "{portal_url}/credit"),
+            closing(),
         ),
         "variables": [
             "prenom", "ancien_dossier", "nouveau_dossier", "montant_total_du",
@@ -141,156 +394,73 @@ TEMPLATES = [
     },
     {
         "code": "loan_renewal.rejected",
-        "objet": "Reconduction du crédit {numero_dossier} — non retenue",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Le comité n'a pas retenu ta demande de reconduction du crédit "
-            "<strong>{numero_dossier}</strong>.</p>"
-            "<p>Motif communiqué : <em>{motif}</em></p>"
-            "<p>Tu peux solliciter une nouvelle reconduction ou un nouveau crédit "
-            "ultérieurement.<br><a href=\"{portal_url}/credit\">Mon espace crédit</a></p>"
+        "objet": "Reconduction non retenue · {numero_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Reconduction non retenue"),
+            lead(
+                "Le comité n'a pas retenu ta demande de reconduction du crédit "
+                "<strong>{numero_dossier}</strong>."
+            ),
+            callout("<strong>Motif :</strong> {motif}", tone="warn"),
+            p(
+                "Tu peux solliciter une nouvelle reconduction ou un nouveau "
+                "crédit ultérieurement."
+            ),
+            cta_secondary("Mon espace crédit", "{portal_url}/credit"),
+            closing(),
         ),
         "variables": ["prenom", "numero_dossier", "motif", "portal_url"],
     },
+    # ────────────────────────────────────────────────────────────────────
+    # RETARDS, PÉNALITÉS, CONTENTIEUX
+    # ────────────────────────────────────────────────────────────────────
     {
-        # Cron mensuel — savings/tasks.py:crediter_interets_mensuels.
-        "code": "savings.interest_credited",
-        "objet": "Intérêts d'épargne crédités — {period}",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Tes intérêts d'épargne pour la période <strong>{period}</strong> "
-            "viennent d'être crédités : <strong>+{interets} XAF</strong> "
-            "(taux de 1 %/mois, Article 4 du Règlement).</p>"
-            "<p>Nouveau solde de ton compte d'épargne : <strong>{solde_apres} XAF</strong></p>"
+        "code": "loan.installment_due_soon",
+        "objet": "Rappel : échéance le {date_echeance} · {numero_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Petit rappel d'échéance"),
+            lead(
+                "L'échéance de ton crédit <strong>{numero_dossier}</strong> "
+                "est attendue prochainement. Pense à provisionner ton règlement "
+                "pour éviter toute pénalité."
+            ),
+            info_card([
+                ("Date d'échéance", "<strong>{date_echeance}</strong>"),
+                ("Montant attendu", "<strong>{montant_echeance} XAF</strong>"),
+            ], tone="info"),
+            cta("Régler maintenant", "{portal_url}/portal/credit"),
+            closing(),
         ),
-        "variables": ["prenom", "period", "interets", "solde_apres"],
+        "variables": [
+            "prenom", "numero_dossier", "montant_echeance", "date_echeance", "portal_url",
+        ],
     },
     {
-        # savings/services.py:_notify(wr, approved=True).
-        "code": "withdrawal.approved",
-        "objet": "Retrait approuvé : {montant} XAF",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Ta demande de retrait de <strong>{montant} XAF</strong> a été "
-            "<strong>approuvée</strong>. Le montant a été débité de ton compte "
-            "d'épargne et te sera remis selon le canal convenu.</p>"
-            "<p><a href=\"{portal_url}/portal\">Voir mon espace</a></p>"
-        ),
-        "variables": ["prenom", "montant", "portal_url"],
-    },
-    {
-        # savings/services.py:_notify(wr, approved=False).
-        "code": "withdrawal.rejected",
-        "objet": "Retrait de {montant} XAF — non approuvé",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Ta demande de retrait de <strong>{montant} XAF</strong> n'a pas "
-            "été approuvée. Aucun montant n'a été débité de ton compte d'épargne.</p>"
-            "<p>Motif communiqué : <em>{motif_rejet}</em></p>"
-            "<p><a href=\"{portal_url}/portal\">Mon espace épargne</a></p>"
-        ),
-        "variables": ["prenom", "montant", "motif_rejet", "portal_url"],
-    },
-    {
-        # loans/views.py — mise en demeure (Article 13).
-        "code": "loan.notice",
-        "objet": "Mise en demeure — crédit {numero_dossier}",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Sauf erreur de notre part, ton crédit <strong>{numero_dossier}</strong> "
-            "présente un retard de remboursement. Solde restant dû : "
-            "<strong>{solde_restant} XAF</strong>.</p>"
-            "<p>Ceci constitue la mise en demeure n° <strong>{count}</strong> "
-            "(Article 13 du Règlement). Merci de régulariser ta situation au plus vite "
-            "pour éviter les pénalités de retard.</p>"
-            "<p><a href=\"{portal_url}/credit\">Régler mon échéance</a></p>"
-        ),
-        "variables": ["prenom", "numero_dossier", "solde_restant", "count", "portal_url"],
-    },
-    {
-        # members/services.py — reject_membership_request (Articles 1-3).
-        "code": "member.rejected",
-        "objet": "Ta demande d'adhésion à Gathe Finance — non retenue",
-        "corps_html": (
-            "<p>Bonjour {prenom} {nom},</p>"
-            "<p>Après étude de ton dossier, le comité n'a pas retenu ta demande "
-            "d'adhésion à la coopérative Gathe Finance.</p>"
-            "<p>Motif communiqué : <em>{motif}</em></p>"
-            "<p>Tu peux soumettre une nouvelle demande ultérieurement en complétant "
-            "ton dossier.<br><a href=\"{portal_url}\">En savoir plus</a></p>"
-            "<p>L'équipe Gathe Finance</p>"
-        ),
-        "variables": ["prenom", "nom", "motif", "portal_url"],
-    },
-    {
-        # loans/views.py — loan_request_create (accusé de réception, Article 7).
-        "code": "loan_request.submitted",
-        "objet": "Demande de crédit reçue : {montant} XAF",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Nous avons bien reçu ta demande de crédit de "
-            "<strong>{montant} XAF</strong>.</p>"
-            "<p>Pour la mettre en instruction, il te reste à régler les frais de "
-            "dossier de <strong>{frais_montant} XAF</strong> depuis ton espace.</p>"
-            "<p><a href=\"{portal_url}/portal/credit\">Régler et suivre ma demande</a></p>"
-        ),
-        "variables": ["prenom", "montant", "frais_montant", "portal_url"],
-    },
-    {
-        # loans/services.py — reject_loan_request (Article 6-7).
-        "code": "loan_request.rejected",
-        "objet": "Ta demande de crédit — non retenue",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Le comité a étudié ta demande de crédit et ne l'a pas retenue.</p>"
-            "<p>Motif communiqué : <em>{motif}</em></p>"
-            "<p>Tu peux soumettre une nouvelle demande ultérieurement.<br>"
-            "<a href=\"{portal_url}/portal/credit\">Mon espace crédit</a></p>"
-        ),
-        "variables": ["prenom", "motif", "portal_url"],
-    },
-    {
-        # savings/services.py — request_withdrawal (accusé de réception).
-        "code": "withdrawal.requested",
-        "objet": "Demande de retrait reçue : {montant} XAF",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Ta demande de retrait de <strong>{montant} XAF</strong> a bien été "
-            "enregistrée. Elle est en attente de la décision de l'administration ; "
-            "aucun montant n'a encore été débité.</p>"
-            "<p>Tu recevras un email dès qu'une décision sera prise.<br>"
-            "<a href=\"{portal_url}/portal\">Voir mon espace</a></p>"
-        ),
-        "variables": ["prenom", "montant", "portal_url"],
-    },
-    {
-        # loans/views.py — loan_renewal_request (accusé de réception, Article 10).
-        "code": "loan_renewal.requested",
-        "objet": "Demande de reconduction reçue — crédit {numero_dossier}",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Ta demande de reconduction du crédit <strong>{numero_dossier}</strong> "
-            "(prorogation de <strong>{duree_mois} mois</strong>, Article 10) a bien "
-            "été enregistrée et part en décision du comité.</p>"
-            "<p>Tu recevras un email dès que le comité aura statué.<br>"
-            "<a href=\"{portal_url}/portal/credit\">Suivre ma demande</a></p>"
-        ),
-        "variables": ["prenom", "numero_dossier", "duree_mois", "portal_url"],
-    },
-    {
-        # loans/tasks.py — suivi_retards_quotidien, échéance passée en retard
-        # + pénalité 50 % (Articles 12-13).
         "code": "loan.installment_overdue",
-        "objet": "Échéance en retard — crédit {numero_dossier}",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>L'échéance n° <strong>{numero_echeance}</strong> de ton crédit "
-            "<strong>{numero_dossier}</strong> (<strong>{montant_du} XAF</strong>) "
-            "est arrivée à échéance sans règlement complet.</p>"
-            "<p>Conformément à l'Article 12 du Règlement, une pénalité de retard de "
-            "<strong>{penalite} XAF</strong> (50 % des intérêts dus) a été appliquée.</p>"
-            "<p>Merci de régulariser au plus vite pour éviter d'autres pénalités.<br>"
-            "<a href=\"{portal_url}/portal/credit\">Régler mon échéance</a></p>"
+        "objet": "Échéance en retard · {numero_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Une échéance est en retard"),
+            lead(
+                "L'échéance n° <strong>{numero_echeance}</strong> de ton crédit "
+                "<strong>{numero_dossier}</strong> est arrivée à échéance sans "
+                "règlement complet."
+            ),
+            info_card([
+                ("Montant dû", "<strong>{montant_du} XAF</strong>"),
+                ("Pénalité (Art. 12)", "<strong>{penalite} XAF</strong>"),
+                ("Régulariser sous", "48 heures"),
+            ], tone="danger"),
+            callout(
+                "Conformément à l'Article 12, une pénalité de 50 % des "
+                "intérêts dus a été appliquée. Régularise rapidement pour "
+                "éviter d'autres pénalités.",
+                tone="warn",
+            ),
+            cta("Régler mon échéance", "{portal_url}/portal/credit"),
+            closing(),
         ),
         "variables": [
             "prenom", "numero_dossier", "numero_echeance", "montant_du",
@@ -298,125 +468,342 @@ TEMPLATES = [
         ],
     },
     {
-        # loans/tasks.py — rappel_echeances_proches (rappel J-3, proactif).
-        "code": "loan.installment_due_soon",
-        "objet": "Rappel : échéance le {date_echeance} — crédit {numero_dossier}",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Un petit rappel amical : l'échéance de ton crédit "
-            "<strong>{numero_dossier}</strong> d'un montant de "
-            "<strong>{montant_echeance} XAF</strong> est attendue le "
-            "<strong>{date_echeance}</strong>.</p>"
-            "<p>Pense à provisionner ton règlement pour éviter toute pénalité de "
-            "retard.<br><a href=\"{portal_url}/portal/credit\">Régler maintenant</a></p>"
+        "code": "loan.notice",
+        "objet": "Mise en demeure · {numero_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Mise en demeure n° {count}"),
+            lead(
+                "Sauf erreur de notre part, ton crédit "
+                "<strong>{numero_dossier}</strong> présente un retard de "
+                "remboursement persistant."
+            ),
+            info_card([
+                ("Solde restant dû", "<strong>{solde_restant} XAF</strong>"),
+                ("Mise en demeure", "n° {count}"),
+                ("Base réglementaire", "Article 13"),
+            ], tone="danger"),
+            p(
+                "Merci de régulariser ta situation au plus vite pour éviter "
+                "l'application des pénalités prévues à l'Article 13 et le "
+                "transfert du dossier au recouvrement contentieux."
+            ),
+            cta("Régulariser maintenant", "{portal_url}/credit"),
+            closing(),
         ),
-        "variables": [
-            "prenom", "numero_dossier", "montant_echeance", "date_echeance", "portal_url",
-        ],
+        "variables": ["prenom", "numero_dossier", "solde_restant", "count", "portal_url"],
     },
     {
-        # A2 — Alerte douce J-N avant l'anniversaire annuel d'adhésion.
-        "code": "member.reinscription_due",
-        "objet": "Réinscription annuelle — bientôt {date_anniversaire}",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Ton anniversaire d'adhésion à Gathé Finance approche : "
-            "<strong>{date_anniversaire}</strong> (dans {lead_days} jours).</p>"
-            "<p>Pour rester à jour, pense à confirmer ta réinscription auprès "
-            "de l'agence ou via le portail.</p>"
-            "<p>Numéro membre : <strong>{numero_membre}</strong></p>"
-        ),
-        "variables": [
-            "prenom", "numero_membre", "date_anniversaire", "lead_days",
-        ],
-    },
-    {
-        # A2 — Confirmation par l'admin que la réinscription a été actée.
-        "code": "member.reinscription_confirmed",
-        "objet": "Réinscription confirmée — merci {prenom}",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Ta réinscription annuelle a bien été enregistrée le "
-            "<strong>{date_confirmation}</strong>.</p>"
-            "<p>La prochaine échéance est désormais fixée au "
-            "<strong>{prochaine_echeance}</strong>.</p>"
-            "<p>Numéro membre : <strong>{numero_membre}</strong></p>"
-        ),
-        "variables": [
-            "prenom", "numero_membre", "date_confirmation", "prochaine_echeance",
-        ],
-    },
-    {
-        # Cycle contentieux — pénalité globale appliquée (J = date limite globale).
         "code": "loan.penalite_globale_appliquee",
-        "objet": "Pénalité appliquée — crédit {numero_dossier}",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>La date limite de remboursement de ton crédit "
-            "<strong>{numero_dossier}</strong> a été franchie sans que le solde "
-            "ne soit régularisé.</p>"
-            "<p>Une pénalité de <strong>{penalite} XAF</strong> a été ajoutée à "
-            "ton solde, qui est désormais de <strong>{nouveau_solde} XAF</strong>.</p>"
-            "<p><strong>Tu disposes de {delai_grace_jours} jours</strong> pour "
-            "régulariser, faute de quoi le solde sera prélevé automatiquement "
-            "sur ton épargne.</p>"
+        "objet": "Pénalité appliquée · {numero_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Date limite dépassée"),
+            lead(
+                "La date limite globale de remboursement de ton crédit "
+                "<strong>{numero_dossier}</strong> a été franchie sans que le "
+                "solde ne soit régularisé."
+            ),
+            info_card([
+                ("Pénalité ajoutée", "<strong>{penalite} XAF</strong>"),
+                ("Nouveau solde dû", "<strong>{nouveau_solde} XAF</strong>"),
+                ("Délai de grâce", "{delai_grace_jours} jours"),
+            ], tone="danger"),
+            callout(
+                "Passé le délai de grâce, le solde sera <strong>prélevé "
+                "automatiquement</strong> sur ton compte d'épargne (R1).",
+                tone="warn",
+            ),
+            closing(),
         ),
         "variables": [
             "prenom", "numero_dossier", "penalite", "nouveau_solde", "delai_grace_jours",
         ],
     },
     {
-        # Cycle contentieux — saisie épargne automatique (R1) effectuée.
         "code": "loan.savings_seized",
-        "objet": "Prélèvement automatique sur ton épargne — crédit {numero_dossier}",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Conformément aux conditions de ton crédit "
-            "<strong>{numero_dossier}</strong>, la cooperative a prélevé "
-            "<strong>{montant_saisi} XAF</strong> sur ton compte d'épargne "
-            "pour couvrir le solde restant impayé.</p>"
-            "<p>Solde restant à payer après prélèvement : "
-            "<strong>{solde_restant_apres} XAF</strong>.</p>"
-            "<p>Si ce montant est non nul, le dossier est transmis au "
-            "recouvrement contentieux.</p>"
+        "objet": "Prélèvement sur épargne · {numero_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Prélèvement automatique effectué"),
+            lead(
+                "Conformément aux conditions de ton crédit "
+                "<strong>{numero_dossier}</strong>, la coopérative a prélevé "
+                "le montant ci-dessous sur ton compte d'épargne pour couvrir "
+                "le solde impayé."
+            ),
+            amount("{montant_saisi}", label="Montant prélevé sur épargne"),
+            info_card([
+                ("Solde restant à payer", "<strong>{solde_restant_apres} XAF</strong>"),
+            ], tone="danger"),
+            p(
+                "Si un reliquat subsiste, le dossier est transmis au "
+                "recouvrement contentieux."
+            ),
+            closing(),
         ),
         "variables": [
             "prenom", "numero_dossier", "montant_saisi", "solde_restant_apres",
         ],
     },
     {
-        # Cycle contentieux — poursuites engagées (épargne insuffisante).
         "code": "loan.poursuite_engaged",
-        "objet": "Recouvrement contentieux — crédit {numero_dossier}",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Suite au prélèvement sur ton épargne, un reliquat de "
-            "<strong>{reliquat} XAF</strong> reste dû au titre du crédit "
-            "<strong>{numero_dossier}</strong>.</p>"
-            "<p>Le dossier est désormais transmis à notre service "
-            "contentieux/juridique pour recouvrement.</p>"
-            "<p>Tu peux à tout moment contacter l'agence pour proposer un "
-            "plan d'apurement amiable.</p>"
+        "objet": "Recouvrement contentieux · {numero_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Dossier transmis au contentieux"),
+            lead(
+                "Suite au prélèvement sur ton épargne, un reliquat reste dû au "
+                "titre du crédit <strong>{numero_dossier}</strong>."
+            ),
+            amount("{reliquat}", label="Reliquat dû"),
+            callout(
+                "Tu peux à tout moment contacter l'agence pour proposer un "
+                "plan d'apurement amiable avant l'engagement des poursuites.",
+                tone="warn",
+            ),
+            closing(),
         ),
         "variables": ["prenom", "numero_dossier", "reliquat"],
     },
-    # ───────────────────────────────────────────────────────────────────────
-    # Auth — mot de passe oublié (OTP 6 chiffres, expire en ttl_minutes)
-    # ───────────────────────────────────────────────────────────────────────
+    # ────────────────────────────────────────────────────────────────────
+    # AVALISTE (LOT 10)
+    # ────────────────────────────────────────────────────────────────────
+    {
+        "code": "loan.avaliste_consent_requested",
+        "objet": "Demande de caution — {borrower_nom}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("On te désigne comme avaliste"),
+            lead(
+                "<strong>{borrower_nom}</strong> (membre {borrower_numero}) "
+                "t'a désigné comme avaliste pour sa demande de crédit. En "
+                "acceptant, tu t'engages à couvrir le remboursement en cas de "
+                "défaut, dans la limite de ton épargne disponible."
+            ),
+            info_card([
+                ("Demandeur", "{borrower_nom} ({borrower_numero})"),
+                ("Montant garanti", "<strong>{montant} XAF</strong>"),
+                ("Toi (avaliste)", "Membre {avaliste_numero}"),
+            ], tone="info"),
+            cta("Accepter ou refuser", "{portal_url}/portal/avaliste"),
+            p(
+                "Prends ton temps — cette désignation n'est validée qu'après "
+                "ton consentement explicite depuis ton espace membre."
+            ),
+            closing(),
+        ),
+        "variables": [
+            "prenom", "borrower_nom", "borrower_numero", "montant",
+            "avaliste_numero", "portal_url",
+        ],
+    },
+    {
+        "code": "loan.avaliste_consent_accepted",
+        "objet": "Ton avaliste a accepté ✓",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("L'avaliste a accepté"),
+            lead(
+                "L'avaliste que tu as désigné (membre "
+                "<strong>{avaliste_numero}</strong>) a <strong>accepté</strong> "
+                "de se porter caution pour ta demande de crédit."
+            ),
+            info_card([
+                ("Montant garanti", "<strong>{montant} XAF</strong>"),
+                ("Statut demande", "Transmise au comité"),
+            ], tone="success"),
+            cta("Suivre ma demande", "{portal_url}/portal/credit"),
+            closing(),
+        ),
+        "variables": [
+            "prenom", "borrower_nom", "borrower_numero", "montant",
+            "avaliste_numero", "portal_url",
+        ],
+    },
+    {
+        "code": "loan.avaliste_consent_refused",
+        "objet": "Caution refusée — désigne un autre avaliste",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("L'avaliste a refusé"),
+            lead(
+                "L'avaliste que tu as désigné (membre "
+                "<strong>{avaliste_numero}</strong>) n'a pas souhaité se porter "
+                "caution. Pas de souci — tu peux désigner un autre membre pour "
+                "relancer ta demande."
+            ),
+            cta("Désigner un autre avaliste", "{portal_url}/portal/credit"),
+            closing(),
+        ),
+        "variables": [
+            "prenom", "borrower_nom", "borrower_numero", "montant",
+            "avaliste_numero", "portal_url",
+        ],
+    },
+    # ────────────────────────────────────────────────────────────────────
+    # FUNDING 24h prêteur (LOT 8)
+    # ────────────────────────────────────────────────────────────────────
+    {
+        "code": "loan.funding.consent_requested",
+        "objet": "Crédit à financer · {montant_propose} XAF (24h)",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Un crédit à financer"),
+            lead(
+                "En tant que prêteur de la coopérative, on te propose de "
+                "participer au financement du crédit "
+                "<strong>{loan_dossier}</strong>. Tu reçois en contrepartie "
+                "ta part d'intérêts selon la règle 50/50 (Article 6)."
+            ),
+            info_card([
+                ("Tranche proposée", "<strong>{montant_propose} XAF</strong>"),
+                ("Décision avant", "<strong>{deadline}</strong>"),
+                ("Sans réponse", "Tranche acceptée par défaut"),
+            ], tone="info"),
+            cta("Voir et décider", "{portal_url}/portal/preteur"),
+            closing(),
+        ),
+        "variables": [
+            "prenom", "numero_membre", "loan_dossier", "montant_propose",
+            "deadline", "portal_url",
+        ],
+    },
+    {
+        "code": "loan.funding.completed",
+        "objet": "Crédit {loan_dossier} financé — décaissement en cours",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Financement complet"),
+            lead(
+                "Excellente nouvelle — le financement de ton crédit "
+                "<strong>{loan_dossier}</strong> est complet."
+            ),
+            amount("{montant}", label="Montant financé"),
+            callout(
+                "La coopérative procède au décaissement vers ton compte "
+                "Mobile Money. Tu recevras un second email dès que les fonds "
+                "seront disponibles.",
+                tone="success",
+            ),
+            cta("Suivre mon crédit", "{portal_url}/portal/credit"),
+            closing(),
+        ),
+        "variables": ["prenom", "loan_dossier", "montant", "portal_url"],
+    },
+    {
+        "code": "loan.funding.exhausted",
+        "objet": "Financement insuffisant · {loan_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Financement insuffisant"),
+            lead(
+                "Malgré plusieurs vagues de sollicitation des prêteurs, "
+                "l'épargne-prêteur disponible n'a pas permis de financer "
+                "intégralement ton crédit <strong>{loan_dossier}</strong>."
+            ),
+            info_card([
+                ("Déficit de financement", "<strong>{deficit} XAF</strong>"),
+                ("Prochaine étape", "Contact de la coopérative"),
+            ], tone="warn"),
+            p(
+                "La coopérative te contactera pour proposer une solution : "
+                "montant ajusté, report ou alternative."
+            ),
+            cta_secondary("Mon espace crédit", "{portal_url}/portal/credit"),
+            closing(),
+        ),
+        "variables": ["prenom", "loan_dossier", "deficit", "portal_url"],
+    },
+    # ────────────────────────────────────────────────────────────────────
+    # CARNET, RÉINSCRIPTION, AUTH
+    # ────────────────────────────────────────────────────────────────────
+    {
+        "code": "booklet.ordered",
+        "objet": "Commande de carnet enregistrée",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Commande de carnet reçue"),
+            lead(
+                "Ton règlement pour la commande d'un carnet d'épargne (n° "
+                "membre <strong>{numero_membre}</strong>) a bien été reçu. "
+                "L'agence procède à l'impression."
+            ),
+            amount("{montant}", label="Montant réglé"),
+            callout(
+                "Tu seras averti(e) par email dès que ton carnet sera "
+                "disponible pour retrait à l'agence.",
+                tone="info",
+            ),
+            cta_secondary("Mon espace membre", "{portal_url}"),
+            closing(),
+        ),
+        "variables": ["prenom", "numero_membre", "montant", "portal_url"],
+    },
+    {
+        "code": "member.reinscription_due",
+        "objet": "Réinscription annuelle bientôt due · {date_anniversaire}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Réinscription annuelle approche"),
+            lead(
+                "Ton anniversaire d'adhésion à Gathe Finance approche. Pour "
+                "rester à jour, pense à confirmer ta réinscription auprès de "
+                "l'agence ou via ton espace."
+            ),
+            info_card([
+                ("Anniversaire", "<strong>{date_anniversaire}</strong>"),
+                ("Dans", "{lead_days} jours"),
+                ("Numéro membre", "<strong>{numero_membre}</strong>"),
+            ], tone="info"),
+            closing(),
+        ),
+        "variables": [
+            "prenom", "numero_membre", "date_anniversaire", "lead_days",
+        ],
+    },
+    {
+        "code": "member.reinscription_confirmed",
+        "objet": "Réinscription confirmée — merci !",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ta réinscription est confirmée"),
+            lead(
+                "Ta réinscription annuelle a été enregistrée. Tu es à jour "
+                "pour l'année qui vient."
+            ),
+            info_card([
+                ("Date de confirmation", "<strong>{date_confirmation}</strong>"),
+                ("Prochaine échéance", "<strong>{prochaine_echeance}</strong>"),
+                ("Numéro membre", "<strong>{numero_membre}</strong>"),
+            ], tone="success"),
+            closing(),
+        ),
+        "variables": [
+            "prenom", "numero_membre", "date_confirmation", "prochaine_echeance",
+        ],
+    },
     {
         "code": "auth.password_reset_otp",
-        "objet": "Code de réinitialisation Gathé Finance",
-        "corps_html": (
-            "<p>Bonjour {prenom},</p>"
-            "<p>Vous avez demandé la réinitialisation de votre mot de passe. "
-            "Voici votre code à 6 chiffres :</p>"
-            "<p style=\"font-size:28px;font-weight:700;letter-spacing:6px;"
-            "background:#f4f6f8;padding:14px 22px;display:inline-block;"
-            "border-radius:8px;color:#102a43;\">{code}</p>"
-            "<p>Ce code est valable <strong>{ttl_minutes} minutes</strong> "
-            "et ne peut être utilisé qu'une seule fois.</p>"
-            "<p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet "
-            "e-mail — votre mot de passe restera inchangé.</p>"
+        "objet": "Ton code de réinitialisation Gathe Finance",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Réinitialisation de ton mot de passe"),
+            lead(
+                "Tu as demandé la réinitialisation de ton mot de passe. "
+                "Utilise le code ci-dessous pour confirmer."
+            ),
+            code_block("{code}"),
+            callout(
+                "Ce code est valable <strong>{ttl_minutes} minutes</strong> "
+                "et ne peut être utilisé qu'une seule fois.",
+                tone="info",
+            ),
+            p(
+                "Si tu n'es pas à l'origine de cette demande, ignore cet "
+                "email — ton mot de passe restera inchangé."
+            ),
+            closing(),
         ),
         "variables": ["prenom", "code", "ttl_minutes"],
     },
@@ -424,10 +811,23 @@ TEMPLATES = [
 
 
 class Command(BaseCommand):
-    help = "Seed the transactional email templates used by the business hooks (idempotent)."
+    help = (
+        "Seed the transactional email templates used by the business hooks. "
+        "Idempotent par défaut (skip si déjà en base) ; ``--force`` réécrit "
+        "tous les templates listés (utilisé après refonte du design)."
+    )
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Réécrit objet + corps_html + variables des templates existants.",
+        )
 
     def handle(self, *args, **options):
+        force = options.get("force", False)
         created = 0
+        updated = 0
         existed = 0
         for spec in TEMPLATES:
             obj, was_created = EmailTemplate.objects.get_or_create(
@@ -442,7 +842,18 @@ class Command(BaseCommand):
             if was_created:
                 created += 1
                 self.stdout.write(self.style.SUCCESS(f"  + {obj.code}"))
+            elif force:
+                obj.objet = spec["objet"]
+                obj.corps_html = spec["corps_html"]
+                obj.variables = spec["variables"]
+                obj.save(update_fields=["objet", "corps_html", "variables", "updated_at"])
+                updated += 1
+                self.stdout.write(self.style.WARNING(f"  ↻ {obj.code} (réécrit)"))
             else:
                 existed += 1
                 self.stdout.write(f"  · {obj.code} (déjà présent)")
-        self.stdout.write(self.style.SUCCESS(f"\n{created} créé(s), {existed} déjà en base."))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"\n{created} créé(s), {updated} réécrit(s), {existed} skipped."
+            )
+        )

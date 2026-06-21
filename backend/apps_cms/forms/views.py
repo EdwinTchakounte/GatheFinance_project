@@ -53,12 +53,15 @@ def _handle_submission(request, serializer_class, kind: str):
         return Response({"ok": True}, status=status.HTTP_201_CREATED)
 
     obj = serializer.save()
+    # MembershipRequest stocke `nom` (pas `name`) + `motivation` (pas
+    # `message`). On lit les 2 noms de champs pour rester compatible avec
+    # ContactSubmission (qui utilise `name` / `message`).
     payload = {
-        "name": getattr(obj, "name", ""),
+        "name": getattr(obj, "name", None) or getattr(obj, "nom", "") or "",
         "city": getattr(obj, "city", ""),
         "phone": getattr(obj, "phone", ""),
         "email": getattr(obj, "email", ""),
-        "message": getattr(obj, "message", ""),
+        "message": getattr(obj, "message", None) or getattr(obj, "motivation", "") or "",
         "language": getattr(obj, "language", "fr"),
     }
     try:

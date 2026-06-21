@@ -190,6 +190,51 @@ EVENTS: list[tuple[str, str, str, bool]] = [
         "le dossier passe au recouvrement contentieux (huissier/avocat).",
         True,
     ),
+    # --- LOT 10 : Avaliste (caution) flow §7.2 ---
+    (
+        "loan.avaliste_consent_requested",
+        "Désignation comme avaliste — demande de consentement",
+        "Un membre a désigné un autre membre comme avaliste. L'avaliste doit "
+        "accepter ou refuser dans son espace. Mail à l'avaliste désigné.",
+        True,
+    ),
+    (
+        "loan.avaliste_consent_accepted",
+        "Avaliste a accepté la caution",
+        "L'avaliste désigné a confirmé son engagement. La demande passe en "
+        "instruction comité. Mail au demandeur de crédit.",
+        False,
+    ),
+    (
+        "loan.avaliste_consent_refused",
+        "Avaliste a refusé la caution",
+        "L'avaliste désigné a refusé de se porter caution. Le demandeur peut "
+        "désigner un autre avaliste. Mail au demandeur de crédit.",
+        True,
+    ),
+    # --- LOT 8 : Funding prêteur 24h §6 ---
+    (
+        "loan.funding.consent_requested",
+        "Demande de funding à un prêteur (24h)",
+        "Une partie du crédit est proposée à un prêteur (membre avec consent "
+        "épargne-prêteur). Sans réponse en 24h, auto-acceptation. Mail au prêteur.",
+        True,
+    ),
+    (
+        "loan.funding.completed",
+        "Funding complet — crédit prêt au décaissement",
+        "L'ensemble des tranches du crédit est sécurisé. Mail au demandeur "
+        "avec annonce du décaissement imminent.",
+        False,
+    ),
+    (
+        "loan.funding.exhausted",
+        "Funding épuisé — intervention admin requise",
+        "Après plusieurs vagues de sollicitation, le crédit ne peut être "
+        "couvert intégralement par l'épargne-prêteur. Mail au demandeur ; "
+        "le dossier attend une décision admin.",
+        True,
+    ),
 ]
 
 
