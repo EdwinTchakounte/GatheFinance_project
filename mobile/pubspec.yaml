@@ -1,7 +1,7 @@
 name: gathe_finance
 description: Espace sociétaire mobile Gathe Finance — coopérative d'épargne et de crédit.
 publish_to: "none"
-version: 0.1.0+1
+version: 1.0.0+1
 
 environment:
   sdk: ">=3.6.0 <4.0.0"
@@ -34,6 +34,9 @@ dependencies:
   # 11.x requis pour la compatibilité avec Android Gradle Plugin 9+
   # (8.x utilise l'ancien DSL et casse le build).
   file_picker: ^11.0.2
+
+  # Détection du MIME des pièces uploadées (`MediaType`).
+  http_parser: ^4.0.2
 
   # Sérialisation
   json_annotation: ^4.9.0
