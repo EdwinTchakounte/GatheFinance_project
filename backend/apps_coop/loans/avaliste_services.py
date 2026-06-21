@@ -75,12 +75,66 @@ def _member_total_savings(member: Member) -> Decimal:
     except Exception:  # noqa: BLE001 — tables not migrated / missing
         pass
     try:
-        # Épargne classique.
+        # Épargne classique (inclut le placement bloqué — la note mémoire
+        # `avaliste-cap-solde` agrège tout : collecte + classique libre +
+        # placement).
         if hasattr(member, "classic_savings_account"):
             total += Decimal(member.classic_savings_account.solde)
     except Exception:  # noqa: BLE001
         pass
     return total
+
+
+def _member_committed_caution_amount(avaliste: Member) -> Decimal:
+    """Somme des cautions encore engagées par cet avaliste.
+
+    Note mémoire `avaliste-cap-solde` : un avaliste ne peut pas garantir des
+    crédits dont la somme dépasse son propre solde cumulé. On compte ici la
+    somme des `montant_demande` des `AvalisteConsent` que cet avaliste a
+    ACCEPTÉS et qui ne sont pas encore soldés. Une caution est libérée quand
+    le Loan associé passe en `CLOTURE` (remboursement intégral).
+
+    Cas particuliers :
+      - `AvalisteConsent.statut == PENDING` → pas encore engagé (compte zéro).
+      - `AvalisteConsent.statut == REFUSED` → caution refusée (compte zéro).
+      - `AvalisteConsent.statut == ACCEPTED` mais la LoanRequest n'a pas
+        encore généré de Loan (instruction comité en cours) → ON COMPTE,
+        car l'avaliste est juridiquement engagé.
+      - `AvalisteConsent.statut == ACCEPTED` + Loan.statut == CLOTURE → libéré.
+    """
+    # Import local pour éviter le cycle d'imports loans <-> avaliste.
+    from .models import AvalisteConsent, Loan
+
+    total = Decimal("0")
+    consents = (
+        AvalisteConsent.objects.filter(
+            avaliste=avaliste,
+            statut=AvalisteConsent.Statut.ACCEPTED,
+        )
+        .select_related("loan_request")
+    )
+    for c in consents:
+        lr = c.loan_request
+        loan = getattr(lr, "loan", None)
+        if loan is not None and loan.statut == Loan.Statut.CLOTURE:
+            continue  # caution libérée
+        total += Decimal(lr.montant_demande)
+    return total
+
+
+def member_caution_capacity(avaliste: Member) -> tuple[Decimal, Decimal, Decimal]:
+    """Triplet ``(solde_total, cautions_engagees, capacite_restante)``.
+
+    Helper public — utilisé par l'endpoint `search-avaliste/` pour exposer
+    la dispo au mobile, et par `request_avaliste_consent` pour bloquer une
+    nouvelle caution qui ferait dépasser le solde.
+    """
+    solde = _member_total_savings(avaliste)
+    engaged = _member_committed_caution_amount(avaliste)
+    free = solde - engaged
+    if free < 0:
+        free = Decimal("0")
+    return solde, engaged, free
 
 
 # ---------------------------------------------------------------------------
@@ -173,6 +227,19 @@ def request_avaliste_consent(
             f"Couverture insuffisante : {ratio_actuel} < {min_ratio} "
             f"(épargnes cumulées {total_savings} XAF / montant {montant} XAF). "
             f"Le demandeur ou l'avaliste doit augmenter son épargne."
+        )
+
+    # Memory note `avaliste-cap-solde` : un avaliste ne peut pas garantir
+    # plus que son propre solde cumulé (collecte + classique + placement).
+    # On bloque ici la création d'une nouvelle caution qui ferait dépasser.
+    _solde_av, engaged_before, _free = member_caution_capacity(avaliste)
+    if engaged_before + montant > epargne_avaliste:
+        raise ValueError(
+            f"Plafond avaliste dépassé : cet avaliste a déjà engagé "
+            f"{engaged_before} XAF de cautions ; avec {montant} XAF "
+            f"supplémentaires le total ({engaged_before + montant} XAF) "
+            f"dépasserait son propre solde ({epargne_avaliste} XAF). "
+            f"Demande à un autre avaliste."
         )
 
     consent = AvalisteConsent.objects.create(
