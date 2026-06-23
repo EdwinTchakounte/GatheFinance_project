@@ -73,16 +73,25 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          # Timeout deploy : 5 min max (pull + up + healthchecks)
-          command_timeout: 5m
+          # Timeout deploy : 10 min max (git pull + image pull + up + healthchecks + nginx reload)
+          command_timeout: 10m
           script: |
             set -euo pipefail
 
             DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
             NEW_TAG="${{ steps.tag.outputs.tag }}"
-            COMPOSE="docker compose -f docker-compose.prod.yml --env-file .env.prod"
+            # Le VPS Contabo heberge plusieurs projets derriere un nginx
+            # mutualise (backend-nginx-1). On utilise donc l'override
+            # nginx-external.yml plutot que le profile traefik.
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml --env-file .env.prod"
+            EXTERNAL_NGINX="backend-nginx-1"
 
             cd "$DEPLOY_PATH/infra"
+
+            # Pull derniere version du code (pour les fichiers compose +
+            # les migrations Django qui tournent au boot du conteneur).
+            echo ">>> git pull origin main..."
+            (cd "$DEPLOY_PATH" && git fetch origin && git reset --hard origin/main)
 
             # Sauvegarder le tag actuel pour rollback
             CURRENT_TAG=$(grep "^GATHE_IMAGE_TAG=" .env.prod | cut -d= -f2 || echo "latest")
@@ -96,9 +105,10 @@ jobs:
             echo ">>> Pulling images..."
             $COMPOSE pull
 
-            # Up -d (recreate uniquement si l'image a change)
+            # Up -d (recreate uniquement si l'image a change). PAS de
+            # --profile traefik : le reverse-proxy est externe (mutualise).
             echo ">>> Starting services..."
-            $COMPOSE --profile traefik up -d
+            $COMPOSE up -d
 
             # Attendre que le backend devienne healthy (max 90s)
             echo ">>> Waiting for backend healthcheck..."
@@ -111,11 +121,16 @@ jobs:
               if [ "$i" -eq "18" ]; then
                 echo "!!! Backend never became healthy. Rolling back to $CURRENT_TAG."
                 sed -i.bak "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$CURRENT_TAG/" .env.prod
-                $COMPOSE --profile traefik up -d
+                $COMPOSE up -d
                 exit 1
               fi
               sleep 5
             done
+
+            # Reload du nginx mutualise pour qu'il re-resolve les
+            # nouveaux containers Gathe sur le reseau Docker partage.
+            echo ">>> Reloading external nginx..."
+            docker restart "$EXTERNAL_NGINX" || true
 
             echo ">>> Deploy OK on $NEW_TAG"
             $COMPOSE ps
