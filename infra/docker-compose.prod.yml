@@ -48,6 +48,10 @@ x-backend-env: &backend-env
   AWS_S3_ENDPOINT_URL: ${AWS_S3_ENDPOINT_URL:-}
   AWS_S3_REGION_NAME: ${AWS_S3_REGION_NAME:-}
   MEDIA_DOMAIN: ${MEDIA_DOMAIN:-}
+  # NE JAMAIS activer en prod reelle. Utilise UNIQUEMENT pour la recette
+  # end-to-end : court-circuite la confirmation Tara et marque le paiement
+  # comme valide immediatement apres init_payment (cf. apps_coop/payments/views.py).
+  PAYMENTS_TEST_AUTO_VALIDATE: ${PAYMENTS_TEST_AUTO_VALIDATE:-false}
 
 services:
   # ---------------------------------------------------------------------------
