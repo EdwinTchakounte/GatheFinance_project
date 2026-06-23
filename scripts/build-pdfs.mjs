@@ -38,6 +38,18 @@ const TARGETS = [
     landscape: true,
     flavor: "web",
   },
+  {
+    src: "docs/GUIDE_RECETTE.md",
+    out: "docs/Guide-Gathe-Finance-Recette.pdf",
+    title: "Mise en production et recette",
+    subtitle: "État réel de la prod, workflows complets et plan de recette utilisateur.",
+    eyebrow: "MANUEL DE RECETTE",
+    appName: "Gathe Finance",
+    appVersion: "1.0.0",
+    author: "TCHAMBA TCHAKOUNTE Edwin",
+    landscape: false,
+    flavor: "web",
+  },
 ];
 
 const CSS = `
