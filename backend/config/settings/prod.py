@@ -1,9 +1,36 @@
 """Production settings (VPS Contabo)."""
 from .base import *  # noqa: F401,F403
-from .base import MIDDLEWARE, REST_FRAMEWORK, STORAGES, env
+from .base import ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, MIDDLEWARE, REST_FRAMEWORK, STORAGES, env
 
 DEBUG = False
 SECRET_KEY = env("DJANGO_SECRET_KEY")  # required in production
+
+# --- Hosts internes auto-ajoutes (rewrite Next.js / SSR / healthcheck) ------
+# Les conteneurs Next.js (admin, portal, site) appellent le backend via leurs
+# rewrites/SSR avec l'URL interne `http://gathe-backend:8000`. Django reçoit
+# alors `Host: gathe-backend` qui doit être dans ALLOWED_HOSTS, sinon il
+# repond 400 (Disallowed Host) — ecran blanc cote admin/portal.
+# On les force ici, en plus de ce qui est defini via DJANGO_ALLOWED_HOSTS dans
+# l'env, pour que la stack reste fonctionnelle meme si l'override
+# `docker-compose.nginx-external.yml` n'est pas applique au lancement.
+_INTERNAL_HOSTS = ["gathe-backend", "backend", "localhost", "127.0.0.1"]
+for _host in _INTERNAL_HOSTS:
+    if _host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_host)
+
+# --- CSRF_TRUSTED_ORIGINS auto-deriva depuis ALLOWED_HOSTS -------------------
+# Tout sous-domaine public (sans IP, sans host technique interne) devient une
+# origine CSRF de confiance pour les requetes POST/PATCH/DELETE des SPA admin
+# et portail. Cela evite un oubli silencieux du `CSRF_TRUSTED_ORIGINS` dans
+# `.env.prod` qui rendrait toute mutation impossible.
+_PUBLIC_HOSTS = [
+    h for h in ALLOWED_HOSTS
+    if h not in _INTERNAL_HOSTS and not h.replace(".", "").isdigit()
+]
+for _host in _PUBLIC_HOSTS:
+    _origin = f"https://{_host}"
+    if _origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_origin)
 
 # --- Email : envoi RÉEL via l'API HTTP Brevo (django-anymail) en production --
 # base.py défaut = console (dev). En prod on bascule sur le backend Anymail-Brevo

@@ -64,8 +64,16 @@ export default function AuthedLayout({
         setIdentity(me);
       } catch (err) {
         const apiErr = err as ApiError;
-        if (apiErr.status === 401 || apiErr.status === 403) {
+        // Toute erreur d'authentification *ou* de transport (proxy en
+        // panne, mauvais Host header, CSRF KO, etc.) rejette vers le
+        // login. Sans cette garde large, le composant restait sur
+        // l'ecran "Chargement..." indefiniment des qu'une 400 remontait
+        // du rewrite Next.js.
+        if (typeof apiErr?.status === "number") {
           router.replace("/login");
+        } else {
+          // Erreur reseau brute (fetch a rejete) — on reste prudent.
+          router.replace("/login?reason=network");
         }
       } finally {
         if (!cancelled) setLoading(false);
