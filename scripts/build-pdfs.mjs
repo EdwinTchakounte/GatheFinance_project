@@ -50,6 +50,18 @@ const TARGETS = [
     landscape: false,
     flavor: "web",
   },
+  {
+    src: "docs/GUIDE_RECETTE_LIVE.md",
+    out: "docs/Guide-Gathe-Finance-Recette-Live.pdf",
+    title: "Rapport de recette en production",
+    subtitle: "Tests bout-en-bout exécutés sur la prod réelle, données conservées pour la présentation.",
+    eyebrow: "RAPPORT DE RECETTE",
+    appName: "Gathe Finance",
+    appVersion: "1.0.0",
+    author: "TCHAMBA TCHAKOUNTE Edwin",
+    landscape: false,
+    flavor: "web",
+  },
 ];
 
 const CSS = `
@@ -594,7 +606,10 @@ async function buildPdf(t) {
 
   const browser = await chromium.launch();
   const page = await browser.newPage();
-  await page.goto(`file://${htmlPath}`, { waitUntil: "networkidle" });
+  await page.goto(`file://${htmlPath}`, { waitUntil: "load", timeout: 90000 });
+  // Petit délai pour que les @font-face Google se chargent si la prod a un accès web,
+  // mais on n'attend plus le networkidle complet (qui timeoute hors-ligne).
+  await page.waitForTimeout(2500);
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(900);
 
