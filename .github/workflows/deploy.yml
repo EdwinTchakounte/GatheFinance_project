@@ -88,10 +88,17 @@ jobs:
 
             cd "$DEPLOY_PATH/infra"
 
-            # Pull derniere version du code (pour les fichiers compose +
-            # les migrations Django qui tournent au boot du conteneur).
-            echo ">>> git pull origin main..."
-            (cd "$DEPLOY_PATH" && git fetch origin && git reset --hard origin/main)
+            # Pull derniere version du code (best-effort : les fichiers
+            # compose et settings utilises au runtime sont surtout dans
+            # les images Docker — le git pull est utile pour les configs
+            # statiques mais n'est pas bloquant si le remote n'est pas
+            # joignable ou si l'auth Git n'est pas configuree sur le VPS).
+            echo ">>> git pull origin main (best-effort)..."
+            if (cd "$DEPLOY_PATH" && git fetch origin && git reset --hard origin/main); then
+              echo "git pull OK"
+            else
+              echo "!!! git pull skipped (auth manquante ou remote injoignable) — on continue avec les images"
+            fi
 
             # Sauvegarder le tag actuel pour rollback
             CURRENT_TAG=$(grep "^GATHE_IMAGE_TAG=" .env.prod | cut -d= -f2 || echo "latest")
