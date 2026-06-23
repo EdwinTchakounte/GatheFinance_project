@@ -62,6 +62,23 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
+# --- Cookies cross-subdomain (CRITIQUE pour le portail + admin) -------------
+# Le backend API tourne sur `api.gathe-finance.horus-lab.com`, alors que les
+# fronts Next.js vivent sur `portail.*`, `admin.*`, et `gathe-finance.*`.
+# Sans `Domain=.gathe-finance.horus-lab.com`, le cookie de session est scope
+# uniquement a `api.*` et le navigateur ne le partage PAS lorsque l'utilisateur
+# clique sur un lien externe (retour au site / portail) puis revient.
+# Resultat : la session est "perdue" au moindre changement de sous-domaine.
+#
+# Avec `.gathe-finance.horus-lab.com`, le cookie est partage entre tous les
+# sous-domaines (api / portail / admin / site / cms) et la session persiste.
+# eTLD+1 = `horus-lab.com` donc SameSite=Lax considere les 5 hotes comme
+# same-site, ce qui permet aussi les requetes XHR cross-origin avec
+# credentials.
+_COOKIE_DOMAIN = env("COOKIE_DOMAIN", default=".gathe-finance.horus-lab.com")
+SESSION_COOKIE_DOMAIN = _COOKIE_DOMAIN
+CSRF_COOKIE_DOMAIN = _COOKIE_DOMAIN
+
 # --- Media on Backblaze B2 (S3-compatible) ----------------------------------
 # Set AWS_* env vars to enable; otherwise falls back to local filesystem (base.py).
 
