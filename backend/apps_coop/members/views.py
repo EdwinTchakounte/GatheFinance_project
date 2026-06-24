@@ -397,11 +397,18 @@ def admin_list_members(request):
                 date_derniere_reinscription__lte=anchor_hi,
             )
 
+    from apps_coop.common import parse_pagination
+
+    offset, limit = parse_pagination(
+        request, default_limit=25, max_limit=_ADMIN_MEMBERS_PAGE_SIZE
+    )
     count = qs.count()
-    rows = qs[:_ADMIN_MEMBERS_PAGE_SIZE]
+    rows = qs[offset : offset + limit]
     return Response(
         {
             "count": count,
+            "limit": limit,
+            "offset": offset,
             "results": MemberReadSerializer(rows, many=True).data,
         }
     )

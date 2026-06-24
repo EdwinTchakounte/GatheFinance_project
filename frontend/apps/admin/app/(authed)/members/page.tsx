@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Mail, Phone, Search } from "lucide-react";
 
 import { ExportMenu } from "@/components/export-menu";
+import { Pagination } from "@/components/pagination";
 import type { ExportColumn } from "@/lib/export";
 import { adminApi, type ApiError, type Member } from "@/lib/api";
 
@@ -54,6 +55,8 @@ function Inner() {
   const [q, setQ] = useState("");
   const [items, setItems] = useState<Member[]>([]);
   const [count, setCount] = useState(0);
+  const [limit, setLimit] = useState(25);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,6 +67,8 @@ function Inner() {
       const res = await adminApi.members.list({
         statut: statut || undefined,
         q: q.trim() || undefined,
+        limit,
+        offset,
       });
       setItems(res.results);
       setCount(res.count);
@@ -78,7 +83,7 @@ function Inner() {
   useEffect(() => {
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statut]);
+  }, [statut, limit, offset]);
 
   return (
     <div className="px-8 py-8 lg:px-12 lg:py-10">
@@ -123,7 +128,10 @@ function Inner() {
               <button
                 key={opt.v || "all"}
                 type="button"
-                onClick={() => setStatut(opt.v as StatutFilter)}
+                onClick={() => {
+                  setStatut(opt.v as StatutFilter);
+                  setOffset(0);
+                }}
                 className={[
                   "rounded px-2.5 py-1 text-xs font-medium transition-colors",
                   statut === opt.v
@@ -140,6 +148,7 @@ function Inner() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            setOffset(0);
             reload();
           }}
           className="flex items-center gap-2"
@@ -268,11 +277,17 @@ function Inner() {
         </div>
       )}
 
-      {!loading && count > items.length ? (
-        <p className="mt-4 text-xs text-ink-500">
-          Vue limitée aux {items.length} entrées les plus récentes sur {count}.
-          Affine via le filtre statut ou la recherche.
-        </p>
+      {!loading && count > 0 ? (
+        <Pagination
+          count={count}
+          limit={limit}
+          offset={offset}
+          onChange={setOffset}
+          onLimitChange={(v) => {
+            setLimit(v);
+            setOffset(0);
+          }}
+        />
       ) : null}
     </div>
   );

@@ -707,8 +707,13 @@ def admin_list_payments(request):
             | Q(reference_externe__icontains=q)
         )
 
+    from apps_coop.common import parse_pagination
+
+    offset, limit = parse_pagination(
+        request, default_limit=25, max_limit=_ADMIN_PAYMENTS_PAGE_SIZE
+    )
     count = qs.count()
-    rows = qs[:_ADMIN_PAYMENTS_PAGE_SIZE]
+    rows = qs[offset : offset + limit]
     # Enrich with member display so the admin table doesn't need a second call.
     results = []
     for p in rows:
@@ -720,4 +725,6 @@ def admin_list_payments(request):
             "prenom": p.member.prenom,
         }
         results.append(data)
-    return Response({"count": count, "results": results})
+    return Response(
+        {"count": count, "limit": limit, "offset": offset, "results": results}
+    )

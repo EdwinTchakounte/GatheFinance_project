@@ -31,3 +31,30 @@ class TimestampedModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+def parse_pagination(
+    request,
+    default_limit: int = 25,
+    max_limit: int = 200,
+) -> tuple[int, int]:
+    """Lit ``?limit=`` et ``?offset=`` depuis la querystring, avec cap defensif.
+
+    Renvoie ``(offset, limit)`` valides (clamp + fallback sur defaut si
+    valeur invalide). Utilise par tous les endpoints admin listes pour
+    une UX de pagination coherente cote dashboard Next.js.
+    """
+    qp = request.query_params
+    try:
+        limit = int(qp.get("limit") or default_limit)
+    except (TypeError, ValueError):
+        limit = default_limit
+    limit = max(1, min(limit, max_limit))
+
+    try:
+        offset = int(qp.get("offset") or 0)
+    except (TypeError, ValueError):
+        offset = 0
+    offset = max(0, offset)
+
+    return offset, limit

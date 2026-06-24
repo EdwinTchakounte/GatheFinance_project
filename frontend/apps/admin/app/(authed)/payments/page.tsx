@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
 import { ExportMenu } from "@/components/export-menu";
+import { Pagination } from "@/components/pagination";
 import type { ExportColumn } from "@/lib/export";
 import { adminApi, type ApiError, type PaymentRow } from "@/lib/api";
 
@@ -68,6 +69,8 @@ function Inner() {
   const [q, setQ] = useState("");
   const [items, setItems] = useState<PaymentRow[]>([]);
   const [count, setCount] = useState(0);
+  const [limit, setLimit] = useState(25);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,6 +82,8 @@ function Inner() {
         statut: statut || undefined,
         type: typeFilter || undefined,
         q: q.trim() || undefined,
+        limit,
+        offset,
       });
       setItems(res.results);
       setCount(res.count);
@@ -93,7 +98,7 @@ function Inner() {
   useEffect(() => {
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statut, typeFilter]);
+  }, [statut, typeFilter, limit, offset]);
 
   const totalValide = useMemo(
     () =>
@@ -146,7 +151,10 @@ function Inner() {
         <FilterPills
           label="Statut"
           value={statut}
-          onChange={(v) => setStatut(v as StatutFilter)}
+          onChange={(v) => {
+            setStatut(v as StatutFilter);
+            setOffset(0);
+          }}
           options={[
             { v: "", l: "Tous" },
             { v: "en_attente", l: "En attente" },
@@ -158,7 +166,10 @@ function Inner() {
         <FilterPills
           label="Type"
           value={typeFilter}
-          onChange={(v) => setTypeFilter(v as TypeFilter)}
+          onChange={(v) => {
+            setTypeFilter(v as TypeFilter);
+            setOffset(0);
+          }}
           options={[
             { v: "", l: "Tous" },
             { v: "epargne", l: "Épargne" },
@@ -171,6 +182,7 @@ function Inner() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            setOffset(0);
             reload();
           }}
           className="flex items-center gap-2"
@@ -299,11 +311,17 @@ function Inner() {
         </div>
       )}
 
-      {!loading && count > items.length ? (
-        <p className="mt-4 text-xs text-ink-500">
-          Vue limitée aux {items.length} entrées les plus récentes sur {count}.
-          Les filtres réduisent ce volume.
-        </p>
+      {!loading && count > 0 ? (
+        <Pagination
+          count={count}
+          limit={limit}
+          offset={offset}
+          onChange={setOffset}
+          onLimitChange={(v) => {
+            setLimit(v);
+            setOffset(0);
+          }}
+        />
       ) : null}
     </div>
   );

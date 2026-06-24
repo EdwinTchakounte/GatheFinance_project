@@ -395,7 +395,15 @@ export type AppSettingsResponse = {
   settings: AppSettingRow[];
 };
 
-export type Paginated<T> = { count: number; results: T[] };
+export type Paginated<T> = {
+  count: number;
+  results: T[];
+  // Paginees offset/limit (membres / credits / paiements) renvoient ces champs.
+  // Optionnels car d'autres endpoints `count + results` historiques ne les
+  // renvoient pas encore.
+  limit?: number;
+  offset?: number;
+};
 
 // Journal d'audit — toutes les actions tracees (HTTP middleware + events metier).
 export type AuditLogUser = {
@@ -667,8 +675,17 @@ export const adminApi = {
   },
 
   loans: {
-    list: (params: { statut?: string; q?: string } = {}) =>
-      request<Paginated<AdminLoanRow>>(`/loans/admin/list/${qs(params)}`),
+    list: (
+      params: { statut?: string; q?: string; limit?: number; offset?: number } = {},
+    ) =>
+      request<Paginated<AdminLoanRow>>(
+        `/loans/admin/list/${qs({
+          statut: params.statut,
+          q: params.q,
+          limit: params.limit ? String(params.limit) : undefined,
+          offset: params.offset ? String(params.offset) : undefined,
+        })}`,
+      ),
     disburseTara: (
       loanId: number,
       payload: { recipient_phone: string; network: "MTN" | "ORANGE" | "WAVE" | "AIRTEL" },
@@ -709,8 +726,26 @@ export const adminApi = {
   },
 
   members: {
-    list: (params: { statut?: string; q?: string } = {}) =>
-      request<Paginated<Member>>(`/admin/members/${qs(params)}`),
+    list: (
+      params: {
+        statut?: string;
+        q?: string;
+        reinscription_overdue?: string;
+        reinscription_due_soon?: string;
+        limit?: number;
+        offset?: number;
+      } = {},
+    ) =>
+      request<Paginated<Member>>(
+        `/admin/members/${qs({
+          statut: params.statut,
+          q: params.q,
+          reinscription_overdue: params.reinscription_overdue,
+          reinscription_due_soon: params.reinscription_due_soon,
+          limit: params.limit ? String(params.limit) : undefined,
+          offset: params.offset ? String(params.offset) : undefined,
+        })}`,
+      ),
   },
 
   withdrawals: {
@@ -735,8 +770,24 @@ export const adminApi = {
   },
 
   payments: {
-    list: (params: { statut?: string; type?: string; q?: string } = {}) =>
-      request<Paginated<PaymentRow>>(`/payments/admin/${qs(params)}`),
+    list: (
+      params: {
+        statut?: string;
+        type?: string;
+        q?: string;
+        limit?: number;
+        offset?: number;
+      } = {},
+    ) =>
+      request<Paginated<PaymentRow>>(
+        `/payments/admin/${qs({
+          statut: params.statut,
+          type: params.type,
+          q: params.q,
+          limit: params.limit ? String(params.limit) : undefined,
+          offset: params.offset ? String(params.offset) : undefined,
+        })}`,
+      ),
   },
 
   // Refonte 2026 LOT 1 — Justificatifs BRC.

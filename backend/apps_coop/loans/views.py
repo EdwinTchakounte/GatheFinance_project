@@ -704,8 +704,13 @@ def admin_list_loans(request):
             | Q(member__prenom__icontains=q)
         )
 
+    from apps_coop.common import parse_pagination
+
+    offset, limit = parse_pagination(
+        request, default_limit=25, max_limit=_ADMIN_LOANS_PAGE_SIZE
+    )
     count = qs.count()
-    rows = qs[:_ADMIN_LOANS_PAGE_SIZE]
+    rows = list(qs[offset : offset + limit])
 
     # CH-9 — Pré-charge le dernier Payment décaissement pour chaque crédit visible,
     # afin d'éviter N+1 queries quand on calcule disbursement_status par ligne.
@@ -769,7 +774,9 @@ def admin_list_loans(request):
                 if last_pay else None
             ),
         })
-    return Response({"count": count, "results": results})
+    return Response(
+        {"count": count, "limit": limit, "offset": offset, "results": results}
+    )
 
 
 @extend_schema(
