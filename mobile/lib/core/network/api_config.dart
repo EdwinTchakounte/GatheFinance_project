@@ -1,20 +1,27 @@
-/// Configuration réseau injectée à la compilation via `--dart-define`.
+import 'package:flutter/foundation.dart';
+
+/// Configuration réseau.
 ///
-/// Valeurs par défaut visent le backend Docker local exposé sur 8200
-/// (cf. docker-compose.yml) et l'émulateur Android qui voit l'hôte via
-/// `10.0.2.2`. Sur device physique, surcharger :
+/// Priorité de résolution de [baseUrl] :
+///   1. `--dart-define=API_BASE_URL=...` (surcharge explicite, gagne toujours)
+///   2. En build RELEASE → `https://api.gathe-finance.horus-lab.com` (prod VPS)
+///   3. En build DEBUG/PROFILE → `http://10.0.2.2:8200` (émulateur Android local)
 ///
-///   flutter run --dart-define=API_BASE_URL=https://api.gathe-finance.horus-lab.com
+/// Ce fallback release évite le bug "Failed host lookup" quand l'AAB est
+/// publiée sans `--dart-define` : un device physique ne sait pas résoudre
+/// `10.0.2.2` (IP virtuelle de l'émulateur Android seulement).
 class ApiConfig {
   ApiConfig._();
 
-  /// URL absolue du backend (sans slash final). En dev par défaut, on cible
-  /// `10.0.2.2:8200` pour l'émulateur Android. Pour iOS sim ou web, passer
-  /// explicitement `http://localhost:8200` via `--dart-define`.
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8200',
-  );
+  static const String _envOverride = String.fromEnvironment('API_BASE_URL');
+  static const String _prodDefault = 'https://api.gathe-finance.horus-lab.com';
+  static const String _devDefault = 'http://10.0.2.2:8200';
+
+  /// URL absolue du backend (sans slash final).
+  static String get baseUrl {
+    if (_envOverride.isNotEmpty) return _envOverride;
+    return kReleaseMode ? _prodDefault : _devDefault;
+  }
 
   /// Préfixe de l'API métier (chemin relatif à [baseUrl]).
   static const String apiPrefix = '/api/v1';

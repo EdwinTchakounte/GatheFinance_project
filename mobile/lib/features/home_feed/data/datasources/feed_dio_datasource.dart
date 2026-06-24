@@ -50,7 +50,7 @@ class FeedDioDataSource {
     int offset = 0,
   }) async {
     try {
-      const url = '${ApiConfig.baseUrl}/api/v2/pages/';
+      final url = '${ApiConfig.baseUrl}/api/v2/pages/';
       final res = await _dio.get<Map<String, dynamic>>(
         url,
         queryParameters: {
