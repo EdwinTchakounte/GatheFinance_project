@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_spacing.dart';
@@ -14,38 +15,42 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../state/onboarding_notifier.dart';
 
 class _Slide {
-  const _Slide({required this.icon, required this.title, required this.body});
+  const _Slide({
+    required this.illustration,
+    required this.title,
+    required this.body,
+  });
 
-  final IconData icon;
+  /// Chemin de l'asset SVG (illustration vectorielle aux couleurs Gathe).
+  final String illustration;
   final String title;
   final String body;
 }
 
 List<_Slide> _buildSlides(AppL10n l) => <_Slide>[
       _Slide(
-        icon: Icons.savings_outlined,
+        illustration: 'assets/illustrations/onboarding_savings.svg',
         title: l.onb_slide1_title,
         body: l.onb_slide1_body,
       ),
       _Slide(
-        icon: Icons.account_balance_outlined,
+        illustration: 'assets/illustrations/onboarding_banking.svg',
         title: l.onb_slide2_title,
         body: l.onb_slide2_body,
       ),
       _Slide(
-        icon: Icons.diversity_3_rounded,
+        illustration: 'assets/illustrations/onboarding_community.svg',
         title: l.onb_slide3_title,
         body: l.onb_slide3_body,
       ),
     ];
 
-/// Onboarding refonte 2026-06-18 — **minimal, façon capture_rh.jpeg**.
+/// Onboarding refonte 2026-06-24 — illustrations SVG bundlees (offline).
 ///
-/// - Hero gradient bleu pleine largeur, **coins bas arrondis** type vague.
-/// - Cercle blanc contenant l'icône du slide, centré dans le hero.
+/// - Hero gradient bleu pleine largeur, coins bas arrondis (vague).
+/// - Illustration SVG centree (~160x160) aux couleurs Gathe (bleu + vert).
 /// - Titre Sora blanc XL.
-/// - Zone crème doodle dessous : 1 phrase body + dots + CTA.
-/// - Pas d'eyebrow, pas d'image hero, pas de chip, pas de badge.
+/// - Zone creme doodle dessous : 1 phrase body + dots + CTA.
 class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
 
@@ -239,27 +244,26 @@ class _BlueHero extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 18),
-              // Cercle blanc + icône
+              const SizedBox(height: 12),
+              // Illustration SVG centree (avec halo blanc adouci derriere).
               Center(
                 child: Container(
-                  width: 96,
-                  height: 96,
+                  width: 184,
+                  height: 184,
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.95),
+                    color: Colors.white.withValues(alpha: 0.10),
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.10),
-                        blurRadius: 20,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
                   ),
-                  child: Icon(slide.icon, color: PaColors.blue, size: 44),
+                  child: SvgPicture.asset(
+                    slide.illustration,
+                    fit: BoxFit.contain,
+                    semanticsLabel: slide.title,
+                    placeholderBuilder: (_) => const SizedBox.shrink(),
+                  ),
                 ),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
               // Titre slide
               Text(
                 slide.title,

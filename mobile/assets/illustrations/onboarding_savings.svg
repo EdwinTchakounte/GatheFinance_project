@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Slide 1 — Épargne : tirelire + pièces XAF. Palette Gathé. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none">
+  <!-- Soft halo background -->
+  <circle cx="120" cy="120" r="110" fill="#dbeafe" opacity="0.45"/>
+  <circle cx="120" cy="120" r="78" fill="#bfdbfe" opacity="0.4"/>
+
+  <!-- Falling coins (back) -->
+  <circle cx="172" cy="36" r="14" fill="#16a34a"/>
+  <circle cx="172" cy="36" r="11" fill="#22c55e"/>
+  <text x="172" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-weight="800" font-size="14" fill="#ffffff">F</text>
+
+  <circle cx="62" cy="58" r="11" fill="#16a34a"/>
+  <circle cx="62" cy="58" r="8.5" fill="#22c55e"/>
+  <text x="62" y="63" text-anchor="middle" font-family="Arial, sans-serif" font-weight="800" font-size="11" fill="#ffffff">F</text>
+
+  <!-- Piggy body -->
+  <ellipse cx="118" cy="148" rx="76" ry="54" fill="#2563eb"/>
+  <ellipse cx="118" cy="148" rx="76" ry="54" fill="url(#bodyShade)" opacity="0.18"/>
+
+  <!-- Head -->
+  <ellipse cx="184" cy="128" rx="28" ry="24" fill="#2563eb"/>
+  <!-- Snout -->
+  <ellipse cx="208" cy="134" rx="10" ry="7.5" fill="#1d4ed8"/>
+  <circle cx="206" cy="133" r="1.6" fill="#0f172a"/>
+  <circle cx="211" cy="133" r="1.6" fill="#0f172a"/>
+  <!-- Eye -->
+  <circle cx="188" cy="118" r="2.4" fill="#0f172a"/>
+  <!-- Ear -->
+  <path d="M 168 100 L 178 84 L 184 102 Z" fill="#1d4ed8"/>
+
+  <!-- Coin slot -->
+  <rect x="100" y="92" width="32" height="5" rx="2.5" fill="#0f172a"/>
+
+  <!-- Coin going into slot -->
+  <circle cx="116" cy="68" r="13" fill="#16a34a"/>
+  <circle cx="116" cy="68" r="10" fill="#22c55e"/>
+  <text x="116" y="73" text-anchor="middle" font-family="Arial, sans-serif" font-weight="800" font-size="12" fill="#ffffff">F</text>
+
+  <!-- Legs -->
+  <rect x="70" y="194" width="14" height="22" rx="4" fill="#1d4ed8"/>
+  <rect x="152" y="194" width="14" height="22" rx="4" fill="#1d4ed8"/>
+
+  <!-- Tail -->
+  <path d="M 42 142 Q 26 134 30 120 Q 38 114 42 126" stroke="#2563eb" stroke-width="6" stroke-linecap="round" fill="none"/>
+
+  <!-- Cheek blush -->
+  <ellipse cx="196" cy="138" rx="6" ry="3" fill="#fb7185" opacity="0.5"/>
+
+  <defs>
+    <linearGradient id="bodyShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f172a" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+</svg>

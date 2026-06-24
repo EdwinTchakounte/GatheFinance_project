@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Slide 3 — Communauté coopérative : 3 personnes diverses + lien central. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none">
+  <!-- Halo background -->
+  <circle cx="120" cy="120" r="110" fill="#dbeafe" opacity="0.45"/>
+  <circle cx="120" cy="120" r="78" fill="#dcfce7" opacity="0.4"/>
+
+  <!-- Central join (logo-like) -->
+  <circle cx="120" cy="120" r="22" fill="#ffffff"/>
+  <circle cx="120" cy="120" r="22" stroke="#16a34a" stroke-width="3" fill="none"/>
+  <path d="M 110 120 L 117 127 L 132 112" stroke="#16a34a" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Connecting lines (back) -->
+  <line x1="120" y1="98" x2="120" y2="68" stroke="#16a34a" stroke-width="3" stroke-linecap="round" stroke-dasharray="0 0"/>
+  <line x1="102" y1="132" x2="74" y2="150" stroke="#16a34a" stroke-width="3" stroke-linecap="round"/>
+  <line x1="138" y1="132" x2="166" y2="150" stroke="#16a34a" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Person 1 (top) — woman -->
+  <g>
+    <!-- Body / shoulders -->
+    <rect x="100" y="44" width="40" height="34" rx="14" fill="#2563eb"/>
+    <!-- Head -->
+    <circle cx="120" cy="32" r="14" fill="#fbbf24"/>
+    <!-- Hair -->
+    <path d="M 106 30 Q 110 18 120 18 Q 130 18 134 30 Q 132 25 120 24 Q 108 25 106 30 Z" fill="#0f172a"/>
+    <!-- Earring dot -->
+    <circle cx="134" cy="34" r="1.5" fill="#16a34a"/>
+  </g>
+
+  <!-- Person 2 (bottom-left) — man -->
+  <g>
+    <!-- Body -->
+    <rect x="42" y="150" width="40" height="34" rx="14" fill="#16a34a"/>
+    <!-- Head -->
+    <circle cx="62" cy="138" r="14" fill="#a16207"/>
+    <!-- Hair top -->
+    <path d="M 48 134 Q 52 124 62 124 Q 72 124 76 134 L 73 130 Q 62 126 51 130 Z" fill="#0f172a"/>
+  </g>
+
+  <!-- Person 3 (bottom-right) — woman -->
+  <g>
+    <!-- Body -->
+    <rect x="158" y="150" width="40" height="34" rx="14" fill="#1d4ed8"/>
+    <!-- Head -->
+    <circle cx="178" cy="138" r="14" fill="#c2410c"/>
+    <!-- Hair (curly/short bob) -->
+    <path d="M 164 132 Q 166 122 178 122 Q 190 122 192 132 Q 190 140 188 138 Q 184 128 178 128 Q 172 128 168 138 Q 166 140 164 132 Z" fill="#0f172a"/>
+    <!-- Hoop earring -->
+    <circle cx="192" cy="140" r="2" stroke="#16a34a" stroke-width="1.2" fill="none"/>
+  </g>
+
+  <!-- Hearts / small accents -->
+  <path d="M 200 78 q -3 -4 -6 0 q -3 -4 -6 0 q 0 5 6 9 q 6 -4 6 -9 z" fill="#fb7185" opacity="0.7" transform="scale(0.6) translate(120 40)"/>
+  <circle cx="48" cy="100" r="3" fill="#fbbf24" opacity="0.7"/>
+  <circle cx="196" cy="200" r="3" fill="#16a34a" opacity="0.5"/>
+</svg>

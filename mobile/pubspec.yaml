@@ -97,6 +97,7 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/illustrations/
 
   # Polices bundlées (offline) — variables fonts, le poids est piloté via
   # fontVariations/fontWeight. Indispensable : l'appli tourne sans internet,
