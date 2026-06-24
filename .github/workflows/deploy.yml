@@ -147,7 +147,7 @@ jobs:
           set -e
           FAILED=0
           for url in \
-            https://api.gathe-finance.horus-lab.com/api/v1/healthz/ \
+            https://api.gathe-finance.horus-lab.com/healthz/ \
             https://gathe-finance.horus-lab.com/ \
             https://portail.gathe-finance.horus-lab.com/ \
             https://admin.gathe-finance.horus-lab.com/ \
