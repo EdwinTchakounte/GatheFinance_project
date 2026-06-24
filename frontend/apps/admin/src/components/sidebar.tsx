@@ -21,6 +21,7 @@ import {
   FileText,
   BellRing,
   FileEdit,
+  ScrollText,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
@@ -74,6 +75,8 @@ const NAV: NavItem[] = [
   { href: "/announcements", label: "Annonces", icon: BellRing },
   // CH-4 — Moteur de formulaires dynamiques (adhésion, crédit, reconduction).
   { href: "/forms", label: "Formulaires", icon: FileEdit },
+  // Journal d'audit — toutes les actions tracées (mutations API + events métier).
+  { href: "/audit", label: "Journal d'audit", icon: ScrollText },
 ];
 
 

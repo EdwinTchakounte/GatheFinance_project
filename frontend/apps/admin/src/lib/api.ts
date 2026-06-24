@@ -397,6 +397,48 @@ export type AppSettingsResponse = {
 
 export type Paginated<T> = { count: number; results: T[] };
 
+// Journal d'audit — toutes les actions tracees (HTTP middleware + events metier).
+export type AuditLogUser = {
+  id: number;
+  email: string;
+  full_name: string;
+  is_staff: boolean;
+  is_superuser: boolean;
+};
+
+export type AuditLogRow = {
+  id: number;
+  action: string;
+  entite_type: string;
+  entite_id: number | null;
+  user: AuditLogUser | null;
+  ip: string;
+  user_agent: string;
+  details_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AuditLogPage = {
+  count: number;
+  limit: number;
+  offset: number;
+  results: AuditLogRow[];
+};
+
+export type AuditLogFacets = { actions: string[]; entite_types: string[] };
+
+export type AuditLogFilters = {
+  q?: string;
+  user?: string;
+  action?: string;
+  entite_type?: string;
+  entite_id?: string;
+  date_from?: string;
+  date_to?: string;
+  limit?: number;
+  offset?: number;
+};
+
 // Refonte 2026 — Retraits épargne avec canal MOMO/présentiel + payout Tara.
 export type WithdrawalStatut =
   | "en_attente"
@@ -980,6 +1022,25 @@ export const adminApi = {
       request<FormSchemaAdmin>(`/forms/admin/schemas/${id}/duplicate/`, {
         method: "POST",
       }),
+  },
+
+  // Journal d'audit centralise (toutes les actions tracees).
+  audit: {
+    list: (filters: AuditLogFilters = {}) =>
+      request<AuditLogPage>(
+        `/audit/admin/logs/${qs({
+          q: filters.q,
+          user: filters.user,
+          action: filters.action,
+          entite_type: filters.entite_type,
+          entite_id: filters.entite_id,
+          date_from: filters.date_from,
+          date_to: filters.date_to,
+          limit: filters.limit ? String(filters.limit) : undefined,
+          offset: filters.offset ? String(filters.offset) : undefined,
+        })}`,
+      ),
+    facets: () => request<AuditLogFacets>("/audit/admin/logs/facets/"),
   },
 };
 

@@ -5,12 +5,23 @@ Endpoints staff pour l'admin Next.js — édition du catalogue AppSettings
 """
 from django.urls import path
 
-from . import admin_views, cron_admin_views
+from . import admin_views, cron_admin_views, log_admin_views
 
 
 app_name = "coop_audit"
 
 urlpatterns = [
+    # Journal d'audit (consultation centralisee de toutes les actions tracees).
+    path(
+        "admin/logs/",
+        log_admin_views.admin_audit_logs_list,
+        name="admin-audit-logs-list",
+    ),
+    path(
+        "admin/logs/facets/",
+        log_admin_views.admin_audit_logs_facets,
+        name="admin-audit-logs-facets",
+    ),
     path(
         "admin/settings/",
         admin_views.admin_settings_list,
