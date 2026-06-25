@@ -6,7 +6,7 @@ import '../../domain/entities/reaction.dart';
 import '../../domain/repositories/social_repository.dart';
 
 // ---------------------------------------------------------------------------
-// Reaction (like) — family par cible.
+// Reaction (like) . family par cible.
 // ---------------------------------------------------------------------------
 
 /// Etat asynchrone du like + count pour une cible donnee. AutoDispose pour
@@ -34,7 +34,7 @@ final socialReactionProvider = AutoDisposeAsyncNotifierProvider.family<
 
 
 // ---------------------------------------------------------------------------
-// Commentaires — pagination cumulee (load more).
+// Commentaires . pagination cumulee (load more).
 // ---------------------------------------------------------------------------
 
 class CommentsState {
@@ -103,7 +103,7 @@ class SocialCommentsNotifier
         ),
       );
     } catch (_) {
-      // On laisse l'etat precedent — l'UI affichera juste l'erreur en SnackBar
+      // On laisse l'etat precedent . l'UI affichera juste l'erreur en SnackBar
       // lors d'un prochain tap. Pour rester simple on releve le flag.
       state = AsyncValue.data(current.copyWith(loadingMore: false));
     }

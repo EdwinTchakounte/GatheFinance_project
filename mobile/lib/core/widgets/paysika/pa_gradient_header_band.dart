@@ -4,7 +4,7 @@ import '../../../app/theme/paysika/pa_colors.dart';
 import '../../../app/theme/paysika/pa_typography.dart';
 import 'pa_logo.dart';
 
-/// Header compact pleine largeur — logo + titre sur la même ligne, posé
+/// Header compact pleine largeur . logo + titre sur la même ligne, posé
 /// sur un **gradient soft** vert→bleu (8% opacity) et clos par un filet
 /// hairline.
 ///

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Mini-courbe de tendance (area sparkline) — dessinée à la main, sans
+/// Mini-courbe de tendance (area sparkline) . dessinée à la main, sans
 /// dépendance externe (offline-safe). Donne de la « vie » et de la richesse
 /// data au hero balance, façon Revolut/N26.
 ///

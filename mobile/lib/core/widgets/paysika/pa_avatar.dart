@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Avatar génératif Paysika — gradient unique dérivé du nom du membre.
+/// Avatar génératif Paysika . gradient unique dérivé du nom du membre.
 ///
 /// Donne à chaque membre une identité chromatique personnelle (façon Notion /
 /// Linear) tout en restant dans une palette cohérente avec la marque. Le
@@ -23,7 +23,7 @@ class PaAvatar extends StatelessWidget {
 
   final double size;
 
-  /// Palette de gradients « membre » — tons riches mais accordés à la marque.
+  /// Palette de gradients « membre » . tons riches mais accordés à la marque.
   /// Choisis pour bien contraster avec le texte blanc.
   static const _palettes = <List<Color>>[
     [Color(0xFF36C8B0), Color(0xFF1F7A8C)], // teal → petrol (brand)

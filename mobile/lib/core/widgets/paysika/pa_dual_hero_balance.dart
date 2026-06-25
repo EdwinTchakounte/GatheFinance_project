@@ -26,7 +26,7 @@ class PaHeroSlot {
   final bool deltaPositive;
 }
 
-/// Hero balance **dual** — gradient aurore signature, contient un toggle
+/// Hero balance **dual** . gradient aurore signature, contient un toggle
 /// segmenté en haut (Épargne / Cotisations) qui switch l'affichage du
 /// montant, du delta, du CTA et de la courbe.
 ///
@@ -148,7 +148,7 @@ class _PaDualHeroBalanceState extends State<PaDualHeroBalance> {
                 ),
               ),
             ),
-            // Sparkline subtle bottom band — bande plus fine pour alléger.
+            // Sparkline subtle bottom band . bande plus fine pour alléger.
             if (!_hidden && (slot.trend?.length ?? 0) >= 2)
               Positioned(
                 left: 0,

@@ -14,7 +14,7 @@ class SavingsNotifier extends AsyncNotifier<SavingsAccount> {
 
   @override
   Future<SavingsAccount> build() async {
-    // memory mobile cache-offline — on tente d'abord le fetch live ; en cas
+    // memory mobile cache-offline . on tente d'abord le fetch live ; en cas
     // d'échec réseau, on retombe sur le snapshot persistant pour que l'UI
     // reste utilisable hors connexion. Le snapshot est rafraîchi à chaque
     // fetch réussi.
@@ -35,9 +35,9 @@ class SavingsNotifier extends AsyncNotifier<SavingsAccount> {
     state = await AsyncValue.guard(build);
   }
 
-  /// Lance un dépôt — émet `loading` puis `data` ou `error`.
+  /// Lance un dépôt . émet `loading` puis `data` ou `error`.
   ///
-  /// LOT 6 — [nbJoursCouverts] > 1 active le mode multi-jours pré-payé sur
+  /// LOT 6 . [nbJoursCouverts] > 1 active le mode multi-jours pré-payé sur
   /// la collecte journalière. Le backend valide montant = nb × min_per_day
   /// et plafonne à 30 jours.
   Future<void> deposit({

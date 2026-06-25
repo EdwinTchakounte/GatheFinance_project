@@ -5,7 +5,7 @@ import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_shadows.dart';
 import '../../app/theme/app_typography.dart';
 
-/// Carte image avec overlay éditorial — utilisée pour les blocs hero
+/// Carte image avec overlay éditorial . utilisée pour les blocs hero
 /// (onboarding, banners, sections « pourquoi épargner », etc.).
 ///
 /// - L'image asset est cadrée en `BoxFit.cover`
@@ -61,7 +61,7 @@ class HeroImageCard extends StatelessWidget {
             ),
           ),
 
-          // Trait coopératif terra/emerald — micro-élément graphique
+          // Trait coopératif terra/emerald . micro-élément graphique
           Positioned(
             top: 16,
             left: 18,

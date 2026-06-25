@@ -5,23 +5,23 @@ import '../../formatters/xaf_formatter.dart';
 
 /// Catégorie de transaction → icône + couleur soft du badge.
 enum NbTxKind {
-  /// Dépôt épargne (in) — vert
+  /// Dépôt épargne (in) . vert
   depot,
-  /// Intérêts crédités (in) — vert
+  /// Intérêts crédités (in) . vert
   interet,
-  /// Frais carnet, frais adhésion, frais reconduction (out) — orange
+  /// Frais carnet, frais adhésion, frais reconduction (out) . orange
   frais,
-  /// Remboursement crédit (out) — bleu
+  /// Remboursement crédit (out) . bleu
   remboursement,
-  /// Décaissement crédit reçu (in) — bleu
+  /// Décaissement crédit reçu (in) . bleu
   decaissement,
-  /// Retrait (out) — rouge soft
+  /// Retrait (out) . rouge soft
   retrait,
   /// Catch-all
   autre,
 }
 
-/// Row de transaction — style néobanque (Paysika / Wave / Revolut).
+/// Row de transaction . style néobanque (Paysika / Wave / Revolut).
 ///
 ///   ┌────────────────────────────────────────┐
 ///   │ ⚪40   Libellé bold 15pt        + 2 500│

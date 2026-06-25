@@ -15,7 +15,7 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../../../forms/domain/form_validation.dart';
 import '../../../forms/presentation/widgets/dynamic_fields.dart';
 
-/// Champs hardcoded dans ce sheet — exclus du renderer DynamicFields pour
+/// Champs hardcoded dans ce sheet . exclus du renderer DynamicFields pour
 /// éviter les doublons. Doit refléter `_MEMBERSHIP_HARDCODED` dans
 /// `apps_coop/members/serializers.py`.
 const Set<String> _hardcodedAdhesionFields = {
@@ -25,7 +25,7 @@ const Set<String> _hardcodedAdhesionFields = {
   'cni_recto', 'cni_verso', 'plan_localisation', 'photo_identite',
 };
 
-/// Taille max d'une pièce uploadée — alignée sur le serializer backend
+/// Taille max d'une pièce uploadée . alignée sur le serializer backend
 /// (`_MAX_PIECE_SIZE` dans `apps_coop/members/serializers.py`).
 const int _kMaxPieceBytes = 5 * 1024 * 1024;
 
@@ -34,7 +34,7 @@ const int _kMaxPieceBytes = 5 * 1024 * 1024;
 /// souvent la pièce avec le smartphone.
 const List<String> _kDocExts = ['jpg', 'jpeg', 'png', 'pdf', 'heic'];
 
-/// Une seule pièce uploadée — sert au `_FilePickerTile` pour les 4 champs.
+/// Une seule pièce uploadée . sert au `_FilePickerTile` pour les 4 champs.
 class _Piece {
   const _Piece({required this.file, required this.name, required this.size});
   final File file;
@@ -44,10 +44,10 @@ class _Piece {
 
 enum _Step { form, loading, success }
 
-/// Statut professionnel — aligné sur `MembershipRequest.StatutPro` backend.
+/// Statut professionnel . aligné sur `MembershipRequest.StatutPro` backend.
 enum _StatutPro { salarie, commercant, artisan, sansEmploi, autre }
 
-/// Formulaire d'adhésion — recueille les 8 informations de l'Article 2 du
+/// Formulaire d'adhésion . recueille les 8 informations de l'Article 2 du
 /// Règlement Intérieur pour soumettre une `MembershipRequest`.
 ///
 /// Identité (nom complet, email), téléphone + WhatsApp, ville + lieu précis,
@@ -79,7 +79,7 @@ class MembershipFormSheet extends ConsumerStatefulWidget {
 
 class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
     with TickerProviderStateMixin {
-  // CH-5 — Valeurs des champs dynamiques (FormSchema adhesion).
+  // CH-5 . Valeurs des champs dynamiques (FormSchema adhesion).
   Map<String, Object?> _extraValues = {};
   Map<String, String> _extraErrors = {};
   String? _submitError;
@@ -181,7 +181,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
       }
       onPicked(_Piece(file: File(path), name: f.name, size: size));
     } on PlatformException {
-      // Permission refusée ou picker indisponible — silencieux.
+      // Permission refusée ou picker indisponible . silencieux.
     }
   }
 
@@ -202,7 +202,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
       return;
     }
     setState(() => _piecesError = null);
-    // CH-5 — Validation locale des champs dynamiques avant l'envoi.
+    // CH-5 . Validation locale des champs dynamiques avant l'envoi.
     final schema = ref.read(activeAdhesionSchemaProvider).valueOrNull;
     if (schema != null) {
       final errs = validateSchema(
@@ -233,7 +233,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
       final challenge = await ds.getCaptcha();
       final answer = challenge.solve();
       if (answer == null || challenge.token.isEmpty) {
-        throw 'Captcha indisponible — réessaie dans un instant.';
+        throw 'Captcha indisponible . réessaie dans un instant.';
       }
       // 2. Construit le body backend depuis les hardcoded + extras (scalaires).
       //    On passe par une Map<String,Object?> ; le datasource convertit en
@@ -260,7 +260,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
         'language': 'fr',
         'captcha_token': challenge.token,
         'captcha_answer': answer.toString(),
-        // Pièces (FileFields backend) — déjà validées non-null en amont.
+        // Pièces (FileFields backend) . déjà validées non-null en amont.
         'cni_recto': _cniRecto!.file,
         'cni_verso': _cniVerso!.file,
         'plan_localisation': _planLocalisation!.file,
@@ -489,7 +489,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
                   ),
                 ],
 
-                // CH-5 — Champs supplémentaires définis par l'admin via le
+                // CH-5 . Champs supplémentaires définis par l'admin via le
                 // FormSchema actif (kind=adhesion). En 404 ou erreur transport,
                 // on garde le sheet legacy intact.
                 Consumer(

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/theme/app_typography.dart';
 
-/// Pill d'action — cercle 56 avec icône au centre + label compact en dessous.
+/// Pill d'action . cercle 56 avec icône au centre + label compact en dessous.
 ///
 /// Style néobanque (Paysika / Wave) :
 ///   - cercle ~56 px, fond primary à 12 % d'alpha

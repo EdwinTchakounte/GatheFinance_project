@@ -5,7 +5,7 @@ import '../../../app/theme/paysika/pa_typography.dart';
 import '../../formatters/xaf_formatter.dart';
 import 'pa_sparkline.dart';
 
-/// Hero balance Paysika — signature visuelle de la home.
+/// Hero balance Paysika . signature visuelle de la home.
 ///
 /// Card avec **gradient diagonal aurore** (teal bas-gauche → navy haut-droite),
 /// halo blanc soft top-right, contenu :
@@ -43,7 +43,7 @@ class PaHeroBalance extends StatefulWidget {
   final String? deltaLabel;
   final bool deltaPositive;
 
-  /// Sous-ligne optionnelle "Voir les opérations en attente" — null = caché.
+  /// Sous-ligne optionnelle "Voir les opérations en attente" . null = caché.
   final String? pendingLabel;
   final VoidCallback? onPendingTap;
 
@@ -84,7 +84,7 @@ class _PaHeroBalanceState extends State<PaHeroBalance> {
       decoration: BoxDecoration(
         gradient: PaGradients.heroAurore,
         borderRadius: BorderRadius.circular(14),
-        // Ombre colorée profonde — donne le « flotte sur la page » premium.
+        // Ombre colorée profonde . donne le « flotte sur la page » premium.
         boxShadow: [
           BoxShadow(
             color: PaColors.blue.withValues(alpha: 0.22),
@@ -104,7 +104,7 @@ class _PaHeroBalanceState extends State<PaHeroBalance> {
         borderRadius: BorderRadius.circular(14),
         child: Stack(
           children: [
-            // Halo blanc top-right — profondeur premium signature.
+            // Halo blanc top-right . profondeur premium signature.
             Positioned(
               top: -50,
               right: -40,
@@ -124,7 +124,7 @@ class _PaHeroBalanceState extends State<PaHeroBalance> {
                 ),
               ),
             ),
-            // Highlight diagonal top-left — touche glassmorphism subtile.
+            // Highlight diagonal top-left . touche glassmorphism subtile.
             Positioned(
               top: -20,
               left: -30,
@@ -144,7 +144,7 @@ class _PaHeroBalanceState extends State<PaHeroBalance> {
                 ),
               ),
             ),
-            // Filet horizontal subtil — séparation visuelle premium.
+            // Filet horizontal subtil . séparation visuelle premium.
             Positioned(
               left: 0,
               right: 0,
@@ -165,7 +165,7 @@ class _PaHeroBalanceState extends State<PaHeroBalance> {
               ),
             ),
 
-            // Courbe de tendance — bande basse subtile derrière le contenu.
+            // Courbe de tendance . bande basse subtile derrière le contenu.
             if (!_hidden && (widget.trend?.length ?? 0) >= 2)
               Positioned(
                 left: 0,
@@ -223,7 +223,7 @@ class _PaHeroBalanceState extends State<PaHeroBalance> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Solde principal — Sora bold, count-up animé à la révélation.
+                  // Solde principal . Sora bold, count-up animé à la révélation.
                   _hidden
                       ? Text(
                           '… … XAF',
@@ -253,7 +253,7 @@ class _PaHeroBalanceState extends State<PaHeroBalance> {
                           ),
                         ),
 
-                  // Delta du mois — petit chip translucide (craft premium).
+                  // Delta du mois . petit chip translucide (craft premium).
                   if (!_hidden && widget.deltaLabel != null) ...[
                     const SizedBox(height: 10),
                     _DeltaChip(

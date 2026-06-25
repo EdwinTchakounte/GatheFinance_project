@@ -25,7 +25,7 @@ import '../../../savings/presentation/widgets/withdraw_sheet.dart';
 import '../../data/releve_pdf_service.dart';
 import 'releve_preview_page.dart';
 
-/// Page « Mes états » — style **Paysika**. Relevé synthèse + KPIs + détail
+/// Page « Mes états » . style **Paysika**. Relevé synthèse + KPIs + détail
 /// épargne + export PDF.
 class StatesPage extends ConsumerWidget {
   const StatesPage({super.key});
@@ -91,7 +91,7 @@ class StatesPage extends ConsumerWidget {
                     children: [
                       _ReleveCard(
                         memberNumber:
-                            memberAsync.valueOrNull?.numeroMembre ?? '—',
+                            memberAsync.valueOrNull?.numeroMembre ?? '.',
                         memberName: memberAsync.valueOrNull?.fullName ??
                             l.profile_member_badge,
                         dateAdhesion: memberAsync.valueOrNull?.dateAdhesion,
@@ -120,7 +120,7 @@ class StatesPage extends ConsumerWidget {
                               icon: Icons.savings_outlined,
                               tint: PaColors.teal,
                               label: l.states_kpi_savings,
-                              value: '—',
+                              value: '.',
                               full: l.common_unavailable,
                             ),
                           ),
@@ -145,7 +145,7 @@ class StatesPage extends ConsumerWidget {
                               icon: Icons.account_balance_wallet_outlined,
                               tint: PaColors.warning,
                               label: l.states_kpi_contributions,
-                              value: '—',
+                              value: '.',
                               full: l.common_unavailable,
                             ),
                           ),
@@ -266,7 +266,7 @@ class StatesPage extends ConsumerWidget {
     }
     final df = DateFormat('dd/MM/yyyy');
     // La page Mes états affiche les transactions de cotisation journalière
-    // (savingsProvider), pas l'épargne classique — on utilise donc le libellé
+    // (savingsProvider), pas l'épargne classique . on utilise donc le libellé
     // dédié pour ne plus brouiller les deux notions côté membre.
     String txLabel(SavingsType t) => switch (t) {
           SavingsType.depot => l.tx_deposit_cotisation,
@@ -288,7 +288,7 @@ class StatesPage extends ConsumerWidget {
       memberLabel: l.releve_pdf_member,
       memberName: member?.fullName ?? l.profile_member_badge,
       numberLabel: l.releve_pdf_number,
-      memberNumber: member?.numeroMembre ?? '—',
+      memberNumber: member?.numeroMembre ?? '.',
       balanceLabel: l.releve_pdf_balance,
       balanceValue: XAFFormatter.format(data.solde),
       rateLabel: l.releve_pdf_rate,
@@ -475,7 +475,7 @@ class _AncienneteTile extends StatelessWidget {
         icon: Icons.calendar_month_outlined,
         tint: PaColors.navy,
         label: l.states_kpi_seniority,
-        value: '—',
+        value: '.',
         full: l.common_unavailable,
       );
     }
@@ -564,7 +564,7 @@ class _DetailCard extends StatelessWidget {
   }
 }
 
-/// Bouton "Retirer" en header de Mes états — déclenche le sheet de demande
+/// Bouton "Retirer" en header de Mes états . déclenche le sheet de demande
 /// de retrait sur le compte cotisation (la sheet récupère le solde via le
 /// même `savingsProvider` ; on le passe ici pour borner la saisie côté UI).
 class _WithdrawAction extends StatelessWidget {

@@ -9,7 +9,7 @@ import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_status_chip.dart';
 import '../../domain/entities/avaliste_mandat.dart';
 
-/// Carte d'affichage d'un mandat d'avaliste — présente le demandeur,
+/// Carte d'affichage d'un mandat d'avaliste . présente le demandeur,
 /// le montant + durée du crédit demandé, l'analyse de couverture (épargne
 /// avaliste vs montant), et 2 boutons d'action si le mandat est pending.
 class MandatCard extends StatelessWidget {

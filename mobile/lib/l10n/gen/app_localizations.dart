@@ -916,7 +916,7 @@ abstract class AppL10n {
   /// No description provided for @credit_eligible_cap.
   ///
   /// In fr, this message translates to:
-  /// **'Éligible — plafond {cap}'**
+  /// **'Éligible . plafond {cap}'**
   String credit_eligible_cap(String cap);
 
   /// No description provided for @credit_not_eligible.
@@ -1060,7 +1060,7 @@ abstract class AppL10n {
   /// No description provided for @booklet_hint_paid.
   ///
   /// In fr, this message translates to:
-  /// **'Ton paiement est validé. L\'agence prépare ton carnet — cela prend généralement 48 h ouvrées.'**
+  /// **'Ton paiement est validé. L\'agence prépare ton carnet . cela prend généralement 48 h ouvrées.'**
   String get booklet_hint_paid;
 
   /// No description provided for @booklet_hint_printing.
@@ -1102,7 +1102,7 @@ abstract class AppL10n {
   /// No description provided for @booklet_step3.
   ///
   /// In fr, this message translates to:
-  /// **'Notification au retrait — tu viens le récupérer.'**
+  /// **'Notification au retrait . tu viens le récupérer.'**
   String get booklet_step3;
 
   /// No description provided for @booklet_order_cta.
@@ -2032,7 +2032,7 @@ abstract class AppL10n {
   /// No description provided for @credit_empty_body.
   ///
   /// In fr, this message translates to:
-  /// **'Soumets une demande au comité — taux 10 %, durée selon le palier du règlement (Article 7).'**
+  /// **'Soumets une demande au comité . taux 10 %, durée selon le palier du règlement (Article 7).'**
   String get credit_empty_body;
 
   /// No description provided for @credit_empty_hint.
@@ -2314,7 +2314,7 @@ abstract class AppL10n {
   /// No description provided for @releve_pdf_footer.
   ///
   /// In fr, this message translates to:
-  /// **'Document généré par l\'application Gathé Finance — à titre informatif.'**
+  /// **'Document généré par l\'application Gathé Finance . à titre informatif.'**
   String get releve_pdf_footer;
 
   /// No description provided for @releve_pdf_filename.
@@ -2428,7 +2428,7 @@ abstract class AppL10n {
   /// No description provided for @dep_agency_place.
   ///
   /// In fr, this message translates to:
-  /// **'Akwa, Douala — Bercy'**
+  /// **'Akwa, Douala . Bercy'**
   String get dep_agency_place;
 
   /// No description provided for @dep_agency_hours.
@@ -2458,7 +2458,7 @@ abstract class AppL10n {
   /// No description provided for @classic_dep_sub.
   ///
   /// In fr, this message translates to:
-  /// **'Épargne classique — montant libre, séparé de ton épargne journalière.'**
+  /// **'Épargne classique . montant libre, séparé de ton épargne journalière.'**
   String get classic_dep_sub;
 
   /// No description provided for @classic_card_title.
@@ -2554,7 +2554,7 @@ abstract class AppL10n {
   /// No description provided for @lreq_motive_hint.
   ///
   /// In fr, this message translates to:
-  /// **'Explique ton projet — équipement, fonds de roulement, formation, etc.'**
+  /// **'Explique ton projet . équipement, fonds de roulement, formation, etc.'**
   String get lreq_motive_hint;
 
   /// No description provided for @lreq_motive_short.
@@ -2674,7 +2674,7 @@ abstract class AppL10n {
   /// No description provided for @ren_subtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Crédit {dossier} — solde restant {amount}.'**
+  /// **'Crédit {dossier} . solde restant {amount}.'**
   String ren_subtitle(String dossier, String amount);
 
   /// No description provided for @ren_extra_month.
@@ -2692,7 +2692,7 @@ abstract class AppL10n {
   /// No description provided for @ren_mode_comptant.
   ///
   /// In fr, this message translates to:
-  /// **'Au comptant — 10 %'**
+  /// **'Au comptant . 10 %'**
   String get ren_mode_comptant;
 
   /// No description provided for @ren_mode_comptant_sub.
@@ -2704,7 +2704,7 @@ abstract class AppL10n {
   /// No description provided for @ren_mode_reporte.
   ///
   /// In fr, this message translates to:
-  /// **'Reportés — 15 %'**
+  /// **'Reportés . 15 %'**
   String get ren_mode_reporte;
 
   /// No description provided for @ren_mode_reporte_sub.
@@ -3136,13 +3136,13 @@ abstract class AppL10n {
   /// No description provided for @mf_piece_cni_recto.
   ///
   /// In fr, this message translates to:
-  /// **'CNI — recto'**
+  /// **'CNI . recto'**
   String get mf_piece_cni_recto;
 
   /// No description provided for @mf_piece_cni_verso.
   ///
   /// In fr, this message translates to:
-  /// **'CNI — verso'**
+  /// **'CNI . verso'**
   String get mf_piece_cni_verso;
 
   /// No description provided for @mf_piece_plan.
@@ -3394,7 +3394,7 @@ abstract class AppL10n {
   /// No description provided for @offline_banner.
   ///
   /// In fr, this message translates to:
-  /// **'Hors-ligne — données du {when}'**
+  /// **'Hors-ligne . données du {when}'**
   String offline_banner(String when);
 
   /// No description provided for @lreq_avaliste_title.

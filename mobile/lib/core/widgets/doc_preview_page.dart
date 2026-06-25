@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/theme/paysika/pa_colors.dart';
 import 'paysika/pa_card.dart';
 
-/// CH-1 — Aperçu inline réutilisable d'une pièce jointe (image ou PDF).
+/// CH-1 . Aperçu inline réutilisable d'une pièce jointe (image ou PDF).
 ///
 /// Décisions :
 /// - **Images** (jpg/jpeg/png/webp/gif) rendues inline avec [InteractiveViewer]
@@ -192,7 +192,7 @@ class _PdfOrUnknownView extends StatelessWidget {
               Text(
                 isPdf
                     ? 'L’aperçu PDF utilise le lecteur système de ton téléphone.'
-                    : 'Format non pris en charge directement — on tente une ouverture externe.',
+                    : 'Format non pris en charge directement . on tente une ouverture externe.',
                 style: const TextStyle(
                   color: PaColors.inkMuted,
                   fontSize: 12.5,

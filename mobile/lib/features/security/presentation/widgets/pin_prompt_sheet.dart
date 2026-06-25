@@ -8,7 +8,7 @@ import '../../data/biometric_service.dart';
 import '../state/pin_notifier.dart';
 import 'pin_keypad.dart';
 
-/// Bottom sheet de vérification du PIN — utilisé pour révéler le solde.
+/// Bottom sheet de vérification du PIN . utilisé pour révéler le solde.
 ///
 /// Retourne `true` via `Navigator.pop` si le PIN saisi est correct, sinon
 /// reste ouvert avec un message d'erreur jusqu'à abandon (retour).

@@ -22,7 +22,7 @@ class AvalisteNotifier extends AutoDisposeAsyncNotifier<AvalisteMandatList> {
     );
   }
 
-  /// Répond à un mandat — émet un nouveau snapshot avec l'item à jour.
+  /// Répond à un mandat . émet un nouveau snapshot avec l'item à jour.
   /// Renvoie le mandat modifié ; remonte une [Exception] sur erreur (l'UI
   /// affiche un toast).
   Future<AvalisteMandat> respond({
@@ -33,7 +33,7 @@ class AvalisteNotifier extends AutoDisposeAsyncNotifier<AvalisteMandatList> {
     final updated = await _respond.call(
       RespondAvalisteParams(mandatId: mandatId, accept: accept, motif: motif),
     );
-    // Recharge complet — la liste reflète l'éventuelle décrémentation
+    // Recharge complet . la liste reflète l'éventuelle décrémentation
     // de `pendingCount` côté serveur.
     final reloaded = await _list.call(const ListAvalisteParams());
     state = AsyncValue.data(reloaded);

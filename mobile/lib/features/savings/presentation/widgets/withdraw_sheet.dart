@@ -33,12 +33,12 @@ extension on _MomoNet {
       };
 }
 
-/// Modale de demande de retrait — solde débité atomiquement côté backend dès
+/// Modale de demande de retrait . solde débité atomiquement côté backend dès
 /// soumission, puis attente de validation admin.
 class WithdrawSheet extends ConsumerStatefulWidget {
   const WithdrawSheet({super.key, required this.soldeDisponible});
 
-  /// Solde actuel de la cotisation — affiché en hint pour borner la saisie.
+  /// Solde actuel de la cotisation . affiché en hint pour borner la saisie.
   final num soldeDisponible;
 
   @override
@@ -90,7 +90,7 @@ class _WithdrawSheetState extends ConsumerState<WithdrawSheet> {
             ),
           );
       if (!mounted) return;
-      // Refresh solde + liste retraits — backend a déjà débité.
+      // Refresh solde + liste retraits . backend a déjà débité.
       ref.invalidate(savingsProvider);
       setState(() {
         _result = wr;
@@ -155,7 +155,7 @@ class _WithdrawSheetState extends ConsumerState<WithdrawSheet> {
               ),
               const SizedBox(height: 18),
 
-              // Canal — Présentiel vs MOMO
+              // Canal . Présentiel vs MOMO
               Row(
                 children: [
                   Expanded(

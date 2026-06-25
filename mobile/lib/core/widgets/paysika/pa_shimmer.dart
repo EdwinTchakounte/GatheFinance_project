@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/theme/paysika/pa_colors.dart';
 
-/// Effet shimmer Paysika — gradient teal animé qui glisse de gauche à droite.
+/// Effet shimmer Paysika . gradient teal animé qui glisse de gauche à droite.
 ///
 /// Utilisé pour les loading states. Plus premium que des SkeletonBox plats
 /// car la lueur animée signale clairement « chargement en cours » au membre,
@@ -11,7 +11,7 @@ import '../../../app/theme/paysika/pa_colors.dart';
 /// Usage :
 ///   PaShimmer(child: Container(width: 200, height: 40, color: Colors.grey))
 ///
-/// La couleur de base du child est ignorée — c'est l'effet qui prime.
+/// La couleur de base du child est ignorée . c'est l'effet qui prime.
 class PaShimmer extends StatefulWidget {
   const PaShimmer({
     super.key,
@@ -78,7 +78,7 @@ class _PaShimmerState extends State<PaShimmer>
 }
 
 
-/// Bloc shimmer rectangulaire — utilitaire pour composer des skeletons.
+/// Bloc shimmer rectangulaire . utilitaire pour composer des skeletons.
 class PaShimmerBox extends StatelessWidget {
   const PaShimmerBox({
     super.key,
@@ -105,7 +105,7 @@ class PaShimmerBox extends StatelessWidget {
 }
 
 
-/// Liste shimmer prête à l'emploi — N lignes avec avatar + 2 lignes texte.
+/// Liste shimmer prête à l'emploi . N lignes avec avatar + 2 lignes texte.
 /// Reproduit la silhouette d'une PaTransactionTile en chargement.
 class PaShimmerList extends StatelessWidget {
   const PaShimmerList({

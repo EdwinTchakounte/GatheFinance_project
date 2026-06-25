@@ -10,7 +10,7 @@ import 'pa_logo.dart';
 /// - **Halos radiaux** blancs : un en haut-droite, un plus bas-gauche, pour
 ///   "embellir" la surface bleue (pas une plate).
 /// - **Coins bas arrondis** (vague) pour la transition vers le crème.
-/// - Le logo n'est pas inclus ici — utiliser `PaBrandHeroBridgeLogo` posé
+/// - Le logo n'est pas inclus ici . utiliser `PaBrandHeroBridgeLogo` posé
 ///   en bas (chevauchement) dans un `Stack(clipBehavior: Clip.none)`.
 class PaBrandHero extends StatelessWidget {
   const PaBrandHero({

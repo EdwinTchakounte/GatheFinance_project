@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-/// Placeholder shimmer pour les états de chargement — préfère ça aux spinners
+/// Placeholder shimmer pour les états de chargement . préfère ça aux spinners
 /// quand la forme du contenu est prévisible.
 class Skeleton extends StatelessWidget {
   const Skeleton({
@@ -34,7 +34,7 @@ class Skeleton extends StatelessWidget {
   }
 }
 
-/// Bloc skeleton avec plusieurs lignes — pour une « ligne de liste ».
+/// Bloc skeleton avec plusieurs lignes . pour une « ligne de liste ».
 class SkeletonList extends StatelessWidget {
   const SkeletonList({super.key, this.lines = 3, this.spacing = 12});
 

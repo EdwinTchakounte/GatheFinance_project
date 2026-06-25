@@ -4,10 +4,10 @@ import '../../../app/theme/paysika/pa_colors.dart';
 
 /// Variante visuelle d'un [PaButton].
 enum PaButtonVariant {
-  /// Pill plein, gradient teal lumineux — action principale.
+  /// Pill plein, gradient teal lumineux . action principale.
   primary,
 
-  /// Pill contour, fond paper — action secondaire.
+  /// Pill contour, fond paper . action secondaire.
   outline,
 }
 

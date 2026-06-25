@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../app/theme/paysika/pa_colors.dart';
 
-/// Quick action Paysika — cercle **outlined gris pâle** (pas rempli teal),
+/// Quick action Paysika . cercle **outlined gris pâle** (pas rempli teal),
 /// icône navy au centre, label sobre dessous.
 ///
 /// Reproduction fidèle des chips quick actions observés dans capture_paysika/
 /// (Simulator / Bills / Transfer / More). C'est un design de "pastille sobre"
-/// — la couleur ne pop pas, c'est le pictogramme qui guide l'œil.
+/// . la couleur ne pop pas, c'est le pictogramme qui guide l'œil.
 class PaActionPill extends StatelessWidget {
   const PaActionPill({
     super.key,

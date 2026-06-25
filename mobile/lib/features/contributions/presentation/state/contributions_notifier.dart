@@ -28,7 +28,7 @@ class ContributionsNotifier
 final contributionsProvider = AsyncNotifierProvider.autoDispose<
     ContributionsNotifier, List<Contribution>>(ContributionsNotifier.new);
 
-/// Total des cotisations *validées* — pour la page « Mes états ».
+/// Total des cotisations *validées* . pour la page « Mes états ».
 final totalContributionsValideesProvider = Provider.autoDispose<num>((ref) {
   final list = ref.watch(contributionsProvider).valueOrNull ?? [];
   num n = 0;

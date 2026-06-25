@@ -29,14 +29,14 @@ extension _NetworkX on _Network {
 }
 
 
-/// Modale de cotisation — style **Paysika** (palette navy/teal, cards soft).
+/// Modale de cotisation . style **Paysika** (palette navy/teal, cards soft).
 ///
 /// 5 étapes :
-///   1. channelChoice — 2 PaCard (Mobile Money / Agence)
-///   2a. agencyInfo — rappel Akwa Bercy
-///   2b. form — montant 48pt + opérateur + numéro + CTA pill cyan
-///   3. loading — BrandLoader + sub texte
-///   4. success — check icon + sub + bouton fermer
+///   1. channelChoice . 2 PaCard (Mobile Money / Agence)
+///   2a. agencyInfo . rappel Akwa Bercy
+///   2b. form . montant 48pt + opérateur + numéro + CTA pill cyan
+///   3. loading . BrandLoader + sub texte
+///   4. success . check icon + sub + bouton fermer
 class DepositSheet extends ConsumerStatefulWidget {
   const DepositSheet({super.key, this.classic = false});
 
@@ -54,10 +54,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   final _amountCtrl = TextEditingController(text: '1000');
   final _phoneCtrl = TextEditingController(text: '699 11 22 33');
   _Network _network = _Network.mtn;
-  // CH-3 — Sous-canal placement (épargne classique uniquement). Reste false
+  // CH-3 . Sous-canal placement (épargne classique uniquement). Reste false
   // pour la cotisation.
   bool _isPlacement = false;
-  // LOT 6 — Nombre de jours pré-payés (cotisation uniquement). 1 = mode
+  // LOT 6 . Nombre de jours pré-payés (cotisation uniquement). 1 = mode
   // normal, > 1 = multi-jours (montant verrouillé à _nbJours × kCollecteMinPerDay).
   int _nbJoursCouverts = 1;
 
@@ -100,7 +100,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             amount: amount,
             phone: _phoneCtrl.text,
             network: network,
-            // CH-3 — Sous-canal placement.
+            // CH-3 . Sous-canal placement.
             isPlacement: _isPlacement,
           );
     } else {
@@ -108,7 +108,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             amount: amount,
             phone: _phoneCtrl.text,
             network: network,
-            // LOT 6 — Multi-jours pré-payé (cotisation uniquement).
+            // LOT 6 . Multi-jours pré-payé (cotisation uniquement).
             nbJoursCouverts: _nbJoursCouverts,
           );
     }
@@ -156,7 +156,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // Étape 0 (épargne classique) — CH-3 : choix Libre vs Placement
+  // Étape 0 (épargne classique) . CH-3 : choix Libre vs Placement
   // ───────────────────────────────────────────────────────────────────────
   Widget _kindChoiceStep() {
     return Padding(
@@ -226,7 +226,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // Étape 1 — Choix canal (Mobile Money OU Agence)
+  // Étape 1 . Choix canal (Mobile Money OU Agence)
   // ───────────────────────────────────────────────────────────────────────
   Widget _channelChoiceStep() {
     final l = AppL10n.of(context);
@@ -277,7 +277,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // Étape 1b — Info agence
+  // Étape 1b . Info agence
   // ───────────────────────────────────────────────────────────────────────
   Widget _agencyInfoStep() {
     final l = AppL10n.of(context);
@@ -364,7 +364,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // Étape 2 — Formulaire montant + opérateur + numéro
+  // Étape 2 . Formulaire montant + opérateur + numéro
   // ───────────────────────────────────────────────────────────────────────
   Widget _formStep() {
     final l = AppL10n.of(context);
@@ -393,7 +393,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               widget.classic ? l.classic_dep_sub : l.dep_suggestion,
               style: const TextStyle(color: PaColors.inkMuted, fontSize: 13.5),
             ),
-            // CH-3 — Badge rappelant le sous-canal choisi à l'étape kindChoice.
+            // CH-3 . Badge rappelant le sous-canal choisi à l'étape kindChoice.
             if (widget.classic) ...[
               const SizedBox(height: 10),
               InkWell(
@@ -451,7 +451,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
 
             const SizedBox(height: 22),
 
-            // LOT 6 — Sélecteur multi-jours pré-payés (cotisation uniquement).
+            // LOT 6 . Sélecteur multi-jours pré-payés (cotisation uniquement).
             // Le membre peut verser pour 1, 3, 5, 7, 15 ou 30 jours d'avance.
             // Le montant est verrouillé sur N × kCollecteMinPerDay.
             if (!widget.classic) ...[
@@ -521,7 +521,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               const SizedBox(height: 16),
             ],
 
-            // Montant — input geant inline
+            // Montant . input geant inline
             Text(
               l.common_amount,
               style: const TextStyle(
@@ -679,7 +679,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // Étape 3 — Loading
+  // Étape 3 . Loading
   // ───────────────────────────────────────────────────────────────────────
   Widget _loadingStep() {
     final l = AppL10n.of(context);
@@ -740,7 +740,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // Étape 4 — Success
+  // Étape 4 . Success
   // ───────────────────────────────────────────────────────────────────────
   Widget _successStep() {
     final l = AppL10n.of(context);
@@ -854,7 +854,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   }
 }
 
-/// CH-3 — `kindChoice` est l'écran d'entrée du dépôt **épargne classique** :
+/// CH-3 . `kindChoice` est l'écran d'entrée du dépôt **épargne classique** :
 /// le membre y choisit entre placement (bloqué 12 mois, rapporte un intérêt
 /// à maturité) et libre (retrait libre, pas d'intérêt). La cotisation
 /// journalière saute directement à `channelChoice`.
@@ -1059,8 +1059,8 @@ class _AmountChip extends StatelessWidget {
 }
 
 
-/// CH-3 — Carte « Placement » vs « Libre » dans l'étape kindChoice.
-/// LOT 6 — Pastille du sélecteur multi-jours pré-payé sur la cotisation.
+/// CH-3 . Carte « Placement » vs « Libre » dans l'étape kindChoice.
+/// LOT 6 . Pastille du sélecteur multi-jours pré-payé sur la cotisation.
 class _DaysChip extends StatelessWidget {
   const _DaysChip({
     required this.label,

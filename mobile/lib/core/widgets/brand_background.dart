@@ -5,7 +5,7 @@ import 'pattern_background.dart';
 /// Fond signature standard pour TOUS les écrans de l'app.
 ///
 /// Délègue à [PatternBackground] : grille hexagonale de micro-points
-/// cobalt (~3 % d'opacité — façon fond conversation WhatsApp), deux
+/// cobalt (~3 % d'opacité . façon fond conversation WhatsApp), deux
 /// halos diffus aux angles, deux filets éditoriaux terra très discrets.
 ///
 /// Cette indirection permet de tout faire évoluer en un seul endroit.

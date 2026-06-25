@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_typography.dart';
 
-/// Sur-titre uppercase tracking large — emprunté au design web institutionnel.
+/// Sur-titre uppercase tracking large . emprunté au design web institutionnel.
 class Eyebrow extends StatelessWidget {
   const Eyebrow(this.text, {super.key, this.color});
 

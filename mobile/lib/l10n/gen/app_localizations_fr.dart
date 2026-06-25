@@ -447,7 +447,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String credit_eligible_cap(String cap) {
-    return 'Éligible — plafond $cap';
+    return 'Éligible . plafond $cap';
   }
 
   @override
@@ -526,7 +526,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get booklet_hint_paid =>
-      'Ton paiement est validé. L\'agence prépare ton carnet — cela prend généralement 48 h ouvrées.';
+      'Ton paiement est validé. L\'agence prépare ton carnet . cela prend généralement 48 h ouvrées.';
 
   @override
   String get booklet_hint_printing =>
@@ -549,7 +549,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get booklet_step3 =>
-      'Notification au retrait — tu viens le récupérer.';
+      'Notification au retrait . tu viens le récupérer.';
 
   @override
   String get booklet_order_cta => 'Commander mon carnet';
@@ -1067,7 +1067,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get credit_empty_body =>
-      'Soumets une demande au comité — taux 10 %, durée selon le palier du règlement (Article 7).';
+      'Soumets une demande au comité . taux 10 %, durée selon le palier du règlement (Article 7).';
 
   @override
   String get credit_empty_hint => 'Touche « + Nouvelle demande »';
@@ -1219,7 +1219,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get releve_pdf_footer =>
-      'Document généré par l\'application Gathé Finance — à titre informatif.';
+      'Document généré par l\'application Gathé Finance . à titre informatif.';
 
   @override
   String get releve_pdf_filename => 'releve_gathe';
@@ -1278,7 +1278,7 @@ class AppL10nFr extends AppL10n {
       'Présente-toi à GATHE FINANCE, Akwa Douala Bercy, avec ton numéro de membre. L\'agent enregistre ton versement et le crédit apparaît immédiatement.';
 
   @override
-  String get dep_agency_place => 'Akwa, Douala — Bercy';
+  String get dep_agency_place => 'Akwa, Douala . Bercy';
 
   @override
   String get dep_agency_hours => 'Lun–Ven · 08h00 – 17h00';
@@ -1295,7 +1295,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get classic_dep_sub =>
-      'Épargne classique — montant libre, séparé de ton épargne journalière.';
+      'Épargne classique . montant libre, séparé de ton épargne journalière.';
 
   @override
   String get classic_card_title => 'Épargne classique';
@@ -1351,7 +1351,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get lreq_motive_hint =>
-      'Explique ton projet — équipement, fonds de roulement, formation, etc.';
+      'Explique ton projet . équipement, fonds de roulement, formation, etc.';
 
   @override
   String get lreq_motive_short => 'Motivation trop courte (min 10 caractères).';
@@ -1422,7 +1422,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String ren_subtitle(String dossier, String amount) {
-    return 'Crédit $dossier — solde restant $amount.';
+    return 'Crédit $dossier . solde restant $amount.';
   }
 
   @override
@@ -1432,14 +1432,14 @@ class AppL10nFr extends AppL10n {
   String get ren_mode_question => 'Comment règles-tu les intérêts ?';
 
   @override
-  String get ren_mode_comptant => 'Au comptant — 10 %';
+  String get ren_mode_comptant => 'Au comptant . 10 %';
 
   @override
   String get ren_mode_comptant_sub =>
       'Tu verses les intérêts maintenant. Taux réduit sur le capital restant.';
 
   @override
-  String get ren_mode_reporte => 'Reportés — 15 %';
+  String get ren_mode_reporte => 'Reportés . 15 %';
 
   @override
   String get ren_mode_reporte_sub =>
@@ -1680,10 +1680,10 @@ class AppL10nFr extends AppL10n {
       'Toutes les pièces sont obligatoires (image ou PDF, 5 Mo max).';
 
   @override
-  String get mf_piece_cni_recto => 'CNI — recto';
+  String get mf_piece_cni_recto => 'CNI . recto';
 
   @override
-  String get mf_piece_cni_verso => 'CNI — verso';
+  String get mf_piece_cni_verso => 'CNI . verso';
 
   @override
   String get mf_piece_plan => 'Plan de localisation';
@@ -1816,7 +1816,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String offline_banner(String when) {
-    return 'Hors-ligne — données du $when';
+    return 'Hors-ligne . données du $when';
   }
 
   @override

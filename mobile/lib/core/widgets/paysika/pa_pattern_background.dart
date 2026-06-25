@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/theme/paysika/pa_colors.dart';
 
-/// Fond texturé Paysika — canvas crème + motif doodle finance subtil + halos.
+/// Fond texturé Paysika . canvas crème + motif doodle finance subtil + halos.
 ///
 /// Reproduit l'ambiance du fond de référence (`capture_paysika/fond.jpeg`,
 /// motif WhatsApp-like de pictogrammes commerce/finance en line-art) tout en
@@ -51,7 +51,7 @@ class PaPatternBackground extends StatelessWidget {
           ),
         ),
 
-        // 2. Halos diffus — lumière douce premium.
+        // 2. Halos diffus . lumière douce premium.
         if (showHalos) ...[
           Positioned(
             top: -150,

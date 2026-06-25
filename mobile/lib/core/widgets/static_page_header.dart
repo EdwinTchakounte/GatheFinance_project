@@ -4,14 +4,14 @@ import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import 'eyebrow.dart';
 
-/// Header de page **fixe** (non scrollable) — capsule glass.
+/// Header de page **fixe** (non scrollable) . capsule glass.
 ///
 /// Composition :
 ///   1. Pastille circulaire 40×40 pour le bouton retour (surface teintée
-///      cobalt très douce) — plus tactile et premium que l'icône brute.
-///   2. Eyebrow petit + titre `headingMedium` 22pt, `maxLines: 2` —
+///      cobalt très douce) . plus tactile et premium que l'icône brute.
+///   2. Eyebrow petit + titre `headingMedium` 22pt, `maxLines: 2` .
 ///      le titre ne se tronque plus brutalement, il s'enroule.
-///   3. Filet doux cobalt 8 % en bas — sépare visuellement le header
+///   3. Filet doux cobalt 8 % en bas . sépare visuellement le header
 ///      du contenu scrollable sans peser.
 ///
 /// S'utilise comme premier enfant d'une `Column`, le contenu scrollable
@@ -88,7 +88,7 @@ class StaticPageHeader extends StatelessWidget {
 }
 
 
-/// Pastille circulaire 40×40 avec icône retour — surface très douce
+/// Pastille circulaire 40×40 avec icône retour . surface très douce
 /// (cobalt 8 %), ripple cobalt à l'appui. Plus tactile que l'IconButton
 /// standard de Material.
 class _CapsuleBackButton extends StatelessWidget {
@@ -121,7 +121,7 @@ class _CapsuleBackButton extends StatelessWidget {
 }
 
 
-/// En-tête de page **racine** (onglet de bottom-nav) — sans bouton retour.
+/// En-tête de page **racine** (onglet de bottom-nav) . sans bouton retour.
 /// Même typographie que [StaticPageHeader] + filet doux en bas.
 /// À utiliser sur les pages Home, Crédit, Carnet, Profil pour cohérence visuelle.
 class RootPageHeader extends StatelessWidget {

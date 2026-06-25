@@ -6,14 +6,14 @@ import '../../formatters/xaf_formatter.dart';
 import '../animated_amount.dart';
 import '../amount_text.dart';
 
-/// Hero solde — version néobanque épurée (style Paysika / Wave / Revolut).
+/// Hero solde . version néobanque épurée (style Paysika / Wave / Revolut).
 ///
 /// Stack vertical, gauche-aligné :
 ///   - eyebrow `MON ÉPARGNE` en tiny gris letter-spaced
 ///   - solde 56 pt bold avec count-up animé
 ///   - delta semaine vert/rouge selon signe, ou texte neutre si null
 ///
-/// Volontairement minimaliste — pas de carte, pas d'ombre, pas de gradient.
+/// Volontairement minimaliste . pas de carte, pas d'ombre, pas de gradient.
 /// L'air et la typo font tout le travail.
 class NbHeroBalance extends StatelessWidget {
   const NbHeroBalance({
@@ -28,13 +28,13 @@ class NbHeroBalance extends StatelessWidget {
   /// Solde actuel à afficher (count-up animé).
   final num amount;
 
-  /// Petit label au-dessus du solde — par défaut « MON ÉPARGNE ».
+  /// Petit label au-dessus du solde . par défaut « MON ÉPARGNE ».
   final String eyebrow;
 
   /// Variation positive ou négative. Si `null`, affiche `emptyDeltaLabel`.
   final num? deltaAmount;
 
-  /// Suffixe de la ligne delta — par défaut « cette semaine ».
+  /// Suffixe de la ligne delta . par défaut « cette semaine ».
   final String deltaLabel;
 
   /// Texte affiché quand `deltaAmount` est null ou 0.

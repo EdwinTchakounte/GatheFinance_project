@@ -38,7 +38,7 @@ class ProfilePage extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            // Header compact — band gradient soft vert→bleu
+            // Header compact . band gradient soft vert→bleu
             PaGradientHeaderBand(title: l.profile_title),
             Expanded(
               child: ListView(
@@ -49,10 +49,10 @@ class ProfilePage extends ConsumerWidget {
                   AppSpacing.huge,
                 ),
                 children: [
-              // ── Hero identité — gradient cobalt + avatar lumineux ──
+              // ── Hero identité . gradient cobalt + avatar lumineux ──
               _IdentityHero(
                 fullName: member?.fullName ?? l.profile_member_badge,
-                email: member?.email ?? '—',
+                email: member?.email ?? '.',
                 memberNumber: member?.numeroMembre ?? 'GF-XXXX-XXXX',
                 initials: _initials(member?.prenom, member?.nom),
               ),
@@ -83,7 +83,7 @@ class ProfilePage extends ConsumerWidget {
                       onTap: () => context.push('/contributions'),
                     ),
                     const _TileDivider(),
-                    // LOT 19 — Espace prêteur complet (convention, tranches,
+                    // LOT 19 . Espace prêteur complet (convention, tranches,
                     // funding 24h). Distinct de /me/lender-payouts (CH-12)
                     // qui n'affiche que l'historique des intérêts touchés.
                     _Tile(
@@ -181,7 +181,7 @@ class ProfilePage extends ConsumerWidget {
 
               const SizedBox(height: AppSpacing.l),
 
-              // ── Déconnexion — surface neutre, accent danger soft ──
+              // ── Déconnexion . surface neutre, accent danger soft ──
               AppCard(
                 variant: AppCardVariant.glass,
                 padding: EdgeInsets.zero,
@@ -555,7 +555,7 @@ class _BiometricTile extends ConsumerWidget {
 }
 
 
-/// Hero identité — surface gradient cobalt avec halo blanc, avatar
+/// Hero identité . surface gradient cobalt avec halo blanc, avatar
 /// circulaire surdimensionné et badge membre glow. Premier contact
 /// visuel de la page Profil.
 class _IdentityHero extends StatelessWidget {
@@ -609,7 +609,7 @@ class _IdentityHero extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  // Avatar — anneau dégradé + initiales
+                  // Avatar . anneau dégradé + initiales
                   Container(
                     width: 68,
                     height: 68,
@@ -661,7 +661,7 @@ class _IdentityHero extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.l),
-              // Badge membre — glow soft
+              // Badge membre . glow soft
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -706,7 +706,7 @@ class _IdentityHero extends StatelessWidget {
 
 
 // ---------------------------------------------------------------------------
-// Modale « Mes informations » — édition prénom/nom/téléphone (email read-only).
+// Modale « Mes informations » . édition prénom/nom/téléphone (email read-only).
 // ---------------------------------------------------------------------------
 
 class _MyInfoSheet extends ConsumerStatefulWidget {
@@ -863,7 +863,7 @@ class _MyInfoSheetState extends ConsumerState<_MyInfoSheet> {
                 ),
                 const SizedBox(height: AppSpacing.m),
 
-                // Email read-only — pour changer, passer par le support
+                // Email read-only . pour changer, passer par le support
                 Text(l.common_email, style: AppTypography.labelMedium),
                 const SizedBox(height: 6),
                 Container(
@@ -924,7 +924,7 @@ class _MyInfoSheetState extends ConsumerState<_MyInfoSheet> {
 
 
 // ---------------------------------------------------------------------------
-// Modale Mot de passe — formulaire à 3 champs avec validation et appel
+// Modale Mot de passe . formulaire à 3 champs avec validation et appel
 // authNotifier.changePassword. Affiche un état succès en fin.
 // ---------------------------------------------------------------------------
 

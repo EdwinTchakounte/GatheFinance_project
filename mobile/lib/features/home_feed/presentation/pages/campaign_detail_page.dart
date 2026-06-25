@@ -24,7 +24,7 @@ class CampaignDetailPage extends ConsumerWidget {
 
   final CampaignFlyer campaign;
 
-  /// Documents requis par profil cible — derive d'un mapping cote client
+  /// Documents requis par profil cible . derive d'un mapping cote client
   /// (court terme) pour souligner ce qu'il faut joindre. Le serveur n'impose
   /// pas (pour l'instant) une liste stricte de pieces, c'est l'instruction
   /// du comite qui peut demander des complements.
@@ -66,7 +66,7 @@ class CampaignDetailPage extends ConsumerWidget {
   /// On charge l'eligibilite au prealable (necessaire au sheet pour borner
   /// montant + duree). Si pas eligible, on previent.
   Future<void> _onApply(BuildContext context, WidgetRef ref) async {
-    // Force un fetch frais — l'eligibilite peut bouger entre 2 ouvertures.
+    // Force un fetch frais . l'eligibilite peut bouger entre 2 ouvertures.
     await ref.read(eligibilityProvider.notifier).refresh();
     final eligibility = ref.read(eligibilityProvider).valueOrNull;
     if (!context.mounted) return;
@@ -214,7 +214,7 @@ class CampaignDetailPage extends ConsumerWidget {
           const _TimelineStep(
             num: '01',
             title: 'Tu remplis ta demande',
-            body: 'Montant souhaité, motif, modalité — depuis le bouton « Postuler ». Joins tes pièces directement dans le formulaire.',
+            body: 'Montant souhaité, motif, modalité . depuis le bouton « Postuler ». Joins tes pièces directement dans le formulaire.',
             done: true,
           ),
           _TimelineStep(
@@ -244,7 +244,7 @@ class CampaignDetailPage extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Adaptés au profil « ${c.profilCible} » — joints au moment de la soumission :',
+            'Adaptés au profil « ${c.profilCible} » . joints au moment de la soumission :',
             style: const TextStyle(
               color: PaColors.inkSecondary,
               fontSize: 13,
@@ -268,7 +268,7 @@ class CampaignDetailPage extends ConsumerWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Voie campagne : pas d\'épargne préalable ni d\'avaliste requis — la coopérative assume le risque.',
+                    'Voie campagne : pas d\'épargne préalable ni d\'avaliste requis . la coopérative assume le risque.',
                     style: TextStyle(
                       color: PaColors.tealDark,
                       fontSize: 12.5,

@@ -11,7 +11,7 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/notification_prefs.dart';
 import '../state/notification_prefs_notifier.dart';
 
-/// Préférences de notifications — style **Paysika**. Une carte par catégorie,
+/// Préférences de notifications . style **Paysika**. Une carte par catégorie,
 /// 3 canaux (push / email / sms) togglables.
 class NotificationsPreferencesPage extends ConsumerWidget {
   const NotificationsPreferencesPage({super.key});

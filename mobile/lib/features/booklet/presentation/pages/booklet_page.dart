@@ -12,7 +12,7 @@ import '../../domain/entities/booklet_order.dart';
 import '../state/booklet_notifier.dart';
 import '../widgets/order_booklet_sheet.dart';
 
-/// Page Carnet — style **Paysika**.
+/// Page Carnet . style **Paysika**.
 ///
 /// Affiche soit la commande en cours (avec timeline status), soit un appel à
 /// commander un nouveau carnet (1 000 FCFA, Article 4 du règlement).
@@ -32,7 +32,7 @@ class BookletPage extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            // ── Header FIXE compact — band gradient soft vert→bleu ──────
+            // ── Header FIXE compact . band gradient soft vert→bleu ──────
             PaGradientHeaderBand(title: l.booklet_title),
             const SizedBox(height: 12),
             Expanded(
@@ -126,7 +126,7 @@ class BookletPage extends ConsumerWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// Card "Commande en cours" — header + timeline + hint
+// Card "Commande en cours" . header + timeline + hint
 // ───────────────────────────────────────────────────────────────────────────
 
 class _PendingOrderCard extends StatelessWidget {

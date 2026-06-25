@@ -31,11 +31,11 @@ class _LikeButtonState extends ConsumerState<LikeButton> {
     setState(() => _busy = true);
     final repo = ref.read(socialRepositoryProvider);
     // Optimistic UI : on inverse l'etat localement avant le tour reseau.
-    // Le provider lit la valeur reseau, on n'a pas a tordre son cache —
+    // Le provider lit la valeur reseau, on n'a pas a tordre son cache .
     // on invalidera apres l'appel pour rafraichir proprement.
     try {
       final updated = await repo.toggleLike(widget.target);
-      // Re-injecte directement la valeur fraiche dans le provider — evite
+      // Re-injecte directement la valeur fraiche dans le provider . evite
       // un round-trip GET inutile.
       ref
           .read(socialReactionProvider(widget.target).notifier)
@@ -44,7 +44,7 @@ class _LikeButtonState extends ConsumerState<LikeButton> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Action impossible — verifie ta connexion.'),
+            content: Text('Action impossible . verifie ta connexion.'),
           ),
         );
       }

@@ -8,11 +8,11 @@ import '../../../../core/widgets/paysika/pa_shimmer.dart';
 import '../../domain/entities/feed_item.dart';
 import '../state/feed_notifier.dart';
 
-/// Section "Campagnes en cours" — carousel horizontal des flyers actifs.
+/// Section "Campagnes en cours" . carousel horizontal des flyers actifs.
 ///
 /// Sur la Home on n'affiche que les 2 plus récentes (date_fin ASC côté
 /// backend). Le bouton "Voir plus" route vers la page in-app `/campaigns`
-/// qui montre la liste complète paginée — c'est elle qui charge la page
+/// qui montre la liste complète paginée . c'est elle qui charge la page
 /// suivante au scroll, pas la Home.
 class CampaignsSection extends ConsumerWidget {
   const CampaignsSection({
@@ -62,9 +62,9 @@ class CampaignsSection extends ConsumerWidget {
   }
 }
 
-/// Section "Actualités" — articles avec image de couverture.
+/// Section "Actualités" . articles avec image de couverture.
 ///
-/// Sur la Home on n'affiche que les 3 plus récentes — la page in-app `/news`
+/// Sur la Home on n'affiche que les 3 plus récentes . la page in-app `/news`
 /// se charge de la pagination complète.
 class NewsSection extends ConsumerWidget {
   const NewsSection({
@@ -561,7 +561,7 @@ class _ArticleCard extends StatelessWidget {
 
 }
 
-/// Placeholder card actualité — gradient déterministe par titre + icône
+/// Placeholder card actualité . gradient déterministe par titre + icône
 /// catégorie + filigrane brand. Donne une présence visuelle au lieu d'un
 /// rectangle terne quand l'article n'a pas de hero image.
 class _PlaceholderArticle extends StatelessWidget {

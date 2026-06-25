@@ -45,7 +45,7 @@ List<_Slide> _buildSlides(AppL10n l) => <_Slide>[
       ),
     ];
 
-/// Onboarding refonte 2026-06-24 — illustrations SVG bundlees (offline).
+/// Onboarding refonte 2026-06-24 . illustrations SVG bundlees (offline).
 ///
 /// - Hero gradient bleu pleine largeur, coins bas arrondis (vague).
 /// - Illustration SVG centree (~160x160) aux couleurs Gathe (bleu + vert).

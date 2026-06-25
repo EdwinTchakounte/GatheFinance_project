@@ -70,7 +70,7 @@ class _RefuseMotifSheetState extends State<_RefuseMotifSheet> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Le demandeur recevra ton motif. Sois bienveillant — '
+                'Le demandeur recevra ton motif. Sois bienveillant . '
                 'il peut chercher un autre garant. (optionnel)',
                 style: PaText.body(),
               ),

@@ -7,7 +7,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/widgets/paysika/pa_brand_hero.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 
-/// Modale "Devenir membre" — refonte soft 2026-06-18.
+/// Modale "Devenir membre" . refonte soft 2026-06-18.
 ///
 /// Même DNA que la Login refondue : mini hero bleu gradient avec coins
 /// arrondis en bas + cercle blanc + icône, zone crème dessous avec

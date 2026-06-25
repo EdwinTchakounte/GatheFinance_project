@@ -13,7 +13,7 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/contribution.dart';
 import '../state/contributions_notifier.dart';
 
-/// Page « Mes cotisations » — style **Paysika** (palette teal/navy, cards soft,
+/// Page « Mes cotisations » . style **Paysika** (palette teal/navy, cards soft,
 /// fond doodle). Timeline chronologique des frais payés.
 class ContributionsPage extends ConsumerWidget {
   const ContributionsPage({super.key});

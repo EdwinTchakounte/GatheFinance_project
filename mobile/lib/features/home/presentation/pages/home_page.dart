@@ -28,14 +28,14 @@ import '../../../savings/presentation/state/classic_savings_notifier.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
 import '../widgets/deposit_sheet.dart';
 
-/// Accueil — **prototype Paysika** (style validé sur captures `capture_paysika/`).
+/// Accueil . **prototype Paysika** (style validé sur captures `capture_paysika/`).
 ///
 /// Composition :
-///   1. Header sobre — avatar greeting + cloche notifications
-///   2. Hero balance — card gradient aurore teal→navy avec CTA Verser
-///   3. Quick actions — 4 cercles outlined (Verser, Crédit, Carnet, Historique)
-///   4. Services — grille 2 colonnes (Demander crédit, Carnet, États, Aide)
-///   5. Recent transactions — header + 4 dernières tiles avatar
+///   1. Header sobre . avatar greeting + cloche notifications
+///   2. Hero balance . card gradient aurore teal→navy avec CTA Verser
+///   3. Quick actions . 4 cercles outlined (Verser, Crédit, Carnet, Historique)
+///   4. Services . grille 2 colonnes (Demander crédit, Carnet, États, Aide)
+///   5. Recent transactions . header + 4 dernières tiles avatar
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
@@ -57,7 +57,7 @@ class HomePage extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            // ── Header FIXE (ne défile pas) — logo + greeting + cloche ──
+            // ── Header FIXE (ne défile pas) . logo + greeting + cloche ──
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
               child: _Header(
@@ -65,13 +65,13 @@ class HomePage extends ConsumerWidget {
                 unread: ref.watch(unreadNotifsCountProvider),
               ),
             ),
-            // CH-2 — Bannière statut quand le membre n'est pas encore actif.
+            // CH-2 . Bannière statut quand le membre n'est pas encore actif.
             if (member != null && member.statut != MemberStatus.actif)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
                 child: _StatusBanner(status: member.statut),
               ),
-            // ── Hero PINNED (sortie des slivers) — toggle dual balance ──
+            // ── Hero PINNED (sortie des slivers) . toggle dual balance ──
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
               child: _PinnedDualHero(
@@ -98,7 +98,7 @@ class HomePage extends ConsumerWidget {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              // ── Quick actions — 4 cercles outlined ─────────────────────
+              // ── Quick actions . 4 cercles outlined ─────────────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
@@ -135,7 +135,7 @@ class HomePage extends ConsumerWidget {
                 ),
               ),
 
-              // NOTE : la card _CotisationCard a été retirée — la cotisation
+              // NOTE : la card _CotisationCard a été retirée . la cotisation
               // est désormais accessible via la pill "Cotisation" en haut, et
               // le badge LOT 4 (commission 1%) sera réintégré ailleurs si
               // besoin. Évite la redondance UI signalée par le client.
@@ -302,7 +302,7 @@ class HomePage extends ConsumerWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// Header — avatar circulaire avec initiale + greeting + cloche notif
+// Header . avatar circulaire avec initiale + greeting + cloche notif
 // ───────────────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
@@ -323,7 +323,7 @@ class _Header extends StatelessWidget {
                 ? l.home_greeting_afternoon
                 : l.home_greeting_evening;
     // Header compact 1 ligne : logo + (avatar + greeting/prénom à côté de la
-    // cloche) — gain ~50px verticaux vs l'ancien layout sur 2 lignes.
+    // cloche) . gain ~50px verticaux vs l'ancien layout sur 2 lignes.
     return Row(
       children: [
         const PaLogo(height: 22),
@@ -363,7 +363,7 @@ class _Header extends StatelessWidget {
 }
 
 
-/// Hero pinned dual-balance — résout les 2 AsyncValue et alimente
+/// Hero pinned dual-balance . résout les 2 AsyncValue et alimente
 /// `PaDualHeroBalance`. État loading/error géré localement pour ne pas
 /// casser le rendu pinned.
 class _PinnedDualHero extends StatelessWidget {
@@ -387,7 +387,7 @@ class _PinnedDualHero extends StatelessWidget {
   Widget build(BuildContext context) {
     // Si l'une des sources est en erreur, on dégrade gracieusement avec
     // un fallback 0 plutôt que de cacher tout le hero. Le pinned doit
-    // toujours rester visible — c'est sa raison d'être.
+    // toujours rester visible . c'est sa raison d'être.
     final ePart = epargne.valueOrNull;
     final cPart = cotisation.valueOrNull;
     if (ePart == null && cPart == null) {
@@ -507,7 +507,7 @@ class _NotifBell extends StatelessWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// Liste des opérations récentes (4 max) — PaCard wrapping 4 PaTransactionTile
+// Liste des opérations récentes (4 max) . PaCard wrapping 4 PaTransactionTile
 // ───────────────────────────────────────────────────────────────────────────
 
 class _RecentList extends StatelessWidget {
@@ -619,11 +619,11 @@ class _HeroSkeleton extends StatelessWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// Bannière statut (CH-2) — affichée quand le membre n'est pas actif :
+// Bannière statut (CH-2) . affichée quand le membre n'est pas actif :
 // - temporaire (LOT 11) : compte créé après crédit campagne, doit payer
 //   ses frais d'inscription pour basculer actif et accéder à l'épargne.
 // - suspendu : sanction administrative, doit régulariser sa situation.
-// - radie : exclusion définitive — pour info, pas de CTA.
+// - radie : exclusion définitive . pour info, pas de CTA.
 // ───────────────────────────────────────────────────────────────────────────
 
 class _StatusBanner extends StatelessWidget {

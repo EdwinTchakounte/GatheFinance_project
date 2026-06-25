@@ -8,7 +8,7 @@ import '../../app/theme/paysika/pa_colors.dart';
 /// Page plein écran qui rend la page de checkout Tara dans une WebView
 /// in-app. On choisit cette approche (vs `url_launcher.LaunchMode.inAppBrowserView`)
 /// car Android dispatche automatiquement les URLs `dklo.co` vers l'app
-/// Dikalo si elle est installée — même Chrome Custom Tab n'y échappe pas.
+/// Dikalo si elle est installée . même Chrome Custom Tab n'y échappe pas.
 /// La WebView rend l'HTML directement dans Flutter, pas d'Intent.ACTION_VIEW.
 class TaraCheckoutWebViewPage extends StatefulWidget {
   const TaraCheckoutWebViewPage({super.key, required this.url});

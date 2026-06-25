@@ -15,7 +15,7 @@ import '../state/loans_notifier.dart';
 
 enum _Step { form, loading, success }
 
-/// Modale de remboursement échéance — 3 étapes (form → loader → success).
+/// Modale de remboursement échéance . 3 étapes (form → loader → success).
 class RepaymentSheet extends ConsumerStatefulWidget {
   const RepaymentSheet({super.key, required this.loan});
 

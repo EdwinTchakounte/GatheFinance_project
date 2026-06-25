@@ -8,7 +8,7 @@ import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../domain/entities/lender_payout.dart';
 
-/// CH-12 — Écran « Mes versements prêteur ».
+/// CH-12 . Écran « Mes versements prêteur ».
 ///
 /// Liste les versements d'intérêts reçus par le membre en tant que prêteur
 /// (refonte 2026 §7.5 + Sinora §5.3). Distingue les versements à T0 (mode

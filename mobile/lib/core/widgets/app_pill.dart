@@ -6,7 +6,7 @@ import '../../app/theme/app_typography.dart';
 
 enum PillTone { success, info, warning, danger, neutral, accent }
 
-/// Petit chip de statut compact — `pill` du design system web transposé.
+/// Petit chip de statut compact . `pill` du design system web transposé.
 /// Les variantes `info` et `neutral` s'adaptent au mode clair/sombre via
 /// le `ColorScheme` pour rester lisibles. Les variantes brand
 /// (success/warning/danger/accent) gardent leurs surfaces signature qui

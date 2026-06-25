@@ -10,7 +10,7 @@ import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../domain/usecases/confirm_password_reset.dart';
 import '../../domain/usecases/request_password_reset.dart';
 
-/// Flow "mot de passe oublié" — 3 étapes :
+/// Flow "mot de passe oublié" . 3 étapes :
 ///   1. Saisie de l'e-mail → POST /auth/password-reset/request/
 ///   2. Saisie OTP 6 chiffres + nouveau mot de passe → POST .../confirm/
 ///   3. Confirmation visuelle + retour login

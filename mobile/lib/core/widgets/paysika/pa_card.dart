@@ -4,7 +4,7 @@ import '../../../app/theme/paysika/pa_colors.dart';
 
 /// Variante d'élévation d'une [PaCard].
 ///
-/// - [elevated] : ombre signature douce — offset Y 6, blur 24, opacity 5 %.
+/// - [elevated] : ombre signature douce . offset Y 6, blur 24, opacity 5 %.
 ///   Donne la profondeur premium sans tomber dans le Material lourdaud.
 ///   C'est le défaut.
 /// - [flat] : aucune ombre, séparation par couleur de fond uniquement.
@@ -13,7 +13,7 @@ import '../../../app/theme/paysika/pa_colors.dart';
 enum PaCardElevation { elevated, flat }
 
 
-/// Card soft premium — fond paper, **radius 24**, **ombres flottantes douces**.
+/// Card soft premium . fond paper, **radius 24**, **ombres flottantes douces**.
 ///
 /// Brief : cards flottantes radius 24px avec
 /// `0px 4px 12px rgba(0,0,0,0.04)` + `0px 2px 8px rgba(15,23,42,0.05)`.

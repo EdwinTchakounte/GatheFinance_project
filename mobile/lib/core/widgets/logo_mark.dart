@@ -8,7 +8,7 @@ enum LogoSize { tiny, small, medium, large, hero }
 /// Affichage du wordmark officiel Gathe Finance.
 ///
 /// Utilise `logo_clean.png` (version détourée, fond blanc retiré) pour que le
-/// logo **flotte** sur le fond de l'écran sans rectangle blanc visible — bien
+/// logo **flotte** sur le fond de l'écran sans rectangle blanc visible . bien
 /// plus doux qu'un JPG cru.
 class LogoMark extends StatelessWidget {
   const LogoMark({super.key, this.size = LogoSize.medium, this.semanticsLabel});
@@ -49,7 +49,7 @@ class LogoMark extends StatelessWidget {
 
 /// Variante « pastille » : logo détouré dans une pastille soft cream/paper
 /// arrondie avec ombre cobalt légère. Utilisée dans les headers (Home,
-/// Login). Désormais sans rectangle blanc visible — fond paper-bordé
+/// Login). Désormais sans rectangle blanc visible . fond paper-bordé
 /// pour donner du contraste sans dureté.
 class LogoBadge extends StatelessWidget {
   const LogoBadge({super.key, this.size = LogoSize.small});

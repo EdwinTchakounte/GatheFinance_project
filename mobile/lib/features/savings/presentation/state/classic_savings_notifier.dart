@@ -16,7 +16,7 @@ class ClassicSavingsNotifier extends AsyncNotifier<SavingsAccount> {
 
   @override
   Future<SavingsAccount> build() async {
-    // memory mobile cache-offline — fallback snapshot persistant.
+    // memory mobile cache-offline . fallback snapshot persistant.
     try {
       final live = await _getMy.call(const NoParams());
       await SnapshotStore.save(_classicCacheKey, live.toJson());
@@ -34,7 +34,7 @@ class ClassicSavingsNotifier extends AsyncNotifier<SavingsAccount> {
     state = await AsyncValue.guard(build);
   }
 
-  /// CH-3 — [isPlacement] : sous-canal placement (bloqué 12 mois, rapporte
+  /// CH-3 . [isPlacement] : sous-canal placement (bloqué 12 mois, rapporte
   /// un intérêt à maturité). Par défaut `false` = épargne libre.
   Future<void> deposit({
     required num amount,

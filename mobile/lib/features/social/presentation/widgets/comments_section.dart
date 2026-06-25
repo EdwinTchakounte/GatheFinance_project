@@ -7,7 +7,7 @@ import '../../domain/entities/comment.dart';
 import '../../domain/entities/reaction.dart';
 import '../state/social_state.dart';
 
-/// Bloc commentaires — design soft 2026.
+/// Bloc commentaires . design soft 2026.
 ///
 /// - Header "Commentaires" avec compteur en chip + ligne separatrice fine.
 /// - Composer minimaliste : champ arrondi 22 + bouton send en cercle gradient
@@ -54,7 +54,7 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Envoi impossible — vérifie ta connexion.'),
+            content: Text('Envoi impossible . vérifie ta connexion.'),
           ),
         );
       }
@@ -164,7 +164,7 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
   }
 }
 
-/// Header "Commentaires · 12" — chip compteur + barre teal accent.
+/// Header "Commentaires · 12" . chip compteur + barre teal accent.
 class _Header extends StatelessWidget {
   const _Header({this.count});
   final int? count;
@@ -349,7 +349,7 @@ class _SendButtonState extends State<_SendButton> {
   }
 }
 
-/// Bulle commentaire — avatar gradient initiales + corps en card + temps
+/// Bulle commentaire . avatar gradient initiales + corps en card + temps
 /// relatif + bouton supprimer pour mes propres commentaires.
 class _CommentBubble extends StatelessWidget {
   const _CommentBubble({required this.comment, this.onDelete});

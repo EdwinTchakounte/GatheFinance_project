@@ -14,7 +14,7 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/savings_transaction.dart';
 import '../state/classic_savings_notifier.dart';
 
-/// Page Historique — style **Paysika** (palette navy/teal).
+/// Page Historique . style **Paysika** (palette navy/teal).
 ///
 ///   1. AppBar minimaliste (back + titre)
 ///   2. Filtres par type (chips navy/teal)
@@ -244,7 +244,7 @@ class _MonthSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section header — month + total net
+          // Section header . month + total net
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 6),
             child: Row(

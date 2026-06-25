@@ -9,7 +9,7 @@ import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../domain/entities/lender_state.dart';
 import '../state/lender_notifier.dart';
 
-/// LOT 19 — Espace prêteur du membre (équivalent mobile du portail Next.js).
+/// LOT 19 . Espace prêteur du membre (équivalent mobile du portail Next.js).
 ///
 /// Affiche en lecture la convention signée, les tranches par statut, les
 /// agrégats XAF, et les demandes de funding 24h en attente. Permet :

@@ -32,7 +32,7 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
 final notificationsProvider = AsyncNotifierProvider<NotificationsNotifier,
     List<AppNotification>>(NotificationsNotifier.new);
 
-/// Compteur dérivé du nombre de notifications non lues — utilisé dans la
+/// Compteur dérivé du nombre de notifications non lues . utilisé dans la
 /// cloche du header.
 final unreadNotifsCountProvider = Provider<int>((ref) {
   final notifs = ref.watch(notificationsProvider);

@@ -16,7 +16,7 @@ import '../state/loans_notifier.dart';
 
 enum _Step { form, loading, success }
 
-/// Modale de reconduction — 2 étapes (form → success).
+/// Modale de reconduction . 2 étapes (form → success).
 class RenewalSheet extends ConsumerStatefulWidget {
   const RenewalSheet({super.key, required this.loan});
 
@@ -132,7 +132,7 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
 
           const SizedBox(height: AppSpacing.xl),
 
-          // Prorogation fixe : +1 mois (Article 10) — pas de choix de durée.
+          // Prorogation fixe : +1 mois (Article 10) . pas de choix de durée.
           Row(
             children: [
               const Icon(Icons.event_repeat_rounded,
@@ -289,7 +289,7 @@ class _Grabber extends StatelessWidget {
 }
 
 
-/// Carte de choix de mode de reconduction (comptant / reporté) — Article 11.
+/// Carte de choix de mode de reconduction (comptant / reporté) . Article 11.
 class _ModeOption extends StatelessWidget {
   const _ModeOption({
     required this.selected,

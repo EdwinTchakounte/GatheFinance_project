@@ -26,7 +26,7 @@ class PaInfoSlide {
   final Color accent;
 }
 
-/// Carousel horizontal de cards d'info qui défile — avec dots de progression.
+/// Carousel horizontal de cards d'info qui défile . avec dots de progression.
 ///
 /// Reproduit le bloc "Upgrade to Premium" + dots de la réf `ok_home_page.jpeg`,
 /// mais avec plusieurs slides d'information (cotisation, crédit, épargne…).
@@ -93,7 +93,7 @@ class _PaInfoCarouselState extends State<PaInfoCarousel> {
           ),
         ),
         const SizedBox(height: 12),
-        // Dots de progression — actif = barre allongée teal.
+        // Dots de progression . actif = barre allongée teal.
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -157,7 +157,7 @@ class _SlideCard extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: Stack(
             children: [
-              // Watermark — grande icône fantôme bas-droite pour la profondeur.
+              // Watermark . grande icône fantôme bas-droite pour la profondeur.
               Positioned(
                 right: -16,
                 bottom: -20,
@@ -252,7 +252,7 @@ class _SlideCard extends StatelessWidget {
 }
 
 
-/// Pill CTA d'une slide — plein blanc sur gradient, teinté accent sinon.
+/// Pill CTA d'une slide . plein blanc sur gradient, teinté accent sinon.
 class _CtaPill extends StatelessWidget {
   const _CtaPill({
     required this.label,

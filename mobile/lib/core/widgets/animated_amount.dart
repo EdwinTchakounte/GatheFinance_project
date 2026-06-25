@@ -33,7 +33,7 @@ class AnimatedAmount extends StatefulWidget {
 }
 
 class _AnimatedAmountState extends State<AnimatedAmount> {
-  // Valeur de départ pour le prochain tween — la valeur courante affichée.
+  // Valeur de départ pour le prochain tween . la valeur courante affichée.
   late num _displayed = widget.amount;
 
   @override

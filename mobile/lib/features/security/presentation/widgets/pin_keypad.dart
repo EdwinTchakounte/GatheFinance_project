@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
 
-/// Pavé numérique PIN — refonte soft 2026-06-18.
+/// Pavé numérique PIN . refonte soft 2026-06-18.
 ///
 /// - Chaque touche est un cercle fond `paper` avec hairline subtil, ombre
 ///   très douce. Au tap : background teal 12% + scale 0.94 (animation
@@ -146,7 +146,7 @@ class _DigitKeyState extends State<_DigitKey> {
 }
 
 
-/// Touche icône (empreinte / backspace) — même DNA cercle que les chiffres
+/// Touche icône (empreinte / backspace) . même DNA cercle que les chiffres
 /// pour rester cohérent, mais icône teintée [tint]. `highlight: true`
 /// rend la touche signature (fond teint soft, ombre teal) pour attirer
 /// l'œil sur le bouton empreinte.
@@ -235,7 +235,7 @@ class _IconKeyState extends State<_IconKey> {
 }
 
 
-/// Rangée de dots PIN — version soft 2026-06-18 : remplis = pastille teal
+/// Rangée de dots PIN . version soft 2026-06-18 : remplis = pastille teal
 /// pleine, vides = cercle hairline, transitions douces.
 class PinDots extends StatelessWidget {
   const PinDots({

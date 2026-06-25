@@ -9,7 +9,7 @@ import '../../../../core/widgets/app_pill.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/loan_installment.dart';
 
-/// Ligne d'échéance — numéro + date + montant + pill statut.
+/// Ligne d'échéance . numéro + date + montant + pill statut.
 class InstallmentTile extends StatelessWidget {
   const InstallmentTile({super.key, required this.installment});
 

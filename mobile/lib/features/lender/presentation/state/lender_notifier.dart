@@ -4,7 +4,7 @@ import '../../../../core/di/providers.dart';
 import '../../data/datasources/lender_dio_datasource.dart';
 import '../../domain/entities/lender_state.dart';
 
-/// LOT 19 — Provider mince autour du datasource Dio. Pas de UseCase dédié :
+/// LOT 19 . Provider mince autour du datasource Dio. Pas de UseCase dédié :
 /// les actions (opt-in, revoke, addTranche, respond) sont appelées
 /// directement depuis la page car elles mutent toutes le même état agrégé.
 final lenderDataSourceProvider = Provider<LenderDioDataSource>((ref) {

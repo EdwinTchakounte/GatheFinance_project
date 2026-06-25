@@ -23,7 +23,7 @@ import '../../domain/entities/loan_request_submission.dart';
 import '../../domain/loan_terms.dart';
 import '../state/loans_notifier.dart';
 
-/// Campagnes micro-crédit actives — fetch unique à l'ouverture du sheet quand
+/// Campagnes micro-crédit actives . fetch unique à l'ouverture du sheet quand
 /// le membre coche "Je postule à une campagne". Paginé côté backend mais on
 /// se contente des 50 premières (les listes sont courtes en pratique).
 final _activeCampaignsForPickerProvider =
@@ -33,7 +33,7 @@ final _activeCampaignsForPickerProvider =
   return page.items;
 });
 
-/// CH-5 — Champs hardcoded du sheet : déjà rendus par l'UI métier dédiée
+/// CH-5 . Champs hardcoded du sheet : déjà rendus par l'UI métier dédiée
 /// (slider montant, sliders durée, motif, sélecteur canal). Le renderer
 /// dynamique exclut ces ids pour ne rien dupliquer côté membre.
 const Set<String> _hardcodedLoanFields = {
@@ -49,7 +49,7 @@ const Set<String> _hardcodedLoanFields = {
   'recipient_phone',
 };
 
-/// Modale demande de crédit — 2 étapes :
+/// Modale demande de crédit . 2 étapes :
 /// 1. Eligibility check + formulaire (montant slider + durée slider + motif)
 /// 2. Success (demande créée, lien vers paiement frais à venir)
 class LoanRequestSheet extends ConsumerStatefulWidget {
@@ -61,7 +61,7 @@ class LoanRequestSheet extends ConsumerStatefulWidget {
 
   final Eligibility eligibility;
 
-  /// Id de campagne à présélectionner — utilisé quand le sheet est ouvert
+  /// Id de campagne à présélectionner . utilisé quand le sheet est ouvert
   /// depuis la Home ou la liste in-app `/campaigns`. Active automatiquement
   /// la voie campagne du formulaire.
   final int? prefillCampaignId;
@@ -103,27 +103,27 @@ enum _Step { form, loading, success, payForm, payLoading, paySuccess }
 class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     with TickerProviderStateMixin {
   final _motifCtrl = TextEditingController();
-  // §7.2 BUSINESS_RULES_2026 — Désignation optionnelle d'un avaliste senior+BRC.
+  // §7.2 BUSINESS_RULES_2026 . Désignation optionnelle d'un avaliste senior+BRC.
   // Si renseignés, le backend bascule la voie EligibilityRoute.AVALISTE.
   bool _withAvaliste = false;
   final _avalisteNumeroCtrl = TextEditingController();
   final _avalisteNomCtrl = TextEditingController();
-  // §6 / LOT 11 — Voie campagne : si une campagne est sélectionnée, le
+  // §6 / LOT 11 . Voie campagne : si une campagne est sélectionnée, le
   // backend route vers EligibilityRoute.CAMPAGNE et applique les paramètres
   // (taux, recouvrement) de la campagne. Mutuellement exclusif avec
   // [_withAvaliste] côté UI.
   bool _withCampaign = false;
   int? _selectedCampaignId;
-  // CH-9 — Canal de réception choisi par le membre + numéro Mobile Money.
+  // CH-9 . Canal de réception choisi par le membre + numéro Mobile Money.
   final _phoneCtrl = TextEditingController();
-  // CH-7 — Numéro Mobile Money pour régler les frais d'étude.
+  // CH-7 . Numéro Mobile Money pour régler les frais d'étude.
   final _feePhoneCtrl = TextEditingController();
-  // TODO: REMOVE_FOR_PROD — montant éditable pour tester STK Push à 100 XAF.
+  // TODO: REMOVE_FOR_PROD . montant éditable pour tester STK Push à 100 XAF.
   final _feeAmountCtrl = TextEditingController(text: '100');
   LoanReceiveChannel _canal = LoanReceiveChannel.taraMomo;
   LoanRequestSubmission? _submission;
 
-  // CH-5 — Valeurs des champs supplémentaires du FormSchema actif. Le
+  // CH-5 . Valeurs des champs supplémentaires du FormSchema actif. Le
   // renderer expose des [PickedFile] pour les champs `file` ; le submit
   // les sépare des scalaires pour appeler un upload multipart à part.
   Map<String, Object?> _extraValues = {};
@@ -158,7 +158,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       vsync: this,
       duration: const Duration(milliseconds: 700),
     );
-    // §6 / LOT 11 — Si la sheet est ouverte depuis une carte campagne sur
+    // §6 / LOT 11 . Si la sheet est ouverte depuis une carte campagne sur
     // la Home, on présélectionne la voie campagne avec l'id passé.
     if (widget.prefillCampaignId != null) {
       _withCampaign = true;
@@ -185,7 +185,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
-    // BUSINESS_RULES §7.2 — Si avaliste activé, les 2 champs sont requis.
+    // BUSINESS_RULES §7.2 . Si avaliste activé, les 2 champs sont requis.
     final avalisteNumero = _avalisteNumeroCtrl.text.trim();
     final avalisteNom = _avalisteNomCtrl.text.trim();
     if (_withAvaliste &&
@@ -199,7 +199,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
-    // Profil emprunteur — si ancien apprenant CFP Broad Range, l'attestation
+    // Profil emprunteur . si ancien apprenant CFP Broad Range, l'attestation
     // est obligatoire (idem pour la carte CGA si adhérent CGA).
     if (_ancienApprenantCFP && _apprenantCFPProof == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -217,7 +217,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
-    // §6 / LOT 11 — Voie campagne : si activée, exiger un id sélectionné.
+    // §6 / LOT 11 . Voie campagne : si activée, exiger un id sélectionné.
     if (_withCampaign && _selectedCampaignId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -226,7 +226,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
-    // CH-9 — Si canal Tara MoMo/OM, un numéro est requis (validation locale
+    // CH-9 . Si canal Tara MoMo/OM, un numéro est requis (validation locale
     // avant l'appel use case qui re-vérifie).
     final phone = _phoneCtrl.text.trim();
     final needsPhone = _canal == LoanReceiveChannel.taraOm ||
@@ -239,7 +239,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
-    // CH-5 — Validation locale des champs dynamiques (FormSchema actif).
+    // CH-5 . Validation locale des champs dynamiques (FormSchema actif).
     final schema = ref.read(activeLoanRequestSchemaProvider).valueOrNull;
     if (schema != null) {
       final errs = validateSchema(
@@ -263,7 +263,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     HapticFeedback.mediumImpact();
     setState(() => _step = _Step.loading);
     try {
-      // CH-5 — Sépare les fichiers (PickedFile) des scalaires : seuls les
+      // CH-5 . Sépare les fichiers (PickedFile) des scalaires : seuls les
       // scalaires partent dans le body POST ; les fichiers sont uploadés
       // séparément après création du LoanRequest.
       final scalarExtras = <String, Object?>{};
@@ -276,7 +276,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
           scalarExtras[entry.key] = v;
         }
       }
-      // Profil emprunteur — réponses oui/non + preuves uploadées si oui.
+      // Profil emprunteur . réponses oui/non + preuves uploadées si oui.
       scalarExtras['ancien_apprenant'] = _ancienApprenantCFP ? 'oui' : 'non';
       scalarExtras['cga_adherent'] = _cgaAdherent ? 'oui' : 'non';
       if (_ancienApprenantCFP && _apprenantCFPProof != null) {
@@ -286,13 +286,13 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
         fileEntries.add(MapEntry('cga_preuve', _cgaProof!));
       }
 
-      // BUSINESS_RULES §7.2 — Injecte les champs avaliste dans le body
+      // BUSINESS_RULES §7.2 . Injecte les champs avaliste dans le body
       // attendu par LoanRequestSubmitSerializer (clés snake_case backend).
       if (_withAvaliste) {
         scalarExtras['avaliste_numero'] = avalisteNumero;
         scalarExtras['avaliste_nom'] = avalisteNom;
       }
-      // §6 / LOT 11 — Voie campagne : le backend route automatiquement
+      // §6 / LOT 11 . Voie campagne : le backend route automatiquement
       // sur EligibilityRoute.CAMPAGNE quand `campaign_id` est présent et
       // valide (le serveur vérifie que la campagne est active).
       if (_withCampaign && _selectedCampaignId != null) {
@@ -307,7 +307,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 recipientPhone: needsPhone ? phone : null,
                 extraValues: scalarExtras,
               );
-      // CH-5 — Upload best-effort des pièces jointes. Un échec d'upload ne
+      // CH-5 . Upload best-effort des pièces jointes. Un échec d'upload ne
       // bloque pas la création : la demande existe ; l'admin demandera
       // un re-upload si besoin.
       for (final entry in fileEntries) {
@@ -319,11 +319,11 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 fileName: entry.value.name,
               );
         } catch (_) {
-          // Best-effort — log silencieux côté mobile (pas d'analytics ici).
+          // Best-effort . log silencieux côté mobile (pas d'analytics ici).
         }
       }
       if (!mounted) return;
-      // CH-7 — Pré-remplit le téléphone côté paiement des frais : si le canal
+      // CH-7 . Pré-remplit le téléphone côté paiement des frais : si le canal
       // de réception choisi est Tara MoMo, on reprend le numéro saisi ; sinon
       // on laisse vide pour que le membre choisisse.
       if (needsPhone && _feePhoneCtrl.text.isEmpty) {
@@ -371,9 +371,9 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     }
   }
 
-  /// CH-7 — Lance le paiement des frais d'étude via Mobile Money.
+  /// CH-7 . Lance le paiement des frais d'étude via Mobile Money.
   /// Tara détecte automatiquement le réseau (MTN/Orange) via le préfixe du
-  /// téléphone — pas besoin de sélecteur opérateur côté UI.
+  /// téléphone . pas besoin de sélecteur opérateur côté UI.
   Future<void> _payStudyFee() async {
     final phone = _feePhoneCtrl.text.trim();
     if (phone.length < 9) {
@@ -546,7 +546,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
 
             const SizedBox(height: AppSpacing.l),
 
-            // --- Profil emprunteur — CFP Broad Range + CGA ----------------
+            // --- Profil emprunteur . CFP Broad Range + CGA ----------------
             //
             // 2 questions optionnelles. Si "oui", une pièce jointe devient
             // obligatoire (attestation / carte). Les ids des champs envoyés
@@ -625,7 +625,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
 
             const SizedBox(height: AppSpacing.l),
 
-            // --- BUSINESS_RULES §7.2 — Désignation optionnelle d'un avaliste ---
+            // --- BUSINESS_RULES §7.2 . Désignation optionnelle d'un avaliste ---
             //
             // Si le membre veut emprunter sur la voie AVALISTE (typiquement
             // parce qu'il n'est pas senior+BRC ou qu'il a déjà un crédit en
@@ -700,7 +700,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
             ] else
               const SizedBox(height: AppSpacing.m),
 
-            // --- §6 / LOT 11 — Postuler à une campagne micro-crédit ---
+            // --- §6 / LOT 11 . Postuler à une campagne micro-crédit ---
             //
             // Si activé, le membre choisit dans la liste des campagnes
             // ouvertes (récupérées via /api/v1/loans/campaigns/active/).
@@ -784,7 +784,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
               const SizedBox(height: AppSpacing.m),
             ],
 
-            // --- CH-9 — Canal de réception du décaissement ---
+            // --- CH-9 . Canal de réception du décaissement ---
             Text('Comment recevoir l\'argent ?',
                 style: AppTypography.labelMedium,),
             const SizedBox(height: AppSpacing.s),
@@ -838,7 +838,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
               ),
             ),
 
-            // CH-5 — Section dynamique : champs supplémentaires configurés
+            // CH-5 . Section dynamique : champs supplémentaires configurés
             // par l'admin via FormSchema actif (`loan_request`). En 404 ou
             // erreur transport, on garde le formulaire legacy intact.
             Consumer(
@@ -962,7 +962,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     );
   }
 
-  /// CH-7 — Formulaire de paiement Mobile Money pour les frais d'étude.
+  /// CH-7 . Formulaire de paiement Mobile Money pour les frais d'étude.
   Widget _payFormStep(BuildContext context) {
     final studyFee = _submission?.studyFee;
     return Padding(
@@ -1002,9 +1002,9 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
               ),
             ),
 
-            // TODO: REMOVE_FOR_PROD — montant éditable mode test.
+            // TODO: REMOVE_FOR_PROD . montant éditable mode test.
             const SizedBox(height: AppSpacing.l),
-            Text('Montant (XAF) — mode test',
+            Text('Montant (XAF) . mode test',
                 style: AppTypography.labelMedium,),
             const SizedBox(height: AppSpacing.s),
             TextFormField(
@@ -1069,7 +1069,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     );
   }
 
-  /// CH-7 — Confirmation après init Tara du paiement des frais.
+  /// CH-7 . Confirmation après init Tara du paiement des frais.
   Widget _paySuccessStep(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -1125,7 +1125,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   }
 }
 
-/// CH-7 — Carte récapitulative des frais d'étude (montant + notice
+/// CH-7 . Carte récapitulative des frais d'étude (montant + notice
 /// non-remboursable). Apparaît juste après la soumission de la demande,
 /// avant que le membre n'engage le paiement.
 class _StudyFeeCard extends StatelessWidget {
@@ -1253,20 +1253,20 @@ class _ModalityChip extends StatelessWidget {
 }
 
 
-/// Récap période + montant par échéance — aligné CH-11 (mode source).
+/// Récap période + montant par échéance . aligné CH-11 (mode source).
 ///
 /// Sous le régime CH-11, les intérêts (10 %) sont **retenus à la source dès
 /// le décaissement** (`mode_retenue_interets = source`, cf.
 /// `seed_demo_credits.py:252` et `LoanCreate.disburse_loan`). Conséquence
 /// directe pour l'UI : chaque échéance contient **uniquement du capital**.
 /// On NE doit donc PAS afficher de tableau "intérêts par échéance" /
-/// "intérêts totaux à payer en plus" — ce serait factuellement faux.
+/// "intérêts totaux à payer en plus" . ce serait factuellement faux.
 ///
 /// Ce widget montre les seules informations encore vraies :
 ///   • Durée de remboursement (mois)
 ///   • Nombre + cadence d'échéances
 ///   • Montant par échéance (capital ÷ nb d'échéances)
-///   • Net que le membre recevra (montant − intérêts source) — important
+///   • Net que le membre recevra (montant − intérêts source) . important
 ///     pour qu'il ne soit pas surpris au décaissement.
 class _RepaymentRecap extends StatelessWidget {
   const _RepaymentRecap({required this.bd});
@@ -1312,7 +1312,7 @@ class _RepaymentRecap extends StatelessWidget {
             accent: true,
           ),
           const Divider(height: 18, color: PaColors.line),
-          // CH-11 — Mention explicite : intérêts retenus à la source.
+          // CH-11 . Mention explicite : intérêts retenus à la source.
           // Le membre voit en clair le net qu'il touche pour ne pas être
           // surpris au moment du décaissement.
           Row(
@@ -1325,7 +1325,7 @@ class _RepaymentRecap extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Vous recevrez ${XAFFormatter.format(montantNet)} net — '
+                  'Vous recevrez ${XAFFormatter.format(montantNet)} net . '
                   'les intérêts (10 %) sont retenus dès le décaissement.',
                   style: const TextStyle(
                     color: PaColors.inkSecondary,
@@ -1371,7 +1371,7 @@ class _RepaymentRecap extends StatelessWidget {
 }
 
 
-// CH-9 — Sélecteur de canal de réception (Orange Money / MTN MoMo / espèces).
+// CH-9 . Sélecteur de canal de réception (Orange Money / MTN MoMo / espèces).
 class _ChannelPicker extends StatelessWidget {
   const _ChannelPicker({required this.selected, required this.onChanged});
 
@@ -1443,7 +1443,7 @@ class _ChannelPicker extends StatelessWidget {
 
 /// Typeahead picker pour la sélection d'un avaliste éligible (§7.2).
 /// Recherche debounced 300 ms sur `/members/search-avaliste/?q=…`. Le membre
-/// tape un préfixe de numéro ou un fragment de nom et choisit dans la liste —
+/// tape un préfixe de numéro ou un fragment de nom et choisit dans la liste .
 /// remplace la saisie texte libre du numéro+nom qui était sujette aux fautes.
 class _AvalistePicker extends ConsumerStatefulWidget {
   const _AvalistePicker({required this.onPicked});
@@ -1549,7 +1549,7 @@ class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
                   const Divider(height: 1, color: PaColors.line),
               itemBuilder: (_, i) {
                 final c = _results[i];
-                // memory avaliste-cap-solde — capacite_caution = solde -
+                // memory avaliste-cap-solde . capacite_caution = solde -
                 // cautions engagées. Si 0, on désactive le tap : ce membre
                 // est plein, désigner serait refusé par le backend.
                 final saturated = c.capaciteCaution <= 0;
@@ -1624,7 +1624,7 @@ class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
 }
 
 
-/// Tuile de sélection de fichier — montre soit un bouton "Joindre", soit
+/// Tuile de sélection de fichier . montre soit un bouton "Joindre", soit
 /// le nom du fichier sélectionné avec un bouton croix pour le retirer.
 /// Utilisée pour les pièces "Attestation CFP Broad Range" et "Carte CGA".
 class _ProofPickerTile extends StatelessWidget {
@@ -1655,7 +1655,7 @@ class _ProofPickerTile extends StatelessWidget {
         ),
         icon: const Icon(Icons.attach_file_rounded, size: 18),
         label: Text(
-          'Joindre — $label',
+          'Joindre . $label',
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
       );

@@ -14,7 +14,7 @@ import '../../domain/usecases/submit_loan_request.dart';
 import '../../domain/usecases/upload_loan_request_attachment.dart';
 
 
-/// Liste des crédits actifs du membre — reload après chaque write.
+/// Liste des crédits actifs du membre . reload après chaque write.
 class LoansNotifier extends AsyncNotifier<List<Loan>> {
   late final _getMine = ref.read(getMyActiveLoansUseCaseProvider);
 
@@ -81,10 +81,10 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>> {
 
   /// Soumet une nouvelle demande de crédit.
   ///
-  /// CH-9 — [moyenReception] + [recipientPhone] : canal choisi par le membre
+  /// CH-9 . [moyenReception] + [recipientPhone] : canal choisi par le membre
   /// pour recevoir le décaissement (optionnels).
   ///
-  /// CH-7 — Renvoie un [LoanRequestSubmission] qui inclut la demande créée
+  /// CH-7 . Renvoie un [LoanRequestSubmission] qui inclut la demande créée
   /// + le bloc `frais_a_payer` (montant + notice non-remboursable) à régler
   /// avant que la demande ne passe en instruction.
   Future<LoanRequestSubmission> submit({
@@ -110,7 +110,7 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>> {
     return submission;
   }
 
-  /// CH-5 — Upload une pièce jointe sur un LoanRequest existant.
+  /// CH-5 . Upload une pièce jointe sur un LoanRequest existant.
   Future<void> uploadAttachment({
     required int loanRequestId,
     required String schemaFieldId,
@@ -128,7 +128,7 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>> {
     );
   }
 
-  /// CH-7 — Règle les frais d'étude de la demande EN_ATTENTE via Mobile Money.
+  /// CH-7 . Règle les frais d'étude de la demande EN_ATTENTE via Mobile Money.
   /// L'UI rafraîchit la liste pour refléter la bascule attendue en
   /// `enInstruction` (effective dès que le webhook Tara valide le paiement).
   Future<void> payStudyFee({

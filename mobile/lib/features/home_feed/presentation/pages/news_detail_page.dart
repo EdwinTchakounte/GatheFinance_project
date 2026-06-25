@@ -11,7 +11,7 @@ import '../../../social/presentation/widgets/comments_section.dart';
 import '../../../social/presentation/widgets/like_button.dart';
 import '../../domain/entities/feed_item.dart';
 
-/// Page détail d'une actualité — design éditorial épuré.
+/// Page détail d'une actualité . design éditorial épuré.
 /// Reçoit l'`NewsArticle` en `extra` du go_router (chargement instantané)
 /// puis fetche le `body` complet en arrière-plan via l'API Wagtail si
 /// disponible. Si le fetch échoue ou le body est vide, on retombe sur
@@ -38,7 +38,7 @@ class _NewsDetailPageState extends ConsumerState<NewsDetailPage> {
   Future<void> _fetchBody() async {
     try {
       final dio = ref.read(apiClientProvider).dio;
-      // Wagtail API v2 — URL absolue car le baseUrl Dio est sur /api/v1.
+      // Wagtail API v2 . URL absolue car le baseUrl Dio est sur /api/v1.
       final res = await dio.get<Map<String, dynamic>>(
         '${ApiConfig.baseUrl}/api/v2/pages/${widget.article.id}/',
         queryParameters: const {'fields': 'body,excerpt'},
@@ -213,7 +213,7 @@ class _NewsDetailPageState extends ConsumerState<NewsDetailPage> {
   }
 }
 
-/// Cover par défaut quand un article n'a pas de hero image — visuel
+/// Cover par défaut quand un article n'a pas de hero image . visuel
 /// éditorial soft avec gradient (déterministe par hash du titre), halos
 /// lumineux + icône thématique + filigrane brand. Donne une présence
 /// visuelle plutôt qu'un placeholder gris terne.
@@ -350,7 +350,7 @@ class _CoverPlaceholder extends StatelessWidget {
   }
 }
 
-/// Strip basique des tags HTML — Wagtail RichTextField renvoie du HTML
+/// Strip basique des tags HTML . Wagtail RichTextField renvoie du HTML
 /// comme `<p>Texte</p>`. Pas besoin d'un parser DOM complet ici.
 String _stripHtml(String html) {
   if (html.isEmpty) return '';
@@ -367,7 +367,7 @@ String _stripHtml(String html) {
 
 /// Extrait le texte plat de la `body` StreamField Wagtail (liste de blocks).
 /// Chaque block est `{ "type": "...", "value": ... }`. On garde uniquement
-/// les blocs textuels — `paragraph`, `heading`, `quote` — et on strippe le
+/// les blocs textuels . `paragraph`, `heading`, `quote` . et on strippe le
 /// HTML que retourne RichTextField.
 String _extractPlainText(dynamic body) {
   if (body is! List) return '';
@@ -392,7 +392,7 @@ String _extractPlainText(dynamic body) {
         }
         break;
       default:
-        // Ignore image, gallery, embed pour le moment — pas de renderer.
+        // Ignore image, gallery, embed pour le moment . pas de renderer.
         break;
     }
   }

@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 
-/// Shell racine — bottom nav style **Paysika**.
+/// Shell racine . bottom nav style **Paysika**.
 ///
 /// 4 destinations (Accueil / Crédit / Carnet / Profil). Active = icône
 /// teal filled + label navy bold. Inactive = icône outline gris + label gris.

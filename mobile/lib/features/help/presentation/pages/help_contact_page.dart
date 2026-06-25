@@ -9,7 +9,7 @@ import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 
-/// Aide & contact — style **Paysika**.
+/// Aide & contact . style **Paysika**.
 ///
 /// **Coordonnées verbatim** récupérées depuis le site vitrine
 /// (`frontend/apps/site/src/lib/site-config.ts`). Aucune invention.
@@ -402,7 +402,7 @@ class _ContactTile extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: '$label — ${l.help_copy_a11y}',
+      label: '$label . ${l.help_copy_a11y}',
       child: Material(
         color: Colors.transparent,
         child: InkWell(

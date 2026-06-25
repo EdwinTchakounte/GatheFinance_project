@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
 
-/// Loader signature Gathe Finance — deux arcs concentriques qui tournent en
+/// Loader signature Gathe Finance . deux arcs concentriques qui tournent en
 /// sens inverse, reprenant le cobalt et l'emerald du logo. Doux, élégant,
 /// reconnaissable. Trois tailles canoniques.
 enum BrandLoaderSize { small, medium, large }
@@ -107,7 +107,7 @@ class _BrandLoaderPainter extends CustomPainter {
     canvas.drawCircle(center, outerR, trackPaint);
     canvas.drawCircle(center, innerR, trackPaint);
 
-    // Arc extérieur — cobalt — tourne dans le sens horaire
+    // Arc extérieur . cobalt . tourne dans le sens horaire
     const sweep = math.pi * 0.85; // ~150°
     final outerPaint = Paint()
       ..style = PaintingStyle.stroke
@@ -122,7 +122,7 @@ class _BrandLoaderPainter extends CustomPainter {
       outerPaint,
     );
 
-    // Arc intérieur — emerald — tourne dans le sens inverse
+    // Arc intérieur . emerald . tourne dans le sens inverse
     final innerPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
@@ -146,7 +146,7 @@ class _BrandLoaderPainter extends CustomPainter {
 }
 
 
-/// Trois points qui pulsent en cascade — alternative plus discrète pour les
+/// Trois points qui pulsent en cascade . alternative plus discrète pour les
 /// chargements inline (ex. à l'intérieur d'un bouton ou d'une ligne).
 class BrandPulseDots extends StatefulWidget {
   const BrandPulseDots({super.key, this.size = 6, this.color});

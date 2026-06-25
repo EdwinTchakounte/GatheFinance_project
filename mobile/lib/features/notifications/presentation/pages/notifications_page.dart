@@ -10,7 +10,7 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/app_notification.dart';
 import '../state/notifications_notifier.dart';
 
-/// Page Notifications — style **Paysika**.
+/// Page Notifications . style **Paysika**.
 ///
 /// AppBar minimaliste + liste de notif tiles (avatar coloré + titre + body
 /// + temps relatif). Notifs non-lues mises en avant par un dot + fond

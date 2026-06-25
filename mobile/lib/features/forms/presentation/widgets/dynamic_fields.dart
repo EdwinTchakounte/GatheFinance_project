@@ -7,7 +7,7 @@ import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../domain/entities/form_schema.dart';
 import '../../domain/form_validation.dart';
 
-/// CH-5 — Renderer générique de FormSchema pour mobile.
+/// CH-5 . Renderer générique de FormSchema pour mobile.
 ///
 /// Pattern miroir du renderer portail (`DynamicFields` React) :
 /// - controlled : le parent détient `values` + reçoit `onChange`

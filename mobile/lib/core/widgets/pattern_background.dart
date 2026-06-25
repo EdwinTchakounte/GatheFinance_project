@@ -10,10 +10,10 @@ import '../../app/theme/app_colors_dark.dart';
 /// Couches (de l'arrière vers l'avant) :
 ///   1. Surface plate `cream` (ou couleur custom)
 ///   2. Grille hexagonale de micro-points cobalt à ~3 % d'opacité
-///      (l'équivalent du fond conversation WhatsApp — discret, pas
+///      (l'équivalent du fond conversation WhatsApp . discret, pas
 ///      perceptible directement mais ajoute de la profondeur)
 ///   3. Deux halos radiaux très diffus (cobalt en haut-droite,
-///      emerald en bas-gauche) — donnent une lumière douce
+///      emerald en bas-gauche) . donnent une lumière douce
 ///   4. Deux filets diagonaux fins en accent terra (1px, 4 %)
 ///      pour la touche éditoriale type AfDB/UN
 ///   5. Le contenu de l'écran par-dessus
@@ -66,7 +66,7 @@ class PatternBackground extends StatelessWidget {
       children: [
         Positioned.fill(child: ColoredBox(color: bg)),
 
-        // Motif hex de points — couche principale
+        // Motif hex de points . couche principale
         Positioned.fill(
           child: IgnorePointer(
             child: CustomPaint(
@@ -123,7 +123,7 @@ class PatternBackground extends StatelessWidget {
 
 
 /// Peintre du motif hexagonal de micro-points.
-/// Le résultat ressemble à un papier filigrané — pas un quadrillage,
+/// Le résultat ressemble à un papier filigrané . pas un quadrillage,
 /// mais un grain doux qui structure le fond.
 class _HexDotsPainter extends CustomPainter {
   _HexDotsPainter({required this.dotColor, required this.opacity});
@@ -161,7 +161,7 @@ class _HexDotsPainter extends CustomPainter {
 }
 
 
-/// Deux filets fins diagonaux qui traversent l'écran — touche éditoriale
+/// Deux filets fins diagonaux qui traversent l'écran . touche éditoriale
 /// très discrète qui ajoute du rythme sans peser visuellement.
 class _FiletsPainter extends CustomPainter {
   _FiletsPainter({required this.color, required this.opacity});
@@ -176,14 +176,14 @@ class _FiletsPainter extends CustomPainter {
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
-    // Filet 1 — haut, pente douce
+    // Filet 1 . haut, pente douce
     canvas.drawLine(
       Offset(-20, size.height * 0.18),
       Offset(size.width + 20, size.height * 0.05),
       paint,
     );
 
-    // Filet 2 — milieu/bas, sens inverse
+    // Filet 2 . milieu/bas, sens inverse
     canvas.drawLine(
       Offset(-20, size.height * 0.62),
       Offset(size.width + 20, size.height * 0.78),
@@ -197,7 +197,7 @@ class _FiletsPainter extends CustomPainter {
 }
 
 
-/// Disque flou rayonnant — utilisé pour les deux halos d'angle.
+/// Disque flou rayonnant . utilisé pour les deux halos d'angle.
 class _Halo extends StatelessWidget {
   const _Halo({required this.color, required this.size});
 

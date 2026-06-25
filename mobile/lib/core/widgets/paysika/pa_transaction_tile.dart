@@ -5,23 +5,23 @@ import '../../formatters/xaf_formatter.dart';
 
 /// Catégorie de transaction → couleur d'avatar + icône.
 enum PaTxKind {
-  /// Dépôt épargne (in) — vert succès
+  /// Dépôt épargne (in) . vert succès
   depot,
-  /// Intérêts crédités (in) — vert succès
+  /// Intérêts crédités (in) . vert succès
   interet,
-  /// Frais carnet, frais adhésion, frais reconduction (out) — orange chaud
+  /// Frais carnet, frais adhésion, frais reconduction (out) . orange chaud
   frais,
-  /// Remboursement crédit (out) — teal (lié au crédit)
+  /// Remboursement crédit (out) . teal (lié au crédit)
   remboursement,
-  /// Décaissement crédit reçu (in) — teal
+  /// Décaissement crédit reçu (in) . teal
   decaissement,
-  /// Retrait (out) — rouge soft
+  /// Retrait (out) . rouge soft
   retrait,
   /// Catch-all
   autre,
 }
 
-/// Row de transaction Paysika — **avatar coloré rond** + libellé + montant.
+/// Row de transaction Paysika . **avatar coloré rond** + libellé + montant.
 ///
 /// Style observé dans capture_paysika/ (transactions list) :
 ///   - Avatar rond 40 px, fond pastel pâle de la couleur catégorielle,
@@ -31,7 +31,7 @@ enum PaTxKind {
 ///   - Montant à droite, taille 16pt, couleur (success vert / danger rouge /
 ///     navy sinon)
 ///
-/// La row n'est PAS dans une card individuelle — elle vit dans une PaCard
+/// La row n'est PAS dans une card individuelle . elle vit dans une PaCard
 /// parent qui regroupe N rows séparées par un Divider très fin.
 class PaTransactionTile extends StatelessWidget {
   const PaTransactionTile({

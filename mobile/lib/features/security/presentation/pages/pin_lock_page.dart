@@ -13,7 +13,7 @@ import '../../data/biometric_service.dart';
 import '../state/pin_notifier.dart';
 import '../widgets/pin_keypad.dart';
 
-/// Écran de déverrouillage par PIN — **refonte soft 2026-06-18**.
+/// Écran de déverrouillage par PIN . **refonte soft 2026-06-18**.
 ///
 /// - Mini hero brand aurore (vert→bleu→navy) + logo "pont" qui chevauche
 ///   la frontière vers la zone crème.

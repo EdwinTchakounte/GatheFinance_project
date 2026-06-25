@@ -24,14 +24,14 @@ import '../../../loans/presentation/widgets/loan_request_sheet.dart';
 import '../../../loans/presentation/widgets/renewal_sheet.dart';
 import '../../../loans/presentation/widgets/repayment_sheet.dart';
 
-/// Page Crédit — style **Paysika** (palette navy/teal, cards soft).
+/// Page Crédit . style **Paysika** (palette navy/teal, cards soft).
 ///
 /// Composition :
 ///   - Header simple (eyebrow + titre)
 ///   - Liste des Loans actifs (PaCard chacun) avec montant, statut, échéance
 ///     et 2 actions : « Rembourser » + « Reconduire »
 ///   - Liste des LoanRequest en cours (en instruction / contre-proposition)
-///   - FAB **« + Nouvelle demande »** toujours visible — c'est l'élément
+///   - FAB **« + Nouvelle demande »** toujours visible . c'est l'élément
 ///     critique qui manquait avant.
 class CreditPage extends ConsumerWidget {
   const CreditPage({super.key});
@@ -42,7 +42,7 @@ class CreditPage extends ConsumerWidget {
     final requestsAsync = ref.watch(loanRequestsProvider);
     final l = AppL10n.of(context);
 
-    // §6 / LOT 11 — La Home (carousel campagnes) pousse l'id d'une campagne
+    // §6 / LOT 11 . La Home (carousel campagnes) pousse l'id d'une campagne
     // sélectionnée via ce StateProvider, puis route ici. Quand l'éligibilité
     // est résolue, on ouvre automatiquement le sheet de demande avec la
     // voie campagne pré-sélectionnée et l'id renseigné, puis on reset.
@@ -68,7 +68,7 @@ class CreditPage extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            // ── Header FIXE compact — band gradient soft vert→bleu ──────
+            // ── Header FIXE compact . band gradient soft vert→bleu ──────
             PaGradientHeaderBand(title: l.credit_title),
             const SizedBox(height: 12),
             // ── Accès Mandats avaliste (LOT 21) ──────────────────────────
@@ -76,7 +76,7 @@ class CreditPage extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: _AvalisteEntryTile(),
             ),
-            // ── CH-12 — Mes versements prêteur (Sinora §5.3) ──────────────
+            // ── CH-12 . Mes versements prêteur (Sinora §5.3) ──────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: _LenderPayoutsEntryTile(),
@@ -223,7 +223,7 @@ class CreditPage extends ConsumerWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// FAB « + Nouvelle demande » — gradient teal/cyan
+// FAB « + Nouvelle demande » . gradient teal/cyan
 // ───────────────────────────────────────────────────────────────────────────
 
 class _NewRequestFab extends StatelessWidget {
@@ -271,7 +271,7 @@ class _NewRequestFab extends StatelessWidget {
 
 
 // Dialog présenté au tap du FAB quand le membre n'est pas éligible à une
-// nouvelle demande (typiquement : un crédit en cours non soldé — Règle 2 de
+// nouvelle demande (typiquement : un crédit en cours non soldé . Règle 2 de
 // compute_eligibility côté backend). Affiche les motifs renvoyés par l'API.
 void _showIneligibilityDialog(BuildContext context, List<String> motifs) {
   showDialog<void>(
@@ -313,7 +313,7 @@ void _showIneligibilityDialog(BuildContext context, List<String> motifs) {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// Card Loan actif — montant + statut + prochaine échéance + 2 boutons
+// Card Loan actif . montant + statut + prochaine échéance + 2 boutons
 // ───────────────────────────────────────────────────────────────────────────
 
 class _LoanCard extends StatelessWidget {
@@ -393,7 +393,7 @@ class _LoanCard extends StatelessWidget {
             style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
           ),
 
-          // CH-11 — Annonce explicite « intérêts retenus à la source ».
+          // CH-11 . Annonce explicite « intérêts retenus à la source ».
           if (loan.modeRetenueInterets == LoanInterestMode.source &&
               loan.montantDecaisseNet != null) ...[
             const SizedBox(height: 6),
@@ -425,7 +425,7 @@ class _LoanCard extends StatelessWidget {
             ),
           ],
 
-          // CH-8 — Date butoire formelle si posée.
+          // CH-8 . Date butoire formelle si posée.
           if (loan.dateButoire != null) ...[
             const SizedBox(height: 6),
             Text(
@@ -502,7 +502,7 @@ class _LoanCard extends StatelessWidget {
             ),
           ],
 
-          // Pénalité de retard (Article 12) — visible seulement si exigible.
+          // Pénalité de retard (Article 12) . visible seulement si exigible.
           if (penalty > 0) ...[
             const SizedBox(height: 12),
             Container(
@@ -600,7 +600,7 @@ class _RequestCard extends ConsumerWidget {
       LoanRequestStatus.enAttente => PaColors.warning,
       LoanRequestStatus.enInstruction => PaColors.teal,
       LoanRequestStatus.enAttenteAcceptationMembre => PaColors.teal,
-      // CH-6 — Provisoire = en attente d'une visite terrain, traité comme "en revue".
+      // CH-6 . Provisoire = en attente d'une visite terrain, traité comme "en revue".
       LoanRequestStatus.approuveeProvisoire => PaColors.warning,
       LoanRequestStatus.approuvee => PaColors.success,
       LoanRequestStatus.rejetee => PaColors.danger,
@@ -609,7 +609,7 @@ class _RequestCard extends ConsumerWidget {
       LoanRequestStatus.enAttente => l.credit_req_pending,
       LoanRequestStatus.enInstruction => l.credit_req_review,
       LoanRequestStatus.enAttenteAcceptationMembre => l.credit_req_counter,
-      // CH-6 — Libellé court (l10n.arb encore à enrichir si besoin).
+      // CH-6 . Libellé court (l10n.arb encore à enrichir si besoin).
       LoanRequestStatus.approuveeProvisoire => 'Visite à effectuer',
       LoanRequestStatus.approuvee => l.credit_req_approved,
       LoanRequestStatus.rejetee => l.credit_req_rejected,
@@ -653,7 +653,7 @@ class _RequestCard extends ConsumerWidget {
               ),
             ),
           ],
-          // CH-9 — Bouton « Télécharger ma note » disponible à tout moment
+          // CH-9 . Bouton « Télécharger ma note » disponible à tout moment
           // après création (la note PDF reflète l'état courant : moyen de
           // réception, échéancier si Loan créé, etc.).
           const SizedBox(height: 10),
@@ -681,7 +681,7 @@ class _RequestCard extends ConsumerWidget {
               ),
             ),
           ),
-          // CH-7 — Tant que la demande est en_attente, les frais d'étude n'ont
+          // CH-7 . Tant que la demande est en_attente, les frais d'étude n'ont
           // pas encore été réglés et la demande ne passe pas en instruction.
           // On propose un CTA visible pour relancer le paiement Tara depuis
           // la page Crédit (cas du membre qui a fermé le sheet avant de payer).
@@ -714,7 +714,7 @@ class _RequestCard extends ConsumerWidget {
   }
 }
 
-/// CH-7 — Sheet compact pour régler les frais d'étude depuis la page Crédit
+/// CH-7 . Sheet compact pour régler les frais d'étude depuis la page Crédit
 /// quand la demande est restée bloquée en `enAttente`.
 class _StudyFeePaySheet extends ConsumerStatefulWidget {
   const _StudyFeePaySheet();
@@ -738,7 +738,7 @@ class _StudyFeePaySheet extends ConsumerStatefulWidget {
 
 class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
   final _phoneCtrl = TextEditingController();
-  // TODO: REMOVE_FOR_PROD — montant éditable pour tester STK Push à 100 XAF.
+  // TODO: REMOVE_FOR_PROD . montant éditable pour tester STK Push à 100 XAF.
   final _amountCtrl = TextEditingController(text: '100');
   bool _loading = false;
 
@@ -780,7 +780,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Paiement initié — validez la notification Mobile Money sur votre téléphone.',
+            'Paiement initié . validez la notification Mobile Money sur votre téléphone.',
           ),
         ),
       );
@@ -854,8 +854,8 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                 ),
               ),
               const SizedBox(height: 16),
-              // TODO: REMOVE_FOR_PROD — montant éditable mode test.
-              const Text('Montant (XAF) — mode test',
+              // TODO: REMOVE_FOR_PROD . montant éditable mode test.
+              const Text('Montant (XAF) . mode test',
                   style: TextStyle(
                       color: PaColors.inkSecondary,
                       fontSize: 13,
@@ -909,7 +909,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Empty state — pas de crédit actif
+// Empty state . pas de crédit actif
 // ───────────────────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
@@ -987,7 +987,7 @@ class _EmptyState extends StatelessWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// Bouton primary (gradient cyan) — utilisé pour « Rembourser »
+// Bouton primary (gradient cyan) . utilisé pour « Rembourser »
 // ───────────────────────────────────────────────────────────────────────────
 
 class _PrimaryActionButton extends StatelessWidget {
@@ -1027,7 +1027,7 @@ class _PrimaryActionButton extends StatelessWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// Bouton outline navy — utilisé pour « Reconduire »
+// Bouton outline navy . utilisé pour « Reconduire »
 // ───────────────────────────────────────────────────────────────────────────
 
 class _OutlineActionButton extends StatelessWidget {
@@ -1067,7 +1067,7 @@ class _OutlineActionButton extends StatelessWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// Status chip — petit pill coloré
+// Status chip . petit pill coloré
 // ───────────────────────────────────────────────────────────────────────────
 
 class _StatusChip extends StatelessWidget {
@@ -1140,7 +1140,7 @@ class _ErrorBox extends StatelessWidget {
   }
 }
 
-/// Tuile d'accès aux mandats d'avaliste — badge avec compteur pending.
+/// Tuile d'accès aux mandats d'avaliste . badge avec compteur pending.
 class _AvalisteEntryTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1220,7 +1220,7 @@ class _AvalisteEntryTile extends ConsumerWidget {
 }
 
 
-// CH-8 — Format court pour la date butoire affichée sur les cartes Loan.
+// CH-8 . Format court pour la date butoire affichée sur les cartes Loan.
 String _formatDateShort(DateTime d) {
   const mois = [
     'janv', 'févr', 'mars', 'avril', 'mai', 'juin',
@@ -1230,7 +1230,7 @@ String _formatDateShort(DateTime d) {
 }
 
 
-// CH-9 — Ouvre la note PDF d'une demande de crédit dans le navigateur
+// CH-9 . Ouvre la note PDF d'une demande de crédit dans le navigateur
 // système (la session cookie du backend est partagée avec le webview/Chrome
 // Custom Tab, donc l'auth fonctionne pour les membres déjà connectés).
 Future<void> _openLoanNote(BuildContext context, int requestId) async {
@@ -1250,7 +1250,7 @@ Future<void> _openLoanNote(BuildContext context, int requestId) async {
 }
 
 
-/// CH-12 — Tuile d'accès aux versements prêteur. Affichée seulement si
+/// CH-12 . Tuile d'accès aux versements prêteur. Affichée seulement si
 /// l'API a renvoyé au moins un payout (sinon on évite de polluer la page
 /// Crédit avec une porte vide). Compteur+total perçu en aperçu rapide.
 class _LenderPayoutsEntryTile extends ConsumerWidget {
@@ -1322,13 +1322,13 @@ class _LenderPayoutsEntryTile extends ConsumerWidget {
 // Avant le chantier juin 2026, le membre voyait un seul bouton « Nouvelle
 // demande ». Depuis la refonte (3 produits + 3 voies), le membre voit
 // désormais ses voies disponibles :
-//   • SENIOR_BRC   — voie senior éligibles BRC, plafond = solde × ratio
-//   • AVALISTE     — voie classique avec garant désigné (LOT 10/18)
+//   • SENIOR_BRC   . voie senior éligibles BRC, plafond = solde × ratio
+//   • AVALISTE     . voie classique avec garant désigné (LOT 10/18)
 //
 // La voie CAMPAGNE n'est PAS exposée ici : elle est réservée aux
 // bénéficiaires non-adhérents (Membre TEMPORAIRE), recrutés via la
 // vitrine web. Les campagnes actives sont affichées séparément sur la
-// Home (cf. Phase 2 — section "Campagnes en cours") avec un bouton de
+// Home (cf. Phase 2 . section "Campagnes en cours") avec un bouton de
 // partage, mais elles ne donnent pas accès au formulaire crédit membre.
 // ───────────────────────────────────────────────────────────────────────────
 

@@ -46,7 +46,7 @@ class AuthNotifier extends AsyncNotifier<Member?> {
       );
       state = AsyncValue.data(updated);
     } on Failure {
-      // Garde le state actuel — l'UI gère son propre toast d'erreur.
+      // Garde le state actuel . l'UI gère son propre toast d'erreur.
       rethrow;
     }
   }

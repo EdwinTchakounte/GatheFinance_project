@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Pastille de statut unifiée (Paysika) — point coloré + label.
+/// Pastille de statut unifiée (Paysika) . point coloré + label.
 ///
 /// Extraite des copies identiques `_StatusChip` de credit_page / booklet_page.
 /// La couleur porte le sens (success/warning/danger…) ; le fond est une

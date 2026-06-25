@@ -10,7 +10,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../state/theme_mode_notifier.dart';
 
-/// Bottom sheet de choix du thème — Système / Clair / Sombre.
+/// Bottom sheet de choix du thème . Système / Clair / Sombre.
 ///
 /// Affiche un libellé, une description, un mini aperçu visuel (chip) et
 /// un radio coché pour le mode actuel. Le choix est persisté immédiatement

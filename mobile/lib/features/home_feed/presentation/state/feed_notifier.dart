@@ -61,7 +61,7 @@ class FeedState {
 class HomeFeedNotifier extends AutoDisposeAsyncNotifier<FeedState> {
   @override
   Future<FeedState> build() async {
-    // Garde la donnée même si plus aucun widget watch — la Home dispose
+    // Garde la donnée même si plus aucun widget watch . la Home dispose
     // souvent du Notifier en navigation latérale et le re-fetcherait
     // inutilement.
     ref.keepAlive();

@@ -5,19 +5,19 @@ import '../../app/theme/app_radii.dart';
 
 /// Variantes visuelles d'[AppCard].
 ///
-/// - `flat`     : surface paper, ombre douce, rayon 20pt — pour les listes
+/// - `flat`     : surface paper, ombre douce, rayon 20pt . pour les listes
 ///                et les blocs secondaires
 /// - `glass`    : surface paper avec halo blanc + filet inner-light en haut,
-///                rayon 24pt — pour les blocs informatifs immersifs
+///                rayon 24pt . pour les blocs informatifs immersifs
 /// - `hero`     : rayon 28pt, ombre cobalt amplifiée multi-couches, halo
-///                blanc top-edge — pour les blocs majeurs (solde, état…)
+///                blanc top-edge . pour les blocs majeurs (solde, état…)
 /// - `gradient` : surface dégradée custom (utilise [AppCard.gradient]),
-///                ombre forte, rayon 28pt — pour les héros impactants
+///                ombre forte, rayon 28pt . pour les héros impactants
 ///                façon Spotify/Canal+ (cobalt → cobaltDark, etc.)
 enum AppCardVariant { flat, glass, hero, gradient }
 
 
-/// Carte moderne — inspirée Spotify / Canal+ : ombres multi-couches teintées
+/// Carte moderne . inspirée Spotify / Canal+ : ombres multi-couches teintées
 /// cobalt, halo d'arête supérieure pour la profondeur, possibilité de
 /// surface en gradient. Remplace l'ancienne carte plate uniforme.
 ///
@@ -45,13 +45,13 @@ class AppCard extends StatefulWidget {
   /// Compat ancien code (= variant hero).
   final bool hero;
 
-  /// Variante explicite — prend le pas sur `hero` si fournie.
+  /// Variante explicite . prend le pas sur `hero` si fournie.
   final AppCardVariant? variant;
 
   final Color? color;
   final BoxBorder? border;
 
-  /// Gradient custom — implique automatiquement `variant: gradient`.
+  /// Gradient custom . implique automatiquement `variant: gradient`.
   final Gradient? gradient;
 
   /// Filet de couleur 3px à gauche pour catégoriser. `null` = pas de filet.
@@ -165,7 +165,7 @@ class _AppCardState extends State<AppCard> {
       ),
       child: Stack(
         children: [
-          // Highlight d'arête supérieure — donne la profondeur "Spotify"
+          // Highlight d'arête supérieure . donne la profondeur "Spotify"
           if (_variant != AppCardVariant.flat)
             Positioned(
               top: 0,
@@ -193,7 +193,7 @@ class _AppCardState extends State<AppCard> {
               ),
             ),
 
-          // Filet accent vertical à gauche — catégorise (membre, état…)
+          // Filet accent vertical à gauche . catégorise (membre, état…)
           if (widget.accentColor != null)
             Positioned(
               top: 14,
@@ -244,7 +244,7 @@ class _AppCardState extends State<AppCard> {
 }
 
 
-/// Helper — gradient signature primaire (cobalt → cobaltDark) prêt à
+/// Helper . gradient signature primaire (cobalt → cobaltDark) prêt à
 /// l'emploi pour les héros majeurs (solde, état officiel, etc.).
 class AppCardGradients {
   AppCardGradients._();
@@ -267,7 +267,7 @@ class AppCardGradients {
     colors: [Color(0xFFC2742A), Color(0xFF8C531E)],
   );
 
-  /// Gradient subtil pour cards "informatives" sur fond cream — reste
+  /// Gradient subtil pour cards "informatives" sur fond cream . reste
   /// très clair, juste un soupçon de teinte.
   static const creamSoft = LinearGradient(
     begin: Alignment.topLeft,

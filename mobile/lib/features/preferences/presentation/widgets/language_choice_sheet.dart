@@ -11,7 +11,7 @@ import '../../../../app/theme/app_typography.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../state/locale_notifier.dart';
 
-/// Bottom sheet de choix de la langue — Français / English.
+/// Bottom sheet de choix de la langue . Français / English.
 ///
 /// Le choix est persisté immédiatement et l'application bascule de
 /// langue sans relancement (MaterialApp écoute le provider).

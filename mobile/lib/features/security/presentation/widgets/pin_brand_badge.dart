@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/widgets/logo_mark.dart';
 
-/// Logo entouré d'un halo dégradé vert→bleu — signature premium des écrans PIN.
+/// Logo entouré d'un halo dégradé vert→bleu . signature premium des écrans PIN.
 class PinBrandBadge extends StatelessWidget {
   const PinBrandBadge({super.key, this.icon});
 

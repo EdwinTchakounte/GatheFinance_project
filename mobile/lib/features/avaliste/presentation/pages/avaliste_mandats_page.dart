@@ -11,7 +11,7 @@ import '../state/avaliste_notifier.dart';
 import '../widgets/mandat_card.dart';
 import '../widgets/refuse_motif_sheet.dart';
 
-/// Page **Mes mandats d'avaliste** — l'utilisateur consulte les demandes
+/// Page **Mes mandats d'avaliste** . l'utilisateur consulte les demandes
 /// de crédit où il est désigné comme garant, et accepte / refuse.
 class AvalisteMandatsPage extends ConsumerStatefulWidget {
   const AvalisteMandatsPage({super.key});

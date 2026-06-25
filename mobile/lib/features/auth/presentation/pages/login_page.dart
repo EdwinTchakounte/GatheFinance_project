@@ -13,7 +13,7 @@ import '../state/auth_notifier.dart';
 import '../widgets/membership_form_sheet.dart';
 import '../widgets/member_info_sheet.dart';
 
-/// Page de connexion — refonte **stricte** d'après `capture_rh.jpeg`
+/// Page de connexion . refonte **stricte** d'après `capture_rh.jpeg`
 /// (2026-06-18 itération 3, ref user) :
 ///
 /// - **Hero bleu gradient** pleine largeur + coins bas arrondis (vague).
@@ -46,7 +46,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _submit() async {
-    debugPrint('[LOGIN] _submit tapped — email="${_emailCtrl.text.trim()}" pwd_len=${_passCtrl.text.length}');
+    debugPrint('[LOGIN] _submit tapped . email="${_emailCtrl.text.trim()}" pwd_len=${_passCtrl.text.length}');
     if (!_formKey.currentState!.validate()) {
       debugPrint('[LOGIN] validation FAILED');
       return;
@@ -55,7 +55,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     try {
       HapticFeedback.lightImpact();
     } catch (_) {
-      // Vibrate permission absente sur certains devices (Tecno) — non-bloquant.
+      // Vibrate permission absente sur certains devices (Tecno) . non-bloquant.
     }
     try {
       await ref.read(authProvider.notifier).signIn(
@@ -83,7 +83,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  /// Toast d'erreur — rouge, icône warning, durée 4 s, dismissible.
+  /// Toast d'erreur . rouge, icône warning, durée 4 s, dismissible.
   /// Mappe les messages techniques (NetworkException, CredentialsException…)
   /// vers des chaînes lisibles pour l'utilisateur final.
   void _showErrorToast(BuildContext context, Object err) {
@@ -125,7 +125,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  /// Toast de succès — vert, icône check, court (2 s).
+  /// Toast de succès . vert, icône check, court (2 s).
   void _showSuccessToast(BuildContext context) {
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
@@ -171,7 +171,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         s.contains('connection') ||
         s.contains('réseau') ||
         s.contains('network')) {
-      return 'Pas de connexion — vérifie ton réseau et réessaie.';
+      return 'Pas de connexion . vérifie ton réseau et réessaie.';
     }
     if (s.contains('timeout') || s.contains('délai')) {
       return 'Le serveur met trop de temps à répondre. Réessaie.';
@@ -356,7 +356,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
                   const SizedBox(height: 18),
 
-                  // ── 2 pills sous le CTA — Row + Expanded sur 1 ligne ──
+                  // ── 2 pills sous le CTA . Row + Expanded sur 1 ligne ──
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     child: Row(
@@ -413,7 +413,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 }
 
 
-/// Contenu posé dans le hero — juste titre + baseline. Le logo est posé
+/// Contenu posé dans le hero . juste titre + baseline. Le logo est posé
 /// en chevauchement via PaBrandHeroBridgeLogo, en dehors de ce widget.
 class _HeroContent extends StatelessWidget {
   const _HeroContent({required this.title, required this.baseline});
