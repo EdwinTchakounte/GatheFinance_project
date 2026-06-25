@@ -112,9 +112,11 @@ class TaraProvider(PaymentProviderBase):
             or data.get("paymentId")
             or str(payment.idempotency_key)
         )
-        # URL de checkout Tara : on construit depuis transactionId. Si la
-        # réponse contient explicitement un ``paymentUrl``, on le préfère.
-        payment_url = data.get("paymentUrl") or f"{self.BASE_URL}/c/{transaction_id}"
+        # URL de checkout Tara : ``/pay/{transactionId}`` (validé 2026-06-25
+        # par probe live — la variante ``/c/`` retourne 404, ``/p/`` rend une
+        # page blanche sans contexte Tara). Si la réponse contient un
+        # ``paymentUrl`` explicite, on le préfère.
+        payment_url = data.get("paymentUrl") or f"{self.BASE_URL}/pay/{transaction_id}"
         return InitPayinResult(
             provider_reference=str(transaction_id),
             payment_url=payment_url,
