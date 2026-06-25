@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -44,14 +46,34 @@ class _TaraCheckoutWebViewPageState extends State<TaraCheckoutWebViewPage> {
           if (!mounted) return;
           setState(() => _progress = p / 100.0);
         },
-        // Filet de sécurité : si Tara essaie quand même de pousser un
-        // deep link intent:// ou de rediriger vers le Play Store, on
-        // bloque pour rester dans la WebView.
+        onPageStarted: (u) =>
+            developer.log('[Tara] page started: $u', name: 'tara'),
+        onPageFinished: (u) =>
+            developer.log('[Tara] page finished: $u', name: 'tara'),
+        onWebResourceError: (err) {
+          developer.log(
+            '[Tara] resource error: ${err.errorCode} ${err.description} '
+            'isMain=${err.isForMainFrame} url=${err.url}',
+            name: 'tara',
+          );
+        },
+        onHttpError: (err) {
+          developer.log(
+            '[Tara] http error ${err.response?.statusCode} on ${err.request?.uri}',
+            name: 'tara',
+          );
+        },
+        // On laisse passer TOUT ce qui est http(s) (Tara redirige souvent
+        // entre ses sous-domaines pendant le checkout). On bloque
+        // uniquement les vrais deep links Android qui sortent de la
+        // WebView : intent:// (vers app Dikalo) et market:// (Play Store).
         onNavigationRequest: (req) {
           final u = req.url.toLowerCase();
-          if (u.startsWith('intent://') ||
-              u.startsWith('market://') ||
-              u.contains('play.google.com')) {
+          if (u.startsWith('intent://') || u.startsWith('market://')) {
+            developer.log(
+              '[Tara] blocked deep link: ${req.url}',
+              name: 'tara',
+            );
             return NavigationDecision.prevent;
           }
           return NavigationDecision.navigate;
