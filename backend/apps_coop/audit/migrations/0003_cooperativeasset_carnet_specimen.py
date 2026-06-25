@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("coop_audit", "0002_cooperativeasset"),
+        ("audit", "0002_cooperativeasset"),
     ]
 
     operations = [
