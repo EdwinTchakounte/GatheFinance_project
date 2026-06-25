@@ -101,6 +101,9 @@ class TaraProvider(PaymentProviderBase):
             "productName": product_name,
             "productPrice": int(payment.montant),  # Tara veut un int en XAF
             "productDescription": f"Paiement {product_name} — Gathé Finance",
+            # Numero MoMo du membre — requis pour les tests Tara (sandbox).
+            # Format normalisé +237xxxxxxxx (voir _normalize_phone).
+            "phoneNumber": self._normalize_phone(phone),
             "returnUrl": self._return_url(),
             "webHookUrl": self._webhook_url(),
         }
