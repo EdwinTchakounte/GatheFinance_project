@@ -24,22 +24,43 @@ class AuthDioDataSource implements AuthRemoteDataSource {
     required String password,
   }) async {
     try {
+      // Toujours purger l'ancienne session avant un nouveau login.
+      // Sinon un cookie sessionid/csrftoken stale (apres un restart backend
+      // qui rotate la SECRET_KEY ou simplement apres expiration) fait
+      // echouer le POST avec un 403 CSRF, et l'utilisateur voit
+      // "Connexion impossible" sans pouvoir s'en sortir.
+      await _client.clearSession();
       await _client.primeCsrf();
-      final response = await _dio.post<Map<String, dynamic>>(
-        '/auth/login/',
-        data: {'email': email, 'password': password},
-      );
-      final data = response.data;
-      if (data == null || data['member'] == null) {
-        throw const ServerException(
-          'Compte sans profil membre — contactez l\'administration.',
-          200,
-        );
-      }
-      return _toMember(data);
+      return await _signInAttempt(email, password);
     } on DioException catch (e) {
+      // 403 sur le login = quasi-toujours un CSRF token expire / orphelin.
+      // On retente une fois avec une session totalement vierge.
+      if (e.response?.statusCode == 403) {
+        try {
+          await _client.clearSession();
+          await _client.primeCsrf();
+          return await _signInAttempt(email, password);
+        } on DioException catch (retryErr) {
+          throw mapDioError(retryErr);
+        }
+      }
       throw mapDioError(e);
     }
+  }
+
+  Future<Member> _signInAttempt(String email, String password) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/auth/login/',
+      data: {'email': email, 'password': password},
+    );
+    final data = response.data;
+    if (data == null || data['member'] == null) {
+      throw const ServerException(
+        'Compte sans profil membre — contactez l\'administration.',
+        200,
+      );
+    }
+    return _toMember(data);
   }
 
   @override

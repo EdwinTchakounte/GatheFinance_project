@@ -19,6 +19,13 @@ import { getBlogPosts } from "@/lib/wagtail";
 
 type Params = { params: Promise<{ locale: string }> };
 
+// CMS section is rendered live at request time (ISR with a short TTL) so a
+// newly published article shows up in minutes instead of being frozen into
+// the build-time HTML. Critical : at build time the Wagtail container is not
+// reachable from the GH Actions runner, so the SSG snapshot would otherwise
+// be permanently empty until a manual revalidation.
+export const revalidate = 60;
+
 const VALUES = ["accessibility", "transparency", "community", "local"] as const;
 
 // Home shows 4 services (matches the reference site: Crédit, Épargne, Transferts, Investissement).
