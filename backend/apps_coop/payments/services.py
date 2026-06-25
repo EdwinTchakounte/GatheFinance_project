@@ -46,18 +46,20 @@ def init_payin_for_payment(
     *,
     phone: str,
     network: str,
-) -> tuple[str | None, str]:
+) -> tuple[str | None, str, dict]:
     """Push a payin request to the configured provider.
 
-    Returns ``(payment_url, provider_reference)``. The Payment row is updated
-    in place with ``reference_externe`` and ``gateway_initiated_at`` — the
-    caller (view) is expected to persist it.
+    Returns ``(payment_url, provider_reference, provider_raw)``. La 3e
+    valeur contient la reponse brute du provider (utile cote mobile pour
+    afficher vendor / message Tara). Le Payment row est mis a jour en
+    place avec ``reference_externe`` et ``gateway_initiated_at`` — le
+    caller (view) doit le persister.
     """
     provider = get_provider(payment.provider_code or "tara")
     result = provider.init_payin(payment, phone=phone, network=network)
     payment.reference_externe = result.provider_reference
     payment.gateway_initiated_at = timezone.now()
-    return result.payment_url, result.provider_reference
+    return result.payment_url, result.provider_reference, result.raw or {}
 
 
 @transaction.atomic

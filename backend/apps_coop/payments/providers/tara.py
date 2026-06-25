@@ -115,6 +115,17 @@ class TaraProvider(PaymentProviderBase):
         payload["productDescription"] = f"Paiement {product_name} — Gathé Finance"
         payload["returnUrl"] = self._return_url()
         data = self._post("/api/tara/mobilepay", payload)
+        # Log explicite de la reponse Tara pour debug en prod : on veut
+        # voir le status / message / vendor / authUrl quand le STK Push
+        # ne semble pas arriver cote membre. Le payload sortant masque
+        # apiKey/businessId mais montre productId/price/phoneNumber.
+        logger.info(
+            "[TARA] init_payin OK — phone=%s price=%s productId=%s → tara_response=%s",
+            payload.get("phoneNumber"),
+            payload.get("productPrice"),
+            payload.get("productId"),
+            data,
+        )
         # Doc Tara 2026-06-25 — la réponse est :
         #   {status:"SUCCESS", message:"API_ORDER_SUCESSFULL", vendor:"ORANGE_CAMEROON"}
         # PAS de transactionId, PAS de paymentUrl. Le flow Tara pousse

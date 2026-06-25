@@ -216,7 +216,7 @@ def init_payment(request):
     )
 
     try:
-        payment_url, provider_reference = init_payin_for_payment(
+        payment_url, provider_reference, provider_raw = init_payin_for_payment(
             payment,
             phone=data["phone"],
             network=data["network"],
@@ -267,11 +267,18 @@ def init_payment(request):
         },
         ip=client_ip(request),
     )
+    # Expose `provider_status` / `provider_message` / `provider_vendor`
+    # côté mobile pour qu'il affiche le statut Tara reçu (utile quand le
+    # STK Push ne semble pas arriver — on peut voir si Tara a accepté
+    # ORANGE_CAMEROON / MTN_CAMEROON, ou un message d'erreur explicite).
     return Response(
         {
             "payment": PaymentReadSerializer(payment).data,
             "paymentUrl": payment_url,
             "instructions": "Valide la transaction sur ton téléphone via le code USSD reçu.",
+            "providerStatus": provider_raw.get("status"),
+            "providerMessage": provider_raw.get("message"),
+            "providerVendor": provider_raw.get("vendor"),
         },
         status=status.HTTP_201_CREATED,
     )
