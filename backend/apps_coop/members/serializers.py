@@ -347,3 +347,36 @@ class BookletOrderReadSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = fields
+
+
+class BookletOrderAdminSerializer(serializers.ModelSerializer):
+    """Vue admin d'une commande de carnet . inclut le membre + notes agence."""
+
+    statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    member_id = serializers.IntegerField(source="member.id", read_only=True)
+    member_nom = serializers.SerializerMethodField()
+    member_prenom = serializers.CharField(source="member.prenom", read_only=True)
+    member_numero = serializers.CharField(source="member.numero_membre", read_only=True)
+    member_phone = serializers.CharField(source="member.phone", read_only=True)
+    payment_id = serializers.IntegerField(source="payment.id", read_only=True)
+    payment_montant = serializers.DecimalField(
+        source="payment.montant", max_digits=14, decimal_places=2, read_only=True,
+    )
+
+    class Meta:
+        from .models import BookletOrder as _BookletOrder
+
+        model = _BookletOrder
+        fields = (
+            "id", "statut", "statut_display",
+            "date_impression", "date_delivrance",
+            "notes_agence",
+            "member_id", "member_nom", "member_prenom",
+            "member_numero", "member_phone",
+            "payment_id", "payment_montant",
+            "created_at",
+        )
+        read_only_fields = tuple(f for f in fields if f != "notes_agence")
+
+    def get_member_nom(self, obj) -> str:
+        return obj.member.nom or ""

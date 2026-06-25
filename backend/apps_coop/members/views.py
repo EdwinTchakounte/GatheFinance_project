@@ -5,6 +5,7 @@ profile. Admin-facing list/detail endpoints come next.
 """
 from __future__ import annotations
 
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, status
@@ -710,3 +711,92 @@ def admin_dashboard_kpis(request):
             "recent_payments": PaymentReadSerializer(payments_recent, many=True).data,
         }
     )
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Booklet orders — admin pilotage des commandes de carnet
+# (Article 4 — workflow payee → en_impression → delivree)
+# ───────────────────────────────────────────────────────────────────────────
+
+
+@extend_schema(
+    tags=["booklet"],
+    summary="🔒 Admin — liste des commandes de carnet",
+    description=(
+        "Liste paginee des `BookletOrder`. Filtre `?statut=payee|en_impression|"
+        "delivree`. Tri sur `-created_at`. Permission : `IsStaff`."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_list_booklet_orders(request):
+    from .models import BookletOrder
+    from .serializers import BookletOrderAdminSerializer
+
+    qs = BookletOrder.objects.select_related("member", "payment").order_by("-created_at")
+    statut = request.query_params.get("statut")
+    if statut:
+        qs = qs.filter(statut=statut)
+    return Response({
+        "results": BookletOrderAdminSerializer(qs[:200], many=True).data,
+        "count": qs.count(),
+    })
+
+
+@extend_schema(
+    tags=["booklet"],
+    summary="🔒 Admin — marquer carnet en impression",
+    description="Pose `statut=en_impression` + `date_impression=now()`. Idempotent.",
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_booklet_mark_printing(request, pk: int):
+    from .models import BookletOrder
+    from .serializers import BookletOrderAdminSerializer
+    from django.utils import timezone
+
+    order = get_object_or_404(BookletOrder, pk=pk)
+    if order.statut == BookletOrder.Statut.PAYEE:
+        order.statut = BookletOrder.Statut.EN_IMPRESSION
+        order.date_impression = timezone.now()
+        order.save(update_fields=["statut", "date_impression", "updated_at"])
+    return Response(BookletOrderAdminSerializer(order).data)
+
+
+@extend_schema(
+    tags=["booklet"],
+    summary="🔒 Admin — marquer carnet délivré",
+    description="Pose `statut=delivree` + `date_delivrance=now()`. Idempotent.",
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_booklet_mark_delivered(request, pk: int):
+    from .models import BookletOrder
+    from .serializers import BookletOrderAdminSerializer
+    from django.utils import timezone
+
+    order = get_object_or_404(BookletOrder, pk=pk)
+    if order.statut != BookletOrder.Statut.DELIVREE:
+        order.statut = BookletOrder.Statut.DELIVREE
+        order.date_delivrance = timezone.now()
+        order.save(update_fields=["statut", "date_delivrance", "updated_at"])
+    return Response(BookletOrderAdminSerializer(order).data)
+
+
+@extend_schema(
+    tags=["booklet"],
+    summary="🔒 Admin — éditer notes agence",
+    description="Met à jour `notes_agence` (PATCH).",
+)
+@api_view(["PATCH"])
+@permission_classes([IsStaff])
+def admin_booklet_update_notes(request, pk: int):
+    from .models import BookletOrder
+    from .serializers import BookletOrderAdminSerializer
+
+    order = get_object_or_404(BookletOrder, pk=pk)
+    notes = request.data.get("notes_agence")
+    if notes is not None:
+        order.notes_agence = str(notes)
+        order.save(update_fields=["notes_agence", "updated_at"])
+    return Response(BookletOrderAdminSerializer(order).data)

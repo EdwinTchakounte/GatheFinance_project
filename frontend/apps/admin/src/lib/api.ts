@@ -294,6 +294,24 @@ export type BRCDocument = {
   created_at: string;
 };
 
+// Commande de carnet pilotee par l'agence (cote admin).
+export type BookletOrderAdmin = {
+  id: number;
+  statut: "payee" | "en_impression" | "delivree";
+  statut_display: string;
+  date_impression: string | null;
+  date_delivrance: string | null;
+  notes_agence: string;
+  member_id: number;
+  member_nom: string;
+  member_prenom: string;
+  member_numero: string;
+  member_phone: string;
+  payment_id: number;
+  payment_montant: string;
+  created_at: string;
+};
+
 // Refonte 2026 — LOT 5 Renouvellements épargne classique.
 export type RenewalRow = {
   id: number;
@@ -862,6 +880,27 @@ export const adminApi = {
       request<BRCDocument>(`/admin/brc/${id}/reject/`, {
         method: "POST",
         body: JSON.stringify({ motif }),
+      }),
+  },
+
+  // Pilotage commandes carnet (Article 4 - payee . en_impression . delivree).
+  booklet: {
+    list: (statut?: string) =>
+      request<{ results: BookletOrderAdmin[]; count: number }>(
+        `/admin/booklet-orders/${statut ? `?statut=${statut}` : ""}`,
+      ),
+    markPrinting: (id: number) =>
+      request<BookletOrderAdmin>(`/admin/booklet-orders/${id}/mark-printing/`, {
+        method: "POST",
+      }),
+    markDelivered: (id: number) =>
+      request<BookletOrderAdmin>(`/admin/booklet-orders/${id}/mark-delivered/`, {
+        method: "POST",
+      }),
+    updateNotes: (id: number, notes: string) =>
+      request<BookletOrderAdmin>(`/admin/booklet-orders/${id}/notes/`, {
+        method: "PATCH",
+        body: JSON.stringify({ notes_agence: notes }),
       }),
   },
 

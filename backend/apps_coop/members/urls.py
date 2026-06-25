@@ -61,4 +61,22 @@ urlpatterns = [
         views.admin_reject_brc_document,
         name="admin-brc-reject",
     ),
+
+    # Admin booklet . pilotage workflow payee . en_impression . delivree.
+    path("admin/booklet-orders/", views.admin_list_booklet_orders, name="admin-booklet-list"),
+    path(
+        "admin/booklet-orders/<int:pk>/mark-printing/",
+        views.admin_booklet_mark_printing,
+        name="admin-booklet-mark-printing",
+    ),
+    path(
+        "admin/booklet-orders/<int:pk>/mark-delivered/",
+        views.admin_booklet_mark_delivered,
+        name="admin-booklet-mark-delivered",
+    ),
+    path(
+        "admin/booklet-orders/<int:pk>/notes/",
+        views.admin_booklet_update_notes,
+        name="admin-booklet-notes",
+    ),
 ]

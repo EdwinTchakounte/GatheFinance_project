@@ -23,6 +23,8 @@ import {
   FileEdit,
   ScrollText,
   MessageSquareText,
+  Notebook,
+  Newspaper,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
@@ -48,6 +50,7 @@ const NAV: NavItem[] = [
   { href: "/loans", label: "Crédits", icon: Wallet },
   { href: "/payments", label: "Paiements", icon: Receipt },
   { href: "/withdrawals", label: "Retraits épargne", icon: ArrowDownToLine },
+  { href: "/booklet-orders", label: "Commandes carnet", icon: Notebook },
   { href: "/members", label: "Membres", icon: Users },
   // Refonte 2026 — LOT 1 + LOT 5 + LOT 16.
   { href: "/brc", label: "Justificatifs BRC", icon: FileCheck },
@@ -74,6 +77,8 @@ const NAV: NavItem[] = [
   { href: "/cooperative-asset", label: "Documents officiels", icon: FileText },
   // Annonces broadcast — message libre admin → membres (Notification in-app).
   { href: "/announcements", label: "Annonces", icon: BellRing },
+  // Articles de blog vitrine (Wagtail) . liste + lien vers Wagtail admin.
+  { href: "/blog", label: "Articles vitrine", icon: Newspaper },
   // CH-4 — Moteur de formulaires dynamiques (adhésion, crédit, reconduction).
   { href: "/forms", label: "Formulaires", icon: FileEdit },
   // Journal d'audit — toutes les actions tracées (mutations API + events métier).
