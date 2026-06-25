@@ -28,14 +28,16 @@ class _TaraCheckoutWebViewPageState extends State<TaraCheckoutWebViewPage> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(PaColors.canvas)
-      // User-Agent desktop : la page Tara detecte si on est sur Android
-      // et tente sinon de pousser un intent:// vers l'app Dikalo (Play
-      // Store). En se faisant passer pour Chrome desktop on shunt cette
-      // detection et on garde la page web standard de checkout.
+      // User-Agent Chrome Android standard : la version desktop forcait
+      // Tara a servir une version ExtJS qui plantait dans la WebView
+      // (Onerror sur /pays/assets/ext-new/ext-all.js). On laisse Tara
+      // detecter Android et servir sa version mobile -- la redirection
+      // intent:// vers Dikalo qui pourrait suivre est bloquee par
+      // onNavigationRequest plus bas.
       ..setUserAgent(
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'Mozilla/5.0 (Linux; Android 13; Mobile) '
         'AppleWebKit/537.36 (KHTML, like Gecko) '
-        'Chrome/120.0.0.0 Safari/537.36',
+        'Chrome/120.0.0.0 Mobile Safari/537.36',
       )
       ..setNavigationDelegate(NavigationDelegate(
         onProgress: (p) {
