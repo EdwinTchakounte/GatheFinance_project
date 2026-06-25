@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exceptions.dart';
+import '../../../../core/services/tara_checkout_launcher.dart';
 import '../../domain/entities/savings_account.dart';
 import '../../domain/entities/savings_transaction.dart';
 import '../../domain/entities/withdrawal_request.dart';
@@ -78,10 +79,14 @@ class SavingsDioDataSource implements SavingsRemoteDataSource {
       if (nbJoursCouverts > 1 && kind == SavingsAccountKind.cotisation) {
         body['nb_jours_couverts'] = nbJoursCouverts;
       }
-      await _dio.post<Map<String, dynamic>>(
+      final response = await _dio.post<Map<String, dynamic>>(
         '/payments/init/',
         data: body,
       );
+      // Tara héberge la page de paiement : on ouvre paymentUrl dans le
+      // navigateur externe pour que le membre confirme avec son PIN MoMo.
+      // Le webhook Tara créditera ensuite le solde côté backend.
+      await TaraCheckoutLauncher.launchFromInitResponse(response.data);
       // Le webhook Tara n'a pas encore crédité — on renvoie le snapshot actuel.
       return fetchMine();
     } on DioException catch (e) {

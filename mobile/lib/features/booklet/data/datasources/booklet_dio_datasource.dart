@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exceptions.dart';
+import '../../../../core/services/tara_checkout_launcher.dart';
 import '../../domain/entities/booklet_order.dart';
 import 'booklet_remote_datasource.dart';
 
@@ -39,7 +40,7 @@ class BookletDioDataSource implements BookletRemoteDataSource {
       // Le carnet coûte les `frais_carnet` (cf. /payments/fees/) — le montant
       // est connu côté serveur, le client ne le devine pas. Le webhook Tara
       // créera le BookletOrder à validation du paiement.
-      await _dio.post<Map<String, dynamic>>(
+      final response = await _dio.post<Map<String, dynamic>>(
         '/payments/init/',
         data: {
           'type': 'frais_carnet',
@@ -48,6 +49,8 @@ class BookletDioDataSource implements BookletRemoteDataSource {
           'network': network,
         },
       );
+      // Ouvre la page de paiement Tara pour que le membre confirme avec PIN MoMo.
+      await TaraCheckoutLauncher.launchFromInitResponse(response.data);
       final orders = await myOrders();
       if (orders.isEmpty) {
         // Le paiement est en attente côté Tara — on renvoie un placeholder

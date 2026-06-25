@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exceptions.dart';
+import '../../../../core/services/tara_checkout_launcher.dart';
 import '../../domain/entities/eligibility.dart';
 import '../../domain/entities/lender_payout.dart';
 import '../../domain/entities/loan.dart';
@@ -261,7 +262,7 @@ class LoansDioDataSource implements LoansRemoteDataSource {
       // CH-7 — Le backend pioche le montant dans FeeType.DEMANDE_CREDIT et
       // identifie la LoanRequest cible par le membre (en_attente). Le hook
       // `_hook_loan_request_fees` la promeut en `en_instruction` à validation.
-      await _dio.post<Map<String, dynamic>>(
+      final response = await _dio.post<Map<String, dynamic>>(
         '/payments/init/',
         data: {
           'type': 'frais_demande_credit',
@@ -270,6 +271,7 @@ class LoansDioDataSource implements LoansRemoteDataSource {
           'network': network,
         },
       );
+      await TaraCheckoutLauncher.launchFromInitResponse(response.data);
     } on DioException catch (e) {
       throw mapDioError(e);
     }
@@ -323,7 +325,7 @@ class LoansDioDataSource implements LoansRemoteDataSource {
     required String network,
   }) async {
     try {
-      await _dio.post<Map<String, dynamic>>(
+      final response = await _dio.post<Map<String, dynamic>>(
         '/payments/init/',
         data: {
           'type': 'remboursement',
@@ -333,6 +335,7 @@ class LoansDioDataSource implements LoansRemoteDataSource {
           'loan_id': loanId,
         },
       );
+      await TaraCheckoutLauncher.launchFromInitResponse(response.data);
       // Le webhook valide le paiement plus tard. On renvoie le snapshot
       // actuel du crédit — l'UI doit poller pour voir l'imputation FIFO.
       final loans = await myActiveLoans();
