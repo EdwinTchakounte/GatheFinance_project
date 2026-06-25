@@ -244,17 +244,35 @@ class _CampaignRow extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    Text(
-                      'Postuler',
-                      style: const TextStyle(
-                        color: PaColors.teal,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
+                    // Le bouton "Postuler" ouvre le detail qui contient le
+                    // CTA fonctionnel (chronologie + documents requis + flow
+                    // demande de credit pre-rempli sur la voie campagne).
+                    InkWell(
+                      onTap: onOpenDetail,
+                      borderRadius: BorderRadius.circular(8),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Postuler',
+                              style: TextStyle(
+                                color: PaColors.teal,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(width: 2),
+                            Icon(Icons.arrow_forward_rounded,
+                                size: 18, color: PaColors.teal),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 2),
-                    const Icon(Icons.arrow_forward_rounded,
-                        size: 18, color: PaColors.teal),
                   ],
                 ),
               ],
