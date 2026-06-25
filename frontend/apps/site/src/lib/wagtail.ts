@@ -14,9 +14,22 @@ async function cmsFetch<T>(path: string): Promise<T | null> {
       next: { revalidate: REVALIDATE_SECONDS, tags: ["cms"] },
       headers: { Accept: "application/json" },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // Surface upstream errors at build/ISR time so a broken CMS network
+      // (wrong ALLOWED_HOSTS, container not joining the right docker network,
+      // etc.) shows up in the next-server logs instead of degrading silently
+      // to an empty fallback rendering.
+      console.warn(
+        `[cms] ${API_BASE}${path} returned ${res.status} ${res.statusText}`,
+      );
+      return null;
+    }
     return (await res.json()) as T;
-  } catch {
+  } catch (err) {
+    console.warn(
+      `[cms] ${API_BASE}${path} fetch failed:`,
+      err instanceof Error ? err.message : err,
+    );
     return null;
   }
 }
