@@ -241,7 +241,10 @@ function Inner() {
                   <td className="font-mono text-xs text-ink-600">#{r.id}</td>
                   <td className="text-right font-mono font-medium">{formatXAF(r.montant_demande)}</td>
                   <td className="whitespace-nowrap">{r.duree_mois} mois</td>
-                  <td className="max-w-md"><p className="line-clamp-3 text-sm">{r.motif}</p></td>
+                  <td className="max-w-md">
+                    <p className="line-clamp-3 text-sm">{r.motif}</p>
+                    <ProfilEmprunteurBadges r={r} />
+                  </td>
                   <td className="text-sm text-ink-600 whitespace-nowrap">
                     {new Date(r.date_soumission).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "2-digit" })}
                   </td>
@@ -853,5 +856,94 @@ function RejectLoanModal({
         />
       </ModalField>
     </Modal>
+  );
+}
+
+
+/**
+ * Carte compacte « Profil emprunteur » affichée sous le motif de chaque
+ * demande de crédit. Présente deux badges (CFP Broad Range + CGA) et,
+ * pour chaque réponse positive, une vignette cliquable qui ouvre la
+ * pièce uploadée dans un nouvel onglet (image ou PDF).
+ *
+ * Les libellés "—" sont utilisés quand la donnée est absente (cas où le
+ * mobile envoyé un build antérieur ou où le seed FormSchema n'a pas été
+ * poussé : le compat layer backend met "oui/non" mais le membre peut
+ * aussi n'avoir rien rempli).
+ */
+function ProfilEmprunteurBadges({ r }: { r: LoanRequest }) {
+  const ep = r.extra_payload ?? {};
+  const apprenant = String(ep["ancien_apprenant"] ?? "").toLowerCase();
+  const cga = String(ep["cga_adherent"] ?? "").toLowerCase();
+  if (!apprenant && !cga && !(r.attachments && r.attachments.length)) {
+    return null;
+  }
+  const apprenantOui = apprenant === "oui";
+  const cgaOui = cga === "oui";
+  const findAttachment = (fieldId: string) =>
+    (r.attachments ?? []).find((a) => a.schema_field_id === fieldId) ?? null;
+  const apprenantProof = findAttachment("ancien_apprenant_preuve");
+  const cgaProof = findAttachment("cga_preuve");
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      <ProfilBadge
+        label="CFP Broad Range"
+        value={apprenant}
+        proof={apprenantProof}
+        isYes={apprenantOui}
+      />
+      <ProfilBadge
+        label="CGA"
+        value={cga}
+        proof={cgaProof}
+        isYes={cgaOui}
+      />
+    </div>
+  );
+}
+
+function ProfilBadge({
+  label,
+  value,
+  proof,
+  isYes,
+}: {
+  label: string;
+  value: string;
+  proof: { url: string | null; nom_original: string } | null;
+  isYes: boolean;
+}) {
+  const tone = !value
+    ? "border-line-200 bg-paper text-ink-500"
+    : isYes
+      ? "border-emerald/30 bg-emerald/10 text-emerald"
+      : "border-line-200 bg-line-100 text-ink-600";
+  const symbol = !value ? "—" : isYes ? "✓" : "✗";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${tone}`}
+    >
+      <span aria-hidden="true">{symbol}</span>
+      <span>{label}</span>
+      {isYes && proof?.url ? (
+        <a
+          href={proof.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-1 inline-flex items-center gap-0.5 rounded bg-paper px-1.5 py-px text-[10px] font-medium text-blue-700 hover:underline"
+          title={proof.nom_original}
+        >
+          📎 Voir
+        </a>
+      ) : null}
+      {isYes && !proof?.url ? (
+        <span
+          className="ml-1 rounded bg-amber-100 px-1.5 py-px text-[10px] font-medium text-amber-700"
+          title="Pièce non uploadée — à demander au membre"
+        >
+          pièce ?
+        </span>
+      ) : null}
+    </span>
   );
 }

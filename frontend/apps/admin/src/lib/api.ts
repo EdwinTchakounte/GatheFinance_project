@@ -170,6 +170,19 @@ export type LoanRequest = {
     disbursed: boolean;
     disbursement_pending: boolean;
   } | null;
+  // Réponses FormSchema (radio/select/checkbox) + valeurs scalaires.
+  // Garanti par le compat layer backend pour `ancien_apprenant` et
+  // `cga_adherent` même si le seed FormSchema n'est pas à jour.
+  extra_payload?: Record<string, unknown>;
+  // Pièces justificatives uploadées (attestation CFP, carte CGA, …).
+  // Indexées par `schema_field_id` — l'UI fait le mapping pour l'affichage.
+  attachments?: Array<{
+    id: number;
+    schema_field_id: string;
+    nom_original: string;
+    taille: number;
+    url: string | null;
+  }>;
 };
 
 export type DisburseResponse = {
@@ -443,6 +456,40 @@ export type AuditLogFilters = {
   entite_id?: string;
   date_from?: string;
   date_to?: string;
+  limit?: number;
+  offset?: number;
+};
+
+// Interactions sociales — commentaires (like est suivi cote mobile uniquement).
+export type SocialCommentRow = {
+  id: number;
+  body: string;
+  author_name: string;
+  author_email: string;
+  created_at: string;
+  updated_at: string;
+  hidden: boolean;
+  hidden_by_email: string | null;
+  hidden_at: string | null;
+  hidden_reason: string;
+  // ex. "cms.blogpostpage" ou "loans.microcreditcampaign"
+  content_type_label: string;
+  object_id: number;
+};
+
+export type SocialCommentsPage = {
+  count: number;
+  limit: number;
+  offset: number;
+  results: SocialCommentRow[];
+};
+
+export type SocialCommentsFilters = {
+  q?: string;
+  // "1" = uniquement masques, "0" = uniquement visibles, "" = tous.
+  hidden?: "" | "1" | "0";
+  // "article" | "campaign" | "" (= tous).
+  content_type?: "" | "article" | "campaign";
   limit?: number;
   offset?: number;
 };
@@ -1092,6 +1139,35 @@ export const adminApi = {
         })}`,
       ),
     facets: () => request<AuditLogFacets>("/audit/admin/logs/facets/"),
+  },
+
+  // Commentaires sur articles / campagnes — moderation staff (hide/unhide).
+  social: {
+    comments: {
+      list: (filters: SocialCommentsFilters = {}) =>
+        request<SocialCommentsPage>(
+          `/social/admin/comments/${qs({
+            q: filters.q,
+            hidden: filters.hidden,
+            content_type: filters.content_type,
+            limit: filters.limit ? String(filters.limit) : undefined,
+            offset: filters.offset ? String(filters.offset) : undefined,
+          })}`,
+        ),
+      hide: (id: number, reason: string) =>
+        request<SocialCommentRow>(
+          `/social/admin/comments/${id}/hide/`,
+          {
+            method: "POST",
+            body: JSON.stringify({ reason }),
+          },
+        ),
+      unhide: (id: number) =>
+        request<SocialCommentRow>(
+          `/social/admin/comments/${id}/unhide/`,
+          { method: "POST" },
+        ),
+    },
   },
 };
 

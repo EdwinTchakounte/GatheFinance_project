@@ -22,6 +22,7 @@ import {
   BellRing,
   FileEdit,
   ScrollText,
+  MessageSquareText,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
@@ -77,6 +78,8 @@ const NAV: NavItem[] = [
   { href: "/forms", label: "Formulaires", icon: FileEdit },
   // Journal d'audit — toutes les actions tracées (mutations API + events métier).
   { href: "/audit", label: "Journal d'audit", icon: ScrollText },
+  // Modération des commentaires (articles + campagnes).
+  { href: "/comments", label: "Commentaires", icon: MessageSquareText },
 ];
 
 
