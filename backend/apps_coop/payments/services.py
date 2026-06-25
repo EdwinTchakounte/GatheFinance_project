@@ -78,7 +78,39 @@ def handle_webhook_event(
     Raises ``Payment.DoesNotExist`` if the key is unknown — the caller view
     should return 404 to the provider so it stops retrying for ghost rows.
     """
-    payment = Payment.objects.select_for_update().get(idempotency_key=payment_idempotency_key)
+    # Match du Payment par 2 chemins :
+    #  1) Si le webhook contient bien notre productId (UUID) -> idempotency_key
+    #  2) Sinon (Tara renvoie son collectionId interne numerique au lieu de
+    #     notre productId), on cherche par reference_externe qui contient
+    #     soit l'idempotency_key (avant webhook) soit un ID Tara apres.
+    #     En fallback ultime, on tente provider_reference passe en argument.
+    try:
+        uuid.UUID(str(payment_idempotency_key))
+        payment = Payment.objects.select_for_update().get(
+            idempotency_key=payment_idempotency_key,
+        )
+    except (ValueError, TypeError):
+        # Pas un UUID valide -> Tara nous renvoie son ID interne.
+        # On fallback sur reference_externe (qui contient soit notre
+        # idempotency_key stringifie, soit l'ID Tara si deja webhook recu).
+        candidates = Payment.objects.select_for_update().filter(
+            reference_externe=str(payment_idempotency_key),
+        )
+        if not candidates.exists() and provider_reference:
+            candidates = Payment.objects.select_for_update().filter(
+                reference_externe=str(provider_reference),
+            )
+        try:
+            payment = candidates.get()
+        except Payment.DoesNotExist:
+            raise
+        except Payment.MultipleObjectsReturned:
+            # Prend le plus recent en_attente — defensive.
+            payment = candidates.filter(
+                statut=Payment.Statut.EN_ATTENTE,
+            ).order_by("-created_at").first()
+            if payment is None:
+                raise Payment.DoesNotExist()  # noqa: B904
 
     # Already-final terminal states are not re-evaluated.
     if payment.statut == Payment.Statut.VALIDE:
