@@ -1,8 +1,21 @@
 /**
- * Admin API client — calls the Django cooperative API (/api/v1/*).
- * Same session-cookie + CSRF pattern as the portal.
+ * Admin API client.
+ *
+ * En prod, appel direct vers `https://api.gathe-finance.horus-lab.com/api/v1/*`
+ * pour eviter le double-proxy (browser -> nginx -> admin Next.js -> backend)
+ * qui corrompt les POST body. Cookies session/csrftoken partages via
+ * COOKIE_DOMAIN=.gathe-finance.horus-lab.com cote Django.
+ * En dev local, chemin relatif via le rewrite Next.js (cf. next.config.mjs).
  */
-const API_BASE = "/api/v1";
+function resolveApiBase(): string {
+  if (typeof window === "undefined") return "/api/v1";
+  const host = window.location.hostname;
+  if (host.endsWith(".gathe-finance.horus-lab.com")) {
+    return "https://api.gathe-finance.horus-lab.com/api/v1";
+  }
+  return "/api/v1";
+}
+const API_BASE = resolveApiBase();
 
 export type ApiError = { status: number; detail?: string; body?: unknown };
 
@@ -1035,7 +1048,7 @@ export const adminApi = {
       const form = new FormData();
       form.append("file", file);
       const res = await fetch(
-        "/api/v1/audit/admin/cooperative-asset/reglement/",
+        `${API_BASE}/audit/admin/cooperative-asset/reglement/`,
         {
           method: "POST",
           body: form,

@@ -1,16 +1,29 @@
 /**
- * Portal API client — calls the Django cooperative API (/api/v1/*).
+ * Portal API client.
  *
- *  - All requests go through Next.js rewrites configured in `next.config.mjs`
- *    so the browser sees one origin → session cookies and CSRF behave normally.
- *  - Mutating requests automatically attach the CSRF header read from the
- *    `csrftoken` cookie set by `GET /api/v1/auth/csrf/`.
+ * En prod, on appelle directement `https://api.gathe-finance.horus-lab.com/api/v1/*`
+ * pour eviter le double-proxy (browser -> nginx -> portal Next.js -> backend)
+ * qui corrompt les POST body et casse la session CSRF.
+ * Les cookies sont partages via le COOKIE_DOMAIN=.gathe-finance.horus-lab.com
+ * cote Django, donc la session marche d'un sous-domaine a l'autre.
  *
- * Tactical placement inside apps/site for the MVP. Will move to
- * `apps/portal/src/lib/api.ts` when we extract the portal.
+ * En dev local, on garde le chemin relatif `/api/v1` proxy par le rewrite
+ * Next.js (cf. next.config.mjs).
  */
 
-const API_BASE = "/api/v1";
+function resolveApiBase(): string {
+  // Build-time / SSR : URL relative (cookie scope local).
+  if (typeof window === "undefined") return "/api/v1";
+  const host = window.location.hostname;
+  // Prod : tape direct sur l'API publique pour eviter Next.js comme middle-man.
+  if (host.endsWith(".gathe-finance.horus-lab.com")) {
+    return "https://api.gathe-finance.horus-lab.com/api/v1";
+  }
+  // Dev local : passe par le rewrite Next.js configure dans next.config.mjs.
+  return "/api/v1";
+}
+
+const API_BASE = resolveApiBase();
 
 export type ApiError = {
   status: number;
@@ -422,7 +435,7 @@ export const portalApi = {
       }>("/loans/requests/", { method: "POST", body: JSON.stringify(data) }),
 
     // CH-9 — URL absolue pour télécharger la note PDF d'une demande.
-    noteUrl: (requestId: number) => `/api/v1/loans/requests/${requestId}/note/`,
+    noteUrl: (requestId: number) => `${API_BASE}/loans/requests/${requestId}/note/`,
 
     // CH-5 — Upload d'un fichier rattaché à un LoanRequest (multipart).
     // Idempotent par schema_field_id : re-upload remplace le précédent.
