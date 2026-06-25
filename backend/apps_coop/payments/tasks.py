@@ -23,8 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 # How long we wait after gateway init before considering the provider's silence
-# as suspicious enough to actively poll it.
-RECONCILE_AFTER = timedelta(minutes=30)
+# as suspicious enough to actively poll it. Abaisse a 2 min pour la phase de
+# test STK Push reel — en prod stable, repasser a 30 min pour limiter les
+# appels Tara.
+RECONCILE_AFTER = timedelta(minutes=2)
 
 # How long we wait before giving up entirely on a pending payment.
 GIVE_UP_AFTER = timedelta(hours=24)

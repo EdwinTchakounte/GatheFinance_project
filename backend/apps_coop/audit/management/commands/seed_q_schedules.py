@@ -63,8 +63,8 @@ SCHEDULES = [
         "name": "payments.reconcile.hourly",
         "func": "apps_coop.payments.tasks.reconcile_pending_payments_scheduled",
         "schedule_type": Schedule.CRON,
-        "cron": "0 * * * *",  # toutes les heures pile
-        "description": "Filet de sécurité webhook Tara — interroge Tara pour les Payments en_attente > 30 min",
+        "cron": "*/5 * * * *",  # toutes les 5 minutes (phase test STK Push)
+        "description": "Filet de sécurité webhook Tara — interroge Tara pour les Payments en_attente > 2 min",
     },
     {
         "name": "members.reinscription.daily",

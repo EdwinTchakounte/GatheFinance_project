@@ -274,6 +274,13 @@ def init_payment(request):
         },
         ip=client_ip(request),
     )
+    # Notif in-app "Paiement en cours" — visible immediatement par le membre
+    # meme s'il ne valide pas le STK Push (cas frequent ou Payment reste en
+    # en_attente). Voir notify_payment_initiated dans services.
+    from .services import notify_payment_initiated
+
+    if payment.statut == Payment.Statut.EN_ATTENTE:
+        notify_payment_initiated(payment)
     # Expose `provider_status` / `provider_message` / `provider_vendor`
     # côté mobile pour qu'il affiche le statut Tara reçu (utile quand le
     # STK Push ne semble pas arriver — on peut voir si Tara a accepté

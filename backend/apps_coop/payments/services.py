@@ -78,21 +78,26 @@ def handle_webhook_event(
     Raises ``Payment.DoesNotExist`` if the key is unknown — the caller view
     should return 404 to the provider so it stops retrying for ghost rows.
     """
-    # Match du Payment par 2 chemins :
-    #  1) Si le webhook contient bien notre productId (UUID) -> idempotency_key
-    #  2) Sinon (Tara renvoie son collectionId interne numerique au lieu de
-    #     notre productId), on cherche par reference_externe qui contient
-    #     soit l'idempotency_key (avant webhook) soit un ID Tara apres.
-    #     En fallback ultime, on tente provider_reference passe en argument.
+    # Match du Payment — 4 strategies en cascade. Tara ne renvoie PAS notre
+    # productId dans le webhook (que collectionId numerique + phoneNumber +
+    # paymentId), donc le matching par UUID ne marche qu'en theorie. En
+    # pratique on tombe sur le fallback par phone + en_attente recent.
+    raw_payload = raw_payload or {}
+    payment = None
+    match_strategy = None
+
+    # Strategy 1 — UUID direct (rare en pratique, conserve pour compat)
     try:
         uuid.UUID(str(payment_idempotency_key))
         payment = Payment.objects.select_for_update().get(
             idempotency_key=payment_idempotency_key,
         )
-    except (ValueError, TypeError):
-        # Pas un UUID valide -> Tara nous renvoie son ID interne.
-        # On fallback sur reference_externe (qui contient soit notre
-        # idempotency_key stringifie, soit l'ID Tara si deja webhook recu).
+        match_strategy = "uuid"
+    except (ValueError, TypeError, Payment.DoesNotExist):
+        payment = None
+
+    # Strategy 2 — reference_externe == payment_idempotency_key ou provider_reference
+    if payment is None:
         candidates = Payment.objects.select_for_update().filter(
             reference_externe=str(payment_idempotency_key),
         )
@@ -100,17 +105,64 @@ def handle_webhook_event(
             candidates = Payment.objects.select_for_update().filter(
                 reference_externe=str(provider_reference),
             )
-        try:
-            payment = candidates.get()
-        except Payment.DoesNotExist:
-            raise
-        except Payment.MultipleObjectsReturned:
-            # Prend le plus recent en_attente — defensive.
+        if candidates.exists():
             payment = candidates.filter(
                 statut=Payment.Statut.EN_ATTENTE,
-            ).order_by("-created_at").first()
-            if payment is None:
-                raise Payment.DoesNotExist()  # noqa: B904
+            ).order_by("-created_at").first() or candidates.order_by("-created_at").first()
+            if payment is not None:
+                match_strategy = "reference_externe"
+
+    # Strategy 3 (NEW) — fallback par phoneNumber Tara : on cherche le Payment
+    # EN_ATTENTE le plus recent (< 30 min) dont le membre a ce numero. Tara
+    # envoie phoneNumber au format "237699XXXXXX" dans le webhook, donc on
+    # compare apres normalisation. C'est notre seule chance quand Tara ne
+    # renvoie ni productId UUID ni un ID qu'on a deja stocke en reference.
+    if payment is None and raw_payload.get("phoneNumber"):
+        from datetime import timedelta
+
+        phone_raw = str(raw_payload["phoneNumber"])
+        # Normalise les 2 sens : on accepte 2376XXX, +2376XXX, 6XXX, 06XXX.
+        digits_only = "".join(c for c in phone_raw if c.isdigit())
+        local_8_digits = digits_only[-9:] if len(digits_only) >= 9 else digits_only
+        recent_cutoff = timezone.now() - timedelta(minutes=30)
+        candidates = (
+            Payment.objects.select_for_update()
+            .filter(
+                statut=Payment.Statut.EN_ATTENTE,
+                created_at__gte=recent_cutoff,
+                member__phone__icontains=local_8_digits,
+            )
+            .order_by("-created_at")
+        )
+        payment = candidates.first()
+        if payment is not None:
+            match_strategy = "phone_recent"
+
+    if payment is None:
+        logger.warning(
+            "[TARA] webhook MATCH FAILED — key=%r ref=%r phone=%r status=%r — "
+            "aucun Payment correspondant. Le membre a peut-etre debite son MoMo "
+            "sans qu'on puisse rapprocher.",
+            payment_idempotency_key,
+            provider_reference,
+            raw_payload.get("phoneNumber"),
+            new_status,
+        )
+        raise Payment.DoesNotExist()
+
+    logger.info(
+        "[TARA] webhook MATCH OK — strategy=%s payment_id=%s status_now=%s -> %s",
+        match_strategy,
+        payment.id,
+        payment.statut,
+        new_status,
+    )
+
+    # On stocke le paymentId Tara comme reference_externe au passage, ca aidera
+    # un eventuel rejeu webhook a matcher direct par strategy 2.
+    if provider_reference and payment.reference_externe != provider_reference:
+        payment.reference_externe = provider_reference
+        payment.save(update_fields=["reference_externe", "updated_at"])
 
     # Already-final terminal states are not re-evaluated.
     if payment.statut == Payment.Statut.VALIDE:
@@ -172,7 +224,51 @@ def _reject(payment: Payment, *, raw: dict) -> Payment:
         entite_id=payment.id,
         details={"reason": payment.motif_rejet, "provider": payment.provider_code},
     )
+    # Notif in-app — le membre doit voir le rejet dans son centre de notifs.
+    if payment.member_id and getattr(payment.member, "user_id", None):
+        try:
+            from apps_coop.notifications.services import create_notification
+
+            type_display = payment.get_type_display() if hasattr(payment, "get_type_display") else payment.type
+            create_notification(
+                user=payment.member.user,
+                type=f"payment.rejected.{payment.type}",
+                message=(
+                    f"Paiement {type_display} de {_fmt_xaf(payment.montant)} echoue — "
+                    f"{payment.motif_rejet[:120]}"
+                ),
+                lien="/notifications",
+            )
+        except Exception:  # noqa: BLE001 — best-effort
+            logger.warning("payment.rejected notification failed", exc_info=True)
     return payment
+
+
+def notify_payment_initiated(payment: Payment) -> None:
+    """Cree une notif in-app "Paiement en cours" quand l'init Tara OK.
+
+    Appele depuis la view ``init_payment`` apres le init_payin reussi. Le
+    membre voit ainsi son paiement dans le centre de notifs meme s'il ne
+    valide pas le STK Push (cas le plus frequent ou un Payment reste en
+    en_attente perpetuellement).
+    """
+    if not payment.member_id or not getattr(payment.member, "user_id", None):
+        return
+    try:
+        from apps_coop.notifications.services import create_notification
+
+        type_display = payment.get_type_display() if hasattr(payment, "get_type_display") else payment.type
+        create_notification(
+            user=payment.member.user,
+            type=f"payment.initiated.{payment.type}",
+            message=(
+                f"Paiement {type_display} de {_fmt_xaf(payment.montant)} en cours — "
+                f"valide le STK Push sur ton telephone"
+            ),
+            lien="/notifications",
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("payment.initiated notification failed", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
