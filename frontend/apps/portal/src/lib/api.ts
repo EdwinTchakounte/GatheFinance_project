@@ -553,4 +553,33 @@ export const portalApi = {
         method: "POST",
       }),
   },
+
+  // Carnet : liste des commandes du membre (statut : payee / en_impression / delivree).
+  booklet: {
+    me: () =>
+      request<{ results: { id: number; statut: string; created_at: string; date_impression?: string; date_delivrance?: string }[] }>(
+        "/booklet/me/",
+      ),
+  },
+
+  // Documents officiels coopérative (règlement + spécimen carnet).
+  coopDocuments: () =>
+    request<{
+      reglement_interieur: { url: string | null; uploaded_at: string | null; label: string };
+      carnet_specimen: { url: string | null; uploaded_at: string | null; label: string };
+    }>("/audit/coop-documents/"),
+
+  // Profil membre — éditer + changer mot de passe.
+  profile: {
+    update: (data: { first_name?: string; last_name?: string; phone?: string }) =>
+      request<Identity>("/members/me/", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    changePassword: (current_password: string, new_password: string) =>
+      request<{ detail: string }>("/auth/change-password/", {
+        method: "POST",
+        body: JSON.stringify({ current_password, new_password }),
+      }),
+  },
 };
