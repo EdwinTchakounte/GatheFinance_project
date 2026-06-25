@@ -376,6 +376,17 @@ def webhook_tara(request):
         )
         return Response({"detail": str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
 
+    # Log explicite de ce qu'on a parse (utile pour debug en prod quand
+    # Tara envoie un payload inattendu) -- on masque rien, c'est cote
+    # serveur uniquement.
+    logger.info(
+        "[TARA] webhook OK — key=%r status=%r ref=%r raw=%s",
+        event.payment_idempotency_key,
+        event.status,
+        event.provider_reference,
+        event.raw,
+    )
+    payment = None
     try:
         payment = handle_webhook_event(
             event.payment_idempotency_key,
@@ -395,8 +406,30 @@ def webhook_tara(request):
         # Business hook not wired yet — we still ack so Tara doesn't retry,
         # but we log loudly for the maintainer.
         logger.exception("Webhook business hook missing: %s", exc)
+    except Exception as exc:
+        # Filet de securite : on ne veut PAS qu'un bug interne renvoie 500
+        # a Tara (ils ne retry pas, mais on perd la trace de la transaction).
+        # On log la stack complete et on ack avec un 200 contenant le diagnostic.
+        logger.exception(
+            "[TARA] webhook handler crashed for key=%r status=%r: %s",
+            event.payment_idempotency_key, event.status, exc,
+        )
+        record_audit(
+            action="payment.webhook.handler_error",
+            entite_type="Payment",
+            details={
+                "provider": "tara",
+                "key": event.payment_idempotency_key,
+                "error": str(exc)[:300],
+            },
+            ip=client_ip(request),
+        )
+        return Response(
+            {"ok": False, "error": "handler_error", "detail": str(exc)[:200]},
+            status=status.HTTP_200_OK,  # 200 pour que Tara ne retry pas
+        )
 
-    return Response({"ok": True, "status": payment.statut})
+    return Response({"ok": True, "status": payment.statut if payment else "unknown"})
 
 
 # ---------------------------------------------------------------------------
