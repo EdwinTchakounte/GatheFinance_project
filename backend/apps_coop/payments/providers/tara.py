@@ -67,18 +67,17 @@ class TaraProvider(PaymentProviderBase):
     # -- Payin (inbound payment from member) --------------------------------
 
     def init_payin(self, payment: "Payment", *, phone: str, network: str) -> InitPayinResult:
-        """Crée un ordre de paiement Tara — page de paiement hostée.
+        """Initie un paiement Tara — STK Push direct sur le téléphone.
 
-        Contrat officiel Tara (validé 2026-06-25 par tests live) :
+        Contrat officiel Tara (doc 2026-06-25) :
           - ``productPrice`` est un INT (pas string)
-          - PAS de ``phoneNumber`` / ``network`` au top level — Tara héberge
-            une page où l'utilisateur choisit son opérateur lui-même
-          - Réponse SUCCESS : ``{status, message, transactionId, ...}``
-          - L'URL de checkout est construite : ``BASE_URL/c/<transactionId>``
-
-        ``phone`` et ``network`` reçus en paramètres sont conservés en raw
-        pour audit, et passés en query string sur ``returnUrl`` pour
-        pré-remplir le formulaire Tara côté membre.
+          - ``phoneNumber`` requis au format ``2376xxxxxxx`` (sans +)
+          - ``network`` optionnel (vide → Tara détecte via préfixe phone)
+          - Réponse Cameroun (MTN/Orange) : ``{status, message, vendor}``
+            → PAS de transactionId, PAS de paymentUrl, PAS de page hostée
+          - Réponse Wave (SN/BF/CI) : ``{..., authUrl}`` → navigateur
+          - Tara pousse un popup USSD/STK directement sur le téléphone du
+            membre. Il valide avec son PIN MoMo. Le webhook arrive ensuite.
         """
         if self._mock_mode:
             logger.warning(
