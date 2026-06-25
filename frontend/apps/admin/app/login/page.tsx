@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 import { adminApi, type ApiError } from "@/lib/api";
@@ -45,70 +44,48 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-svh bg-cream">
-      <div className="grid min-h-svh lg:grid-cols-2">
-        {/* ─── Image / branding (gauche desktop, hidden mobile) ─── */}
-        <aside className="relative hidden lg:block">
-          <Image
-            src="/images/login-hero.jpg"
-            alt="Gathé Finance Administration"
-            fill
-            sizes="50vw"
-            priority
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-tr from-ink-900/90 via-ink-800/65 to-ink-700/30" />
-          <div className="absolute inset-0 flex flex-col justify-between p-12 text-white">
+    <main className="relative min-h-svh bg-cream">
+      {/* Fond doux institutionnel : un seul gradient ink-tinted. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
+        <div className="absolute -top-32 left-1/2 size-[28rem] -translate-x-1/2 rounded-full bg-ink-200/20 blur-3xl" />
+      </div>
+
+      {/* Top bar discret. */}
+      <div className="relative z-10 mx-auto flex max-w-5xl items-center justify-between px-5 pt-5 sm:px-8">
+        <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-ink-500">
+          Administration
+        </p>
+        <a
+          href={`${PORTAL_URL}/connexion`}
+          className="text-xs font-medium text-ink-600 hover:text-blue-700"
+        >
+          Espace membre →
+        </a>
+      </div>
+
+      {/* Card centree. */}
+      <div className="relative z-10 mx-auto flex min-h-[calc(100svh-3.5rem)] max-w-md items-center justify-center px-5 py-12 sm:px-0">
+        <div className="w-full">
+          {/* Logo discret. */}
+          <div className="mb-8 flex flex-col items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/logo.jpg"
               alt="Gathé Finance"
-              className="h-12 w-auto rounded-md ring-1 ring-white/20"
+              className="h-12 w-auto rounded-xl ring-1 ring-ink-900/5"
             />
-            <div className="max-w-md space-y-5">
-              <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-terra-300">
-                Administration
-              </p>
-              <h2 className="font-editorial text-4xl leading-tight">
-                Pilote la coopérative en toute sérénité.
-              </h2>
-              <p className="text-base leading-relaxed text-white/75">
-                Approuve les adhésions, instruis les crédits, suis les
-                paiements, ajuste les paramètres métier. Tout est tracé,
-                tout est auditable.
-              </p>
-              <div className="flex items-center gap-3 pt-2 text-sm text-white/75">
-                <span className="inline-flex size-2 rounded-full bg-emerald-400" />
-                Accès réservé au personnel autorisé.
-              </div>
-            </div>
-            <p className="text-xs text-white/55">
-              © Gathé Finance · Console d'administration interne
+            <p className="mt-3 font-display text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-terra-600">
+              Back-office
             </p>
           </div>
-        </aside>
 
-        {/* ─── Formulaire ─── */}
-        {/* items-start sur mobile pour eviter le vide blanc en haut. */}
-        <section className="flex items-start justify-center px-5 pt-6 pb-10 sm:px-8 lg:items-center lg:px-16 lg:py-10">
-          <div className="w-full max-w-md">
-            <div className="mb-6 lg:hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/logo.jpg"
-                alt="Gathé Finance"
-                className="h-9 w-auto rounded-md"
-              />
-            </div>
-
+          {/* Card form. */}
+          <div className="rounded-2xl border border-line-200/80 bg-paper p-7 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.08)] sm:p-9">
             <header className="mb-7">
-              <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-                Administration
-              </p>
-              <h1 className="mt-2 font-editorial text-3xl font-medium leading-tight text-ink-900 sm:text-4xl">
-                Connexion au back-office.
+              <h1 className="font-editorial text-2xl font-medium leading-tight text-ink-900 sm:text-3xl">
+                Connexion
               </h1>
-              <p className="mt-2 text-sm text-ink-600">
+              <p className="mt-1.5 text-sm text-ink-600">
                 Réservé au personnel de la coopérative.
               </p>
             </header>
@@ -116,7 +93,7 @@ export default function AdminLoginPage() {
             <form onSubmit={onSubmit} className="space-y-4">
               <div>
                 <label
-                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-700"
+                  className="mb-1.5 block text-xs font-semibold text-ink-700"
                   htmlFor="email"
                 >
                   Adresse e-mail
@@ -129,14 +106,14 @@ export default function AdminLoginPage() {
                   autoFocus
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full rounded-lg border border-line-200 bg-paper px-3.5 py-2.5 text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/15"
+                  className="block w-full rounded-xl border border-line-200 bg-paper px-3.5 py-2.5 text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/15"
                   placeholder="admin@gathe-finance.com"
                 />
               </div>
 
               <div>
                 <label
-                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-700"
+                  className="mb-1.5 block text-xs font-semibold text-ink-700"
                   htmlFor="password"
                 >
                   Mot de passe
@@ -149,7 +126,7 @@ export default function AdminLoginPage() {
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full rounded-lg border border-line-200 bg-paper px-3.5 py-2.5 pr-12 text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/15"
+                    className="block w-full rounded-xl border border-line-200 bg-paper px-3.5 py-2.5 pr-14 text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/15"
                     placeholder="••••••••"
                   />
                   <button
@@ -166,7 +143,7 @@ export default function AdminLoginPage() {
               {error ? (
                 <p
                   role="alert"
-                  className="rounded-lg border border-terra-400/40 bg-terra-50/60 px-3 py-2.5 text-sm text-terra-700"
+                  className="rounded-xl border border-terra-400/40 bg-terra-50/60 px-3 py-2.5 text-sm text-terra-700"
                 >
                   {error}
                 </p>
@@ -175,23 +152,17 @@ export default function AdminLoginPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="mt-2 inline-flex w-full items-center justify-center rounded-lg bg-ink-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-ink-800 focus:outline-none focus:ring-2 focus:ring-ink-900/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-ink-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-ink-800 focus:outline-none focus:ring-2 focus:ring-ink-900/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? "Connexion…" : "Se connecter"}
               </button>
             </form>
-
-            <p className="mt-8 text-center text-sm text-ink-600">
-              Tu cherches l'espace membre ?{" "}
-              <a
-                href={`${PORTAL_URL}/connexion`}
-                className="font-semibold text-blue-700 hover:underline"
-              >
-                C'est par ici →
-              </a>
-            </p>
           </div>
-        </section>
+
+          <p className="mt-6 text-center text-[0.7rem] text-ink-500">
+            © {new Date().getFullYear()} Gathé Finance · Back-office sécurisé
+          </p>
+        </div>
       </div>
     </main>
   );
