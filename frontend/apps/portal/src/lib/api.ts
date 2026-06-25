@@ -282,6 +282,9 @@ export type PaymentInitInput = {
   loan_installment_id?: number | null;
   // CH-3 — Sous-canal placement épargne classique (ignoré si type ≠ "epargne_classique").
   is_placement?: boolean;
+  // LOT 6 (refonte 2026) — multi-jours pré-payé sur la collecte journalière
+  // (type "epargne" uniquement). Le backend valide nb × collecte.min_per_day.
+  nb_jours_couverts?: number;
 };
 
 export type PaymentInitResponse = {

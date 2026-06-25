@@ -60,6 +60,12 @@ function DepositForm() {
   const [placementMode, setPlacementMode] = useState<"libre" | "placement">(
     "libre",
   );
+  // LOT 6 — Multi-jours pré-payé sur la cotisation journalière (context savings).
+  // 1 = mode normal (montant libre, min 100). > 1 = montant verrouille a
+  // nbJours x kCollecteMinPerDay (1000 par defaut, ajustable backend).
+  const [nbJours, setNbJours] = useState<number>(1);
+  const COLLECTE_MIN_PER_DAY = 1000;
+  const isMultiJour = context === "savings" && nbJours > 1;
 
   // Prime CSRF + pre-fill amount according to context.
   useEffect(() => {
@@ -119,11 +125,16 @@ function DepositForm() {
             : isEpargneClassique
               ? "epargne_classique"
               : "epargne",
-        montant: Number(form.montant),
+        // En mode multi-jours, on verrouille a nb x COLLECTE_MIN_PER_DAY
+        // (le backend rejette tout autre montant).
+        montant: isMultiJour
+          ? nbJours * COLLECTE_MIN_PER_DAY
+          : Number(form.montant),
         phone: form.phone,
         network: form.network,
         loan_id: isLoanRepayment ? loanId : null,
         is_placement: isEpargneClassique && placementMode === "placement",
+        nb_jours_couverts: isMultiJour ? nbJours : undefined,
       });
       setPayment(result.payment);
     } catch (err) {
@@ -309,6 +320,37 @@ function DepositForm() {
           </section>
         ) : null}
 
+        {/* LOT 6 — Multi-jours pré-payé (cotisation journalière uniquement) */}
+        {context === "savings" && !payment && (!offerChannelChoice || channel === "mobile") ? (
+          <section className="mb-6 rounded-md border border-line-200 bg-paper p-6">
+            <h2 className="font-display text-xs font-semibold uppercase tracking-[0.14em] text-ink-600">
+              Couvrir combien de jours ?
+            </h2>
+            <p className="mt-1 text-xs text-ink-500">
+              Pré-paye plusieurs jours d&apos;avance. Le montant est verrouillé
+              à {COLLECTE_MIN_PER_DAY.toLocaleString("fr-FR")} XAF/jour.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <label className="text-sm text-ink-700" htmlFor="nb-jours">Jours :</label>
+              <input
+                id="nb-jours"
+                type="number"
+                min={1}
+                max={30}
+                step={1}
+                value={nbJours}
+                onChange={(e) => setNbJours(Math.max(1, Math.min(30, Number(e.target.value) || 1)))}
+                className="w-24 rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+              />
+              {isMultiJour ? (
+                <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-200">
+                  Total : {(nbJours * COLLECTE_MIN_PER_DAY).toLocaleString("fr-FR")} XAF
+                </span>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
         {/* Form Mobile Money — visible until a Payment is created
             (et masqué si le membre a choisi le canal "agence") */}
         {!payment && (!offerChannelChoice || channel === "mobile") ? (
@@ -326,11 +368,16 @@ function DepositForm() {
               min={100}
               step={isLoanRepayment ? "0.01" : 100}
               required
-              value={form.montant}
+              disabled={isMultiJour}
+              value={isMultiJour ? String(nbJours * COLLECTE_MIN_PER_DAY) : form.montant}
               onChange={(e) => setForm({ ...form, montant: e.target.value })}
-              className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+              className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700 disabled:bg-cream/60 disabled:text-ink-600"
             />
-            <p className="mt-1 text-xs text-ink-600">Minimum 100 XAF.</p>
+            <p className="mt-1 text-xs text-ink-600">
+              {isMultiJour
+                ? `Montant verrouille (mode multi-jours).`
+                : "Minimum 100 XAF."}
+            </p>
 
             <div className="mt-5 grid grid-cols-2 gap-4">
               <div>

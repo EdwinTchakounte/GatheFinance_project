@@ -256,6 +256,30 @@ export default function PortalCreditPage() {
                     </span>
                   </div>
 
+                  {/* Art. 12 — Penalite de retard (50% du capital restant du) */}
+                  {loan.statut === "en_retard" ? (
+                    <div className="mt-4 rounded-lg border border-terra-400/40 bg-terra-50/60 p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="inline-flex size-8 items-center justify-center rounded-full bg-terra-100 text-terra-700">!</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-terra-700">
+                            Pénalité Art. 12 active
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-terra-700/80">
+                            Crédit en retard. Une pénalité de{" "}
+                            <strong>50 % du capital restant dû</strong> est
+                            appliquée selon le Règlement Intérieur (Art. 12).
+                            Régularise dès que possible pour éviter le passage
+                            en contentieux.
+                          </p>
+                          <p className="mt-1.5 font-editorial text-base font-semibold text-terra-700">
+                            Pénalité estimée : {formatXAF(String(Number(loan.solde_restant) * 0.5))}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div className="rounded-md bg-cream p-4">
                       <p className="font-display text-[0.7rem] font-medium uppercase tracking-[0.14em] text-ink-600">Solde restant</p>

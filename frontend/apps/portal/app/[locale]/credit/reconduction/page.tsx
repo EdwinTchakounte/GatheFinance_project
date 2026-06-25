@@ -26,7 +26,8 @@ export default function ReconductionPage() {
       .then((data) => {
         if (cancelled) return;
         setLoans(data);
-        if (data.length > 0) setLoanId(data[0].id);
+        const first = data[0];
+        if (first) setLoanId(first.id);
       })
       .catch((err: ApiError) => {
         if (err.status === 401 || err.status === 403) router.replace("/connexion");
@@ -43,8 +44,9 @@ export default function ReconductionPage() {
     setSubmitError(null);
     try {
       const res = await portalApi.loans.requestRenewal(loanId, { modalite });
-      if (res.frais_reconduction_payment_id) {
-        router.push(`/epargne/depot?context=credit-fees&payment_id=${res.frais_reconduction_payment_id}`);
+      const paymentId = res.renewal.frais_reconduction_payment_id;
+      if (paymentId) {
+        router.push(`/epargne/depot?context=credit-fees&payment_id=${paymentId}`);
       } else {
         router.push("/credit");
       }
