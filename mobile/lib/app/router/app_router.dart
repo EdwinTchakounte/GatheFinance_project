@@ -2,6 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/global_nav.dart';
+
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/state/auth_notifier.dart';
@@ -43,6 +45,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     debugLogDiagnostics: false,
     refreshListenable: _RouterRefresher(ref),
+    // Key racine partagee — permet aux services hors widget (datasource
+    // qui ouvre le checkout Tara) de pousser une page sans BuildContext.
+    navigatorKey: rootNavigatorKey,
     redirect: (context, state) {
       final onboarding = ref.read(onboardingProvider);
       final auth = ref.read(authProvider);

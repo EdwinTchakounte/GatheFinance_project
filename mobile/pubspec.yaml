@@ -29,6 +29,12 @@ dependencies:
 
   # Ouverture URL externe (CH-9 — téléchargement note PDF via navigateur système).
   url_launcher: ^6.3.1
+  # WebView in-app pour le checkout Tara. On NE PEUT PAS utiliser
+  # url_launcher (même avec inAppBrowserView) car Android dispatche
+  # automatiquement les URLs dklo.co vers l'app Dikalo si elle est
+  # installée. WebView rend l'HTML directement dans Flutter — pas
+  # d'Intent.ACTION_VIEW, pas de dispatch possible.
+  webview_flutter: ^4.10.0
 
   # Sélection de fichiers (CH-5 — pièces jointes formulaire crédit dynamique).
   # 11.x requis pour la compatibilité avec Android Gradle Plugin 9+
