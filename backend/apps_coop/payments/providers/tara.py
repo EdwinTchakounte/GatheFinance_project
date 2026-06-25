@@ -108,10 +108,11 @@ class TaraProvider(PaymentProviderBase):
             "phoneNumber": self._normalize_phone(phone),  # 2376xxxxxxx
             "webHookUrl": self._webhook_url(),
         }
-        # network optionnel : Tara detecte du prefixe phoneNumber si vide.
-        # On l'inclut seulement si le caller a passe une valeur explicite.
-        if network:
-            payload["network"] = network.upper()
+        # network laisse vide -- Tara detecte le reseau a partir du prefixe
+        # du phoneNumber (decision client 2026-06-25). Le caller passe
+        # toujours un network MTN/ORANGE depuis le sheet versement (utilise
+        # cote validation serializer) mais on ne le propage pas a Tara.
+        payload["network"] = ""
         # productDescription + returnUrl optionnels : utiles pour la page
         # de checkout hostee (libelle marchand + URL de retour apres paiement).
         payload["productDescription"] = f"Paiement {product_name} — Gathé Finance"
