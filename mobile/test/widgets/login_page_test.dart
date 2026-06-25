@@ -117,7 +117,14 @@ void main() {
     await tester.pumpWidget(app(const LoginPage(), ds));
     await tester.pumpAndSettle();
 
-    // Les champs sont pré-remplis avec jean.kamga@test.local / test1234
+    // Champs vides au démarrage (plus de pré-remplissage de test) : on saisit
+    // explicitement des credentials valides avant de soumettre.
+    final emailField = find.byType(TextFormField).first;
+    final passField = find.byType(TextFormField).last;
+    await tester.enterText(emailField, 'jean.kamga@test.local');
+    await tester.enterText(passField, 'test1234');
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Se connecter'));
     await tester.pumpAndSettle();
 
