@@ -322,49 +322,41 @@ class _Header extends StatelessWidget {
             : hour < 18
                 ? l.home_greeting_afternoon
                 : l.home_greeting_evening;
-    // Logo (haut-gauche) — avatar + greeting + cloche → tout sur une ligne
-    // sobre. Le logo donne la signature de marque sur chaque écran principal.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    // Header compact 1 ligne : logo + (avatar + greeting/prénom à côté de la
+    // cloche) — gain ~50px verticaux vs l'ancien layout sur 2 lignes.
+    return Row(
       children: [
-        // Ligne 1 : logo + cloche
-        Row(
-          children: [
-            const PaLogo(height: 26),
-            const Spacer(),
-            _NotifBell(unread: unread),
-          ],
-        ),
-        const SizedBox(height: 10),
-        // Ligne 2 : avatar + greeting + prénom
-        Row(
-          children: [
-            PaAvatar(seed: firstName, size: 40),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    greeting,
-                    style: PaText.body(
-                      size: 12,
-                      weight: FontWeight.w500,
-                      color: PaColors.inkMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    firstName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: PaText.heading(size: 17),
-                  ),
-                ],
+        const PaLogo(height: 22),
+        const Spacer(),
+        PaAvatar(seed: firstName, size: 28),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                greeting,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: PaText.body(
+                  size: 10.5,
+                  weight: FontWeight.w500,
+                  color: PaColors.inkMuted,
+                  height: 1.1,
+                ),
               ),
-            ),
-          ],
+              Text(
+                firstName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: PaText.heading(size: 13.5),
+              ),
+            ],
+          ),
         ),
+        const SizedBox(width: 10),
+        _NotifBell(unread: unread),
       ],
     );
   }
@@ -466,8 +458,8 @@ class _NotifBell extends StatelessWidget {
       customBorder: const CircleBorder(),
       onTap: () => context.push('/notifications'),
       child: Container(
-        width: 44,
-        height: 44,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: PaColors.paper,
           shape: BoxShape.circle,
@@ -479,27 +471,27 @@ class _NotifBell extends StatelessWidget {
               child: Icon(
                 Icons.notifications_none_rounded,
                 color: PaColors.navy,
-                size: 22,
+                size: 18,
               ),
             ),
             if (unread > 0)
               Positioned(
-                top: 6,
-                right: 8,
+                top: 4,
+                right: 5,
                 child: Container(
-                  constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                  padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                  constraints: const BoxConstraints(minWidth: 12, minHeight: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 2.5, vertical: 0.5),
                   decoration: BoxDecoration(
                     color: PaColors.danger,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: PaColors.paper, width: 1.5),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(color: PaColors.paper, width: 1.2),
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     unread > 9 ? '9+' : '$unread',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 9.5,
+                      fontSize: 8.5,
                       fontWeight: FontWeight.w700,
                       height: 1.1,
                     ),
@@ -593,29 +585,29 @@ class _HeroSkeleton extends StatelessWidget {
         color: PaColors.cardBg,
         borderRadius: BorderRadius.circular(14),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: const PaShimmer(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             // Toggle segmenté Épargne / Cotisations
-            PaShimmerBox(width: double.infinity, height: 32, borderRadius: 10),
-            SizedBox(height: 14),
+            PaShimmerBox(width: double.infinity, height: 28, borderRadius: 9),
+            SizedBox(height: 10),
             // Label du slot + delta (même ligne, hauteur fixe)
             Row(
               children: [
-                PaShimmerBox(width: 110, height: 12),
+                PaShimmerBox(width: 110, height: 11),
                 Spacer(),
-                PaShimmerBox(width: 60, height: 16, borderRadius: 8),
+                PaShimmerBox(width: 56, height: 14, borderRadius: 7),
               ],
             ),
-            SizedBox(height: 6),
+            SizedBox(height: 4),
             // Montant
-            PaShimmerBox(width: 220, height: 32, borderRadius: 6),
-            SizedBox(height: 14),
+            PaShimmerBox(width: 200, height: 26, borderRadius: 6),
+            SizedBox(height: 10),
             // CTA
-            PaShimmerBox(width: double.infinity, height: 44, borderRadius: 10),
+            PaShimmerBox(width: double.infinity, height: 38, borderRadius: 10),
           ],
         ),
       ),

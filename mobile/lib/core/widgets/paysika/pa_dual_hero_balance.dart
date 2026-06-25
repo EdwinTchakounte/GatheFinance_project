@@ -148,19 +148,19 @@ class _PaDualHeroBalanceState extends State<PaDualHeroBalance> {
                 ),
               ),
             ),
-            // Sparkline subtle bottom band
+            // Sparkline subtle bottom band — bande plus fine pour alléger.
             if (!_hidden && (slot.trend?.length ?? 0) >= 2)
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
-                height: 66,
+                height: 52,
                 child: IgnorePointer(
                   child: PaSparkline(values: slot.trend!),
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -183,12 +183,12 @@ class _PaDualHeroBalanceState extends State<PaDualHeroBalance> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   // ── Label de slot + delta inline (hauteur constante) ──
                   // Le delta est sur la même ligne que le label pour ne pas
                   // faire varier la hauteur du hero selon le slot actif.
                   SizedBox(
-                    height: 20,
+                    height: 18,
                     child: Row(
                       children: [
                         Expanded(
@@ -198,7 +198,7 @@ class _PaDualHeroBalanceState extends State<PaDualHeroBalance> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.78),
-                              fontSize: 12,
+                              fontSize: 11.5,
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.4,
                             ),
@@ -212,12 +212,12 @@ class _PaDualHeroBalanceState extends State<PaDualHeroBalance> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   _hidden
                       ? Text(
                           '… … XAF',
                           style: PaText.amount(
-                            size: 30,
+                            size: 24,
                             weight: FontWeight.w700,
                             color: Colors.white,
                             height: 1.05,
@@ -236,14 +236,14 @@ class _PaDualHeroBalanceState extends State<PaDualHeroBalance> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: PaText.amount(
-                              size: 30,
+                              size: 24,
                               weight: FontWeight.w700,
                               color: Colors.white,
                               height: 1.05,
                             ),
                           ),
                         ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   // ── CTA pleine largeur (s'adapte au slot actif) ──
                   _CtaButton(label: slot.ctaLabel, onTap: slot.onDeposit),
                 ],
@@ -272,12 +272,12 @@ class _SegmentedToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 32,
+      height: 28,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(9),
       ),
-      padding: const EdgeInsets.all(3),
+      padding: const EdgeInsets.all(2.5),
       child: Row(
         children: [
           Expanded(child: _Pill(label: left, selected: index == 0, onTap: () => onChanged(0))),
@@ -303,14 +303,14 @@ class _Pill extends StatelessWidget {
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: selected ? Colors.white.withValues(alpha: 0.95) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(7),
         ),
         alignment: Alignment.center,
         child: Text(
           label,
           style: TextStyle(
             color: selected ? PaColors.navy : Colors.white.withValues(alpha: 0.9),
-            fontSize: 12,
+            fontSize: 11.5,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -330,8 +330,8 @@ class _EyeButton extends StatelessWidget {
       customBorder: const CircleBorder(),
       onTap: onTap,
       child: Container(
-        width: 32,
-        height: 32,
+        width: 28,
+        height: 28,
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.14),
           shape: BoxShape.circle,
@@ -340,7 +340,7 @@ class _EyeButton extends StatelessWidget {
         child: Icon(
           hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
           color: Colors.white.withValues(alpha: 0.95),
-          size: 16,
+          size: 14,
         ),
       ),
     );
@@ -355,25 +355,25 @@ class _DeltaChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(7),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             positive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-            size: 13,
+            size: 12,
             color: Colors.white,
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 4),
           Text(
             label,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 11.5,
+              fontSize: 10.5,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -402,18 +402,18 @@ class _CtaButton extends StatelessWidget {
             gradient: PaGradients.ctaPill,
             borderRadius: BorderRadius.circular(10),
           ),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.add_rounded, color: PaColors.onTeal, size: 18),
-              const SizedBox(width: 6),
+              const Icon(Icons.add_rounded, color: PaColors.onTeal, size: 16),
+              const SizedBox(width: 5),
               Text(
                 label,
                 style: const TextStyle(
                   color: PaColors.onTeal,
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
               ),
