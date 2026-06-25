@@ -597,34 +597,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               ],
             ),
 
+            // Sélecteur d'opérateur retiré (2026-06-25) : Tara détecte
+            // automatiquement le réseau (MTN/Orange) à partir du préfixe
+            // du numéro MoMo saisi. Plus besoin de demander au membre.
+
             const SizedBox(height: 22),
-
-            Text(
-              l.common_operator,
-              style: const TextStyle(
-                color: PaColors.inkSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.4,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                for (final n in _Network.values) ...[
-                  Expanded(
-                    child: _NetworkCard(
-                      network: n,
-                      selected: _network == n,
-                      onTap: () => setState(() => _network = n),
-                    ),
-                  ),
-                  if (n != _Network.values.last) const SizedBox(width: 8),
-                ],
-              ],
-            ),
-
-            const SizedBox(height: 18),
 
             Text(
               l.common_number,
@@ -721,8 +698,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
           ),
           const SizedBox(height: 8),
           Text(
+            // L'operateur etait passe en parametre du wording avant le retrait
+            // du selecteur (Tara detecte le reseau via le prefixe phone). On
+            // remplace par "Mobile Money" generique pour rester correct.
             l.dep_waiting_body(
-                _network.label, XAFFormatter.format(_committedAmount ?? 0),),
+                'Mobile Money', XAFFormatter.format(_committedAmount ?? 0),),
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: PaColors.inkMuted,
