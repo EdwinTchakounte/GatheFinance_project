@@ -84,19 +84,20 @@ export default function PortalLoginPage() {
         </aside>
 
         {/* ─── Formulaire (droite en desktop, plein écran en mobile) ─── */}
-        <section className="flex items-center justify-center px-5 py-10 sm:px-8 lg:px-16">
+        {/* items-start sur mobile pour eviter le grand vide blanc en haut,
+            items-center en desktop ou les 2 colonnes sont equilibrees. */}
+        <section className="flex items-start justify-center px-5 pt-6 pb-10 sm:px-8 lg:items-center lg:px-16 lg:py-10">
           <div className="w-full max-w-md">
-            {/* Logo affiché seulement en mobile (l'aside cache les visuels en lg) */}
-            <div className="mb-8 flex items-center gap-3 lg:hidden">
+            {/* Logo seul en mobile . le logo affiche deja la marque, pas besoin
+                de label texte qui faisait doublon (et provoquait un faux
+                espace "GAT HE" avec le tracking 0.18em). */}
+            <div className="mb-6 lg:hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/images/logo.jpg"
                 alt="Gathé Finance"
-                className="h-10 w-auto rounded-md"
+                className="h-9 w-auto rounded-md"
               />
-              <span className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-blue-700">
-                Gathé Finance
-              </span>
             </div>
 
             <header className="mb-7">
