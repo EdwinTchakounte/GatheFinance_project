@@ -94,23 +94,28 @@ class TaraProvider(PaymentProviderBase):
         product_name = (
             payment.get_type_display() if hasattr(payment, "get_type_display") else payment.type
         )
-        payload = {
+        # Payload aligne strictement sur la doc Tara (voir taramoney.com/developer).
+        # Champs requis : apiKey, businessId, productId, productName,
+        # productPrice (int), phoneNumber (sans +), webHookUrl.
+        # Champs optionnels : network, productDescription, returnUrl,
+        # productPictureUrl. On n'inclut un optionnel que s'il a une valeur.
+        payload: dict = {
             "apiKey": self.api_key,
             "businessId": self.business_id,
             "productId": str(payment.idempotency_key),
             "productName": product_name,
-            "productPrice": int(payment.montant),  # Tara veut un int en XAF
-            "productDescription": f"Paiement {product_name} — Gathé Finance",
-            # Numero MoMo du membre — format Tara : 2376xxxxxxx (sans +).
-            # `_normalize_phone` retire le `+` et tout caractere non-digit.
-            "phoneNumber": self._normalize_phone(phone),
-            # Champ "network" present dans la doc Tara : on laisse vide,
-            # Tara detecte le reseau a partir du prefixe du phoneNumber.
-            # Si le caller passe une valeur (MTN/ORANGE/...), on l'utilise.
-            "network": (network or "").upper(),
-            "returnUrl": self._return_url(),
+            "productPrice": int(payment.montant),  # int XAF, pas string
+            "phoneNumber": self._normalize_phone(phone),  # 2376xxxxxxx
             "webHookUrl": self._webhook_url(),
         }
+        # network optionnel : Tara detecte du prefixe phoneNumber si vide.
+        # On l'inclut seulement si le caller a passe une valeur explicite.
+        if network:
+            payload["network"] = network.upper()
+        # productDescription + returnUrl optionnels : utiles pour la page
+        # de checkout hostee (libelle marchand + URL de retour apres paiement).
+        payload["productDescription"] = f"Paiement {product_name} — Gathé Finance"
+        payload["returnUrl"] = self._return_url()
         data = self._post("/api/tara/mobilepay", payload)
         # SUCCESS → ``{status:"SUCCESS", message:"API_ORDER_SUCESSFULL",
         #             transactionId:"1776478264", price:0, transactionList:[]}``
