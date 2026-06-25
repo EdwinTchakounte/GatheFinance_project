@@ -83,6 +83,9 @@ class SavingsDioDataSource implements SavingsRemoteDataSource {
         '/payments/init/',
         data: body,
       );
+      // Stocke la reponse Tara (vendor / status / message) pour que le
+      // sheet success step l'affiche au membre.
+      LastTaraResponse.update(response.data);
       // Tara héberge la page de paiement : on ouvre paymentUrl dans le
       // navigateur externe pour que le membre confirme avec son PIN MoMo.
       // Le webhook Tara créditera ensuite le solde côté backend.

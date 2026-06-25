@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
+import '../../../../core/services/tara_checkout_launcher.dart';
 import '../../../../core/widgets/brand_loader.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
@@ -781,8 +782,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
           ),
           const SizedBox(height: 8),
           Text(
-            'Termine la transaction de ${XAFFormatter.format(_committedAmount ?? 0)} '
-            'sur la page Tara qui vient de s\'ouvrir. '
+            'Tu vas recevoir un popup Mobile Money sur ton téléphone pour '
+            'valider ${XAFFormatter.format(_committedAmount ?? 0)} avec ton PIN. '
             'Ton solde sera mis à jour ici dès la confirmation du paiement.',
             textAlign: TextAlign.center,
             style: const TextStyle(
@@ -791,6 +792,57 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               height: 1.5,
             ),
           ),
+          // Affiche ce que Tara a confirme cote serveur (vendor + status)
+          // -- utile au membre pour savoir si l'init a ete acceptee meme
+          // si le popup MoMo tarde a arriver.
+          if (LastTaraResponse.vendor != null ||
+              LastTaraResponse.status != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: PaColors.teal.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: PaColors.teal.withValues(alpha: 0.18),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (LastTaraResponse.prettyVendor != null)
+                    Row(
+                      children: [
+                        const Icon(Icons.check_circle_outline_rounded,
+                            size: 16, color: PaColors.teal,),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Confirmé : ${LastTaraResponse.prettyVendor}',
+                            style: const TextStyle(
+                              color: PaColors.tealDark,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  if (LastTaraResponse.message != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Statut Tara : ${LastTaraResponse.status} '
+                      '(${LastTaraResponse.message})',
+                      style: const TextStyle(
+                        color: PaColors.inkMuted,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           PaButton(
             label: l.common_done,

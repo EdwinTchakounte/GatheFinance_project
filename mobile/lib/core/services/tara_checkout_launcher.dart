@@ -5,6 +5,36 @@ import 'package:flutter/material.dart';
 import '../widgets/tara_checkout_webview_page.dart';
 import 'global_nav.dart';
 
+/// Stocke la dernière réponse Tara reçue de `/payments/init/`. Lu par
+/// le sheet versement pour afficher au membre le vendor confirmé
+/// (ORANGE_CAMEROON / MTN_CAMEROON) et le message Tara — utile quand le
+/// STK Push ne semble pas arriver, pour savoir si Tara a accepté.
+class LastTaraResponse {
+  static String? status;
+  static String? message;
+  static String? vendor;
+
+  static void update(Map<String, dynamic>? data) {
+    if (data == null) {
+      status = null;
+      message = null;
+      vendor = null;
+      return;
+    }
+    status = data['providerStatus'] as String?;
+    message = data['providerMessage'] as String?;
+    vendor = data['providerVendor'] as String?;
+  }
+
+  static String? get prettyVendor {
+    final v = vendor;
+    if (v == null) return null;
+    if (v.startsWith('ORANGE')) return 'Orange Money';
+    if (v.startsWith('MTN')) return 'MTN Mobile Money';
+    return v;
+  }
+}
+
 /// Service partagé pour ouvrir la page de checkout Tara dans une WebView
 /// in-app quand le backend répond à `POST /api/v1/payments/init/` avec
 /// un champ `paymentUrl`.
