@@ -25,6 +25,7 @@ import {
   MessageSquareText,
   Notebook,
   Newspaper,
+  GitBranch,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
@@ -45,6 +46,8 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Vue d'ensemble", icon: LayoutDashboard },
+  // Pipeline adhesion . funnel KPIs + membres SUSPENDU avec progression frais.
+  { href: "/adhesions", label: "Pipeline adhésion", icon: GitBranch },
   { href: "/membership-requests", label: "Adhésions", icon: UserPlus, queueKey: "adhesions_en_attente" },
   { href: "/loan-requests", label: "Demandes de crédit", icon: HandCoins, queueKey: "credits_en_instruction" },
   { href: "/loans", label: "Crédits", icon: Wallet },

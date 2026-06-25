@@ -800,3 +800,124 @@ def admin_booklet_update_notes(request, pk: int):
         order.notes_agence = str(notes)
         order.save(update_fields=["notes_agence", "updated_at"])
     return Response(BookletOrderAdminSerializer(order).data)
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Pipeline adhésion — vue funnel + KPIs + membres suspendus
+# (admin dashboard /adhesions/pipeline)
+# ───────────────────────────────────────────────────────────────────────────
+
+
+@extend_schema(
+    tags=["members"],
+    summary="🔒 Admin — pipeline d'adhésion + paiement frais",
+    description=(
+        "Vue consolidee du funnel d'adhesion : KPIs par etape "
+        "(MembershipRequest en_attente | approuvee non-payees | Member SUSPENDU "
+        "| Member ACTIF) + liste detaillee des membres SUSPENDU avec leur "
+        "progression de paiement des 3 frais requis "
+        "(adhesion + inscription + carnet)."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_adhesion_pipeline(request):
+    from decimal import Decimal
+    from django.db.models import Sum
+
+    from apps_coop.payments.models import FeeType, Payment
+    from .models import Member, MembershipRequest
+
+    REQUIRED_FEES = (
+        Payment.Type.FRAIS_ADHESION,
+        Payment.Type.FRAIS_INSCRIPTION,
+        Payment.Type.FRAIS_CARNET,
+    )
+    FEE_LABELS = {
+        Payment.Type.FRAIS_ADHESION: "Adhesion",
+        Payment.Type.FRAIS_INSCRIPTION: "Inscription",
+        Payment.Type.FRAIS_CARNET: "Carnet",
+    }
+
+    # KPIs funnel.
+    requests_en_attente = MembershipRequest.objects.filter(
+        statut=MembershipRequest.Statut.EN_ATTENTE,
+    ).count()
+    requests_approved = MembershipRequest.objects.filter(
+        statut=MembershipRequest.Statut.APPROUVEE,
+    ).count()
+    requests_rejected = MembershipRequest.objects.filter(
+        statut=MembershipRequest.Statut.REJETEE,
+    ).count()
+
+    members_suspendus_qs = Member.objects.filter(
+        statut=Member.Statut.SUSPENDU,
+    ).select_related("user").order_by("-created_at")
+    members_suspendus_count = members_suspendus_qs.count()
+    members_actifs = Member.objects.filter(statut=Member.Statut.ACTIF).count()
+    members_temporaires = Member.objects.filter(statut=Member.Statut.TEMPORAIRE).count()
+    members_radies = Member.objects.filter(statut=Member.Statut.RADIE).count()
+
+    # Pour chaque membre suspendu, on calcule sa progression de paiement.
+    suspended_rows = []
+    total_remaining = Decimal("0")
+    for member in members_suspendus_qs[:200]:
+        paid_types = set(
+            Payment.objects.filter(
+                member=member,
+                statut=Payment.Statut.VALIDE,
+                type__in=REQUIRED_FEES,
+            ).values_list("type", flat=True),
+        )
+        amount_paid = Payment.objects.filter(
+            member=member,
+            statut=Payment.Statut.VALIDE,
+            type__in=REQUIRED_FEES,
+        ).aggregate(s=Sum("montant"))["s"] or Decimal("0")
+        fees_status = {
+            fee: ("valide" if fee in paid_types else "en_attente")
+            for fee in REQUIRED_FEES
+        }
+        # Tarif total des 3 frais : on tire des FeeType (config admin).
+        target_total = (
+            FeeType.objects.filter(code__in=REQUIRED_FEES)
+            .aggregate(s=Sum("montant"))["s"] or Decimal("0")
+        )
+        remaining = max(Decimal("0"), target_total - amount_paid)
+        total_remaining += remaining
+        suspended_rows.append({
+            "member_id": member.id,
+            "numero_membre": member.numero_membre,
+            "prenom": member.prenom,
+            "nom": member.nom,
+            "phone": member.phone,
+            "email": member.user.email if member.user_id else "",
+            "approved_at": member.created_at.isoformat() if member.created_at else None,
+            "fees_status": [
+                {"code": code, "label": FEE_LABELS[code], "statut": fees_status[code]}
+                for code in REQUIRED_FEES
+            ],
+            "fees_paid_count": len(paid_types),
+            "fees_total": len(REQUIRED_FEES),
+            "amount_paid": str(amount_paid),
+            "amount_target": str(target_total),
+            "amount_remaining": str(remaining),
+        })
+
+    return Response({
+        "funnel": {
+            "requests_en_attente": requests_en_attente,
+            "requests_approved_pending_payment": members_suspendus_count,
+            "requests_rejected": requests_rejected,
+            "members_actifs": members_actifs,
+            "members_temporaires": members_temporaires,
+            "members_radies": members_radies,
+        },
+        "expected_revenue": {
+            "total_remaining_from_suspended": str(total_remaining),
+        },
+        "required_fees": [
+            {"code": code, "label": FEE_LABELS[code]} for code in REQUIRED_FEES
+        ],
+        "suspended_members": suspended_rows,
+    })

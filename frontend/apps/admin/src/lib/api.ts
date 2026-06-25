@@ -294,6 +294,45 @@ export type BRCDocument = {
   created_at: string;
 };
 
+// Pipeline d'adhesion : funnel + KPIs + membres SUSPENDU.
+export type AdhesionFeeStatus = {
+  code: string;
+  label: string;
+  statut: "valide" | "en_attente";
+};
+
+export type AdhesionSuspendedMember = {
+  member_id: number;
+  numero_membre: string;
+  prenom: string;
+  nom: string;
+  phone: string;
+  email: string;
+  approved_at: string | null;
+  fees_status: AdhesionFeeStatus[];
+  fees_paid_count: number;
+  fees_total: number;
+  amount_paid: string;
+  amount_target: string;
+  amount_remaining: string;
+};
+
+export type AdhesionPipeline = {
+  funnel: {
+    requests_en_attente: number;
+    requests_approved_pending_payment: number;
+    requests_rejected: number;
+    members_actifs: number;
+    members_temporaires: number;
+    members_radies: number;
+  };
+  expected_revenue: {
+    total_remaining_from_suspended: string;
+  };
+  required_fees: { code: string; label: string }[];
+  suspended_members: AdhesionSuspendedMember[];
+};
+
 // Commande de carnet pilotee par l'agence (cote admin).
 export type BookletOrderAdmin = {
   id: number;
@@ -881,6 +920,12 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify({ motif }),
       }),
+  },
+
+  // Pipeline d'adhesion (vue funnel + KPIs + membres SUSPENDU avec
+  // progression de paiement des 3 frais requis).
+  adhesions: {
+    pipeline: () => request<AdhesionPipeline>("/admin/adhesions/pipeline/"),
   },
 
   // Pilotage commandes carnet (Article 4 - payee . en_impression . delivree).

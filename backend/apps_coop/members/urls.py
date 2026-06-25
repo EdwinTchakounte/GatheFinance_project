@@ -79,4 +79,8 @@ urlpatterns = [
         views.admin_booklet_update_notes,
         name="admin-booklet-notes",
     ),
+
+    # Pipeline adhesion . funnel KPIs + membres suspendus avec progression
+    # paiement (1/3, 2/3, 3/3 des frais d'adhesion).
+    path("admin/adhesions/pipeline/", views.admin_adhesion_pipeline, name="admin-adhesions-pipeline"),
 ]
