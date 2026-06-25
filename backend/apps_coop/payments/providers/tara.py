@@ -13,8 +13,6 @@ Mapping decisions:
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
 import logging
 from typing import TYPE_CHECKING
 
@@ -118,21 +116,21 @@ class TaraProvider(PaymentProviderBase):
         payload["productDescription"] = f"Paiement {product_name} — Gathé Finance"
         payload["returnUrl"] = self._return_url()
         data = self._post("/api/tara/mobilepay", payload)
-        # SUCCESS → ``{status:"SUCCESS", message:"API_ORDER_SUCESSFULL",
-        #             transactionId:"1776478264", price:0, transactionList:[]}``
-        transaction_id = (
-            data.get("transactionId")
-            or data.get("paymentId")
-            or str(payment.idempotency_key)
-        )
-        # URL de checkout Tara : ``/pay/{transactionId}`` (validé 2026-06-25
-        # par probe live — la variante ``/c/`` retourne 404, ``/p/`` rend une
-        # page blanche sans contexte Tara). Si la réponse contient un
-        # ``paymentUrl`` explicite, on le préfère.
-        payment_url = data.get("paymentUrl") or f"{self.BASE_URL}/pay/{transaction_id}"
+        # Doc Tara 2026-06-25 — la réponse est :
+        #   {status:"SUCCESS", message:"API_ORDER_SUCESSFULL", vendor:"ORANGE_CAMEROON"}
+        # PAS de transactionId, PAS de paymentUrl. Le flow Tara pousse
+        # directement un STK Push / popup USSD sur le téléphone du membre
+        # via le `phoneNumber` envoyé — il valide avec son PIN MoMo.
+        # Le webhook arrivera ensuite avec `collectionId = notre productId`.
+        #
+        # Pour Wave (Sénégal/Burkina/CI uniquement) la réponse contient un
+        # `authUrl` à ouvrir en navigateur. Pour MTN/Orange Cameroun, NULL.
         return InitPayinResult(
-            provider_reference=str(transaction_id),
-            payment_url=payment_url,
+            # Avant le webhook on n'a pas d'ID Tara — on garde notre
+            # idempotency_key comme reference. Le `paymentId` final
+            # arrivera dans le webhook.
+            provider_reference=str(payment.idempotency_key),
+            payment_url=data.get("authUrl"),  # Wave uniquement, sinon None
             raw={**data, "_hint_phone": phone, "_hint_network": network},
         )
 
@@ -187,26 +185,44 @@ class TaraProvider(PaymentProviderBase):
     # -- Webhook authentication + normalisation ------------------------------
 
     def verify_webhook(self, body: bytes, signature_header: str) -> WebhookEvent:
-        if not self.webhook_secret:
-            raise ProviderError(
-                "TARA_WEBHOOK_SECRET is not configured — refusing to process the webhook.",
-                retryable=False,
-            )
-        expected = hmac.new(
-            self.webhook_secret.encode(),
-            body,
-            hashlib.sha256,
-        ).hexdigest()
-        if not (signature_header and hmac.compare_digest(expected, signature_header)):
-            raise ProviderError("Invalid HMAC signature on Tara webhook", retryable=False)
+        """Vérifie un webhook Tara — doc 2026-06-25.
 
+        Tara NE SIGNE PAS le webhook (pas de HMAC, pas de header de
+        signature, pas de secret partagé dans le body). La sécurité repose
+        sur : (a) HTTPS du webHookUrl, (b) le fait que seule Tara connaît
+        cette URL (on l'a fournie lors de l'init). Recommandation Tara :
+        *"Ensure your webHookUrl is secured with HTTPS."*
+
+        On vérifie quand même que le `businessId` du body correspond au
+        nôtre — défense en profondeur contre un attaquant qui devinerait
+        l'URL : il faudrait aussi qu'il connaisse notre TARA_BUSINESS_ID.
+
+        Mapping body Tara → WebhookEvent :
+          collectionId → payment_idempotency_key (= notre productId envoyé)
+          paymentId    → provider_reference (= ID Tara, pour audit)
+          status       → SUCCESS / FAILURE
+        """
         try:
             payload = self._parse_json(body)
         except ValueError as exc:
             raise ProviderError(f"Malformed webhook body: {exc}", retryable=False) from exc
 
+        # Défense en profondeur : refuse les webhooks qui ne ciblent pas
+        # notre businessId Tara. Une URL secrète seule ne suffit pas.
+        if self.business_id and payload.get("businessId") and \
+                payload["businessId"] != self.business_id:
+            raise ProviderError(
+                f"Webhook businessId mismatch: got {payload.get('businessId')!r}",
+                retryable=False,
+            )
+
         return WebhookEvent(
-            payment_idempotency_key=str(payload.get("productId") or ""),
+            # `collectionId` est le productId qu'on a envoyé à l'init —
+            # c'est la clé qui matche notre Payment.idempotency_key local.
+            # Fallback `productId` pour rétrocompat anciens webhooks.
+            payment_idempotency_key=str(
+                payload.get("collectionId") or payload.get("productId") or "",
+            ),
             status=_STATUS_MAP.get((payload.get("status") or "").upper(), "en_attente"),
             provider_reference=str(payload.get("paymentId") or ""),
             raw=payload,
