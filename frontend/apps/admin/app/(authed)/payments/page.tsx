@@ -10,15 +10,19 @@ import { adminApi, type ApiError, type PaymentRow } from "@/lib/api";
 
 
 type StatutFilter = "" | "en_attente" | "valide" | "rejete" | "annule";
+// SOURCE DE VERITE : doit refleter Payment.Type cote backend
+// (backend/apps_coop/payments/models.py Type TextChoices).
 type TypeFilter =
   | ""
   | "epargne"
+  | "epargne_classique"
   | "frais_adhesion"
   | "frais_inscription"
   | "frais_demande_credit"
   | "frais_reconduction"
   | "frais_carnet"
-  | "remboursement";
+  | "remboursement"
+  | "decaissement";
 
 
 const paymentsExportColumns: ExportColumn<PaymentRow>[] = [
@@ -171,12 +175,18 @@ function Inner() {
             setOffset(0);
           }}
           options={[
+            // SOURCE DE VERITE : 9 types Payment cote backend (Article 4 + frais
+            // refonte 2026). Tout ajout cote backend doit etre repercute ici.
             { v: "", l: "Tous" },
-            { v: "epargne", l: "Épargne" },
+            { v: "epargne", l: "Cotisation" },
+            { v: "epargne_classique", l: "Épargne classique" },
             { v: "remboursement", l: "Remboursement" },
-            { v: "frais_adhesion", l: "Adhésion" },
-            { v: "frais_demande_credit", l: "Frais crédit" },
-            { v: "frais_carnet", l: "Carnet" },
+            { v: "decaissement", l: "Décaissement" },
+            { v: "frais_adhesion", l: "Frais adhésion" },
+            { v: "frais_inscription", l: "Frais inscription" },
+            { v: "frais_demande_credit", l: "Frais demande crédit" },
+            { v: "frais_reconduction", l: "Frais reconduction" },
+            { v: "frais_carnet", l: "Frais carnet" },
           ]}
         />
         <form
