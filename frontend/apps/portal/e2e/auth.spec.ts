@@ -22,8 +22,10 @@ test.describe("Authentification portail", () => {
     await page.getByLabel(/^Mot de passe$/i).fill("badpassword");
     await page.getByRole("button", { name: /Se connecter/i }).click();
 
-    // Erreur visible (401 -> "Identifiants invalides")
-    await expect(page.getByRole("alert")).toContainText(/Identifiants/i, {
+    // Erreur visible (401 -> "Identifiants invalides"). 2 elements ont
+    // role=alert sur la page (Next.js banner + notre <p role=alert>), on
+    // cible le premier qui est le message d'erreur du form.
+    await expect(page.getByRole("alert").first()).toContainText(/Identifiants/i, {
       timeout: 10_000,
     });
   });
