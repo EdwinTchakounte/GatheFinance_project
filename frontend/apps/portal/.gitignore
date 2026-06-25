@@ -1,4 +1,3 @@
 audit-captures/
 test-results/
 playwright-report/
-e2e/_capture.spec.ts
