@@ -270,6 +270,15 @@ def loan_request_create(request):
             )
             extra_payload, schema_version = {}, None
 
+        # Compat layer démo NHR — assure que les réponses CFP Broad Range et
+        # CGA sont stockées en BD même si le seed FormSchema en prod n'a pas
+        # encore été poussé avec ces champs (apply_form_schema filtre sinon
+        # les valeurs inconnues). Le mobile envoie ces clés systématiquement.
+        for compat_key in ("ancien_apprenant", "cga_adherent"):
+            val = request.data.get(compat_key)
+            if val in ("oui", "non") and compat_key not in extra_payload:
+                extra_payload[compat_key] = val
+
         loan_request = LoanRequest.objects.create(
             member=member,
             montant_demande=data["montant_demande"],

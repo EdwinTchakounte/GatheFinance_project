@@ -105,6 +105,56 @@ LOAN_REQUEST_SCHEMA = {
                 },
             ],
         },
+        {
+            "id": "profil_apprenant",
+            "title": "Votre parcours de formation",
+            "description": "Si tu as suivi une formation au CFP Broad Range, indique-le et joins ton attestation. Les anciens apprenants bénéficient d'une instruction prioritaire.",
+            "fields": [
+                {
+                    "id": "ancien_apprenant",
+                    "type": "radio",
+                    "label": "As-tu déjà suivi une formation au CFP Broad Range ?",
+                    "required": True,
+                    "options": [
+                        {"value": "oui", "label": "Oui, je suis ancien apprenant CFP Broad Range"},
+                        {"value": "non", "label": "Non"},
+                    ],
+                },
+                {
+                    "id": "ancien_apprenant_preuve",
+                    "type": "file",
+                    "label": "Attestation / certificat CFP Broad Range",
+                    "help": "Photo ou PDF de ton attestation de formation (10 Mo max).",
+                    "required": True,
+                    "condition": {"field": "ancien_apprenant", "operator": "equals", "value": "oui"},
+                },
+            ],
+        },
+        {
+            "id": "profil_cga",
+            "title": "Adhésion CGA",
+            "description": "Un Centre de Gestion Agréé donne des avantages fiscaux et facilite l'analyse de ton dossier.",
+            "fields": [
+                {
+                    "id": "cga_adherent",
+                    "type": "radio",
+                    "label": "Es-tu adhérent à un Centre de Gestion Agréé (CGA) ?",
+                    "required": True,
+                    "options": [
+                        {"value": "oui", "label": "Oui, je suis adhérent CGA"},
+                        {"value": "non", "label": "Non"},
+                    ],
+                },
+                {
+                    "id": "cga_preuve",
+                    "type": "file",
+                    "label": "Carte / attestation CGA",
+                    "help": "Photo recto-verso ou PDF de ta carte CGA en cours de validité.",
+                    "required": True,
+                    "condition": {"field": "cga_adherent", "operator": "equals", "value": "oui"},
+                },
+            ],
+        },
     ],
 }
 
@@ -144,25 +194,62 @@ SEED_DATA = [
 class Command(BaseCommand):
     help = "Seed des 3 schémas FormSchema initiaux (v1 active)."
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help=(
+                "Si un schéma est déjà actif pour un kind, désactive la version "
+                "actuelle et crée une nouvelle version (n+1) avec le contenu du "
+                "seed. Utile pour pousser une mise à jour du schéma sans "
+                "passer par l'UI admin."
+            ),
+        )
+        parser.add_argument(
+            "--only",
+            choices=[k for k, _, _, _ in SEED_DATA],
+            help=(
+                "Limiter le seed à un seul kind (adhesion / loan_request / "
+                "loan_renewal)."
+            ),
+        )
+
     def handle(self, *args, **options):
+        force = bool(options.get("force"))
+        only = options.get("only")
         created = 0
+        replaced = 0
         skipped = 0
         with transaction.atomic():
             for kind, title, description, schema in SEED_DATA:
-                if FormSchema.objects.filter(kind=kind, is_active=True).exists():
-                    skipped += 1
-                    self.stdout.write(f"  ↷ {kind} déjà actif — skip.")
+                if only and kind != only:
                     continue
+                current = FormSchema.objects.filter(kind=kind, is_active=True).first()
+                if current is not None and not force:
+                    skipped += 1
+                    self.stdout.write(f"  ↷ {kind} déjà actif (v{current.version}) — skip (utilise --force pour remplacer).")
+                    continue
+                if current is not None:
+                    current.is_active = False
+                    current.save(update_fields=["is_active", "updated_at"])
+                next_version = (current.version + 1) if current else 1
                 FormSchema.objects.create(
                     kind=kind,
-                    version=1,
+                    version=next_version,
                     title=title,
                     description=description,
                     schema=schema,
                     is_active=True,
                     activated_at=timezone.now(),
-                    notes_admin="Seed initial CH-4 — reflète le formulaire hard-codé existant.",
+                    notes_admin=(
+                        "Re-seed via --force — anciens apprenants + CGA + uploads conditionnels."
+                        if current else "Seed initial CH-4 — reflète le formulaire hard-codé existant."
+                    ),
                 )
-                created += 1
-                self.stdout.write(self.style.SUCCESS(f"  ✓ {kind} v1 seedé."))
-        self.stdout.write(f"\nCréés : {created} · Ignorés (déjà actifs) : {skipped}.")
+                if current:
+                    replaced += 1
+                    self.stdout.write(self.style.SUCCESS(f"  ✓ {kind} v{current.version} → v{next_version} (remplacée)."))
+                else:
+                    created += 1
+                    self.stdout.write(self.style.SUCCESS(f"  ✓ {kind} v1 seedé."))
+        self.stdout.write(f"\nCréés : {created} · Remplacés : {replaced} · Ignorés : {skipped}.")

@@ -78,6 +78,12 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
 
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     loan = serializers.SerializerMethodField()
+    # Réponses CFP Broad Range + CGA + autres champs FormSchema → l'admin
+    # voit ces données dans la carte "Profil emprunteur" pour valider.
+    extra_payload = serializers.JSONField(read_only=True)
+    # Pièces justificatives uploadées (attestation CFP, carte CGA, etc.) —
+    # indexées par schema_field_id pour relier au champ source.
+    attachments = serializers.SerializerMethodField()
 
     class Meta:
         model = LoanRequest
@@ -94,8 +100,37 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "date_soumission",
             "date_decision",
             "loan",
+            "extra_payload",
+            "attachments",
         )
         read_only_fields = fields
+
+    def get_attachments(self, obj):
+        """Liste les Documents indexés (schema_field_id, file URL, taille).
+        L'admin peut cliquer pour prévisualiser/télécharger chaque pièce.
+        """
+        try:
+            from apps_coop.members.models import Document
+        except Exception:  # noqa: BLE001
+            return []
+        request = self.context.get("request")
+        out = []
+        qs = Document.objects.filter(
+            entite_liee_type="LoanRequest",
+            entite_liee_id=obj.id,
+        ).order_by("schema_field_id", "-id")
+        for d in qs:
+            url = d.fichier.url if d.fichier else None
+            if url and request is not None and not url.startswith("http"):
+                url = request.build_absolute_uri(url)
+            out.append({
+                "id": d.id,
+                "schema_field_id": d.schema_field_id,
+                "nom_original": d.nom_original,
+                "taille": d.taille,
+                "url": url,
+            })
+        return out
 
     def get_loan(self, obj):
         """Renvoie un mini-objet du Loan associé (si créé). `decaissement` indique
