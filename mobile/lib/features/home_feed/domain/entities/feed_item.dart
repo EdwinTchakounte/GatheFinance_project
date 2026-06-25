@@ -26,6 +26,8 @@ class CampaignFlyer {
   final num montantMax;
   final num tauxInteret;
   final DateTime dateFin;
+  // URL retournée par le backend — peuplée pour 100 % des campagnes
+  // (vrai flyer si uploadé, sinon photo stock choisie côté serveur).
   final String? flyerUrl;
 }
 
@@ -45,5 +47,9 @@ class NewsArticle {
   final String excerpt;
   final DateTime publishedAt;
   final String htmlUrl;
+  // URL retournée par le backend — peuplée pour 100 % des articles
+  // (vraie cover si uploadée sur Wagtail, sinon photo stock choisie
+  // côté serveur via apps_cms.cms.stock_images). Le mobile ne fait
+  // plus aucune logique de fallback.
   final String? heroImageUrl;
 }

@@ -94,13 +94,11 @@ class _NewsDetailPageState extends ConsumerState<NewsDetailPage> {
             ),
             iconTheme: const IconThemeData(color: PaColors.inkPrimary),
             flexibleSpace: FlexibleSpaceBar(
-              background: a.heroImageUrl == null
-                  ? _CoverPlaceholder(title: a.title)
-                  : Stack(
+              background: Stack(
                       fit: StackFit.expand,
                       children: [
                         CachedNetworkImage(
-                          imageUrl: a.heroImageUrl!,
+                          imageUrl: a.heroImageUrl ?? '',
                           fit: BoxFit.cover,
                           placeholder: (_, __) => _CoverPlaceholder(title: a.title),
                           errorWidget: (_, __, ___) =>

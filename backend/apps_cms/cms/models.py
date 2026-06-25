@@ -252,10 +252,22 @@ class BlogPostPage(BasePage):
 
     @property
     def cover_image_data(self):
-        if not self.cover_image:
-            return None
-        rendition = self.cover_image.get_rendition("fill-1280x720")
-        return {"url": rendition.url, "width": rendition.width, "height": rendition.height, "alt": self.cover_image.title}
+        """Toujours retourner un dict {url, ...} : image éditeur en
+        priorité, sinon photo stock Unsplash choisie d'après les mots-clés
+        du titre. Source unique de vérité pour mobile / portail / admin.
+        """
+        if self.cover_image:
+            rendition = self.cover_image.get_rendition("fill-1280x720")
+            return {
+                "url": rendition.url,
+                "width": rendition.width,
+                "height": rendition.height,
+                "alt": self.cover_image.title,
+                "source": "cms",
+            }
+        from apps_cms.cms.stock_images import article_image_for
+        url = article_image_for(self.title)
+        return {"url": url, "width": 900, "height": 506, "alt": self.title, "source": "stock"}
 
     api_fields = BasePage.api_fields + [
         APIField("date"),

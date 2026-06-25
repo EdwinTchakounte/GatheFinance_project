@@ -23,8 +23,8 @@ class CampaignsSection extends ConsumerWidget {
   final VoidCallback onSeeMore;
   final void Function(CampaignFlyer c)? onTapCampaign;
 
-  /// Limite imposée par le brief client : seules les 2 plus récentes sur Home.
-  static const int kHomeLimit = 2;
+  /// Limite imposée par le brief client : les 5 plus récentes sur Home.
+  static const int kHomeLimit = 5;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -75,7 +75,8 @@ class NewsSection extends ConsumerWidget {
   final VoidCallback onSeeMore;
   final void Function(NewsArticle a)? onTapArticle;
 
-  static const int kHomeLimit = 3;
+  /// Limite imposée par le brief client : les 5 plus récentes sur Home.
+  static const int kHomeLimit = 5;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -308,10 +309,8 @@ class _CampaignCard extends StatelessWidget {
                   ),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
-                    child: c.flyerUrl == null
-                        ? _PlaceholderFlyer(label: c.profilCible)
-                        : CachedNetworkImage(
-                            imageUrl: c.flyerUrl!,
+                    child: CachedNetworkImage(
+                            imageUrl: c.flyerUrl ?? '',
                             fit: BoxFit.cover,
                             fadeInDuration:
                                 const Duration(milliseconds: 200),
@@ -496,10 +495,8 @@ class _ArticleCard extends StatelessWidget {
               ),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
-                child: a.heroImageUrl == null
-                    ? _PlaceholderArticle(title: a.title)
-                    : CachedNetworkImage(
-                        imageUrl: a.heroImageUrl!,
+                child: CachedNetworkImage(
+                        imageUrl: a.heroImageUrl ?? '',
                         fit: BoxFit.cover,
                         fadeInDuration: const Duration(milliseconds: 200),
                         placeholder: (_, __) => _PlaceholderArticle(title: a.title),

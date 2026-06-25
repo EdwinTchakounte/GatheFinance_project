@@ -15,22 +15,19 @@ from rest_framework.response import Response
 from .models import MicrocreditCampaign
 
 
-def _absolute_flyer_url(c: MicrocreditCampaign, request) -> str | None:
-    """Retourne l'URL absolue du flyer si présent (sinon ``None``).
-
-    Côté mobile la baseUrl est l'hôte backend ; on doit donc renvoyer une
-    URL absolue construite via ``request.build_absolute_uri`` plutôt
-    qu'un chemin relatif comme côté admin (où le proxy Next.js gère le
-    rewrite). On revient à None silencieusement si le fichier est absent
-    ou que ``url`` lève ValueError (cas d'un FileField vide).
+def _flyer_url(c: MicrocreditCampaign, request) -> str:
+    """Toujours retourner une URL : flyer uploadé si présent, sinon photo
+    stock Unsplash CDN choisie d'après le profil ciblé. Source unique de
+    vérité — le mobile / portail / admin consomment cette URL directement.
     """
     try:
         relative = c.flyer.url if c.flyer else None
     except (ValueError, AttributeError):
-        return None
-    if not relative:
-        return None
-    return request.build_absolute_uri(relative)
+        relative = None
+    if relative:
+        return request.build_absolute_uri(relative)
+    from apps_cms.cms.stock_images import campaign_image_for
+    return campaign_image_for(c.nom, c.profil_cible)
 
 
 def _row(c: MicrocreditCampaign, request) -> dict:
@@ -44,7 +41,7 @@ def _row(c: MicrocreditCampaign, request) -> dict:
         "montant_max": str(c.montant_max),
         "taux_interet": str(c.taux_interet),
         "nb_jours_recouvrement": c.nb_jours_recouvrement,
-        "flyer_url": _absolute_flyer_url(c, request),
+        "flyer_url": _flyer_url(c, request),
     }
 
 
