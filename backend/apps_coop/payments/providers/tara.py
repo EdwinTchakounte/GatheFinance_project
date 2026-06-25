@@ -69,6 +69,19 @@ class TaraProvider(PaymentProviderBase):
     # -- Payin (inbound payment from member) --------------------------------
 
     def init_payin(self, payment: "Payment", *, phone: str, network: str) -> InitPayinResult:
+        """Crée un ordre de paiement Tara — page de paiement hostée.
+
+        Contrat officiel Tara (validé 2026-06-25 par tests live) :
+          - ``productPrice`` est un INT (pas string)
+          - PAS de ``phoneNumber`` / ``network`` au top level — Tara héberge
+            une page où l'utilisateur choisit son opérateur lui-même
+          - Réponse SUCCESS : ``{status, message, transactionId, ...}``
+          - L'URL de checkout est construite : ``BASE_URL/c/<transactionId>``
+
+        ``phone`` et ``network`` reçus en paramètres sont conservés en raw
+        pour audit, et passés en query string sur ``returnUrl`` pour
+        pré-remplir le formulaire Tara côté membre.
+        """
         if self._mock_mode:
             logger.warning(
                 "TaraProvider in MOCK mode (no API key) — skipping HTTP and returning a fake reference."
@@ -78,33 +91,34 @@ class TaraProvider(PaymentProviderBase):
                 payment_url=None,
                 raw={"mock": True, "reason": "TARA_API_KEY not configured"},
             )
+        product_name = (
+            payment.get_type_display() if hasattr(payment, "get_type_display") else payment.type
+        )
         payload = {
             "apiKey": self.api_key,
             "businessId": self.business_id,
             "productId": str(payment.idempotency_key),
-            "productName": payment.get_type_display() if hasattr(payment, "get_type_display") else payment.type,
-            "productPrice": str(int(payment.montant)),  # Tara expects an integer-string in XAF
-            "phoneNumber": self._normalize_phone(phone),
-            "network": network.upper(),
+            "productName": product_name,
+            "productPrice": int(payment.montant),  # Tara veut un int en XAF
+            "productDescription": f"Paiement {product_name} — Gathé Finance",
+            "returnUrl": self._return_url(),
             "webHookUrl": self._webhook_url(),
         }
         data = self._post("/api/tara/mobilepay", payload)
-        # Réponse réelle Tara : { message, status: "SUCCESS", vendor: {...} }.
-        # Le payin ne renvoie pas toujours un paymentId au top level — on
-        # fouille `vendor`, puis on retombe sur notre productId (idempotency_key)
-        # qui sert de toute façon de clé de corrélation avec le webhook.
-        vendor = data.get("vendor") if isinstance(data.get("vendor"), dict) else {}
-        provider_ref = (
-            data.get("paymentId")
-            or vendor.get("paymentId")
-            or vendor.get("id")
-            or data.get("productId")
+        # SUCCESS → ``{status:"SUCCESS", message:"API_ORDER_SUCESSFULL",
+        #             transactionId:"1776478264", price:0, transactionList:[]}``
+        transaction_id = (
+            data.get("transactionId")
+            or data.get("paymentId")
             or str(payment.idempotency_key)
         )
+        # URL de checkout Tara : on construit depuis transactionId. Si la
+        # réponse contient explicitement un ``paymentUrl``, on le préfère.
+        payment_url = data.get("paymentUrl") or f"{self.BASE_URL}/c/{transaction_id}"
         return InitPayinResult(
-            provider_reference=str(provider_ref),
-            payment_url=data.get("paymentUrl") or vendor.get("paymentUrl"),
-            raw=data,
+            provider_reference=str(transaction_id),
+            payment_url=payment_url,
+            raw={**data, "_hint_phone": phone, "_hint_network": network},
         )
 
     # -- Status poll (used by the hourly reconciliation cron) ----------------
@@ -188,6 +202,16 @@ class TaraProvider(PaymentProviderBase):
     def _webhook_url(self) -> str:
         base = getattr(settings, "PUBLIC_BASE_URL", "").rstrip("/")
         return f"{base}/api/v1/payments/webhook/tara/"
+
+    def _return_url(self) -> str:
+        """URL de retour après checkout Tara — page vitrine qui affiche un
+        statut au membre. Le webhook arrive en parallèle côté backend.
+        """
+        base = getattr(settings, "PUBLIC_BASE_URL", "").rstrip("/")
+        # On pointe vers la racine — le navigateur revient en mode "Paiement
+        # terminé" simple. À termes une page /payment-return/<id>/ pourrait
+        # surfacer plus de détails au membre.
+        return f"{base}/"
 
     def _post(self, path: str, payload: dict) -> dict:
         try:
