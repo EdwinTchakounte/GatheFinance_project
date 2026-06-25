@@ -770,35 +770,40 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
         children: [
           const _Grabber(),
           const SizedBox(height: 28),
+          // Le paiement N'EST PAS validé tant que le membre n'a pas confirmé
+          // avec son PIN MoMo sur la page Tara. On affiche donc un état
+          // "en cours" et pas une coche verte qui mentirait sur l'état réel.
           ScaleTransition(
             scale: CurvedAnimation(parent: _checkCtrl, curve: Curves.elasticOut),
             child: Container(
               width: 76,
               height: 76,
-              decoration: const BoxDecoration(
-                color: PaColors.successSurface,
+              decoration: BoxDecoration(
+                color: PaColors.teal.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
               child: const Icon(
-                Icons.check_rounded,
-                color: PaColors.success,
-                size: 40,
+                Icons.open_in_new_rounded,
+                color: PaColors.teal,
+                size: 38,
               ),
             ),
           ),
           const SizedBox(height: 20),
-          Text(
-            l.dep_done_title,
-            style: const TextStyle(
+          const Text(
+            'Paiement en cours',
+            style: TextStyle(
               color: PaColors.inkPrimary,
               fontSize: 21,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
-            l.dep_done_body(XAFFormatter.format(_committedAmount ?? 0)),
+            'Termine la transaction de ${XAFFormatter.format(_committedAmount ?? 0)} '
+            'sur la page Tara qui vient de s\'ouvrir. '
+            'Ton solde sera mis à jour ici dès la confirmation du paiement.',
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: PaColors.inkMuted,

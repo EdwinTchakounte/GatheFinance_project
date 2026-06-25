@@ -34,7 +34,20 @@ class TaraCheckoutLauncher {
       return false;
     }
     try {
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      // PRIORITÉ : Chrome Custom Tab / SFSafariViewController in-app.
+      // Évite que Android dispatche vers l'app Dikalo (deep link sur dklo.co)
+      // et garde l'utilisateur dans Gathé Finance (overlay navigateur, pas un
+      // saut hors-app). Fallback `externalApplication` si le device n'a pas
+      // de Custom Tab disponible.
+      var ok = false;
+      try {
+        ok = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      } catch (_) {
+        ok = false;
+      }
+      if (!ok) {
+        ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
       developer.log('[TaraCheckout] launched $url → $ok', name: 'tara');
       return ok;
     } catch (e, st) {
