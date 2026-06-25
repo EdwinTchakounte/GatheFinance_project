@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, X, Mail, Phone, MapPin } from "lucide-react";
+import { Check, X, Mail, Phone, MapPin, Eye, FileText } from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
 
@@ -27,6 +27,7 @@ function Inner() {
   // Modal state
   const [approveTarget, setApproveTarget] = useState<MembershipRequest | null>(null);
   const [rejectTarget, setRejectTarget] = useState<MembershipRequest | null>(null);
+  const [detailTarget, setDetailTarget] = useState<MembershipRequest | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -183,30 +184,38 @@ function Inner() {
                     ) : null}
                   </td>
                   <td className="text-right">
-                    {r.statut === "en_attente" ? (
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setApproveTarget(r)}
-                          disabled={actingId === r.id}
-                          className={buttonClasses({ variant: "success", size: "sm" })}
-                        >
-                          <Check className="size-3.5" aria-hidden="true" />
-                          Approuver
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setRejectTarget(r)}
-                          disabled={actingId === r.id}
-                          className={buttonClasses({ variant: "ghost", size: "sm" })}
-                        >
-                          <X className="size-3.5" aria-hidden="true" />
-                          Rejeter
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-ink-400">—</span>
-                    )}
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDetailTarget(r)}
+                        className={buttonClasses({ variant: "ghost", size: "sm" })}
+                      >
+                        <Eye className="size-3.5" aria-hidden="true" />
+                        Détail
+                      </button>
+                      {r.statut === "en_attente" ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setApproveTarget(r)}
+                            disabled={actingId === r.id}
+                            className={buttonClasses({ variant: "success", size: "sm" })}
+                          >
+                            <Check className="size-3.5" aria-hidden="true" />
+                            Approuver
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRejectTarget(r)}
+                            disabled={actingId === r.id}
+                            className={buttonClasses({ variant: "ghost", size: "sm" })}
+                          >
+                            <X className="size-3.5" aria-hidden="true" />
+                            Rejeter
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -226,6 +235,10 @@ function Inner() {
         onClose={() => setRejectTarget(null)}
         onSubmit={submitReject}
         submitting={actingId !== null}
+      />
+      <DetailMembershipModal
+        target={detailTarget}
+        onClose={() => setDetailTarget(null)}
       />
     </div>
   );
@@ -382,5 +395,163 @@ function RejectMembershipModal({
         />
       </ModalField>
     </Modal>
+  );
+}
+
+
+function DetailMembershipModal({
+  target,
+  onClose,
+}: {
+  target: MembershipRequest | null;
+  onClose: () => void;
+}) {
+  if (!target) return null;
+  const t = target;
+
+  return (
+    <Modal
+      open={!!target}
+      onClose={onClose}
+      title={`Demande #${t.id} . ${t.prenom} ${t.nom}`}
+      description="Vue complete des informations soumises par le demandeur."
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className={buttonClasses({ variant: "ghost", size: "md" })}
+        >
+          Fermer
+        </button>
+      }
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Email">{t.email || "."}</Field>
+        <Field label="Telephone">{t.phone || "."}</Field>
+        <Field label="WhatsApp">{t.whatsapp || "."}</Field>
+        <Field label="Statut pro">{t.statut_pro || "."}</Field>
+        <Field label="Ville">{t.city || "."}</Field>
+        <Field label="Quartier / localite">{t.quartier_localite || "."}</Field>
+      </div>
+
+      <div className="mt-5 rounded-md border border-line-200 bg-cream/50 p-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-700">
+          Contact d'urgence
+        </h4>
+        <div className="mt-2 grid gap-3 sm:grid-cols-3">
+          <Field label="Nom">{t.urgence_nom || "."}</Field>
+          <Field label="Lien">{t.urgence_lien || "."}</Field>
+          <Field label="Telephone">{t.urgence_phone || "."}</Field>
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-700">
+          Motivation
+        </h4>
+        <p className="mt-2 whitespace-pre-wrap text-sm text-ink-800">
+          {t.motivation || <em className="text-ink-400">non renseignee</em>}
+        </p>
+      </div>
+
+      <div className="mt-5">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-700">
+          Documents soumis
+        </h4>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+          <DocCard label="CNI recto" url={t.cni_recto_url} />
+          <DocCard label="CNI verso" url={t.cni_verso_url} />
+          <DocCard label="Photo identite" url={t.photo_identite_url} />
+          <DocCard label="Plan de localisation" url={t.plan_localisation_url} />
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-md border border-line-200 bg-cream/50 p-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-700">
+          Entretien d'admission (Art. 3)
+        </h4>
+        {t.date_entretien ? (
+          <div className="mt-2 space-y-1.5 text-sm">
+            <p>
+              <span className="text-ink-500">Date :</span>{" "}
+              <span className="text-ink-900">
+                {new Date(t.date_entretien).toLocaleDateString("fr-FR", {
+                  day: "2-digit", month: "long", year: "numeric",
+                })}
+              </span>
+            </p>
+            <p>
+              <span className="text-ink-500">Issue :</span>{" "}
+              <span
+                className={
+                  t.entretien_favorable
+                    ? "font-semibold text-emerald"
+                    : "font-semibold text-terra-700"
+                }
+              >
+                {t.entretien_favorable ? "favorable" : "defavorable"}
+              </span>
+            </p>
+            {t.entretien_avis ? (
+              <p className="rounded bg-paper px-3 py-2 text-xs text-ink-700">
+                <span className="font-semibold text-ink-900">Avis : </span>
+                {t.entretien_avis}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-2 text-xs italic text-ink-500">
+            Pas encore tenu . l'approbation est bloquee tant que l'entretien
+            n'est pas enregistre.
+          </p>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[0.65rem] font-mono uppercase tracking-wider text-ink-500">{label}</p>
+      <p className="mt-0.5 break-all text-sm text-ink-900">{children}</p>
+    </div>
+  );
+}
+
+
+function DocCard({ label, url }: { label: string; url: string | null }) {
+  if (!url) {
+    return (
+      <div className="flex items-center justify-between rounded-md border border-dashed border-line-200 bg-paper/50 px-3 py-2.5">
+        <span className="text-xs text-ink-500">{label}</span>
+        <span className="text-[0.65rem] uppercase text-ink-400">non soumis</span>
+      </div>
+    );
+  }
+  const isImage = /\.(jpe?g|png|webp|gif)(\?|$)/i.test(url);
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex items-center gap-3 rounded-md border border-line-200 bg-paper p-2.5 transition-colors hover:border-blue-700 hover:bg-blue-50/40"
+    >
+      {isImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt={label} className="size-14 rounded object-cover" />
+      ) : (
+        <span className="flex size-14 items-center justify-center rounded bg-blue-50 text-blue-700">
+          <FileText className="size-6" />
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-ink-900">{label}</p>
+        <p className="truncate text-xs text-blue-700 group-hover:underline">
+          Ouvrir le fichier
+        </p>
+      </div>
+    </a>
   );
 }

@@ -152,8 +152,23 @@ export type MembershipRequest = {
   prenom: string;
   email: string;
   phone: string;
+  whatsapp: string;
   city: string;
+  quartier_localite: string;
+  statut_pro: string;
+  urgence_nom: string;
+  urgence_lien: string;
+  urgence_phone: string;
   motivation: string;
+  // 4 documents soumis a l'inscription (FileFields cote backend).
+  cni_recto_url: string | null;
+  cni_verso_url: string | null;
+  plan_localisation_url: string | null;
+  photo_identite_url: string | null;
+  // Entretien Art. 3 (X1) . conditionne l'approbation.
+  date_entretien: string | null;
+  entretien_avis: string;
+  entretien_favorable: boolean | null;
   statut: "en_attente" | "approuvee" | "rejetee";
   statut_display: string;
   motif_rejet: string;
