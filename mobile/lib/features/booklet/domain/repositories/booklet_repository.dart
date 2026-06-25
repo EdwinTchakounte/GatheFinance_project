@@ -8,5 +8,6 @@ abstract class BookletRepository {
   Future<BookletOrder> order({
     required String phone,
     required String network,
+    int? montant,
   });
 }

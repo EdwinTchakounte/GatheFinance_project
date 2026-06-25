@@ -7,9 +7,14 @@ import '../repositories/booklet_repository.dart';
 
 @immutable
 class OrderBookletParams {
-  const OrderBookletParams({required this.phone, required this.network});
+  const OrderBookletParams({
+    required this.phone,
+    required this.network,
+    this.montant,
+  });
   final String phone;
   final String network;
+  final int? montant;
 }
 
 class OrderBooklet extends UseCase<BookletOrder, OrderBookletParams> {
@@ -25,6 +30,10 @@ class OrderBooklet extends UseCase<BookletOrder, OrderBookletParams> {
         field: 'phone',
       );
     }
-    return _repo.order(phone: params.phone, network: params.network);
+    return _repo.order(
+      phone: params.phone,
+      network: params.network,
+      montant: params.montant,
+    );
   }
 }

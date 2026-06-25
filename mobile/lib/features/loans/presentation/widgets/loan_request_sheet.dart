@@ -118,9 +118,9 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   final _phoneCtrl = TextEditingController();
   // CH-7 — Numéro Mobile Money pour régler les frais d'étude.
   final _feePhoneCtrl = TextEditingController();
+  // TODO: REMOVE_FOR_PROD — montant éditable pour tester STK Push à 100 XAF.
+  final _feeAmountCtrl = TextEditingController(text: '100');
   LoanReceiveChannel _canal = LoanReceiveChannel.taraMomo;
-  // CH-7 — Réseau choisi pour le paiement des frais ('mtn' | 'orange').
-  String _feeNetwork = 'mtn';
   LoanRequestSubmission? _submission;
 
   // CH-5 — Valeurs des champs supplémentaires du FormSchema actif. Le
@@ -171,6 +171,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     _motifCtrl.dispose();
     _phoneCtrl.dispose();
     _feePhoneCtrl.dispose();
+    _feeAmountCtrl.dispose();
     _avalisteNumeroCtrl.dispose();
     _avalisteNomCtrl.dispose();
     _checkCtrl.dispose();
@@ -327,7 +328,6 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       // on laisse vide pour que le membre choisisse.
       if (needsPhone && _feePhoneCtrl.text.isEmpty) {
         _feePhoneCtrl.text = phone;
-        _feeNetwork = _canal == LoanReceiveChannel.taraOm ? 'orange' : 'mtn';
       }
       setState(() {
         _submission = submission;
@@ -372,6 +372,8 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   }
 
   /// CH-7 — Lance le paiement des frais d'étude via Mobile Money.
+  /// Tara détecte automatiquement le réseau (MTN/Orange) via le préfixe du
+  /// téléphone — pas besoin de sélecteur opérateur côté UI.
   Future<void> _payStudyFee() async {
     final phone = _feePhoneCtrl.text.trim();
     if (phone.length < 9) {
@@ -382,12 +384,20 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
+    final amount = int.tryParse(_feeAmountCtrl.text.trim());
+    if (amount == null || amount < 100) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Montant min : 100 XAF.')),
+      );
+      return;
+    }
     HapticFeedback.mediumImpact();
     setState(() => _step = _Step.payLoading);
     try {
       await ref.read(loanRequestsProvider.notifier).payStudyFee(
             phone: phone,
-            network: _feeNetwork,
+            network: '',
+            montant: amount,
           );
       if (!mounted) return;
       setState(() => _step = _Step.paySuccess);
@@ -978,31 +988,6 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 ),
               ),
             const SizedBox(height: AppSpacing.l),
-
-            // Sélecteur réseau MTN / Orange.
-            Text('Opérateur', style: AppTypography.labelMedium),
-            const SizedBox(height: AppSpacing.s),
-            Row(
-              children: [
-                Expanded(
-                  child: _NetworkChip(
-                    label: 'MTN Mobile Money',
-                    selected: _feeNetwork == 'mtn',
-                    onTap: () => setState(() => _feeNetwork = 'mtn'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _NetworkChip(
-                    label: 'Orange Money',
-                    selected: _feeNetwork == 'orange',
-                    onTap: () => setState(() => _feeNetwork = 'orange'),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: AppSpacing.l),
             Text('Numéro Mobile Money', style: AppTypography.labelMedium),
             const SizedBox(height: AppSpacing.s),
             TextFormField(
@@ -1012,6 +997,23 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
               decoration: const InputDecoration(
                 hintText: '+237 6XX XX XX XX',
                 prefixIcon: Icon(Icons.phone_iphone_rounded, size: 20),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+            ),
+
+            // TODO: REMOVE_FOR_PROD — montant éditable mode test.
+            const SizedBox(height: AppSpacing.l),
+            Text('Montant (XAF) — mode test',
+                style: AppTypography.labelMedium,),
+            const SizedBox(height: AppSpacing.s),
+            TextFormField(
+              controller: _feeAmountCtrl,
+              keyboardType: TextInputType.number,
+              style: AppTypography.bodyLarge,
+              decoration: const InputDecoration(
+                hintText: '100',
+                suffixText: 'XAF',
                 contentPadding:
                     EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
@@ -1186,51 +1188,6 @@ class _StudyFeeCard extends StatelessWidget {
     );
   }
 }
-
-/// CH-7 — Pastille MTN / Orange pour le paiement des frais d'étude.
-class _NetworkChip extends StatelessWidget {
-  const _NetworkChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? PaColors.navy : PaColors.cardBg,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 44,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? PaColors.navy : PaColors.line,
-              width: 1,
-            ),
-          ),
-          child: Text(
-            label,
-            style: AppTypography.labelMedium.copyWith(
-              color: selected ? Colors.white : PaColors.inkSecondary,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 
 class _Grabber extends StatelessWidget {
   const _Grabber();

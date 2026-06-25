@@ -35,20 +35,23 @@ class BookletDioDataSource implements BookletRemoteDataSource {
   Future<BookletOrder> order({
     required String phone,
     required String network,
+    int? montant,
   }) async {
     try {
-      // Le carnet coûte les `frais_carnet` (cf. /payments/fees/) — le montant
-      // est connu côté serveur, le client ne le devine pas. Le webhook Tara
-      // créera le BookletOrder à validation du paiement.
+      // TODO: REMOVE_FOR_PROD — mode test : 100 XAF par défaut, override possible.
+      // En prod normal, le tarif `frais_carnet` (1 000 XAF) est fixé côté backend
+      // via FeeType. Le webhook Tara créera le BookletOrder à validation.
       final response = await _dio.post<Map<String, dynamic>>(
         '/payments/init/',
         data: {
           'type': 'frais_carnet',
-          'montant': 0, // ignoré : le backend pioche dans FeeType
+          'montant': montant ?? 1000,
           'phone': phone,
           'network': network,
         },
       );
+      // Stocke vendor/status Tara pour le success step.
+      LastTaraResponse.update(response.data);
       // Ouvre la page de paiement Tara pour que le membre confirme avec PIN MoMo.
       await TaraCheckoutLauncher.launchFromInitResponse(response.data);
       final orders = await myOrders();

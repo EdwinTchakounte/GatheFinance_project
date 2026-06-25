@@ -32,6 +32,7 @@ abstract class LoansRemoteDataSource {
   Future<void> payStudyFee({
     required String phone,
     required String network,
+    int? montant,
   });
 
   /// CH-5 — Récupère le FormSchema actif pour le formulaire de demande.

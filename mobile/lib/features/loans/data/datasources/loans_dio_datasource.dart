@@ -257,20 +257,23 @@ class LoansDioDataSource implements LoansRemoteDataSource {
   Future<void> payStudyFee({
     required String phone,
     required String network,
+    int? montant,
   }) async {
     try {
-      // CH-7 — Le backend pioche le montant dans FeeType.DEMANDE_CREDIT et
-      // identifie la LoanRequest cible par le membre (en_attente). Le hook
+      // CH-7 — Le backend pioche normalement le montant dans FeeType.DEMANDE_CREDIT
+      // et identifie la LoanRequest cible par le membre (en_attente). Le hook
       // `_hook_loan_request_fees` la promeut en `en_instruction` à validation.
+      // TODO: REMOVE_FOR_PROD — montant éditable pour tester STK Push à 100 XAF.
       final response = await _dio.post<Map<String, dynamic>>(
         '/payments/init/',
         data: {
           'type': 'frais_demande_credit',
-          'montant': 0,
+          'montant': montant ?? 0,
           'phone': phone,
           'network': network,
         },
       );
+      LastTaraResponse.update(response.data);
       await TaraCheckoutLauncher.launchFromInitResponse(response.data);
     } on DioException catch (e) {
       throw mapDioError(e);

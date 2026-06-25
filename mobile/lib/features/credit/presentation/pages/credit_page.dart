@@ -738,12 +738,14 @@ class _StudyFeePaySheet extends ConsumerStatefulWidget {
 
 class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
   final _phoneCtrl = TextEditingController();
-  String _network = 'mtn';
+  // TODO: REMOVE_FOR_PROD — montant éditable pour tester STK Push à 100 XAF.
+  final _amountCtrl = TextEditingController(text: '100');
   bool _loading = false;
 
   @override
   void dispose() {
     _phoneCtrl.dispose();
+    _amountCtrl.dispose();
     super.dispose();
   }
 
@@ -757,12 +759,20 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
       );
       return;
     }
+    final amount = int.tryParse(_amountCtrl.text.trim());
+    if (amount == null || amount < 100) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Montant min : 100 XAF.')),
+      );
+      return;
+    }
     HapticFeedback.mediumImpact();
     setState(() => _loading = true);
     try {
       await ref.read(loanRequestsProvider.notifier).payStudyFee(
             phone: phone,
-            network: _network,
+            network: '',
+            montant: amount,
           );
       if (!mounted) return;
       HapticFeedback.heavyImpact();
@@ -827,32 +837,6 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text('Opérateur',
-                  style: TextStyle(
-                      color: PaColors.inkSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,),),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _MoneyNetworkChip(
-                      label: 'MTN Mobile Money',
-                      selected: _network == 'mtn',
-                      onTap: () => setState(() => _network = 'mtn'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _MoneyNetworkChip(
-                      label: 'Orange Money',
-                      selected: _network == 'orange',
-                      onTap: () => setState(() => _network = 'orange'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
               const Text('Numéro Mobile Money',
                   style: TextStyle(
                       color: PaColors.inkSecondary,
@@ -865,6 +849,24 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                 decoration: const InputDecoration(
                   hintText: '+237 6XX XX XX XX',
                   prefixIcon: Icon(Icons.phone_iphone_rounded, size: 20),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // TODO: REMOVE_FOR_PROD — montant éditable mode test.
+              const Text('Montant (XAF) — mode test',
+                  style: TextStyle(
+                      color: PaColors.inkSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,),),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _amountCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  hintText: '100',
+                  suffixText: 'XAF',
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
@@ -905,50 +907,6 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
     );
   }
 }
-
-class _MoneyNetworkChip extends StatelessWidget {
-  const _MoneyNetworkChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? PaColors.navy : PaColors.cardBg,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 44,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? PaColors.navy : PaColors.line,
-              width: 1,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? Colors.white : PaColors.inkSecondary,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 
 // ───────────────────────────────────────────────────────────────────────────
 // Empty state — pas de crédit actif

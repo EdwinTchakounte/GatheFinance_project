@@ -19,10 +19,11 @@ class BookletNotifier extends AsyncNotifier<List<BookletOrder>> {
   Future<BookletOrder> order({
     required String phone,
     required String network,
+    int? montant,
   }) async {
     final useCase = ref.read(orderBookletUseCaseProvider);
     final created = await useCase.call(
-      OrderBookletParams(phone: phone, network: network),
+      OrderBookletParams(phone: phone, network: network, montant: montant),
     );
     await refresh();
     return created;

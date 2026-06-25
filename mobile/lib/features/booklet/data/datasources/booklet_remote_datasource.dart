@@ -6,5 +6,6 @@ abstract class BookletRemoteDataSource {
   Future<BookletOrder> order({
     required String phone,
     required String network,
+    int? montant,
   });
 }

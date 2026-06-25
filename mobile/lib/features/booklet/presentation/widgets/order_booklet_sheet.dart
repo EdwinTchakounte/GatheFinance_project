@@ -6,12 +6,12 @@ import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
+import '../../../../core/services/tara_checkout_launcher.dart';
 import '../../../../core/widgets/brand_loader.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../state/booklet_notifier.dart';
 
-enum _Network { mtn, orange }
 enum _Step { form, loading, success }
 
 class OrderBookletSheet extends ConsumerStatefulWidget {
@@ -38,8 +38,10 @@ class OrderBookletSheet extends ConsumerStatefulWidget {
 class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _phoneCtrl = TextEditingController(text: '699 11 22 33');
-  _Network _network = _Network.mtn;
+  final _phoneCtrl = TextEditingController();
+  // TODO: REMOVE_FOR_PROD — montant éditable pour tester STK Push à 100 XAF.
+  // En prod, le backend pioche le tarif dans FeeType (carnet = 1 000 XAF).
+  final _amountCtrl = TextEditingController(text: '100');
   _Step _step = _Step.form;
   late final AnimationController _checkCtrl;
 
@@ -55,6 +57,7 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
   @override
   void dispose() {
     _phoneCtrl.dispose();
+    _amountCtrl.dispose();
     _checkCtrl.dispose();
     super.dispose();
   }
@@ -64,9 +67,11 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
     HapticFeedback.mediumImpact();
     setState(() => _step = _Step.loading);
     try {
+      final amount = int.tryParse(_amountCtrl.text.trim()) ?? 1000;
       await ref.read(bookletProvider.notifier).order(
             phone: _phoneCtrl.text,
-            network: _network == _Network.mtn ? 'MTN' : 'ORANGE',
+            network: '',
+            montant: amount,
           );
       if (!mounted) return;
       setState(() => _step = _Step.success);
@@ -126,25 +131,6 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
             ),
             const SizedBox(height: AppSpacing.xl),
 
-            Text(l.rep_operator_mm, style: AppTypography.labelMedium),
-            const SizedBox(height: AppSpacing.s),
-            Row(
-              children: [
-                for (final n in _Network.values) ...[
-                  Expanded(
-                    child: _NetworkChip(
-                      network: n,
-                      selected: _network == n,
-                      onTap: () => setState(() => _network = n),
-                    ),
-                  ),
-                  if (n != _Network.values.last) const SizedBox(width: 8),
-                ],
-              ],
-            ),
-
-            const SizedBox(height: AppSpacing.l),
-
             Text(l.common_number, style: AppTypography.labelMedium),
             const SizedBox(height: AppSpacing.s),
             TextFormField(
@@ -166,6 +152,26 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
               validator: (v) {
                 final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
                 if (digits.length < 8) return l.err_number_incomplete;
+                return null;
+              },
+            ),
+
+            const SizedBox(height: AppSpacing.l),
+
+            // TODO: REMOVE_FOR_PROD — montant éditable mode test.
+            Text('Montant (XAF) — mode test', style: AppTypography.labelMedium),
+            const SizedBox(height: AppSpacing.s),
+            TextFormField(
+              controller: _amountCtrl,
+              keyboardType: TextInputType.number,
+              style: AppTypography.bodyLarge,
+              decoration: const InputDecoration(
+                hintText: '100',
+                suffixText: 'XAF',
+              ),
+              validator: (v) {
+                final n = int.tryParse((v ?? '').trim());
+                if (n == null || n < 100) return 'Montant min : 100 XAF.';
                 return null;
               },
             ),
@@ -209,7 +215,6 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
 
   Widget _loading() {
     final l = AppL10n.of(context);
-    final netLabel = _network == _Network.mtn ? 'MTN Mobile Money' : 'Orange Money';
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
       child: Column(
@@ -220,13 +225,13 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
           const BrandLoader(size: BrandLoaderSize.large),
           const SizedBox(height: 24),
           Text(
-            l.bko_waiting_body(netLabel),
+            l.bko_waiting_body('Mobile Money'),
             style: AppTypography.headingSmall,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
-            'pour valider 1 000 XAF.',
+            'Tara confirme la transaction…',
             style: AppTypography.bodyMedium.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
           ),
         ],
@@ -274,6 +279,46 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
               height: 1.45,
             ),
           ),
+          if (LastTaraResponse.vendor != null || LastTaraResponse.status != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: PaColors.teal.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (LastTaraResponse.prettyVendor != null)
+                    Row(
+                      children: [
+                        const Icon(Icons.check_circle_outline_rounded,
+                            size: 16, color: PaColors.teal,),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Confirmé : ${LastTaraResponse.prettyVendor}',
+                          style: AppTypography.labelMedium.copyWith(
+                            color: PaColors.teal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  if (LastTaraResponse.message != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Statut Tara : ${LastTaraResponse.status} '
+                      '(${LastTaraResponse.message})',
+                      style: AppTypography.bodySmall.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface
+                            .withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           PaButton(
             label: l.common_understood,
@@ -298,66 +343,6 @@ class _Grabber extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.outline,
           borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
-}
-
-
-class _NetworkChip extends StatelessWidget {
-  const _NetworkChip({
-    required this.network,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final _Network network;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = network == _Network.mtn
-        ? const Color(0xFFFFCC00)
-        : const Color(0xFFFF7900);
-    final label = network == _Network.mtn ? 'MTN Mobile Money' : 'Orange Money';
-    return InkWell(
-      onTap: onTap,
-      borderRadius: const BorderRadius.all(AppRadii.r16),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.all(AppRadii.r16),
-          border: Border.all(
-            color: selected ? PaColors.teal : Theme.of(context).colorScheme.outline,
-            width: selected ? 1.8 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: accent,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                style: AppTypography.labelMedium,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (selected)
-              const Icon(Icons.check_circle_rounded,
-                  size: 18, color: PaColors.teal,),
-          ],
         ),
       ),
     );

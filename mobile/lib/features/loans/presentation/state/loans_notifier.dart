@@ -134,10 +134,15 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>> {
   Future<void> payStudyFee({
     required String phone,
     required String network,
+    int? montant,
   }) async {
     final useCase = ref.read(payLoanRequestStudyFeeUseCaseProvider);
     await useCase.call(
-      PayLoanRequestStudyFeeParams(phone: phone, network: network),
+      PayLoanRequestStudyFeeParams(
+        phone: phone,
+        network: network,
+        montant: montant,
+      ),
     );
     await refresh();
   }

@@ -63,8 +63,13 @@ class LoansRepositoryImpl implements LoansRepository {
   Future<void> payStudyFee({
     required String phone,
     required String network,
+    int? montant,
   }) =>
-      _run(() => _remote.payStudyFee(phone: phone, network: network));
+      _run(() => _remote.payStudyFee(
+            phone: phone,
+            network: network,
+            montant: montant,
+          ),);
 
   @override
   Future<FormSchema?> getActiveLoanRequestSchema() =>

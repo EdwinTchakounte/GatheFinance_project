@@ -9,23 +9,24 @@ class PayLoanRequestStudyFeeParams {
   const PayLoanRequestStudyFeeParams({
     required this.phone,
     required this.network,
+    this.montant,
   });
 
   final String phone;
   final String network;
+  final int? montant;
 }
 
 /// CH-7 — Règle les frais d'étude d'une demande EN_ATTENTE via Mobile Money.
 ///
-/// Validation locale du numéro (≥ 9 chiffres) et du réseau (`mtn` / `orange`).
+/// Validation locale du numéro (≥ 9 chiffres). Le réseau est laissé vide :
+/// Tara détecte automatiquement MTN/Orange via le préfixe du téléphone.
 /// Le backend identifie la LoanRequest cible par le membre courant — pas
 /// besoin de transmettre l'identifiant de la demande.
 class PayLoanRequestStudyFee
     extends UseCase<void, PayLoanRequestStudyFeeParams> {
   const PayLoanRequestStudyFee(this._repo);
   final LoansRepository _repo;
-
-  static const Set<String> _networks = {'mtn', 'orange'};
 
   @override
   Future<void> call(PayLoanRequestStudyFeeParams params) async {
@@ -36,13 +37,10 @@ class PayLoanRequestStudyFee
         field: 'phone',
       );
     }
-    final network = params.network.trim().toLowerCase();
-    if (!_networks.contains(network)) {
-      throw const ValidationFailure(
-        'Réseau invalide — choisir MTN ou Orange.',
-        field: 'network',
-      );
-    }
-    await _repo.payStudyFee(phone: phone, network: network);
+    await _repo.payStudyFee(
+      phone: phone,
+      network: params.network,
+      montant: params.montant,
+    );
   }
 }

@@ -27,6 +27,11 @@ class BookletRepositoryImpl implements BookletRepository {
   Future<BookletOrder> order({
     required String phone,
     required String network,
+    int? montant,
   }) =>
-      _run(() => _remote.order(phone: phone, network: network));
+      _run(() => _remote.order(
+            phone: phone,
+            network: network,
+            montant: montant,
+          ),);
 }

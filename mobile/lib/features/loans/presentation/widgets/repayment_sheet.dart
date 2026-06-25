@@ -13,7 +13,6 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/loan.dart';
 import '../state/loans_notifier.dart';
 
-enum _Network { mtn, orange }
 enum _Step { form, loading, success }
 
 /// Modale de remboursement échéance — 3 étapes (form → loader → success).
@@ -46,8 +45,7 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountCtrl;
-  final _phoneCtrl = TextEditingController(text: '699 11 22 33');
-  _Network _network = _Network.mtn;
+  final _phoneCtrl = TextEditingController();
   _Step _step = _Step.form;
   late final AnimationController _checkCtrl;
   num? _commited;
@@ -86,7 +84,7 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
             loanId: widget.loan.id,
             montant: amount,
             phone: _phoneCtrl.text,
-            network: _network == _Network.mtn ? 'MTN' : 'ORANGE',
+            network: '',
           );
       if (!mounted) return;
       setState(() => _step = _Step.success);
@@ -244,25 +242,6 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
 
             const SizedBox(height: AppSpacing.l),
 
-            Text(l.rep_operator_mm, style: AppTypography.labelMedium),
-            const SizedBox(height: AppSpacing.s),
-            Row(
-              children: [
-                for (final n in _Network.values) ...[
-                  Expanded(
-                    child: _NetworkChip(
-                      network: n,
-                      selected: _network == n,
-                      onTap: () => setState(() => _network = n),
-                    ),
-                  ),
-                  if (n != _Network.values.last) const SizedBox(width: 8),
-                ],
-              ],
-            ),
-
-            const SizedBox(height: AppSpacing.l),
-
             Text(l.common_number, style: AppTypography.labelMedium),
             const SizedBox(height: AppSpacing.s),
             TextFormField(
@@ -300,8 +279,7 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
 
   Widget _loadingStep() {
     final l = AppL10n.of(context);
-    final netLabel =
-        _network == _Network.mtn ? 'MTN Mobile Money' : 'Orange Money';
+    const netLabel = 'Mobile Money';
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
       child: Column(
@@ -401,62 +379,3 @@ class _Grabber extends StatelessWidget {
 }
 
 
-class _NetworkChip extends StatelessWidget {
-  const _NetworkChip({
-    required this.network,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final _Network network;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = network == _Network.mtn
-        ? const Color(0xFFFFCC00)
-        : const Color(0xFFFF7900);
-    final label = network == _Network.mtn ? 'MTN Mobile Money' : 'Orange Money';
-    return InkWell(
-      onTap: onTap,
-      borderRadius: const BorderRadius.all(AppRadii.r16),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.all(AppRadii.r16),
-          border: Border.all(
-            color: selected ? PaColors.teal : Theme.of(context).colorScheme.outline,
-            width: selected ? 1.8 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: accent,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                style: AppTypography.labelMedium,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (selected)
-              const Icon(Icons.check_circle_rounded,
-                  size: 18, color: PaColors.teal,),
-          ],
-        ),
-      ),
-    );
-  }
-}
