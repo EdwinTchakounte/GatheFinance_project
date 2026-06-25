@@ -5,12 +5,19 @@ Endpoints staff pour l'admin Next.js — édition du catalogue AppSettings
 """
 from django.urls import path
 
-from . import admin_views, cron_admin_views, log_admin_views
+from . import admin_views, coop_documents_views, cron_admin_views, log_admin_views
 
 
 app_name = "coop_audit"
 
 urlpatterns = [
+    # Documents officiels de la cooperative (PDF reglement + specimen carnet)
+    # — endpoint public, lu par l'app mobile sur la page Commander carnet.
+    path(
+        "coop-documents/",
+        coop_documents_views.coop_documents,
+        name="coop-documents",
+    ),
     # Journal d'audit (consultation centralisee de toutes les actions tracees).
     path(
         "admin/logs/",

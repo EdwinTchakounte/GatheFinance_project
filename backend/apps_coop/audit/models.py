@@ -88,6 +88,27 @@ class CooperativeAsset(TimestampedModel):
     )
     reglement_uploaded_at = models.DateTimeField(null=True, blank=True)
 
+    # Spécimen de carnet (PDF) — affiché en téléchargement sur la page
+    # "Commander mon carnet" pour que le membre voie à quoi ressemble le
+    # carnet avant de payer les frais.
+    carnet_specimen = models.FileField(
+        upload_to="coop/assets/",
+        null=True,
+        blank=True,
+        help_text=(
+            "PDF spécimen du carnet de cotisations — affiché sur la page "
+            "Commander carnet (mobile + portail) pour pré-visualisation."
+        ),
+    )
+    carnet_specimen_uploaded_by = models.ForeignKey(
+        "auth.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    carnet_specimen_uploaded_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         verbose_name = "Asset coopérative"
         verbose_name_plural = "Assets coopérative"
