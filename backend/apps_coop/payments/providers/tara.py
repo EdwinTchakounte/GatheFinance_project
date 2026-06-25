@@ -101,9 +101,13 @@ class TaraProvider(PaymentProviderBase):
             "productName": product_name,
             "productPrice": int(payment.montant),  # Tara veut un int en XAF
             "productDescription": f"Paiement {product_name} — Gathé Finance",
-            # Numero MoMo du membre — requis pour les tests Tara (sandbox).
-            # Format normalisé +237xxxxxxxx (voir _normalize_phone).
+            # Numero MoMo du membre — format Tara : 2376xxxxxxx (sans +).
+            # `_normalize_phone` retire le `+` et tout caractere non-digit.
             "phoneNumber": self._normalize_phone(phone),
+            # Champ "network" present dans la doc Tara : on laisse vide,
+            # Tara detecte le reseau a partir du prefixe du phoneNumber.
+            # Si le caller passe une valeur (MTN/ORANGE/...), on l'utilise.
+            "network": (network or "").upper(),
             "returnUrl": self._return_url(),
             "webHookUrl": self._webhook_url(),
         }
