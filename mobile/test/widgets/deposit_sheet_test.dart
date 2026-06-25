@@ -152,8 +152,10 @@ void main() {
 
     // Le datasource a été appelé exactement une fois
     expect(ds.depositCalls, 1);
-    // Étape success affichée
-    expect(find.text('Versement confirmé'), findsOneWidget);
+    // Étape "en cours" affichée (le paiement Tara n'est pas encore validé
+    // côté backend tant que le membre n'a pas tapé son PIN MoMo sur la page
+    // Tara — on affiche donc "Paiement en cours" et pas "confirmé").
+    expect(find.text('Paiement en cours'), findsOneWidget);
     expect(find.text('Terminé'), findsOneWidget);
   });
 }
