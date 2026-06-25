@@ -136,6 +136,8 @@ def init_payment(request):
     # LOT 6 (refonte 2026) — multi-jours pré-payé sur la collecte journalière.
     # On valide ici car la sérialisation n'a pas accès aux AppSettings.
     nb_jours = data.get("nb_jours_couverts", 1) or 1
+    # TODO: REMOVE_FOR_PROD — bypass montant pour tester STK Push réel.
+    _test_any_amount = getattr(settings, "PAYMENTS_TEST_ALLOW_ANY_AMOUNT", False)
     if data["type"] == Payment.Type.EPARGNE and nb_jours != 1:
         from apps_coop.audit.services import get_int_setting
 
@@ -152,7 +154,7 @@ def init_payment(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         expected = nb_jours * min_per_day
-        if data["montant"] != expected:
+        if not _test_any_amount and data["montant"] != expected:
             return Response(
                 {
                     "detail": (
@@ -185,12 +187,17 @@ def init_payment(request):
                 {"detail": "L'épargne classique n'est pas ouverte aux dépôts pour le moment."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if data["montant"] < cfg.depot_min:
+        # TODO: REMOVE_FOR_PROD — bypass min/max pour tester STK Push réel.
+        if not _test_any_amount and data["montant"] < cfg.depot_min:
             return Response(
                 {"detail": f"Dépôt minimum : {int(cfg.depot_min)} XAF."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if cfg.depot_max is not None and data["montant"] > cfg.depot_max:
+        if (
+            not _test_any_amount
+            and cfg.depot_max is not None
+            and data["montant"] > cfg.depot_max
+        ):
             return Response(
                 {"detail": f"Dépôt maximum : {int(cfg.depot_max)} XAF."},
                 status=status.HTTP_400_BAD_REQUEST,

@@ -63,6 +63,18 @@ TARA_WEBHOOK_SECRET = env("TARA_WEBHOOK_SECRET", default="")
 # sur les environnements de recette/staging.
 PAYMENTS_TEST_AUTO_VALIDATE = env.bool("PAYMENTS_TEST_AUTO_VALIDATE", default=False)
 
+# Mode test STK Push réel — autorise un montant arbitraire (>= 100 XAF) pour
+# tester les pop-ups MTN/Orange depuis le mobile sans payer le tarif réel
+# (1000 XAF carnet, frais d'étude variables, dépôts épargne classique mini, etc.).
+# Quand True :
+#   • cfg.depot_min / depot_max épargne classique → bypass
+#   • cotisation multi-jours `nb_jours * min_per_day` → bypass
+# Le serializer impose toujours `montant >= 100`. À NE JAMAIS activer en prod.
+# TODO: REMOVE_FOR_PROD — flag temporaire période de test.
+PAYMENTS_TEST_ALLOW_ANY_AMOUNT = env.bool(
+    "PAYMENTS_TEST_ALLOW_ANY_AMOUNT", default=False
+)
+
 # --- Applications -----------------------------------------------------------
 
 INSTALLED_APPS = [
