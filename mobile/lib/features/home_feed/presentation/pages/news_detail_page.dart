@@ -95,16 +95,16 @@ class _NewsDetailPageState extends ConsumerState<NewsDetailPage> {
             iconTheme: const IconThemeData(color: PaColors.inkPrimary),
             flexibleSpace: FlexibleSpaceBar(
               background: a.heroImageUrl == null
-                  ? const _CoverPlaceholder()
+                  ? _CoverPlaceholder(title: a.title)
                   : Stack(
                       fit: StackFit.expand,
                       children: [
                         CachedNetworkImage(
                           imageUrl: a.heroImageUrl!,
                           fit: BoxFit.cover,
-                          placeholder: (_, __) => const _CoverPlaceholder(),
+                          placeholder: (_, __) => _CoverPlaceholder(title: a.title),
                           errorWidget: (_, __, ___) =>
-                              const _CoverPlaceholder(),
+                              _CoverPlaceholder(title: a.title),
                         ),
                         const DecoratedBox(
                           decoration: BoxDecoration(
@@ -215,25 +215,139 @@ class _NewsDetailPageState extends ConsumerState<NewsDetailPage> {
   }
 }
 
+/// Cover par défaut quand un article n'a pas de hero image — visuel
+/// éditorial soft avec gradient (déterministe par hash du titre), halos
+/// lumineux + icône thématique + filigrane brand. Donne une présence
+/// visuelle plutôt qu'un placeholder gris terne.
 class _CoverPlaceholder extends StatelessWidget {
-  const _CoverPlaceholder();
+  const _CoverPlaceholder({this.title = ''});
+  final String title;
+
+  static const _gradients = <List<Color>>[
+    [Color(0xFF1E3A8A), Color(0xFF0EA5E9)], // bleu nuit -> azur
+    [Color(0xFF065F46), Color(0xFF10B981)], // forêt -> émeraude
+    [Color(0xFF7C3AED), Color(0xFFEC4899)], // violet -> rose
+    [Color(0xFFB45309), Color(0xFFF59E0B)], // ambre -> doré
+    [Color(0xFF0F766E), Color(0xFF14B8A6)], // teal foncé -> teal clair
+    [Color(0xFF1E40AF), Color(0xFF8B5CF6)], // marine -> violet
+  ];
+
+  static const _icons = <IconData>[
+    Icons.trending_up_rounded,
+    Icons.savings_outlined,
+    Icons.school_outlined,
+    Icons.handshake_outlined,
+    Icons.lightbulb_outline_rounded,
+    Icons.local_florist_outlined,
+  ];
+
+  int get _slot {
+    var h = 0;
+    for (final c in title.runes) {
+      h = (h * 31 + c) & 0x7fffffff;
+    }
+    return h % _gradients.length;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFDF2E2), Color(0xFFFAE6CB)],
+    final palette = _gradients[_slot];
+    final icon = _icons[_slot];
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: palette,
+            ),
+          ),
         ),
-      ),
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.article_outlined,
-        color: PaColors.warning,
-        size: 64,
-      ),
+        Positioned(
+          top: -90,
+          right: -70,
+          child: IgnorePointer(
+            child: Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.22),
+                    Colors.white.withValues(alpha: 0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: -60,
+          left: -40,
+          child: IgnorePointer(
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.10),
+                    Colors.white.withValues(alpha: 0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Center(
+          child: Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, color: Colors.white, size: 44),
+          ),
+        ),
+        Positioned(
+          bottom: 18,
+          right: 22,
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: 0.32,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    width: 1.2,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'GATHÉ',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2.0,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

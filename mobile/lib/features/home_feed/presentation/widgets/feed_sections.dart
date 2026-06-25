@@ -497,14 +497,14 @@ class _ArticleCard extends StatelessWidget {
               child: AspectRatio(
                 aspectRatio: 16 / 9,
                 child: a.heroImageUrl == null
-                    ? const _PlaceholderArticle()
+                    ? _PlaceholderArticle(title: a.title)
                     : CachedNetworkImage(
                         imageUrl: a.heroImageUrl!,
                         fit: BoxFit.cover,
                         fadeInDuration: const Duration(milliseconds: 200),
-                        placeholder: (_, __) => const _PlaceholderArticle(),
+                        placeholder: (_, __) => _PlaceholderArticle(title: a.title),
                         errorWidget: (_, __, ___) =>
-                            const _PlaceholderArticle(),
+                            _PlaceholderArticle(title: a.title),
                       ),
               ),
             ),
@@ -564,28 +564,109 @@ class _ArticleCard extends StatelessWidget {
 
 }
 
+/// Placeholder card actualité — gradient déterministe par titre + icône
+/// catégorie + filigrane brand. Donne une présence visuelle au lieu d'un
+/// rectangle terne quand l'article n'a pas de hero image.
 class _PlaceholderArticle extends StatelessWidget {
-  const _PlaceholderArticle();
+  const _PlaceholderArticle({this.title = ''});
+  final String title;
+
+  static const _palettes = <List<Color>>[
+    [Color(0xFF1E3A8A), Color(0xFF0EA5E9)],
+    [Color(0xFF065F46), Color(0xFF10B981)],
+    [Color(0xFF7C3AED), Color(0xFFEC4899)],
+    [Color(0xFFB45309), Color(0xFFF59E0B)],
+    [Color(0xFF0F766E), Color(0xFF14B8A6)],
+    [Color(0xFF1E40AF), Color(0xFF8B5CF6)],
+  ];
+
+  static const _icons = <IconData>[
+    Icons.trending_up_rounded,
+    Icons.savings_outlined,
+    Icons.school_outlined,
+    Icons.handshake_outlined,
+    Icons.lightbulb_outline_rounded,
+    Icons.local_florist_outlined,
+  ];
+
+  int get _slot {
+    var h = 0;
+    for (final c in title.runes) {
+      h = (h * 31 + c) & 0x7fffffff;
+    }
+    return h % _palettes.length;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFDF2E2),
-            Color(0xFFFAE6CB),
-          ],
+    final palette = _palettes[_slot];
+    final icon = _icons[_slot];
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: palette,
+            ),
+          ),
         ),
-      ),
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.article_outlined,
-        color: PaColors.warning,
-        size: 40,
-      ),
+        Positioned(
+          top: -40,
+          right: -30,
+          child: IgnorePointer(
+            child: Container(
+              width: 130,
+              height: 130,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.22),
+                    Colors.white.withValues(alpha: 0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Center(
+          child: Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.3),
+                width: 1.2,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, color: Colors.white, size: 22),
+          ),
+        ),
+        const Positioned(
+          bottom: 8,
+          right: 10,
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: 0.32,
+              child: Text(
+                'GATHÉ',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.8,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
