@@ -12,6 +12,7 @@ import '../../features/contributions/presentation/pages/contributions_page.dart'
 import '../../features/credit/presentation/pages/credit_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/home_feed/domain/entities/feed_item.dart';
+import '../../features/home_feed/presentation/pages/campaign_detail_page.dart';
 import '../../features/home_feed/presentation/pages/campaigns_list_page.dart';
 import '../../features/home_feed/presentation/pages/news_detail_page.dart';
 import '../../features/home_feed/presentation/pages/news_list_page.dart';
@@ -212,6 +213,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             return _paSlideFadePage(state, const NewsListPage());
           }
           return _paSlideFadePage(state, NewsDetailPage(article: article));
+        },
+      ),
+
+      // Détail d'une campagne micro-crédit — like + commentaires.
+      // L'objet `CampaignFlyer` est passé en `extra` pour un rendu instantané.
+      GoRoute(
+        path: '/campaigns/:id',
+        name: 'campaign-detail',
+        pageBuilder: (context, state) {
+          final campaign = state.extra as CampaignFlyer?;
+          if (campaign == null) {
+            return _paSlideFadePage(state, const CampaignsListPage());
+          }
+          return _paSlideFadePage(
+            state,
+            CampaignDetailPage(campaign: campaign),
+          );
         },
       ),
 

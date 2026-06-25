@@ -141,16 +141,24 @@ class HomePage extends ConsumerWidget {
               // besoin. Évite la redondance UI signalée par le client.
 
               // ── Section "Campagnes en cours" (LOT 11 micro-crédit) ──
+              // Tap sur une card → ouvre la liste des campagnes (la liste
+              // gère ensuite le scroll/focus sur l'item). Pas de detail page
+              // dédiée pour l'instant : la liste suffit à la démo NHR.
               SliverToBoxAdapter(
                 child: CampaignsSection(
                   onSeeMore: () => context.push('/campaigns'),
+                  onTapCampaign: (_) => context.push('/campaigns'),
                 ),
               ),
 
               // ── Section "Actualités" (Wagtail blog) ────────────────────
+              // Tap sur une card → ouvre la NewsDetailPage. L'article est
+              // passé en `extra` pour un rendu instantané (cf. router).
               SliverToBoxAdapter(
                 child: NewsSection(
                   onSeeMore: () => context.push('/news'),
+                  onTapArticle: (a) =>
+                      context.push('/news/${a.id}', extra: a),
                 ),
               ),
 
@@ -436,8 +444,12 @@ class _PinnedDualHero extends StatelessWidget {
     if (first <= 0) return null;
     final pct = (last - first) / first * 100;
     final positive = pct >= 0;
-    final formatted =
-        '${positive ? '+' : ''}${pct.toStringAsFixed(1).replaceAll('.', ',')} %';
+    // Cap d'affichage : au-delà de ±99 %, on affiche '>99 %' pour éviter
+    // que la chip ne déborde du hero et fasse varier sa hauteur.
+    final abs = pct.abs();
+    final formatted = abs > 99
+        ? '${positive ? '+' : '-'}>99 %'
+        : '${positive ? '+' : ''}${pct.toStringAsFixed(1).replaceAll('.', ',')} %';
     return (formatted, positive);
   }
 }
@@ -573,21 +585,37 @@ class _HeroSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Dimensions calquées sur PaDualHeroBalance pour éviter le "saut" de
+    // hauteur quand le hero charge ses données.
     return Container(
-      height: 140,
+      width: double.infinity,
       decoration: BoxDecoration(
         color: PaColors.cardBg,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(14),
       ),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: const PaShimmer(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            PaShimmerBox(width: 110, height: 12),
-            PaShimmerBox(width: 200, height: 32, borderRadius: 6),
-            PaShimmerBox(width: 140, height: 14),
+            // Toggle segmenté Épargne / Cotisations
+            PaShimmerBox(width: double.infinity, height: 32, borderRadius: 10),
+            SizedBox(height: 14),
+            // Label du slot + delta (même ligne, hauteur fixe)
+            Row(
+              children: [
+                PaShimmerBox(width: 110, height: 12),
+                Spacer(),
+                PaShimmerBox(width: 60, height: 16, borderRadius: 8),
+              ],
+            ),
+            SizedBox(height: 6),
+            // Montant
+            PaShimmerBox(width: 220, height: 32, borderRadius: 6),
+            SizedBox(height: 14),
+            // CTA
+            PaShimmerBox(width: double.infinity, height: 44, borderRadius: 10),
           ],
         ),
       ),

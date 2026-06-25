@@ -17,6 +17,16 @@ class GatheApp extends ConsumerStatefulWidget {
 
 class _GatheAppState extends ConsumerState<GatheApp>
     with WidgetsBindingObserver {
+  /// Heure du dernier passage en arrière-plan. On l'utilise au retour
+  /// (resumed) pour décider si on doit verrouiller : un aller-retour court
+  /// (file picker, sélecteur de date, partage…) ne doit pas demander le PIN.
+  DateTime? _backgroundedAt;
+
+  /// Délai en-deçà duquel un retour au premier plan est considéré comme
+  /// "interactif" (file picker, partage Android, etc.) et NE déclenche pas
+  /// le verrouillage. Standard banking : 30–60 s. On choisit 30 s.
+  static const _lockGrace = Duration(seconds: 30);
+
   @override
   void initState() {
     super.initState();
@@ -31,11 +41,24 @@ class _GatheAppState extends ConsumerState<GatheApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Reverrouille l'app dès qu'elle passe en arrière-plan / est masquée.
-    // Au retour au premier plan, le router redirige vers /pin/lock.
+    // Quand l'app passe en arrière-plan, on note l'heure mais on ne verrouille
+    // PAS immédiatement : le verrou réel se décide au retour (resumed).
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
-      ref.read(pinProvider.notifier).lock();
+      _backgroundedAt = DateTime.now();
+      return;
+    }
+    if (state == AppLifecycleState.resumed) {
+      final since = _backgroundedAt;
+      _backgroundedAt = null;
+      if (since == null) return;
+      final elapsed = DateTime.now().difference(since);
+      // Plus de 30 s en arrière-plan → on verrouille. Moins → on laisse
+      // l'utilisateur reprendre là où il en était (cas typique : file picker
+      // pour joindre l'attestation CFP / la carte CGA dans la sheet crédit).
+      if (elapsed >= _lockGrace) {
+        ref.read(pinProvider.notifier).lock();
+      }
     }
   }
 

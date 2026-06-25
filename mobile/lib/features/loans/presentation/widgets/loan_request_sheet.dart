@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -128,6 +129,17 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   Map<String, Object?> _extraValues = {};
   Map<String, String> _extraErrors = {};
 
+  // Champs "profil emprunteur" rendus EN DUR dans le sheet (en attendant
+  // que le seed FormSchema soit poussé sur la prod). Les ids correspondent
+  // exactement aux noms des champs définis dans `seed_form_schemas.py` :
+  // ancien_apprenant (CFP Broad Range), ancien_apprenant_preuve, cga_adherent,
+  // cga_preuve. Au submit, on les injecte dans `scalarExtras` + on upload
+  // les fichiers via `uploadAttachment(schemaFieldId: …)` côté backend.
+  bool _ancienApprenantCFP = false;
+  PickedFile? _apprenantCFPProof;
+  bool _cgaAdherent = false;
+  PickedFile? _cgaProof;
+
   double _montant = 200000;
   // Durée NON saisie manuellement : dérivée du montant (Art. 7).
   PaymentModality _modalite = PaymentModality.mensuel;
@@ -182,6 +194,24 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
           content: Text(
             "Renseigne le numéro et le nom de l'avaliste (ou décoche).",
           ),
+        ),
+      );
+      return;
+    }
+    // Profil emprunteur — si ancien apprenant CFP Broad Range, l'attestation
+    // est obligatoire (idem pour la carte CGA si adhérent CGA).
+    if (_ancienApprenantCFP && _apprenantCFPProof == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Joins l'attestation CFP Broad Range (ou décoche)."),
+        ),
+      );
+      return;
+    }
+    if (_cgaAdherent && _cgaProof == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Joins ta carte CGA (ou décoche)."),
         ),
       );
       return;
@@ -245,6 +275,16 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
           scalarExtras[entry.key] = v;
         }
       }
+      // Profil emprunteur — réponses oui/non + preuves uploadées si oui.
+      scalarExtras['ancien_apprenant'] = _ancienApprenantCFP ? 'oui' : 'non';
+      scalarExtras['cga_adherent'] = _cgaAdherent ? 'oui' : 'non';
+      if (_ancienApprenantCFP && _apprenantCFPProof != null) {
+        fileEntries.add(MapEntry('ancien_apprenant_preuve', _apprenantCFPProof!));
+      }
+      if (_cgaAdherent && _cgaProof != null) {
+        fileEntries.add(MapEntry('cga_preuve', _cgaProof!));
+      }
+
       // BUSINESS_RULES §7.2 — Injecte les champs avaliste dans le body
       // attendu par LoanRequestSubmitSerializer (clés snake_case backend).
       if (_withAvaliste) {
@@ -301,6 +341,33 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(err.toString())),
       );
+    }
+  }
+
+  /// Ouvre le file picker système (images + PDF), borne à 10 Mo, retourne
+  /// un [PickedFile] prêt pour upload multipart. `null` si l'utilisateur
+  /// annule, si la taille dépasse, ou si la permission est refusée.
+  Future<PickedFile?> _pickFile() async {
+    try {
+      final res = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['jpg', 'jpeg', 'png', 'pdf'],
+        withData: false,
+      );
+      final f = res?.files.single;
+      if (f == null || f.path == null) return null;
+      const maxBytes = 10 * 1024 * 1024;
+      if (f.size > maxBytes) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Fichier trop volumineux (10 Mo max).')),
+          );
+        }
+        return null;
+      }
+      return PickedFile(path: f.path!, name: f.name, sizeBytes: f.size);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -466,6 +533,85 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
             ),
+
+            const SizedBox(height: AppSpacing.l),
+
+            // --- Profil emprunteur — CFP Broad Range + CGA ----------------
+            //
+            // 2 questions optionnelles. Si "oui", une pièce jointe devient
+            // obligatoire (attestation / carte). Les ids des champs envoyés
+            // au backend (ancien_apprenant / ancien_apprenant_preuve /
+            // cga_adherent / cga_preuve) sont alignés avec le seed
+            // FormSchema côté backend pour le jour où l'admin éditera ces
+            // questions via l'éditeur dynamique (CH-4).
+            Text(
+              'Votre parcours de formation',
+              style: AppTypography.labelMedium,
+            ),
+            SwitchListTile.adaptive(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: _ancienApprenantCFP,
+              onChanged: (v) => setState(() {
+                _ancienApprenantCFP = v;
+                if (!v) _apprenantCFPProof = null;
+              }),
+              title: const Text(
+                'As-tu suivi une formation au CFP Broad Range ?',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Anciens apprenants : instruction prioritaire.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+            if (_ancienApprenantCFP) ...[
+              const SizedBox(height: AppSpacing.s),
+              _ProofPickerTile(
+                label: 'Attestation CFP Broad Range',
+                picked: _apprenantCFPProof,
+                onPick: () async {
+                  final f = await _pickFile();
+                  if (f != null) setState(() => _apprenantCFPProof = f);
+                },
+                onClear: () => setState(() => _apprenantCFPProof = null),
+              ),
+            ],
+
+            const SizedBox(height: AppSpacing.m),
+            Text(
+              'Adhésion CGA',
+              style: AppTypography.labelMedium,
+            ),
+            SwitchListTile.adaptive(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: _cgaAdherent,
+              onChanged: (v) => setState(() {
+                _cgaAdherent = v;
+                if (!v) _cgaProof = null;
+              }),
+              title: const Text(
+                'Es-tu adhérent à un Centre de Gestion Agréé ?',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Avantages fiscaux + analyse facilitée du dossier.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+            if (_cgaAdherent) ...[
+              const SizedBox(height: AppSpacing.s),
+              _ProofPickerTile(
+                label: 'Carte / attestation CGA',
+                picked: _cgaProof,
+                onPick: () async {
+                  final f = await _pickFile();
+                  if (f != null) setState(() => _cgaProof = f);
+                },
+                onClear: () => setState(() => _cgaProof = null),
+              ),
+            ],
 
             const SizedBox(height: AppSpacing.l),
 
@@ -1516,6 +1662,87 @@ class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
           ),
         ],
       ],
+    );
+  }
+}
+
+
+/// Tuile de sélection de fichier — montre soit un bouton "Joindre", soit
+/// le nom du fichier sélectionné avec un bouton croix pour le retirer.
+/// Utilisée pour les pièces "Attestation CFP Broad Range" et "Carte CGA".
+class _ProofPickerTile extends StatelessWidget {
+  const _ProofPickerTile({
+    required this.label,
+    required this.picked,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  final String label;
+  final PickedFile? picked;
+  final Future<void> Function() onPick;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    if (picked == null) {
+      return OutlinedButton.icon(
+        onPressed: onPick,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          side: const BorderSide(color: PaColors.line),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          foregroundColor: PaColors.inkPrimary,
+        ),
+        icon: const Icon(Icons.attach_file_rounded, size: 18),
+        label: Text(
+          'Joindre — $label',
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+      );
+    }
+    final kb = (picked!.sizeBytes / 1024).toStringAsFixed(0);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: PaColors.tealSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: PaColors.teal.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, color: PaColors.teal, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  picked!.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: PaColors.inkPrimary,
+                  ),
+                ),
+                Text(
+                  '$kb Ko · prêt à envoyer',
+                  style: const TextStyle(fontSize: 11, color: PaColors.inkMuted),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            tooltip: 'Retirer',
+            onPressed: onClear,
+          ),
+        ],
+      ),
     );
   }
 }

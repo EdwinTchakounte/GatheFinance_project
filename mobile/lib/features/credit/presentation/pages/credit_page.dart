@@ -236,39 +236,30 @@ class _NewRequestFab extends StatelessWidget {
     final l = AppL10n.of(context);
     return Opacity(
       opacity: disabled ? 0.55 : 1.0,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: PaGradients.ctaPill,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            BoxShadow(
-              color: PaColors.teal.withValues(alpha: 0.30),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(999),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.add_rounded, color: PaColors.onTeal, size: 20),
-                  const SizedBox(width: 6),
-                  Text(
-                    l.credit_new_request,
-                    style: const TextStyle(
-                      color: PaColors.onTeal,
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+      child: Tooltip(
+        message: l.credit_new_request,
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: PaGradients.ctaPill,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: PaColors.teal.withValues(alpha: 0.30),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: onPressed,
+              customBorder: const CircleBorder(),
+              child: const Center(
+                child: Icon(Icons.add_rounded, color: PaColors.onTeal, size: 28),
               ),
             ),
           ),

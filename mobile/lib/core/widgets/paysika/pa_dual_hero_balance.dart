@@ -184,20 +184,38 @@ class _PaDualHeroBalanceState extends State<PaDualHeroBalance> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  // ── Label de slot + amount ──
-                  Text(
-                    slot.label,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.78),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.4,
+                  // ── Label de slot + delta inline (hauteur constante) ──
+                  // Le delta est sur la même ligne que le label pour ne pas
+                  // faire varier la hauteur du hero selon le slot actif.
+                  SizedBox(
+                    height: 20,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            slot.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.78),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ),
+                        if (!_hidden && slot.deltaLabel != null)
+                          _DeltaChip(
+                            label: slot.deltaLabel!,
+                            positive: slot.deltaPositive,
+                          ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 6),
                   _hidden
                       ? Text(
-                          '••• ••• XAF',
+                          '… … XAF',
                           style: PaText.amount(
                             size: 30,
                             weight: FontWeight.w700,
@@ -215,6 +233,8 @@ class _PaDualHeroBalanceState extends State<PaDualHeroBalance> {
                           onEnd: () => _shownValue = slot.amount.toDouble(),
                           builder: (context, value, _) => Text(
                             XAFFormatter.format(value.round()),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: PaText.amount(
                               size: 30,
                               weight: FontWeight.w700,
@@ -223,13 +243,6 @@ class _PaDualHeroBalanceState extends State<PaDualHeroBalance> {
                             ),
                           ),
                         ),
-                  if (!_hidden && slot.deltaLabel != null) ...[
-                    const SizedBox(height: 8),
-                    _DeltaChip(
-                      label: slot.deltaLabel!,
-                      positive: slot.deltaPositive,
-                    ),
-                  ],
                   const SizedBox(height: 14),
                   // ── CTA pleine largeur (s'adapte au slot actif) ──
                   _CtaButton(label: slot.ctaLabel, onTap: slot.onDeposit),

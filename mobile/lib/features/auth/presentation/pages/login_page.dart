@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,6 +36,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailCtrl = TextEditingController(text: 'jean.kamga@test.local');
   final _passCtrl = TextEditingController(text: 'test1234');
   bool _obscure = true;
+  bool _submitting = false;
 
   @override
   void dispose() {
@@ -44,36 +46,165 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    HapticFeedback.lightImpact();
-    await ref.read(authProvider.notifier).signIn(
-          email: _emailCtrl.text.trim(),
-          password: _passCtrl.text,
-        );
+    debugPrint('[LOGIN] _submit tapped — email="${_emailCtrl.text.trim()}" pwd_len=${_passCtrl.text.length}');
+    if (!_formKey.currentState!.validate()) {
+      debugPrint('[LOGIN] validation FAILED');
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      HapticFeedback.lightImpact();
+    } catch (_) {
+      // Vibrate permission absente sur certains devices (Tecno) — non-bloquant.
+    }
+    try {
+      await ref.read(authProvider.notifier).signIn(
+            email: _emailCtrl.text.trim(),
+            password: _passCtrl.text,
+          );
+    } catch (e, st) {
+      debugPrint('[LOGIN] signIn threw: $e');
+      debugPrint('$st');
+    }
     if (!mounted) return;
+    setState(() => _submitting = false);
     final state = ref.read(authProvider);
+    debugPrint('[LOGIN] post-signIn state: $state');
     state.whenOrNull(
       data: (member) {
-        if (member != null) context.go('/home');
+        if (member != null) {
+          context.go('/home');
+        } else {
+          // signIn() a réussi côté HTTP mais le payload n'a pas de Member.
+          // Le serveur a renvoyé un compte staff/sans profil membre.
+          _showErrorToast(context, 'Ce compte n\'a pas de profil membre.');
+        }
       },
     );
+  }
+
+  /// Toast d'erreur — rouge, icône warning, durée 4 s, dismissible.
+  /// Mappe les messages techniques (NetworkException, CredentialsException…)
+  /// vers des chaînes lisibles pour l'utilisateur final.
+  void _showErrorToast(BuildContext context, Object err) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    final raw = err.toString();
+    final human = _humanizeError(raw);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded, color: Colors.white, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                human,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: PaColors.danger,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: messenger.hideCurrentSnackBar,
+        ),
+      ),
+    );
+  }
+
+  /// Toast de succès — vert, icône check, court (2 s).
+  void _showSuccessToast(BuildContext context) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 22),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Connexion réussie.',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: PaColors.success,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// Traduit les exceptions internes en messages parlants pour le sociétaire.
+  String _humanizeError(Object err) {
+    final s = err.toString().toLowerCase();
+    if (s.contains('credentials') ||
+        s.contains('identifiants invalides') ||
+        s.contains('401')) {
+      return 'Email ou mot de passe incorrect.';
+    }
+    if (s.contains('failed host lookup') ||
+        s.contains('socket') ||
+        s.contains('connection') ||
+        s.contains('réseau') ||
+        s.contains('network')) {
+      return 'Pas de connexion — vérifie ton réseau et réessaie.';
+    }
+    if (s.contains('timeout') || s.contains('délai')) {
+      return 'Le serveur met trop de temps à répondre. Réessaie.';
+    }
+    if (s.contains('certificat') || s.contains('certificate')) {
+      return 'Connexion sécurisée impossible (certificat).';
+    }
+    if (s.contains('500') || s.contains('serveur')) {
+      return 'Erreur serveur. Réessaie dans un instant.';
+    }
+    // Fallback : afficher le message brut s'il est court, sinon générique.
+    final raw = err.toString().replaceFirst('Exception: ', '');
+    if (raw.length <= 90) return raw;
+    return 'Connexion impossible. Réessaie.';
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
-    final loading = auth.isLoading;
+    // Le bouton est désactivé UNIQUEMENT pendant la soumission de l'utilisateur,
+    // pas pendant le bootstrap initial du provider (qui peut prendre
+    // jusqu'à 25 s sur réseau lent et bloquerait l'UI sinon).
+    final loading = _submitting;
     final l = AppL10n.of(context);
 
     ref.listen<AsyncValue<dynamic>>(authProvider, (prev, next) {
       next.whenOrNull(
-        error: (err, _) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(err.toString()),
-              backgroundColor: PaColors.danger,
-            ),
-          );
+        error: (err, _) => _showErrorToast(context, err),
+        data: (member) {
+          // Connexion réussie ET le provider passe de loading→data avec member.
+          if (member != null && (prev?.isLoading ?? false)) {
+            _showSuccessToast(context);
+          }
         },
       );
     });

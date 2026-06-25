@@ -6,6 +6,9 @@ import 'package:intl/intl.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/network/api_config.dart';
+import '../../../social/domain/entities/reaction.dart';
+import '../../../social/presentation/widgets/comments_section.dart';
+import '../../../social/presentation/widgets/like_button.dart';
 import '../../domain/entities/feed_item.dart';
 
 /// Page détail d'une actualité — design éditorial épuré.
@@ -68,7 +71,28 @@ class _NewsDetailPageState extends ConsumerState<NewsDetailPage> {
             pinned: true,
             backgroundColor: PaColors.canvas,
             surfaceTintColor: PaColors.canvas,
-            iconTheme: const IconThemeData(color: Colors.white),
+            // Back button noir lisible sur fond crème ET sur la hero image
+            // (un petit halo blanc semi-transparent contraste l'icône).
+            leading: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Material(
+                color: Colors.white.withValues(alpha: 0.88),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => Navigator.of(context).maybePop(),
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: PaColors.inkPrimary,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            iconTheme: const IconThemeData(color: PaColors.inkPrimary),
             flexibleSpace: FlexibleSpaceBar(
               background: a.heroImageUrl == null
                   ? const _CoverPlaceholder()
@@ -164,6 +188,23 @@ class _NewsDetailPageState extends ConsumerState<NewsDetailPage> {
                       ),
                     ),
                   ],
+                  // --- Interactions sociales (like + commentaires) -------
+                  const SizedBox(height: 28),
+                  const Divider(color: PaColors.line, height: 1),
+                  const SizedBox(height: 16),
+                  LikeButton(
+                    target: SocialTarget(
+                      kind: SocialTargetKind.article,
+                      id: a.id,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  CommentsSection(
+                    target: SocialTarget(
+                      kind: SocialTargetKind.article,
+                      id: a.id,
+                    ),
+                  ),
                 ],
               ),
             ),

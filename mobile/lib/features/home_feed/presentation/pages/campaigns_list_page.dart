@@ -99,6 +99,11 @@ class _CampaignsListPageState extends ConsumerState<CampaignsListPage> {
                     return _CampaignRow(
                       c: campaigns[i],
                       onTap: () => context.pop(campaigns[i].id),
+                      onOpenDetail: () => context.pushNamed(
+                        'campaign-detail',
+                        pathParameters: {'id': '${campaigns[i].id}'},
+                        extra: campaigns[i],
+                      ),
                     );
                   },
                 ),
@@ -109,9 +114,14 @@ class _CampaignsListPageState extends ConsumerState<CampaignsListPage> {
 }
 
 class _CampaignRow extends StatelessWidget {
-  const _CampaignRow({required this.c, required this.onTap});
+  const _CampaignRow({
+    required this.c,
+    required this.onTap,
+    required this.onOpenDetail,
+  });
   final CampaignFlyer c;
   final VoidCallback onTap;
+  final VoidCallback onOpenDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -213,8 +223,27 @@ class _CampaignRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    InkWell(
+                      onTap: onOpenDetail,
+                      borderRadius: BorderRadius.circular(8),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        child: Text(
+                          'Détails & commentaires',
+                          style: TextStyle(
+                            color: PaColors.inkSecondary,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
                     Text(
                       'Postuler',
                       style: const TextStyle(

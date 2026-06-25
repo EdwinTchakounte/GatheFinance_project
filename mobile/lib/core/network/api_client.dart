@@ -1,7 +1,9 @@
+import 'dart:io' show SocketException;
+
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, visibleForTesting;
 import 'package:path_provider/path_provider.dart';
 
 import 'api_config.dart';
@@ -53,7 +55,21 @@ class ApiClient {
     dio.interceptors.addAll([
       CookieManager(jar),
       CsrfInterceptor(jar),
+      _RetryInterceptor(dio),
     ]);
+
+    if (kDebugMode) {
+      dio.interceptors.add(
+        LogInterceptor(
+          requestHeader: false,
+          requestBody: true,
+          responseHeader: false,
+          responseBody: true,
+          error: true,
+          logPrint: (o) => debugPrint('[DIO] $o'),
+        ),
+      );
+    }
 
     return ApiClient._(dio, jar);
   }
@@ -68,5 +84,62 @@ class ApiClient {
   /// toute requête mutante anonyme (typiquement le premier login).
   Future<void> primeCsrf() async {
     await dio.get<void>('/auth/csrf/');
+  }
+}
+
+/// Retry sur erreurs DNS/connexion (jusqu'à 3 tentatives, backoff progressif).
+///
+/// Sur Android, le premier appel HTTPS échoue parfois avec
+/// `SocketException: Failed host lookup` car le résolveur DNS de Dart n'a pas
+/// encore chauffé. Un simple retry après 400 ms suffit dans la quasi-totalité
+/// des cas.
+class _RetryInterceptor extends Interceptor {
+  _RetryInterceptor(this._dio);
+
+  final Dio _dio;
+  static const int _maxAttempts = 3;
+
+  @override
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
+    if (!_isRetryable(err)) {
+      handler.next(err);
+      return;
+    }
+    final attempts = (err.requestOptions.extra['_retryAttempt'] as int?) ?? 0;
+    if (attempts >= _maxAttempts) {
+      handler.next(err);
+      return;
+    }
+    final delay = Duration(milliseconds: 300 * (attempts + 1));
+    debugPrint(
+      '[RETRY] ${err.requestOptions.method} ${err.requestOptions.uri} '
+      'failed (${err.type}) — attempt ${attempts + 1}/$_maxAttempts after '
+      '${delay.inMilliseconds}ms',
+    );
+    await Future<void>.delayed(delay);
+    final newOptions = err.requestOptions;
+    newOptions.extra['_retryAttempt'] = attempts + 1;
+    try {
+      final response = await _dio.fetch<dynamic>(newOptions);
+      handler.resolve(response);
+    } on DioException catch (e) {
+      handler.next(e);
+    } catch (_) {
+      handler.next(err);
+    }
+  }
+
+  bool _isRetryable(DioException err) {
+    if (err.type == DioExceptionType.connectionTimeout ||
+        err.type == DioExceptionType.connectionError) {
+      return true;
+    }
+    if (err.error is SocketException) return true;
+    final msg = err.message ?? '';
+    if (msg.toLowerCase().contains('failed host lookup')) return true;
+    return false;
   }
 }

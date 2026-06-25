@@ -83,6 +83,12 @@ import '../../features/onboarding/data/repositories/onboarding_repository_impl.d
 import '../../features/onboarding/domain/repositories/onboarding_repository.dart';
 import '../../features/onboarding/domain/usecases/onboarding_usecases.dart';
 
+// ---- Social (likes + commentaires) ---------------------------------------
+import '../../features/social/data/datasources/social_dio_datasource.dart';
+import '../../features/social/data/datasources/social_remote_datasource.dart';
+import '../../features/social/data/repositories/social_repository_impl.dart';
+import '../../features/social/domain/repositories/social_repository.dart';
+
 
 // ===========================================================================
 // CORE — HTTP client (override dans main() après création async)
@@ -382,4 +388,17 @@ final listAvalisteMandatsUseCaseProvider = Provider<ListAvalisteMandats>(
 
 final respondAvalisteMandatUseCaseProvider = Provider<RespondAvalisteMandat>(
   (ref) => RespondAvalisteMandat(ref.watch(avalisteRepositoryProvider)),
+);
+
+
+// ===========================================================================
+// SOCIAL — likes + commentaires sur articles & campagnes.
+// ===========================================================================
+
+final socialDataSourceProvider = Provider<SocialRemoteDataSource>(
+  (ref) => SocialDioDataSource(ref.watch(apiClientProvider)),
+);
+
+final socialRepositoryProvider = Provider<SocialRepository>(
+  (ref) => SocialRepositoryImpl(ref.watch(socialDataSourceProvider)),
 );

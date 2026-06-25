@@ -28,6 +28,11 @@ class CsrfInterceptor extends Interceptor {
       handler.next(options);
       return;
     }
+    // Django CSRF middleware en HTTPS rejette toute requête POST sans Referer
+    // valide ("Referer checking failed — no Referer"). On force Origin + Referer
+    // à pointer sur l'API elle-même, qui est dans CSRF_TRUSTED_ORIGINS.
+    options.headers['Origin'] = ApiConfig.baseUrl;
+    options.headers['Referer'] = '${ApiConfig.baseUrl}/';
     try {
       final uri = Uri.parse(ApiConfig.baseUrl);
       final cookies = await _cookieJar.loadForRequest(uri);

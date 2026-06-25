@@ -226,7 +226,7 @@ class _PaHeroBalanceState extends State<PaHeroBalance> {
                   // Solde principal — Sora bold, count-up animé à la révélation.
                   _hidden
                       ? Text(
-                          '••• ••• XAF',
+                          '… … XAF',
                           style: PaText.amount(
                             size: 34,
                             weight: FontWeight.w700,
