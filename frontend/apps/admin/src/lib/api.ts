@@ -769,6 +769,16 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify({ motif }),
       }),
+    // Article 3 . enregistrement de l'entretien d'admission.
+    // Sans cet appel, l'endpoint approve renvoie 400.
+    recordInterview: (
+      id: number,
+      payload: { avis: string; favorable: boolean; date_entretien?: string },
+    ) =>
+      request<MembershipRequest>(
+        `/admin/membership-requests/${id}/interview/`,
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
   },
 
   loanRequests: {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, X, Mail, Phone, MapPin, Eye, FileText } from "lucide-react";
+import { Check, X, Mail, Phone, MapPin, Eye, FileText, ClipboardCheck } from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
 
@@ -28,6 +28,7 @@ function Inner() {
   const [approveTarget, setApproveTarget] = useState<MembershipRequest | null>(null);
   const [rejectTarget, setRejectTarget] = useState<MembershipRequest | null>(null);
   const [detailTarget, setDetailTarget] = useState<MembershipRequest | null>(null);
+  const [interviewTarget, setInterviewTarget] = useState<MembershipRequest | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -53,6 +54,25 @@ function Inner() {
     } catch (err) {
       const apiErr = err as ApiError;
       setMessage({ tone: "err", text: apiErr.detail ?? "Approbation impossible." });
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function submitInterview(payload: { avis: string; favorable: boolean }) {
+    if (!interviewTarget) return;
+    setActingId(interviewTarget.id);
+    try {
+      await adminApi.membershipRequests.recordInterview(interviewTarget.id, payload);
+      setMessage({
+        tone: "ok",
+        text: `Entretien #${interviewTarget.id} enregistré (${payload.favorable ? "favorable" : "défavorable"}).`,
+      });
+      setInterviewTarget(null);
+      await reload();
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setMessage({ tone: "err", text: apiErr.detail ?? "Enregistrement impossible." });
     } finally {
       setActingId(null);
     }
@@ -179,6 +199,25 @@ function Inner() {
                       (r.statut === "en_attente" ? "pill-warning"
                        : r.statut === "approuvee" ? "pill-success" : "pill-danger")
                     }>{r.statut_display}</span>
+                    {/* Chip statut entretien Art. 3 . visible en mode en_attente */}
+                    {r.statut === "en_attente" ? (
+                      <div className="mt-1.5">
+                        {r.date_entretien ? (
+                          <span className={
+                            "inline-flex items-center rounded-full px-2 py-0.5 text-[0.65rem] font-medium ring-1 ring-inset " +
+                            (r.entretien_favorable
+                              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                              : "bg-amber-50 text-amber-800 ring-amber-200")
+                          }>
+                            {r.entretien_favorable ? "Entretien favorable ✓" : "Entretien défavorable"}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-line-100 px-2 py-0.5 text-[0.65rem] font-medium text-ink-500 ring-1 ring-inset ring-line-200">
+                            Entretien à faire
+                          </span>
+                        )}
+                      </div>
+                    ) : null}
                     {r.statut === "rejetee" && r.motif_rejet ? (
                       <p className="mt-1 text-xs text-terra-700 max-w-[12rem]">{r.motif_rejet}</p>
                     ) : null}
@@ -197,8 +236,21 @@ function Inner() {
                         <>
                           <button
                             type="button"
-                            onClick={() => setApproveTarget(r)}
+                            onClick={() => setInterviewTarget(r)}
                             disabled={actingId === r.id}
+                            className={buttonClasses({ variant: "ghost", size: "sm" })}
+                            title="Article 3 . enregistrer l'entretien d'admission"
+                          >
+                            <ClipboardCheck className="size-3.5" aria-hidden="true" />
+                            {r.date_entretien ? "Modifier" : "Entretien"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setApproveTarget(r)}
+                            disabled={actingId === r.id || !r.date_entretien}
+                            title={!r.date_entretien
+                              ? "Article 3 . enregistre d'abord l'entretien d'admission"
+                              : "Approuver la demande"}
                             className={buttonClasses({ variant: "success", size: "sm" })}
                           >
                             <Check className="size-3.5" aria-hidden="true" />
@@ -239,6 +291,12 @@ function Inner() {
       <DetailMembershipModal
         target={detailTarget}
         onClose={() => setDetailTarget(null)}
+      />
+      <InterviewModal
+        target={interviewTarget}
+        onClose={() => setInterviewTarget(null)}
+        onSubmit={submitInterview}
+        submitting={actingId !== null}
       />
     </div>
   );
@@ -553,5 +611,112 @@ function DocCard({ label, url }: { label: string; url: string | null }) {
         </p>
       </div>
     </a>
+  );
+}
+
+
+function InterviewModal({
+  target,
+  onClose,
+  onSubmit,
+  submitting,
+}: {
+  target: MembershipRequest | null;
+  onClose: () => void;
+  onSubmit: (payload: { avis: string; favorable: boolean }) => void;
+  submitting: boolean;
+}) {
+  const [avis, setAvis] = useState("");
+  const [favorable, setFavorable] = useState(true);
+
+  useEffect(() => {
+    if (target) {
+      setAvis(target.entretien_avis || "");
+      setFavorable(target.entretien_favorable ?? true);
+    }
+  }, [target]);
+
+  if (!target) return null;
+
+  return (
+    <Modal
+      open={!!target}
+      onClose={onClose}
+      title={`Entretien d'admission . #${target.id} . ${target.prenom} ${target.nom}`}
+      description="Article 3 du Reglement . obligatoire avant approbation."
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className={buttonClasses({ variant: "ghost", size: "md" })}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={() => onSubmit({ avis, favorable })}
+            disabled={submitting || !avis.trim()}
+            className={buttonClasses({ variant: "primary", size: "md" })}
+          >
+            {submitting ? "Enregistrement..." : "Enregistrer l'entretien"}
+          </button>
+        </>
+      }
+    >
+      <ModalField
+        label="Issue de l'entretien"
+        hint="Avis favorable . la demande peut etre approuvee."
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <label className={
+            "cursor-pointer rounded-md border p-3 transition-all " +
+            (favorable
+              ? "border-emerald bg-emerald/5 ring-2 ring-emerald/30"
+              : "border-line-200 bg-paper hover:border-line-400")
+          }>
+            <input
+              type="radio"
+              name="favorable"
+              checked={favorable}
+              onChange={() => setFavorable(true)}
+              className="sr-only"
+            />
+            <p className="text-sm font-semibold text-ink-900">Favorable</p>
+            <p className="mt-0.5 text-xs text-ink-600">Le comite recommande l'adhesion.</p>
+          </label>
+          <label className={
+            "cursor-pointer rounded-md border p-3 transition-all " +
+            (!favorable
+              ? "border-amber-500 bg-amber-50/40 ring-2 ring-amber-400/30"
+              : "border-line-200 bg-paper hover:border-line-400")
+          }>
+            <input
+              type="radio"
+              name="favorable"
+              checked={!favorable}
+              onChange={() => setFavorable(false)}
+              className="sr-only"
+            />
+            <p className="text-sm font-semibold text-ink-900">Defavorable</p>
+            <p className="mt-0.5 text-xs text-ink-600">Le comite a des reserves.</p>
+          </label>
+        </div>
+      </ModalField>
+      <ModalField
+        label="Avis du comite"
+        hint="Quelques lignes . cet avis est conserve dans le dossier."
+      >
+        <textarea
+          value={avis}
+          onChange={(e) => setAvis(e.target.value)}
+          rows={5}
+          className={modalInputClass + " resize-y"}
+          placeholder="Exemple : Candidat motive, presentation claire, situation professionnelle stable."
+          autoFocus
+        />
+      </ModalField>
+    </Modal>
   );
 }
