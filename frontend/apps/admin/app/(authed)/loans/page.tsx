@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Wallet, Loader2, CheckCircle2 } from "lucide-react";
+import { Search, Wallet, Loader2, CheckCircle2, Coins } from "lucide-react";
 
 import { ExportMenu } from "@/components/export-menu";
 import { Pagination } from "@/components/pagination";
+import {
+  ComposeFundingModal,
+  type ComposeFundingTarget,
+} from "@/components/compose-funding-modal";
 import type { ExportColumn } from "@/lib/export";
 import { adminApi, type AdminLoanRow, type ApiError } from "@/lib/api";
 
@@ -60,6 +64,9 @@ function Inner() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // LA-2 . cible du modal "Composer le funding".
+  const [fundingTarget, setFundingTarget] = useState<ComposeFundingTarget | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -293,7 +300,26 @@ function Inner() {
                       ) : null}
                     </td>
                     <td>
-                      <DisbursementCell row={l} onAction={reload} />
+                      <div className="flex items-center gap-2">
+                        <DisbursementCell row={l} onAction={reload} />
+                        {/* LA-2 . Composer le funding manuellement (visible sur tous statuts). */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFundingTarget({
+                              id: l.id,
+                              numero_dossier: l.numero_dossier,
+                              member_label: `${l.member.prenom} ${l.member.nom}`,
+                              capital: l.montant,
+                            })
+                          }
+                          title="Composer le funding en selectionnant manuellement les tranches preteur"
+                          className="inline-flex items-center gap-1 rounded-md border border-line-200 bg-paper px-2 py-1 text-[0.7rem] font-medium text-ink-700 hover:border-blue-300 hover:text-blue-700"
+                        >
+                          <Coins className="size-3.5" aria-hidden="true" />
+                          Funding
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -315,6 +341,22 @@ function Inner() {
           }}
         />
       ) : null}
+
+      {flash ? (
+        <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-md bg-emerald px-4 py-2 text-sm font-medium text-white shadow-lg">
+          {flash}
+        </div>
+      ) : null}
+
+      <ComposeFundingModal
+        target={fundingTarget}
+        onClose={() => setFundingTarget(null)}
+        onSuccess={(msg) => {
+          setFlash(msg);
+          setTimeout(() => setFlash(null), 4500);
+          reload();
+        }}
+      />
     </div>
   );
 }
