@@ -47,6 +47,12 @@ EVENTS: list[tuple[str, str, str, bool]] = [
         "Le comité a tenu l'entretien d'admission (Art. 3). Email d'information au candidat avec l'issue favorable / défavorable et l'avis.",
         True,
     ),
+    (
+        "campaign.created",
+        "Nouvelle campagne micro-crédit",
+        "Une nouvelle campagne micro-crédit a été lancée par la coopérative. Email + notification in-app diffusés à TOUS les membres ACTIF.",
+        True,
+    ),
     # --- Épargne ---
     (
         "savings.deposit_confirmed",

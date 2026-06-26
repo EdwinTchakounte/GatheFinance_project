@@ -132,6 +132,35 @@ TEMPLATES = [
         ),
         "variables": ["prenom", "nom", "favorable", "avis", "portal_url"],
     },
+    {
+        "code": "campaign.created",
+        "objet": "Nouvelle campagne micro-crédit · {nom_campagne}",
+        "corps_html": _join(
+            hi("{prenom} {nom}"),
+            title("Nouvelle opportunité de financement"),
+            lead(
+                "La coopérative ouvre une nouvelle campagne micro-crédit. "
+                "Si tu remplis les critères, tu peux postuler depuis l'app."
+            ),
+            callout(
+                "<strong>Campagne :</strong> {nom_campagne}<br/>"
+                "<strong>Profil ciblé :</strong> {profil_cible}<br/>"
+                "<strong>Montant :</strong> {montant_min} à {montant_max} XAF<br/>"
+                "<strong>Période :</strong> {date_debut} au {date_fin}",
+                tone="info",
+            ),
+            p(
+                "Ouvre l'application Gathe Finance et rends-toi dans l'écran "
+                "Crédit pour postuler tant que la campagne reste ouverte."
+            ),
+            closing(),
+        ),
+        "variables": [
+            "prenom", "nom", "nom_campagne", "profil_cible",
+            "montant_min", "montant_max", "taux_interet",
+            "date_debut", "date_fin",
+        ],
+    },
     # ────────────────────────────────────────────────────────────────────
     # ÉPARGNE (3 templates)
     # ────────────────────────────────────────────────────────────────────

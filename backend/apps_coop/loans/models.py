@@ -91,6 +91,19 @@ class MicrocreditCampaign(TimestampedModel):
         blank=True,
         help_text='Motif de clôture, ex. "expired", "manual", "quota_reached".',
     )
+    # Soft-delete admin . la campagne disparait des listes par defaut mais
+    # reste en base pour preserver les LoanRequest qui la referencent.
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=(
+            "Date a laquelle l'admin a 'supprime' la campagne (soft-delete). "
+            "Si non null, la campagne est masquee de toutes les listes "
+            "publiques et admin par defaut. Les demandes deja soumises "
+            "restent rattachees."
+        ),
+    )
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

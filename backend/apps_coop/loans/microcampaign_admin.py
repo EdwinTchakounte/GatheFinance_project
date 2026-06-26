@@ -14,6 +14,7 @@ Endpoints exposés (montés dans ``urls.py``) :
 """
 from __future__ import annotations
 
+import logging
 from decimal import Decimal
 
 from django.db import transaction
@@ -29,6 +30,8 @@ from apps_coop.members.permissions import IsComite, IsStaff
 
 from .microcampaign_services import close_campaign
 from .models import LoanRequest, MicrocreditCampaign
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +188,12 @@ def _list_campaigns(request):
         nb_loans=Count("beneficiaires", distinct=True)
     ).order_by("-date_debut", "-id")
 
+    # Soft-delete : exclu par defaut, sauf si l'admin demande explicitement
+    # ?include_deleted=true pour la vue archives.
+    include_deleted = (request.query_params.get("include_deleted") or "").lower()
+    if include_deleted not in ("true", "1", "yes"):
+        qs = qs.filter(deleted_at__isnull=True)
+
     actif = (request.query_params.get("actif") or "").lower()
     if actif in ("true", "1", "yes"):
         qs = qs.filter(actif=True)
@@ -244,7 +253,74 @@ def _create_campaign(request):
             "has_flyer": bool(flyer),
         },
     )
+
+    # Broadcast notification a tous les membres ACTIF . email + in-app.
+    # Best-effort : la creation reussit meme si la diffusion echoue.
+    _broadcast_campaign_to_actives(c)
+
     return Response(_row(c, request=request), status=status.HTTP_201_CREATED)
+
+
+def _broadcast_campaign_to_actives(campaign):
+    """Notifie tous les membres ACTIF d'une nouvelle campagne micro-credit.
+
+    Cree une Notification in-app par membre + envoie un email transactionnel
+    (template campaign.created). Loggue silencieusement les echecs.
+    """
+    from apps_coop.members.models import Member
+    from apps_coop.notifications.events import emit_event
+    from apps_coop.notifications.models import Notification
+
+    members = Member.objects.filter(statut=Member.Statut.ACTIF).select_related("user")
+    sent_inapp = sent_email = 0
+    titre = f"Nouvelle campagne : {campaign.nom}"
+    corps = (
+        f"La cooperative ouvre une nouvelle campagne micro-credit ciblee "
+        f"{campaign.profil_cible}. Plafond : {campaign.montant_max} XAF. "
+        f"Du {campaign.date_debut} au {campaign.date_fin}."
+    )
+    payload = {
+        "campaign_id": campaign.id,
+        "deeplink": f"/credit/campagnes/{campaign.id}",
+    }
+    for m in members:
+        # In-app . idempotent : on ne re-cree pas si deja diffusee
+        try:
+            Notification.objects.get_or_create(
+                member=m,
+                kind=getattr(Notification.Kind, "ANNOUNCEMENT", "announcement"),
+                titre=titre,
+                defaults={"corps": corps, "payload": payload},
+            )
+            sent_inapp += 1
+        except Exception:  # noqa: BLE001
+            logger.warning("Notification in-app campagne #%s skipped for member #%s",
+                           campaign.id, m.id, exc_info=True)
+        # Email transactionnel
+        if m.user and m.user.email:
+            try:
+                emit_event(
+                    "campaign.created",
+                    to_email=m.user.email,
+                    member=m,
+                    context={
+                        "prenom": m.prenom or "",
+                        "nom": m.nom or "",
+                        "nom_campagne": campaign.nom,
+                        "profil_cible": campaign.profil_cible,
+                        "montant_min": str(campaign.montant_min),
+                        "montant_max": str(campaign.montant_max),
+                        "date_debut": str(campaign.date_debut),
+                        "date_fin": str(campaign.date_fin),
+                        "taux_interet": str(campaign.taux_interet),
+                    },
+                )
+                sent_email += 1
+            except Exception:  # noqa: BLE001
+                logger.warning("Email campagne #%s skipped for %s",
+                               campaign.id, m.user.email, exc_info=True)
+    logger.info("Campaign #%s broadcast : in-app=%s email=%s",
+                campaign.id, sent_inapp, sent_email)
 
 
 # ---------------------------------------------------------------------------
@@ -257,13 +333,32 @@ def _create_campaign(request):
     summary="🔒 Staff — détail d'une campagne (avec bénéficiaires et LR en attente)",
     responses={200: OpenApiResponse(description="Détail campagne enrichi")},
 )
-@api_view(["GET"])
+@api_view(["GET", "DELETE"])
 @permission_classes([IsStaff])
 def admin_campaign_detail(request, pk: int):
     try:
         c = MicrocreditCampaign.objects.get(pk=pk)
     except MicrocreditCampaign.DoesNotExist:
         return Response({"detail": "Campagne introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    # Soft-delete admin . la campagne est masquee mais les LoanRequest qui
+    # la referencent restent intactes (FK on_delete=PROTECT cote modele).
+    if request.method == "DELETE":
+        if c.deleted_at is not None:
+            return Response({"detail": "Campagne deja supprimee."}, status=status.HTTP_400_BAD_REQUEST)
+        c.deleted_at = timezone.now()
+        c.actif = False  # masquee = plus de nouvelles demandes
+        c.save(update_fields=["deleted_at", "actif", "updated_at"])
+        record_audit(
+            action="microcampaign.soft_deleted",
+            entite_type="MicrocreditCampaign",
+            entite_id=c.id,
+            details={"nom": c.nom, "by_user": request.user.id if request.user else None},
+        )
+        return Response(
+            {"id": c.id, "deleted_at": c.deleted_at.isoformat(), "detail": "Campagne archivee."},
+            status=status.HTTP_200_OK,
+        )
 
     pending = LoanRequest.objects.filter(
         microcampaign=c,
