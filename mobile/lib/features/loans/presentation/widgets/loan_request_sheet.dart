@@ -862,7 +862,46 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
 
             const SizedBox(height: AppSpacing.xl),
 
-            PaButton(label: l.lreq_submit, onPressed: _submit),
+            // §6 / LOT 11 . Voie campagne : si toggle active mais aucune
+            // campagne selectionnee, on griser le bouton et on affiche
+            // un message persistent (anti-frustration : sinon l'utilisateur
+            // cliquait + voyait un snackbar de 2s qu'il loupait).
+            if (_withCampaign && _selectedCampaignId == null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFD97706), width: 1),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded,
+                        size: 18, color: Color(0xFF92400E)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        AppL10n.of(context).lreq_campaign_required,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF92400E),
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.m),
+            ],
+
+            PaButton(
+              label: l.lreq_submit,
+              onPressed: (_withCampaign && _selectedCampaignId == null)
+                  ? null
+                  : _submit,
+            ),
           ],
         ),
       ),
