@@ -32,7 +32,7 @@ EVENTS: list[tuple[str, str, str, bool]] = [
     (
         "member.activated",
         "Adhésion approuvée",
-        "Article 1 — le membre est officiellement sociétaire après l'entretien d'admission.",
+        "Article 1 - le membre est officiellement sociétaire après l'entretien d'admission.",
         True,
     ),
     (
@@ -63,7 +63,7 @@ EVENTS: list[tuple[str, str, str, bool]] = [
     (
         "savings.interest_credited",
         "Intérêts d'épargne crédités",
-        "Cron mensuel — 1 % sur le solde collecté (Art. 4).",
+        "Cron mensuel - 1 % sur le solde collecté (Art. 4).",
         False,
     ),
     # --- Retraits ---
@@ -126,19 +126,19 @@ EVENTS: list[tuple[str, str, str, bool]] = [
     (
         "loan.installment_due_soon",
         "Rappel J-N avant échéance",
-        "Cron proactif — fenêtre J-N modifiable (EXT-1).",
+        "Cron proactif - fenêtre J-N modifiable (EXT-1).",
         False,
     ),
     (
         "loan.installment_overdue",
         "Échéance en retard + pénalité",
-        "Article 12 — la pénalité doit être notifiée pour être exigible.",
+        "Article 12 - la pénalité doit être notifiée pour être exigible.",
         True,
     ),
     (
         "loan.notice",
         "Mise en demeure",
-        "Article 13 — acte juridique formel envoyé après plusieurs retards.",
+        "Article 13 - acte juridique formel envoyé après plusieurs retards.",
         True,
     ),
     # --- Crédit : reconduction ---
@@ -151,7 +151,7 @@ EVENTS: list[tuple[str, str, str, bool]] = [
     (
         "loan_renewal.approved",
         "Reconduction approuvée",
-        "Article 10/11 — +1 mois, taux comptant/reporté.",
+        "Article 10/11 - +1 mois, taux comptant/reporté.",
         True,
     ),
     (
@@ -171,7 +171,7 @@ EVENTS: list[tuple[str, str, str, bool]] = [
     (
         "member.reinscription_due",
         "Rappel de réinscription annuelle (alerte douce)",
-        "A2 — Émis J-N avant l'anniversaire annuel d'adhésion. Non bloquant.",
+        "A2 - Émis J-N avant l'anniversaire annuel d'adhésion. Non bloquant.",
         False,
     ),
     (
@@ -184,7 +184,7 @@ EVENTS: list[tuple[str, str, str, bool]] = [
     (
         "loan.penalite_globale_appliquee",
         "Pénalité globale (50 % × solde) appliquée",
-        "Date limite globale du crédit franchie sans solde nul — pénalité "
+        "Date limite globale du crédit franchie sans solde nul - pénalité "
         "ajoutée. Le membre a un délai de grâce avant la saisie de l'épargne.",
         True,
     ),
@@ -205,7 +205,7 @@ EVENTS: list[tuple[str, str, str, bool]] = [
     # --- LOT 10 : Avaliste (caution) flow §7.2 ---
     (
         "loan.avaliste_consent_requested",
-        "Désignation comme avaliste — demande de consentement",
+        "Désignation comme avaliste - demande de consentement",
         "Un membre a désigné un autre membre comme avaliste. L'avaliste doit "
         "accepter ou refuser dans son espace. Mail à l'avaliste désigné.",
         True,
@@ -234,14 +234,14 @@ EVENTS: list[tuple[str, str, str, bool]] = [
     ),
     (
         "loan.funding.completed",
-        "Funding complet — crédit prêt au décaissement",
+        "Funding complet - crédit prêt au décaissement",
         "L'ensemble des tranches du crédit est sécurisé. Mail au demandeur "
         "avec annonce du décaissement imminent.",
         False,
     ),
     (
         "loan.funding.exhausted",
-        "Funding épuisé — intervention admin requise",
+        "Funding épuisé - intervention admin requise",
         "Après plusieurs vagues de sollicitation, le crédit ne peut être "
         "couvert intégralement par l'épargne-prêteur. Mail au demandeur ; "
         "le dossier attend une décision admin.",
@@ -279,7 +279,7 @@ class Command(BaseCommand):
                 )
             else:
                 self.stdout.write(
-                    f"  · Event   {code} (déjà en base — non modifié)"
+                    f"  · Event   {code} (déjà en base - non modifié)"
                 )
 
             # Hook EMAIL par défaut : on cible le template du même code.

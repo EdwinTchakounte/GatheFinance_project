@@ -1,11 +1,11 @@
 """Idempotent seed of the transactional EmailTemplate rows.
 
-Run with ``python manage.py seed_email_templates`` — par défaut idempotent
+Run with ``python manage.py seed_email_templates`` - par défaut idempotent
 (get_or_create). Ajouter ``--force`` pour réécrire les templates existants
 quand le design global change (ex. refonte 2026-06-18).
 
 Le wrapper visuel (header aurore + footer brand) est appliqué au moment
-de l'envoi par ``services._wrap_layout`` — ici on définit uniquement le
+de l'envoi par ``services._wrap_layout`` - ici on définit uniquement le
 ``corps_html`` central.
 """
 from __future__ import annotations
@@ -48,7 +48,7 @@ TEMPLATES = [
             hi("{prenom} {nom}"),
             title("Ta demande d'adhésion est approuvée"),
             lead(
-                "Bonne nouvelle — le comité a validé ton dossier. Il ne reste "
+                "Bonne nouvelle - le comité a validé ton dossier. Il ne reste "
                 "qu'une étape pour activer ton compte membre : régler tes frais "
                 "d'adhésion."
             ),
@@ -75,7 +75,7 @@ TEMPLATES = [
             lead(
                 "Ton paiement de <strong>{montant} XAF</strong> a bien été reçu. "
                 "Ton compte membre <strong>{numero_membre}</strong> est maintenant "
-                "actif — tous les services de la coopérative te sont ouverts."
+                "actif - tous les services de la coopérative te sont ouverts."
             ),
             info_card([
                 ("Épargne", "Dépôts &amp; intérêts mensuels 1 %"),
@@ -185,7 +185,7 @@ TEMPLATES = [
     },
     {
         "code": "savings.interest_credited",
-        "objet": "Intérêts d'épargne crédités — {period}",
+        "objet": "Intérêts d'épargne crédités - {period}",
         "corps_html": _join(
             hi("{prenom}"),
             title("Tes intérêts sont crédités"),
@@ -216,7 +216,7 @@ TEMPLATES = [
             ),
             amount("{montant}", label="Montant demandé"),
             callout(
-                "Tu recevras un email dès qu'une décision sera prise — "
+                "Tu recevras un email dès qu'une décision sera prise - "
                 "généralement sous 24 à 48 heures ouvrables.",
                 tone="info",
             ),
@@ -260,7 +260,7 @@ TEMPLATES = [
         "variables": ["prenom", "montant", "motif_rejet", "portal_url"],
     },
     # ────────────────────────────────────────────────────────────────────
-    # CRÉDIT — demande, approbation, décaissement, remboursement
+    # CRÉDIT - demande, approbation, décaissement, remboursement
     # ────────────────────────────────────────────────────────────────────
     {
         "code": "loan_request.submitted",
@@ -290,7 +290,7 @@ TEMPLATES = [
     },
     {
         "code": "loan_request.fees_paid",
-        "objet": "Frais reçus — demande #{request_id} en instruction",
+        "objet": "Frais reçus - demande #{request_id} en instruction",
         "corps_html": _join(
             hi("{prenom}"),
             title("Ta demande passe en instruction"),
@@ -335,7 +335,7 @@ TEMPLATES = [
         "objet": "Ton crédit {numero_dossier} est approuvé",
         "corps_html": _join(
             hi("{prenom}"),
-            title("Bonne nouvelle — ton crédit est approuvé"),
+            title("Bonne nouvelle - ton crédit est approuvé"),
             lead(
                 "Le comité a validé ton crédit. Voici les conditions retenues :"
             ),
@@ -624,7 +624,7 @@ TEMPLATES = [
     # ────────────────────────────────────────────────────────────────────
     {
         "code": "loan.avaliste_consent_requested",
-        "objet": "Demande de caution — {borrower_nom}",
+        "objet": "Demande de caution - {borrower_nom}",
         "corps_html": _join(
             hi("{prenom}"),
             title("On te désigne comme avaliste"),
@@ -641,7 +641,7 @@ TEMPLATES = [
             ], tone="info"),
             cta("Accepter ou refuser", "{portal_url}/portal/avaliste"),
             p(
-                "Prends ton temps — cette désignation n'est validée qu'après "
+                "Prends ton temps - cette désignation n'est validée qu'après "
                 "ton consentement explicite depuis ton espace membre."
             ),
             closing(),
@@ -676,14 +676,14 @@ TEMPLATES = [
     },
     {
         "code": "loan.avaliste_consent_refused",
-        "objet": "Caution refusée — désigne un autre avaliste",
+        "objet": "Caution refusée - désigne un autre avaliste",
         "corps_html": _join(
             hi("{prenom}"),
             title("L'avaliste a refusé"),
             lead(
                 "L'avaliste que tu as désigné (membre "
                 "<strong>{avaliste_numero}</strong>) n'a pas souhaité se porter "
-                "caution. Pas de souci — tu peux désigner un autre membre pour "
+                "caution. Pas de souci - tu peux désigner un autre membre pour "
                 "relancer ta demande."
             ),
             cta("Désigner un autre avaliste", "{portal_url}/portal/credit"),
@@ -724,12 +724,12 @@ TEMPLATES = [
     },
     {
         "code": "loan.funding.completed",
-        "objet": "Crédit {loan_dossier} financé — décaissement en cours",
+        "objet": "Crédit {loan_dossier} financé - décaissement en cours",
         "corps_html": _join(
             hi("{prenom}"),
             title("Financement complet"),
             lead(
-                "Excellente nouvelle — le financement de ton crédit "
+                "Excellente nouvelle - le financement de ton crédit "
                 "<strong>{loan_dossier}</strong> est complet."
             ),
             amount("{montant}", label="Montant financé"),
@@ -817,7 +817,7 @@ TEMPLATES = [
     },
     {
         "code": "member.reinscription_confirmed",
-        "objet": "Réinscription confirmée — merci !",
+        "objet": "Réinscription confirmée - merci !",
         "corps_html": _join(
             hi("{prenom}"),
             title("Ta réinscription est confirmée"),
@@ -854,7 +854,7 @@ TEMPLATES = [
             ),
             p(
                 "Si tu n'es pas à l'origine de cette demande, ignore cet "
-                "email — ton mot de passe restera inchangé."
+                "email - ton mot de passe restera inchangé."
             ),
             closing(),
         ),

@@ -1,4 +1,4 @@
-"""Réutilisable email building blocks — style inline pour compat inbox.
+"""Réutilisable email building blocks - style inline pour compat inbox.
 
 Chaque helper retourne un fragment HTML prêt à concaténer dans le
 ``corps_html`` d'un EmailTemplate. Les placeholders de variables
@@ -10,7 +10,7 @@ Design system aligné avec la vitrine Gathe Finance :
 - Palette navy #1E3A8A, teal #00B894, bleu accent #0EA5E9
 - Cards info à fond bleu pâle, CTA pill bleu navy
 
-NOTE — Le wrapper visuel (header aurore + footer + logo) vient de
+NOTE - Le wrapper visuel (header aurore + footer + logo) vient de
 ``services._wrap_layout`` au moment de l'envoi. Ici, on ne produit que
 le corps central.
 """
@@ -77,7 +77,7 @@ def p(text: str) -> str:
 
 
 def amount(value_placeholder: str, label: str = "Montant") -> str:
-    """Bloc montant proéminent — pour les emails de confirmation paiement."""
+    """Bloc montant proéminent - pour les emails de confirmation paiement."""
     return (
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
         f'style="margin:18px 0 22px 0;">'
@@ -142,7 +142,7 @@ def cta(text: str, url_placeholder: str) -> str:
 
 
 def cta_secondary(text: str, url_placeholder: str) -> str:
-    """Bouton CTA secondaire — outline (pour cas alternatif)."""
+    """Bouton CTA secondaire - outline (pour cas alternatif)."""
     return (
         f'<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" '
         f'style="margin:24px auto;">'
@@ -175,7 +175,7 @@ def callout(text: str, tone: str = "info") -> str:
 
 
 def code_block(value_placeholder: str, label: str = "Votre code") -> str:
-    """Code OTP en gros caractères monospace — pour les reset PWD."""
+    """Code OTP en gros caractères monospace - pour les reset PWD."""
     return (
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
         f'style="margin:22px 0;">'
@@ -190,12 +190,12 @@ def code_block(value_placeholder: str, label: str = "Votre code") -> str:
 
 
 def closing() -> str:
-    """Pied de message — signature équipe + contact discret."""
+    """Pied de message - signature équipe + contact discret."""
     return (
         f'<p style="margin:28px 0 4px 0;color:{INK_MUTED};font-size:13px;line-height:1.6;">'
         f'Une question ? Écris-nous à '
         f'<a href="mailto:contact@gathe-finance.com" style="color:{NAVY};text-decoration:none;'
         f'font-weight:500;">contact@gathe-finance.com</a>.</p>'
         f'<p style="margin:6px 0 0 0;color:{INK};font-size:14px;font-weight:600;">'
-        f'— L\'équipe Gathe Finance</p>'
+        f'- L\'équipe Gathe Finance</p>'
     )
