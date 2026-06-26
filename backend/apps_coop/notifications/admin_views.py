@@ -75,6 +75,7 @@ def admin_announcements_create(request):
         audience=payload["audience"],
         audience_member_ids=payload.get("audience_member_ids") or [],
         lien=(payload.get("lien") or "").strip(),
+        image=payload.get("image"),
         expires_at=payload.get("expires_at"),
         author=request.user if request.user.is_authenticated else None,
     )

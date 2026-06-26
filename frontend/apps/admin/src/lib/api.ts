@@ -451,6 +451,7 @@ export type AnnouncementRow = {
   audience_display: string;
   audience_member_ids: number[];
   lien: string;
+  image_url?: string | null;
   author: number | null;
   author_email: string | null;
   published_at: string | null;
@@ -467,7 +468,9 @@ export type AnnouncementCreatePayload = {
   audience_member_ids?: number[];
   lien?: string;
   expires_at?: string | null;
+  image?: File;
 };
+
 
 // P2 — AppSettings tunables (refonte 2026).
 export type AppSettingType = "int" | "decimal" | "bool" | "str" | "csv" | "enum";
@@ -1177,11 +1180,31 @@ export const adminApi = {
       request<{ results: AnnouncementRow[] }>(
         "/notifications/admin/announcements/",
       ),
-    create: (payload: AnnouncementCreatePayload) =>
-      request<AnnouncementRow>(
+    create: (payload: AnnouncementCreatePayload) => {
+      // Si une image est jointe, on passe en multipart . sinon JSON classique.
+      if (payload.image) {
+        const fd = new FormData();
+        fd.append("titre", payload.titre);
+        fd.append("corps", payload.corps);
+        fd.append("audience", payload.audience);
+        if (payload.audience_member_ids) {
+          for (const id of payload.audience_member_ids) {
+            fd.append("audience_member_ids", String(id));
+          }
+        }
+        if (payload.lien) fd.append("lien", payload.lien);
+        if (payload.expires_at) fd.append("expires_at", payload.expires_at);
+        fd.append("image", payload.image);
+        return request<AnnouncementRow>(
+          "/notifications/admin/announcements/create/",
+          { method: "POST", body: fd },
+        );
+      }
+      return request<AnnouncementRow>(
         "/notifications/admin/announcements/create/",
         { method: "POST", body: JSON.stringify(payload) },
-      ),
+      );
+    },
     remove: (id: number) =>
       request<void>(`/notifications/admin/announcements/${id}/`, {
         method: "DELETE",

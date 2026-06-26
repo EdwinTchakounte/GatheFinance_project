@@ -244,6 +244,18 @@ class Announcement(TimestampedModel):
         blank=True,
         help_text="Lien interne optionnel (ex: /campaigns/42) repris sur la notif.",
     )
+    # Visuel optionnel . affiche en tete de la notif mobile + email.
+    # Stocke sous coop/announcements/ donc public via l'allowlist /media/.
+    image = models.ImageField(
+        upload_to="coop/announcements/",
+        blank=True,
+        null=True,
+        help_text=(
+            "Image illustrative optionnelle (JPG/PNG, recommande 1200x630px). "
+            "Affichee en haut de la notification mobile et integree dans "
+            "l'e-mail si diffusion email activee."
+        ),
+    )
 
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,

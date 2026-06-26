@@ -169,6 +169,8 @@ function CreateForm({
   const [audience, setAudience] = useState<AnnouncementAudience>("all");
   const [memberIdsRaw, setMemberIdsRaw] = useState("");
   const [lien, setLien] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -203,6 +205,7 @@ function CreateForm({
         audience,
         audience_member_ids: memberIds,
         lien: lien.trim() || undefined,
+        image: image ?? undefined,
       });
       onCreated(created);
       setTitre("");
@@ -210,6 +213,8 @@ function CreateForm({
       setLien("");
       setMemberIdsRaw("");
       setAudience("all");
+      setImage(null);
+      setImagePreview(null);
     } catch (err) {
       const apiErr = err as ApiError;
       onError(apiErr.detail ?? "Diffusion impossible.");
@@ -319,6 +324,51 @@ function CreateForm({
           placeholder="Ex. : /campaigns/42"
           className="rounded-xl border border-ink-200 bg-paper px-3 py-2 text-sm text-ink-900 outline-none focus:border-cobalt focus:ring-2 focus:ring-cobalt/20"
         />
+      </div>
+
+      <div className="grid gap-2">
+        <label htmlFor="image" className="text-sm font-medium text-ink-700">
+          Image illustrative (optionnel)
+        </label>
+        <div className="flex items-start gap-3">
+          {imagePreview ? (
+            <div className="relative size-24 shrink-0 overflow-hidden rounded-xl border border-ink-200 bg-ink-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imagePreview} alt="Aperçu" className="size-full object-cover" />
+              <button
+                type="button"
+                onClick={() => { setImage(null); setImagePreview(null); }}
+                className="absolute right-1 top-1 rounded-full bg-rose-500 px-1.5 py-0.5 text-[0.65rem] font-bold text-white shadow"
+                aria-label="Retirer l'image"
+              >
+                X
+              </button>
+            </div>
+          ) : null}
+          <div className="flex-1">
+            <input
+              id="image"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setImage(f);
+                if (f) {
+                  const reader = new FileReader();
+                  reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+                  reader.readAsDataURL(f);
+                } else {
+                  setImagePreview(null);
+                }
+              }}
+              className="block w-full rounded-xl border border-ink-200 bg-paper px-3 py-2 text-sm text-ink-700 file:mr-3 file:rounded-md file:border-0 file:bg-cobalt/10 file:px-3 file:py-1 file:text-sm file:font-medium file:text-cobalt hover:file:bg-cobalt/20"
+            />
+            <p className="mt-1 text-xs text-ink-500">
+              JPG/PNG/WebP recommandé 1200×630px. Affiché en tête de la notif
+              mobile.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-3 border-t border-ink-100 pt-4">

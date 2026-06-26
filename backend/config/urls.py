@@ -36,9 +36,12 @@ def healthcheck(_request):
 #: Tout le reste (CNI, photo identite, plan localisation, BRC...) reste
 #: protege par IsStaff.
 _PUBLIC_MEDIA_PREFIXES = (
-    "coop/assets/",       # CooperativeAsset (reglement_interieur, carnet_specimen)
-    "coop/campaigns/",    # Flyers de campagnes micro-credit (publics)
-    "coop/blog/",         # Covers d'articles Wagtail
+    "coop/assets/",          # CooperativeAsset (reglement_interieur, carnet_specimen)
+    "coop/campaigns/",       # Flyers de campagnes micro-credit (publics)
+    "coop/blog/",            # Covers d'articles Wagtail
+    "coop/announcements/",   # Visuels d'annonces broadcast
+    "original_images/",      # Wagtail images (mobile/portail recoivent les URLs)
+    "images/",               # Wagtail renditions
 )
 
 

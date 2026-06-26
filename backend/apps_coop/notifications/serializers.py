@@ -20,6 +20,14 @@ class AnnouncementReadSerializer(serializers.ModelSerializer):
         source="get_audience_display", read_only=True
     )
     author_email = serializers.CharField(source="author.email", read_only=True)
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        url = obj.image.url
+        return request.build_absolute_uri(url) if request else url
 
     class Meta:
         model = Announcement
@@ -31,6 +39,7 @@ class AnnouncementReadSerializer(serializers.ModelSerializer):
             "audience_display",
             "audience_member_ids",
             "lien",
+            "image_url",
             "author",
             "author_email",
             "published_at",
@@ -68,6 +77,7 @@ class AnnouncementCreateSerializer(serializers.Serializer):
     lien = serializers.CharField(
         max_length=255, required=False, allow_blank=True, default=""
     )
+    image = serializers.ImageField(required=False, allow_null=True)
     expires_at = serializers.DateTimeField(required=False, allow_null=True)
 
     def validate(self, attrs):
