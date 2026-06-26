@@ -26,6 +26,7 @@ import {
   Notebook,
   Newspaper,
   GitBranch,
+  Coins,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
@@ -51,6 +52,9 @@ const NAV: NavItem[] = [
   { href: "/membership-requests", label: "Adhésions", icon: UserPlus, queueKey: "adhesions_en_attente" },
   { href: "/loan-requests", label: "Demandes de crédit", icon: HandCoins, queueKey: "credits_en_instruction" },
   { href: "/loans", label: "Crédits", icon: Wallet },
+  // LA-1 . Pool de tranches preteur (epargne placement) . admin pilote
+  // manuellement le funding d'un credit.
+  { href: "/lender-tranches", label: "Pool prêteurs", icon: Coins },
   { href: "/payments", label: "Paiements", icon: Receipt },
   { href: "/withdrawals", label: "Retraits épargne", icon: ArrowDownToLine },
   { href: "/booklet-orders", label: "Commandes carnet", icon: Notebook },

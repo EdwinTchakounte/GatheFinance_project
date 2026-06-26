@@ -10,6 +10,11 @@ from .avaliste_views import (
     avaliste_mandat_respond,
     avaliste_mandats_list,
 )
+from .lender_admin_views import (
+    admin_compose_funding_manual,
+    admin_lender_pool_summary,
+    admin_list_lender_tranches,
+)
 from .judicial_admin import (
     admin_escalation_classer,
     admin_escalation_decision,
@@ -147,6 +152,22 @@ urlpatterns = [
         "admin/requests/<int:pk>/campaign-decide/",
         admin_loan_request_campaign_decide,
         name="admin-campaign-decide",
+    ),
+    # LA-1..3 . Pool tranches preteur (admin pilote le funding manuel).
+    path(
+        "admin/lender-tranches/",
+        admin_list_lender_tranches,
+        name="admin-lender-tranches",
+    ),
+    path(
+        "admin/lender-tranches/summary/",
+        admin_lender_pool_summary,
+        name="admin-lender-pool-summary",
+    ),
+    path(
+        "admin/<int:pk>/funding-manual/",
+        admin_compose_funding_manual,
+        name="admin-funding-manual",
     ),
     # Refonte 2026 — LOT 17 : escalades judiciaires phase D/E
     path("admin/escalations/", admin_list_escalations, name="admin-escalations"),

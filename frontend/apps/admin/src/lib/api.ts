@@ -1314,6 +1314,83 @@ export const adminApi = {
         ),
     },
   },
+
+  // LA-1..3 . Pool de tranches preteur (epargne placement).
+  // L'admin pilote le funding manuel d'un credit en cherry-pickant
+  // les tranches DISPONIBLE des membres preteur.
+  lenderTranches: {
+    list: (params: {
+      statut?: "disponible" | "engagee" | "liberee" | "annulee" | "all";
+      member_id?: number;
+      q?: string;
+      montant_min?: number;
+      montant_max?: number;
+    } = {}) => {
+      const qs = new URLSearchParams();
+      if (params.statut) qs.set("statut", params.statut);
+      if (params.member_id) qs.set("member_id", String(params.member_id));
+      if (params.q) qs.set("q", params.q);
+      if (params.montant_min) qs.set("montant_min", String(params.montant_min));
+      if (params.montant_max) qs.set("montant_max", String(params.montant_max));
+      const suffix = qs.toString() ? `?${qs}` : "";
+      return request<LenderTranchesListResponse>(
+        `/loans/admin/lender-tranches/${suffix}`,
+      );
+    },
+    summary: () =>
+      request<LenderPoolSummary>("/loans/admin/lender-tranches/summary/"),
+    composeFunding: (
+      loanId: number,
+      payload: { selections: Array<{ tranche_id: number; montant: string }> },
+    ) =>
+      request<LenderFundingComposeResponse>(
+        `/loans/admin/${loanId}/funding-manual/`,
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
+  },
+};
+
+// LA-1 . Types pool preteur.
+export type LenderTranche = {
+  id: number;
+  member: {
+    id: number;
+    numero_membre: string;
+    nom: string;
+    prenom: string;
+    email: string;
+  };
+  montant: string;
+  statut: "disponible" | "engagee" | "liberee" | "annulee";
+  statut_display: string;
+  engaged_in_loan_id: number | null;
+  engaged_in_loan_dossier: string | null;
+  engaged_at: string | null;
+  released_at: string | null;
+  created_at: string;
+};
+
+export type LenderTranchesListResponse = {
+  items: LenderTranche[];
+  count: number;
+};
+
+export type LenderPoolSummary = {
+  disponible: { n: number; total: string };
+  engagee: { n: number; total: string };
+  liberee: { n: number; total: string };
+  annulee: { n: number; total: string };
+};
+
+export type LenderFundingComposeResponse = {
+  status: "ok";
+  loan_id: number;
+  loan_dossier: string;
+  n_tranches_engagees: number;
+  n_tranches_splittees: number;
+  total_engage: string;
+  capital_loan: string;
+  reste_a_couvrir: string;
 };
 
 // CH-4 — Types FormSchema (admin).

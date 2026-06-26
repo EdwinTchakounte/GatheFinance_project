@@ -1,0 +1,295 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Coins, Search, Filter, Layers } from "lucide-react";
+
+import { buttonClasses } from "@gathe/ui";
+
+import {
+  adminApi,
+  type ApiError,
+  type LenderTranche,
+  type LenderPoolSummary,
+} from "@/lib/api";
+
+const STATUT_OPTIONS = [
+  { v: "disponible", l: "Disponible", color: "text-emerald bg-emerald/10 ring-emerald/30" },
+  { v: "engagee", l: "Engagee", color: "text-blue-700 bg-blue-50 ring-blue-200" },
+  { v: "liberee", l: "Liberee", color: "text-ink-600 bg-line-100 ring-line-200" },
+  { v: "annulee", l: "Annulee", color: "text-terra-700 bg-terra-50/60 ring-terra-400/40" },
+  { v: "all", l: "Toutes", color: "" },
+] as const;
+
+
+export default function LenderTranchesPage() {
+  return <Inner />;
+}
+
+function Inner() {
+  const [statut, setStatut] = useState<"disponible" | "engagee" | "liberee" | "annulee" | "all">("disponible");
+  const [q, setQ] = useState("");
+  const [montantMin, setMontantMin] = useState<string>("");
+  const [items, setItems] = useState<LenderTranche[]>([]);
+  const [summary, setSummary] = useState<LenderPoolSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function reload() {
+    setLoading(true);
+    setError(null);
+    try {
+      adminApi.primeCsrf().catch(() => undefined);
+      const [list, sum] = await Promise.all([
+        adminApi.lenderTranches.list({
+          statut,
+          q: q.trim() || undefined,
+          montant_min: montantMin ? Number(montantMin) : undefined,
+        }),
+        adminApi.lenderTranches.summary(),
+      ]);
+      setItems(list.items);
+      setSummary(sum);
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setError(apiErr.detail ?? "Chargement impossible.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line
+  }, [statut]);
+
+  const reserveDispo = useMemo(() => {
+    if (!summary) return null;
+    return {
+      n: summary.disponible.n,
+      total: Number(summary.disponible.total),
+    };
+  }, [summary]);
+
+  return (
+    <div className="px-8 py-8 lg:px-12 lg:py-10">
+      <header className="mb-8">
+        <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
+          Voie 2 . Epargne preteur
+        </p>
+        <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
+          Pool de tranches preteur
+        </h1>
+        <p className="mt-1 text-sm text-ink-600">
+          Visualise les tranches d'epargne placement et compose manuellement le funding d'un credit.
+        </p>
+      </header>
+
+      {/* Summary cards */}
+      {summary ? (
+        <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
+          <SummaryCard
+            label="Reserve mobilisable"
+            value={`${formatXAF(summary.disponible.total)} XAF`}
+            sub={`${summary.disponible.n} tranches`}
+            accent="emerald"
+            icon={<Coins className="size-5 text-emerald" aria-hidden="true" />}
+          />
+          <SummaryCard
+            label="Capital engage"
+            value={`${formatXAF(summary.engagee.total)} XAF`}
+            sub={`${summary.engagee.n} tranches en credit`}
+            accent="blue"
+            icon={<Layers className="size-5 text-blue-700" aria-hidden="true" />}
+          />
+          <SummaryCard
+            label="Capital libere"
+            value={`${formatXAF(summary.liberee.total)} XAF`}
+            sub={`${summary.liberee.n} tranches (credits cloturés)`}
+            accent="neutral"
+            icon={<Layers className="size-5 text-ink-500" aria-hidden="true" />}
+          />
+          <SummaryCard
+            label="Annulees"
+            value={`${formatXAF(summary.annulee.total)} XAF`}
+            sub={`${summary.annulee.n} tranches`}
+            accent="terra"
+            icon={<Layers className="size-5 text-terra-700" aria-hidden="true" />}
+          />
+        </section>
+      ) : null}
+
+      {/* Filters */}
+      <section className="mb-5 rounded-md border border-line-200 bg-paper p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1 rounded-md border border-line-200 bg-white p-1">
+            {STATUT_OPTIONS.map((opt) => (
+              <button
+                key={opt.v}
+                type="button"
+                onClick={() => setStatut(opt.v)}
+                className={[
+                  "rounded px-3 py-1.5 text-xs font-medium transition-colors",
+                  statut === opt.v ? "bg-blue-700 text-white" : "text-ink-700 hover:text-blue-700",
+                ].join(" ")}
+              >
+                {opt.l}
+              </button>
+            ))}
+          </div>
+          <div className="relative flex-1 min-w-[16rem]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
+            <input
+              type="text"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && reload()}
+              placeholder="Recherche numero membre, nom, prenom"
+              className="w-full rounded-md border border-line-200 bg-white py-2 pl-9 pr-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-blue-700 focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Filter className="size-4 text-ink-400" aria-hidden="true" />
+            <input
+              type="number"
+              value={montantMin}
+              onChange={(e) => setMontantMin(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && reload()}
+              placeholder="Montant min XAF"
+              className="w-40 rounded-md border border-line-200 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-blue-700 focus:outline-none"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={reload}
+            className={buttonClasses({ variant: "primary", size: "sm" })}
+          >
+            Appliquer
+          </button>
+        </div>
+        {reserveDispo && statut === "disponible" ? (
+          <p className="mt-3 text-xs text-ink-600">
+            Reserve actuellement libre d'engagement :{" "}
+            <strong className="text-emerald">{formatXAF(String(reserveDispo.total))} XAF</strong>
+            {" "}repartie sur <strong>{reserveDispo.n}</strong> tranches.
+          </p>
+        ) : null}
+      </section>
+
+      {error ? (
+        <div className="mb-5 rounded-md border border-terra-400/40 bg-terra-50/60 px-4 py-2.5 text-sm text-terra-700">
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <p className="text-ink-600">Chargement...</p>
+      ) : items.length === 0 ? (
+        <p className="rounded-md border border-dashed border-line-200 bg-paper/70 p-12 text-center text-sm text-ink-600">
+          Aucune tranche pour ce filtre.
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-md border border-line-200 bg-paper">
+          <table className="table-admin">
+            <thead>
+              <tr>
+                <th>Membre</th>
+                <th>Montant</th>
+                <th>Statut</th>
+                <th>Engage dans</th>
+                <th>Date depot</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((t) => {
+                const opt = STATUT_OPTIONS.find((o) => o.v === t.statut);
+                return (
+                  <tr key={t.id}>
+                    <td>
+                      <p className="font-medium text-ink-900">
+                        {t.member.prenom} {t.member.nom}
+                      </p>
+                      <p className="font-mono text-xs text-ink-600">{t.member.numero_membre}</p>
+                    </td>
+                    <td>
+                      <p className="font-mono font-semibold text-ink-900">
+                        {formatXAF(t.montant)} XAF
+                      </p>
+                    </td>
+                    <td>
+                      <span
+                        className={[
+                          "inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.65rem] font-medium ring-1 ring-inset",
+                          opt?.color || "",
+                        ].join(" ")}
+                      >
+                        {t.statut_display}
+                      </span>
+                    </td>
+                    <td>
+                      {t.engaged_in_loan_dossier ? (
+                        <a
+                          href={`/loans/${t.engaged_in_loan_id}`}
+                          className="text-sm font-mono text-blue-700 hover:underline"
+                        >
+                          {t.engaged_in_loan_dossier}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-ink-400">—</span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap text-sm text-ink-600">
+                      {new Date(t.created_at).toLocaleDateString("fr-FR", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "2-digit",
+                      })}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function SummaryCard({
+  label,
+  value,
+  sub,
+  accent,
+  icon,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  accent: "emerald" | "blue" | "neutral" | "terra";
+  icon: React.ReactNode;
+}) {
+  const borderClass = {
+    emerald: "border-emerald/30 bg-emerald/5",
+    blue: "border-blue-300 bg-blue-50/50",
+    neutral: "border-line-200 bg-paper",
+    terra: "border-terra-400/40 bg-terra-50/40",
+  }[accent];
+  return (
+    <div className={`rounded-md border p-4 ${borderClass}`}>
+      <div className="flex items-center gap-2">
+        {icon}
+        <p className="text-[0.7rem] font-medium uppercase tracking-wide text-ink-600">{label}</p>
+      </div>
+      <p className="mt-2 font-mono text-xl font-semibold text-ink-900">{value}</p>
+      <p className="mt-0.5 text-xs text-ink-600">{sub}</p>
+    </div>
+  );
+}
+
+
+function formatXAF(value: string | number): string {
+  const n = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(n)) return "0";
+  return new Intl.NumberFormat("fr-FR").format(Math.round(n));
+}
