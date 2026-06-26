@@ -55,6 +55,14 @@ dependencies:
   local_auth: ^2.3.0
   local_auth_android: ^1.0.46
 
+  # Notifications LOCALES (push device-side, pas FCM).
+  # Affichage d'alertes a l'arrivee d'une notif backend +
+  # rappels planifies (consultation app toutes les 6h, cotisation 16h).
+  # FCM (firebase_messaging) sera ajoute dans une iteration suivante
+  # pour permettre les push serveur cross-device.
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
+
   # Génération + partage du relevé PDF (offline).
   pdf: ^3.11.1
   printing: ^5.13.3
