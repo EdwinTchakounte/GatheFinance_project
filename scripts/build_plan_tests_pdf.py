@@ -231,6 +231,16 @@ def build():
         ("Compte admin de test", "tchambaedwin@gmail.com (mot de passe envoye separement)"),
     ], s))
 
+    story.append(Spacer(1, 8))
+    story.append(Paragraph("Grille des frais de reference (FeeType en base)", s["label"]))
+    story.append(_table_kv([
+        ("Adhesion (ADHESION)", "10 000 XAF . a l'inscription du nouveau membre."),
+        ("Inscription (INSCRIPTION)", "2 000 XAF . ouverture du dossier."),
+        ("Carnet (CARNET)", "1 000 XAF . carnet remis au membre actif."),
+        ("Frais d'etude credit (DEMANDE_CREDIT)", "5 000 XAF . payes a la soumission, <b>non remboursables</b> (CH-7)."),
+        ("Reconduction (RECONDUCTION)", "0 XAF . gratuit (Article 10/11)."),
+    ], s))
+
     # --- Bloc 1 : Critiques ---
     story.extend(_section("Bloc 1 . Flows critiques (impact financier direct)", s))
     story.extend(_flow(
@@ -267,6 +277,7 @@ def build():
             "Ou utiliser un nouveau membre qui depose une demande de credit depuis le mobile.",
         ],
         etapes=[
+            "<b>Frais d'etude (CH-7).</b> Le membre depose sa demande puis regle les frais d'etude <b>5 000 XAF (non-remboursables, code FeeType DEMANDE_CREDIT)</b>. Tant que ces frais ne sont pas valides, la demande reste en EN_ATTENTE et ne passe jamais en instruction. Une fois encaissee, email <i>Frais de demande credit confirmes</i> envoye et statut bascule a EN_INSTRUCTION.",
             "Ouvrir <b>/admin/loan-requests?statut=en_instruction</b> puis la demande concernee.",
             "Cliquer <b>Decision provisoire</b> puis <i>Approuver provisoirement</i>. Le statut passe a APPROUVEE_PROVISOIRE.",
             "Cliquer <b>Visite terrain effectuee</b> et saisir le rapport. Les champs <code>field_visit_done_at</code> et <code>field_visit_by</code> sont renseignes.",
@@ -275,6 +286,7 @@ def build():
             "Enregistrer un remboursement depuis <b>/admin/payments</b> et verifier l'imputation FIFO sur les echeances.",
         ],
         criteres=[
+            "<b>Frais d'etude 5 000 XAF encaisses avant l'instruction (CH-7) ; non rembourses si la demande est rejetee.</b>",
             "Sequence des trois statuts respectee (provisoire, visite, definitive).",
             "Echeancier coherent avec terms.py (paliers 10 % par transaction).",
             "Email envoye a chaque etape decisionnelle.",
@@ -287,6 +299,7 @@ def build():
         objectif="Valider le flow LOT 10 (consentement de l'avaliste sous 24 heures).",
         prereq=["Deux comptes membres actifs avec solde suffisant cote avaliste."],
         etapes=[
+            "<b>Frais d'etude (CH-7).</b> Avant tout, le membre A regle les frais d'etude <b>5 000 XAF (non-remboursables)</b>. Sans ce paiement la demande n'est jamais transmise a l'avaliste.",
             "Le membre A depose une demande en designant le membre B comme avaliste. Statut EN_ATTENTE_AVALISTE.",
             "Le membre B recoit l'email <i>Designation comme avaliste</i> ainsi qu'une notification in-app (NotifKind.avaliste).",
             "Le membre B ouvre l'app, va dans <b>Mes mandats avaliste</b> et choisit Accepter ou Refuser.",
@@ -306,8 +319,8 @@ def build():
         etapes=[
             "Sur <b>/admin/campaigns</b> creer une campagne <i>Test 2026-06</i>, profil cible AGRICULTEUR, dates aujourd'hui a +30 jours, montants 50 000 a 200 000 XAF, flyer JPG.",
             "Verifier diffusion : email <i>Nouvelle campagne micro-credit</i> envoye a tous les membres ACTIF (template <code>campaign.created</code>), notification in-app, visibilite cote mobile sur Credit voie 3.",
-            "Faire postuler un membre. Statut EN_VALIDATION_CAMPAGNE.",
-            "L'admin valide l'activite. La demande bascule en EN_INSTRUCTION.",
+            "<b>Frais d'etude (CH-7).</b> Le membre postule en reglant les frais d'etude <b>5 000 XAF (non-remboursables)</b>. Statut EN_VALIDATION_CAMPAGNE.",
+            "L'admin valide l'activite. La demande bascule en EN_INSTRUCTION puis suit le meme cycle que la voie 1.",
             "Verifier le cron close_expired_campaigns qui ferme automatiquement a date_fin.",
         ],
         criteres=[
