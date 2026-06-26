@@ -211,7 +211,34 @@ def _confirm(payment: Payment, *, provider_reference: str, raw: dict) -> Payment
         )
     else:
         handler(payment, raw)
+
+    _notify_payment_confirmed(payment)
     return payment
+
+
+def _notify_payment_confirmed(payment: Payment) -> None:
+    """Notif in-app systematique a la validation d'un Payment.
+
+    Best-effort . n'echoue jamais. Couvre TOUS les types de paiement (epargne
+    classique, cotisation, frais carnet, frais credit, remboursement,
+    decaissement). Le membre voit ainsi son paiement passer de "en cours"
+    a "valide" dans le centre de notifs mobile / portail, sans dependre du
+    canal email.
+    """
+    if not payment.member_id or not getattr(payment.member, "user_id", None):
+        return
+    try:
+        from apps_coop.notifications.services import create_notification
+
+        type_display = payment.get_type_display() if hasattr(payment, "get_type_display") else payment.type
+        create_notification(
+            user=payment.member.user,
+            type=f"payment.confirmed.{payment.type}",
+            message=f"Paiement {type_display} de {_fmt_xaf(payment.montant)} FCFA valide.",
+            lien="/notifications",
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("payment.confirmed notification failed", exc_info=True)
 
 
 def _reject(payment: Payment, *, raw: dict) -> Payment:
@@ -234,7 +261,7 @@ def _reject(payment: Payment, *, raw: dict) -> Payment:
                 user=payment.member.user,
                 type=f"payment.rejected.{payment.type}",
                 message=(
-                    f"Paiement {type_display} de {_fmt_xaf(payment.montant)} echoue — "
+                    f"Paiement {type_display} de {_fmt_xaf(payment.montant)} FCFA echoue. "
                     f"{payment.motif_rejet[:120]}"
                 ),
                 lien="/notifications",
@@ -262,8 +289,8 @@ def notify_payment_initiated(payment: Payment) -> None:
             user=payment.member.user,
             type=f"payment.initiated.{payment.type}",
             message=(
-                f"Paiement {type_display} de {_fmt_xaf(payment.montant)} en cours — "
-                f"valide le STK Push sur ton telephone"
+                f"Paiement {type_display} de {_fmt_xaf(payment.montant)} FCFA en cours. "
+                f"Valide le STK Push sur ton telephone."
             ),
             lien="/notifications",
         )
