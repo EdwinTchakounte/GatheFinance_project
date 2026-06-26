@@ -63,8 +63,21 @@ SCHEDULES = [
         "name": "payments.reconcile.hourly",
         "func": "apps_coop.payments.tasks.reconcile_pending_payments_scheduled",
         "schedule_type": Schedule.CRON,
-        "cron": "*/5 * * * *",  # toutes les 5 minutes (phase test STK Push)
-        "description": "Filet de sécurité webhook Tara — interroge Tara pour les Payments en_attente > 2 min",
+        # O1 . cron passe a 15 min apres recette STK (etait */5 phase test).
+        # Reduit la charge API Tara . le webhook reste le canal principal,
+        # ce cron est le filet de securite.
+        "cron": "*/15 * * * *",
+        "description": "Filet de sécurité webhook Tara — interroge Tara pour les Payments en_attente > 2 min (toutes les 15 min)",
+    },
+    {
+        # O5 . Alerte admin si paiements bloques > 60 min (tunable via
+        # AppSetting payments.alert.stuck_after_minutes). Email envoye aux
+        # destinataires de payments.alert.recipients (csv).
+        "name": "payments.alert.stuck",
+        "func": "apps_coop.payments.tasks.alert_stuck_payments",
+        "schedule_type": Schedule.CRON,
+        "cron": "0 * * * *",  # toutes les heures pile.
+        "description": "Notifie les admins par mail si des Payments restent EN_ATTENTE > 60 min (panne Tara silencieuse ou worker arrete)",
     },
     {
         "name": "members.reinscription.daily",

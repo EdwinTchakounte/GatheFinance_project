@@ -670,12 +670,22 @@ def _hook_loan_request_fees(payment: Payment, _raw: dict) -> None:
     """
     from apps_coop.loans.models import LoanRequest  # local — avoid cycles
 
-    pending = (
-        LoanRequest.objects.select_for_update()
-        .filter(member=payment.member, statut=LoanRequest.Statut.EN_ATTENTE)
-        .order_by("-date_soumission")
-        .first()
+    candidates_qs = LoanRequest.objects.select_for_update().filter(
+        member=payment.member, statut=LoanRequest.Statut.EN_ATTENTE,
     )
+    candidates_count = candidates_qs.count()
+    pending = candidates_qs.order_by("-date_soumission").first()
+
+    # O3 . log si plus d'une demande EN_ATTENTE (ne devrait JAMAIS arriver
+    # grace a compute_eligibility, mais detection de bug eventuel).
+    if candidates_count > 1:
+        logger.warning(
+            "Payment #%s . %s LoanRequest EN_ATTENTE trouvees pour le membre "
+            "%s (attendu: 1). Mappage applique sur la plus recente #%s. "
+            "Investigation requise sur compute_eligibility.",
+            payment.id, candidates_count, payment.member_id,
+            pending.id if pending else None,
+        )
     if pending is None:
         logger.warning(
             "Payment #%s (frais_demande_credit) validé mais aucune LoanRequest "

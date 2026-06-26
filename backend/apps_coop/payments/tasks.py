@@ -131,3 +131,121 @@ def reconcile_pending_payments_scheduled() -> dict:
     Uses the default ``batch_size`` from ``reconcile_pending_payments``.
     """
     return reconcile_pending_payments()
+
+
+# ---------------------------------------------------------------------------
+# O5 . Alerte admin si paiement coince trop longtemps
+# ---------------------------------------------------------------------------
+
+def alert_stuck_payments() -> dict:
+    """Cron de supervision . envoie un email recap aux admins si des
+    Payment restent EN_ATTENTE depuis plus de `payments.alert.stuck_after_minutes`
+    (defaut 60 min).
+
+    Indispensable pour detecter les pannes Tara silencieuses ou un bug du
+    cron de reconciliation. Best-effort . erreur d'envoi ne fait pas
+    planter le cron.
+
+    Returns un dict {checked, alerted, recipients} pour le logging.
+    """
+    from django.core.mail import EmailMessage
+    from django.conf import settings as dj_settings
+
+    # Seuil tunable . defaut 60 min (paye depuis 1h mais toujours en_attente).
+    try:
+        from apps_coop.audit.services import get_int_setting
+        threshold_minutes = get_int_setting(
+            "payments.alert.stuck_after_minutes", 60,
+        )
+    except Exception:  # noqa: BLE001
+        threshold_minutes = 60
+
+    cutoff = timezone.now() - timedelta(minutes=threshold_minutes)
+    stuck = (
+        Payment.objects.filter(
+            statut=Payment.Statut.EN_ATTENTE,
+            source=Payment.Source.MOBILE_MONEY,
+            gateway_initiated_at__lte=cutoff,
+        )
+        .select_related("member")
+        .order_by("gateway_initiated_at")[:50]
+    )
+    summary = {"checked": stuck.count(), "alerted": 0, "recipients": 0}
+    if stuck.count() == 0:
+        return summary
+
+    # Destinataires . liste tunable, fallback DEFAULT_FROM_EMAIL.
+    try:
+        from apps_coop.audit.services import get_str_setting
+        recipients_raw = get_str_setting(
+            "payments.alert.recipients",
+            getattr(dj_settings, "CONTACT_NOTIFICATION_EMAIL", "")
+            or getattr(dj_settings, "DEFAULT_FROM_EMAIL", ""),
+        )
+    except Exception:  # noqa: BLE001
+        recipients_raw = getattr(
+            dj_settings, "CONTACT_NOTIFICATION_EMAIL", "",
+        ) or getattr(dj_settings, "DEFAULT_FROM_EMAIL", "")
+    recipients = [r.strip() for r in (recipients_raw or "").split(",") if r.strip()]
+    if not recipients:
+        logger.warning(
+            "alert_stuck_payments . %d payments bloques mais aucun destinataire",
+            stuck.count(),
+        )
+        return summary
+
+    # Composition email simple (HTML inline, pas besoin de template DB).
+    rows_html = []
+    for p in stuck:
+        member_label = (
+            f"{p.member.numero_membre or '-'} {p.member.prenom or ''} {p.member.nom or ''}"
+            if p.member else "(membre supprime)"
+        )
+        rows_html.append(
+            f"<tr>"
+            f"<td style='padding:8px;border-bottom:1px solid #e2e8f0;'>#{p.id}</td>"
+            f"<td style='padding:8px;border-bottom:1px solid #e2e8f0;'>{member_label}</td>"
+            f"<td style='padding:8px;border-bottom:1px solid #e2e8f0;font-family:monospace;font-size:12px;'>{p.type}</td>"
+            f"<td style='padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;'>{p.montant} XAF</td>"
+            f"<td style='padding:8px;border-bottom:1px solid #e2e8f0;font-size:12px;'>{p.gateway_initiated_at}</td>"
+            f"</tr>",
+        )
+    body = (
+        '<!DOCTYPE html><html><body style="font-family:Inter,Arial,sans-serif;max-width:760px;margin:auto;padding:24px;">'
+        f'<h1 style="color:#b91c1c;">{stuck.count()} paiement(s) bloque(s) depuis plus de {threshold_minutes} min</h1>'
+        '<p>Le cron de reconciliation Tara n\'a pas reussi a clore ces paiements. '
+        'Verifie que :</p>'
+        '<ul><li>Tara ne renvoie pas une erreur 5xx persistante</li>'
+        '<li>Le webhook arrive bien (logs gunicorn /payments/webhook/)</li>'
+        '<li>Le worker django_q tourne (docker ps gathe-finance-prod-qcluster-1)</li></ul>'
+        '<table style="border-collapse:collapse;width:100%;margin:18px 0;font-size:14px;">'
+        '<thead><tr style="background:#f1f5f9;text-align:left;">'
+        '<th style="padding:8px;">ID</th><th style="padding:8px;">Membre</th>'
+        '<th style="padding:8px;">Type</th><th style="padding:8px;text-align:right;">Montant</th>'
+        '<th style="padding:8px;">Initie le</th></tr></thead><tbody>'
+        + "".join(rows_html) +
+        '</tbody></table>'
+        '<p style="color:#64748b;font-size:13px;">Verifie manuellement avec : '
+        '<code>python manage.py reconcile_payments --payment-id &lt;ID&gt;</code></p>'
+        '</body></html>'
+    )
+    try:
+        msg = EmailMessage(
+            subject=f"[Gathe] {stuck.count()} paiement(s) bloque(s) Tara",
+            body=body,
+            from_email=getattr(dj_settings, "DEFAULT_FROM_EMAIL", "noreply@horus-lab.com"),
+            to=recipients,
+        )
+        msg.content_subtype = "html"
+        msg.send(fail_silently=False)
+        summary["alerted"] = stuck.count()
+        summary["recipients"] = len(recipients)
+        logger.warning(
+            "alert_stuck_payments . envoye a %s, %d payments listes",
+            recipients, stuck.count(),
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "alert_stuck_payments . echec envoi email a %s", recipients,
+        )
+    return summary
