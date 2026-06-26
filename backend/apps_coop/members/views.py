@@ -231,6 +231,36 @@ def admin_record_interview(request, pk: int):
         details={"favorable": req.entretien_favorable, "avis_len": len(avis)},
         ip=client_ip(request),
     )
+
+    # Notification email au demandeur . best-effort, ne bloque jamais
+    # l'enregistrement de l'entretien. Pas d'in-app a ce stade car le
+    # demandeur n'a pas encore de compte Member.
+    if req.email:
+        try:
+            from apps_coop.notifications.events import emit_event
+            from django.conf import settings as dj_settings
+
+            emit_event(
+                "membership.interview_scheduled",
+                to_email=req.email,
+                context={
+                    "prenom": req.prenom or "",
+                    "nom": req.nom or "",
+                    "favorable": bool(req.entretien_favorable),
+                    "avis": avis,
+                    "portal_url": getattr(
+                        dj_settings, "FRONTEND_PUBLIC_URL", "https://gathe-finance.horus-lab.com",
+                    ),
+                },
+            )
+        except Exception:  # noqa: BLE001 . jamais bloquant
+            import logging
+            logging.getLogger(__name__).warning(
+                "membership.interview_scheduled email skipped for %s",
+                req.email,
+                exc_info=True,
+            )
+
     return Response(MembershipRequestReadSerializer(req).data)
 
 

@@ -41,6 +41,12 @@ EVENTS: list[tuple[str, str, str, bool]] = [
         "Le candidat n'a pas été admis. Email avec motif.",
         True,
     ),
+    (
+        "membership.interview_scheduled",
+        "Entretien d'admission enregistré",
+        "Le comité a tenu l'entretien d'admission (Art. 3). Email d'information au candidat avec l'issue favorable / défavorable et l'avis.",
+        True,
+    ),
     # --- Épargne ---
     (
         "savings.deposit_confirmed",

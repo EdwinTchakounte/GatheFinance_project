@@ -108,6 +108,30 @@ TEMPLATES = [
         ),
         "variables": ["prenom", "nom", "motif", "portal_url"],
     },
+    {
+        "code": "membership.interview_scheduled",
+        "objet": "Ton entretien d'admission à Gathe Finance",
+        "corps_html": _join(
+            hi("{prenom} {nom}"),
+            title("Ton entretien d'admission a été enregistré"),
+            lead(
+                "Conformément à l'Article 3 du Règlement, le comité a tenu "
+                "ton entretien d'admission. Voici l'avis transmis."
+            ),
+            callout(
+                "<strong>Issue :</strong> {favorable}<br/>"
+                "<strong>Avis du comité :</strong> {avis}",
+                tone="info",
+            ),
+            p(
+                "La décision finale (approbation ou rejet) te sera notifiée "
+                "par e-mail dans les jours qui suivent."
+            ),
+            cta_secondary("Suivre ma demande", "{portal_url}"),
+            closing(),
+        ),
+        "variables": ["prenom", "nom", "favorable", "avis", "portal_url"],
+    },
     # ────────────────────────────────────────────────────────────────────
     # ÉPARGNE (3 templates)
     # ────────────────────────────────────────────────────────────────────

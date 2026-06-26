@@ -28,16 +28,34 @@ def healthcheck(_request):
     return JsonResponse({"status": "ok"})
 
 
+#: Chemins publics autorises sans authentification.
+#: Couvre les documents officiels de la cooperative que le portail / la
+#: vitrine / le mobile doivent pouvoir afficher pour TOUS les membres
+#: (et meme les visiteurs, dans certains cas) : reglement interieur PDF,
+#: specimen carnet PDF, covers d'articles, flyers de campagnes, etc.
+#: Tout le reste (CNI, photo identite, plan localisation, BRC...) reste
+#: protege par IsStaff.
+_PUBLIC_MEDIA_PREFIXES = (
+    "coop/assets/",       # CooperativeAsset (reglement_interieur, carnet_specimen)
+    "coop/campaigns/",    # Flyers de campagnes micro-credit (publics)
+    "coop/blog/",         # Covers d'articles Wagtail
+)
+
+
 def protected_media(request, path):
-    """Serve uploaded files (CNI, photo identite, plan localisation, BRC...)
-    derriere une autorisation staff/superuser.
+    """Serve uploaded files derriere une autorisation staff/superuser, sauf
+    pour les chemins listes dans ``_PUBLIC_MEDIA_PREFIXES`` qui restent
+    publics (reglement interieur, specimen carnet, flyers de campagnes...).
 
     En DEBUG, l'helper django.conf.urls.static.static rend les fichiers
     publics. En prod l'image officielle backend est servie par gunicorn et
     nginx-external ne route pas /media/ -> les fichiers reviennent en 404
     visibles cote admin. Cette vue couvre les deux cas et garantit que les
-    pieces d'identite restent privees.
+    pieces d'identite restent privees, tout en exposant les documents
+    officiels publics.
     """
+    if any(path.startswith(prefix) for prefix in _PUBLIC_MEDIA_PREFIXES):
+        return static_serve(request, path, document_root=settings.MEDIA_ROOT)
     user = request.user
     if not user.is_authenticated or not (user.is_staff or user.is_superuser):
         return HttpResponseForbidden("Pieces reservees au personnel autorise.")
