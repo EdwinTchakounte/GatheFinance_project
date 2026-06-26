@@ -227,11 +227,15 @@ class TaraProvider(PaymentProviderBase):
             )
 
         return WebhookEvent(
-            # `collectionId` est le productId qu'on a envoyé à l'init —
-            # c'est la clé qui matche notre Payment.idempotency_key local.
-            # Fallback `productId` pour rétrocompat anciens webhooks.
+            # `productId` est notre UUID idempotency_key envoye a l'init . c'est
+            # la cle de matching cote Gathe. `collectionId` est l'ID INTERNE
+            # Tara (numerique) qu'on garde en provider_reference, jamais comme
+            # cle de matching. Confirme sur prod 2026-06-26 : Tara renvoie
+            # bien notre productId UUID dans le webhook, le fallback
+            # collectionId reste en cas d'anciens webhooks Tara qui ne
+            # propageaient pas productId.
             payment_idempotency_key=str(
-                payload.get("collectionId") or payload.get("productId") or "",
+                payload.get("productId") or payload.get("collectionId") or "",
             ),
             status=_STATUS_MAP.get((payload.get("status") or "").upper(), "en_attente"),
             provider_reference=str(payload.get("paymentId") or ""),
