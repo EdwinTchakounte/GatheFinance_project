@@ -130,9 +130,22 @@ export default async function BlogArticlePage({ params }: Params) {
         );
       })()}
 
-      {/* ARTICLE . marges resserrees, drop cap sur premier paragraphe */}
+      {/* ARTICLE . texte justifie, marges generistes mais resserrees.
+          Tailwind arbitrary selectors pour cibler tous les <p> rendus
+          par StreamField sans repasser sur le markup. */}
       <Section spacing="md" className="!pt-2 !pb-16">
-        <article className="article-body mx-auto max-w-[42rem] text-ink-800">
+        <article
+          className={[
+            "article-body mx-auto px-4 sm:px-6",
+            "max-w-[58rem] text-ink-800",
+            "[&_p]:text-justify [&_p]:hyphens-auto [&_p]:leading-[1.75]",
+            "[&_p]:my-3 [&_p]:text-[1.0625rem]",
+            "[&_h2]:mt-10 [&_h2]:mb-3 [&_h3]:mt-8 [&_h3]:mb-2",
+            "[&_blockquote]:my-5 [&_blockquote]:border-l-4 [&_blockquote]:border-emerald [&_blockquote]:pl-4",
+            "[&_img]:rounded-lg [&_img]:my-5 [&_img]:shadow-sm",
+            "[&_ul]:my-4 [&_li]:my-1",
+          ].join(" ")}
+        >
           <StreamField blocks={post.body} />
           <div className="mt-14 border-t border-line-200 pt-6">
             <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 hover:text-blue-800 transition-colors">

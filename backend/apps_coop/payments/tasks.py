@@ -52,9 +52,19 @@ def reconcile_pending_payments(*, batch_size: int = 100) -> dict:
         .order_by("gateway_initiated_at")[:batch_size]
     )
 
-    summary = {"checked": 0, "valide": 0, "rejete": 0, "still_pending": 0, "timed_out": 0, "errors": 0}
+    import time
 
-    for payment in base_qs:
+    summary = {
+        "checked": 0, "valide": 0, "rejete": 0,
+        "still_pending": 0, "timed_out": 0, "errors": 0, "rate_limited": 0,
+    }
+
+    # Tara rate-limit ~ 3 req/min en pratique. On espace les check_status
+    # de 2 sec et on retry une fois si TOO_MANY_REQUESTS (sleep 25s).
+    INTER_CALL_DELAY = 2.0
+    RATE_LIMIT_RETRY_DELAY = 25.0
+
+    for idx, payment in enumerate(base_qs):
         # 24 h elapsed → give up regardless of provider answer.
         if payment.gateway_initiated_at and payment.gateway_initiated_at <= timeout_threshold:
             with transaction.atomic():
@@ -64,14 +74,35 @@ def reconcile_pending_payments(*, batch_size: int = 100) -> dict:
                 summary["timed_out"] += 1
             continue
 
+        # Sleep entre 2 appels Tara pour ne pas se faire throttler.
+        if idx > 0:
+            time.sleep(INTER_CALL_DELAY)
+
         summary["checked"] += 1
         try:
             provider = get_provider(payment.provider_code)
             current = provider.check_status(payment)
         except (ProviderError, ValueError) as exc:
-            logger.warning("Reconcile failed for Payment #%s: %s", payment.id, exc)
-            summary["errors"] += 1
-            continue
+            err_msg = str(exc)
+            if "TOO_MANY_REQUESTS" in err_msg:
+                # Retry une fois apres pause prolongee.
+                logger.info(
+                    "Tara throttle on Payment #%s, sleep %ss and retry",
+                    payment.id, RATE_LIMIT_RETRY_DELAY,
+                )
+                time.sleep(RATE_LIMIT_RETRY_DELAY)
+                try:
+                    current = provider.check_status(payment)
+                except (ProviderError, ValueError) as exc2:
+                    logger.warning(
+                        "Reconcile retry failed for Payment #%s: %s", payment.id, exc2,
+                    )
+                    summary["rate_limited"] += 1
+                    continue
+            else:
+                logger.warning("Reconcile failed for Payment #%s: %s", payment.id, exc)
+                summary["errors"] += 1
+                continue
 
         if current == "valide":
             try:
