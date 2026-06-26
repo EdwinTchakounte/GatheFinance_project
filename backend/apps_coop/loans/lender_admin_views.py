@@ -19,7 +19,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from apps_coop.audit.services import record_audit, client_ip
+from apps_coop.audit.services import client_ip, record as record_audit
 from apps_coop.members.permissions import IsAdmin
 from apps_coop.savings.models import LenderTranche
 from apps_coop.loans.models import Loan
