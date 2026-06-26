@@ -16,8 +16,8 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm, mm
 from reportlab.pdfgen import canvas
 from reportlab.platypus import (
-    BaseDocTemplate, Frame, KeepTogether, PageBreak, PageTemplate,
-    Paragraph, Spacer, Table, TableStyle,
+    BaseDocTemplate, Frame, Image as RLImage, KeepTogether, PageBreak,
+    PageTemplate, Paragraph, Spacer, Table, TableStyle,
 )
 
 
@@ -143,6 +143,32 @@ def _section(title: str, styles: dict) -> list:
     return [Spacer(1, 6), Paragraph(title, styles["h2"])]
 
 
+FLOWS_DIR = ROOT / "docs" / "images" / "flows"
+
+
+def _flow_image(filename: str, caption: str, styles: dict, width_cm: float = 15.5):
+    """Insere un schema JPEG centre avec sa legende dessous."""
+    path = FLOWS_DIR / filename
+    if not path.exists():
+        return []
+    # Calcul de la hauteur a partir du ratio source pour preserver
+    # l'aspect sans deformation.
+    src = Image.open(path)
+    ratio = src.height / src.width
+    width = width_cm * cm
+    height = width * ratio
+    img = RLImage(str(path), width=width, height=height)
+    img.hAlign = "CENTER"
+    cap = Paragraph(
+        f"<i>{caption}</i>",
+        ParagraphStyle(
+            "cap", parent=styles["small"], alignment=TA_CENTER,
+            spaceBefore=4, spaceAfter=8, fontSize=8.5,
+        ),
+    )
+    return [Spacer(1, 6), img, cap]
+
+
 def _flow(num: str, name: str, duration: str, styles: dict,
           objectif: str, prereq: list, etapes: list, criteres: list) -> list:
     """Bloc unique pour un flow de test, soude ensemble pour eviter une
@@ -242,7 +268,13 @@ def build():
     ], s))
 
     # --- Bloc 1 : Critiques ---
+    story.append(PageBreak())
     story.extend(_section("Bloc 1 . Flows critiques (impact financier direct)", s))
+    story.extend(_flow_image(
+        "01_adhesion.jpg",
+        "Flow d'adhesion . du depot de la demande a l'activation automatique du membre (3 frais).",
+        s,
+    ))
     story.extend(_flow(
         "1", "Adhesion bout-en-bout", "~ 30 minutes", s,
         objectif=(
@@ -268,6 +300,11 @@ def build():
             "Le Member apparait dans /admin/members?statut=suspendu apres approbation.",
             "Apres les trois frais payes, Member.statut bascule a ACTIF (hook CH-2).",
         ],
+    ))
+    story.extend(_flow_image(
+        "02_credit_brc.jpg",
+        "Flow credit voie 1 (BRC) . frais d'etude . instruction . double approbation (CH-6) . decaissement Tara.",
+        s,
     ))
     story.extend(_flow(
         "2", "Credit voie 1 . BRC (depot a regulariser comptant)", "~ 45 minutes", s,
@@ -347,6 +384,11 @@ def build():
             "Commission 1 % appliquee (jamais 0).",
             "Tunable via AppSetting si besoin de derogation.",
         ],
+    ))
+    story.extend(_flow_image(
+        "04_retrait.jpg",
+        "Flow retrait epargne . demande membre . approbation admin . payout Tara ou presentiel.",
+        s,
     ))
     story.extend(_flow(
         "6", "Retraits epargne", "~ 15 minutes", s,
