@@ -600,19 +600,31 @@ class _RequestCard extends ConsumerWidget {
       LoanRequestStatus.enAttente => PaColors.warning,
       LoanRequestStatus.enInstruction => PaColors.teal,
       LoanRequestStatus.enAttenteAcceptationMembre => PaColors.teal,
-      // CH-6 . Provisoire = en attente d'une visite terrain, traité comme "en revue".
       LoanRequestStatus.approuveeProvisoire => PaColors.warning,
       LoanRequestStatus.approuvee => PaColors.success,
       LoanRequestStatus.rejetee => PaColors.danger,
+      // Sous-etats fins (refonte 2026)
+      LoanRequestStatus.enAttenteAvaliste => PaColors.warning,
+      LoanRequestStatus.rejeteeAvaliste => PaColors.danger,
+      LoanRequestStatus.enValidationCampagne => PaColors.teal,
+      LoanRequestStatus.rejeteeCampagne => PaColors.danger,
+      LoanRequestStatus.enAttenteFunding => PaColors.warning,
     };
     final statusLabel = switch (request.statut) {
-      LoanRequestStatus.enAttente => l.credit_req_pending,
+      LoanRequestStatus.enAttente => 'Frais d\'étude à payer',
       LoanRequestStatus.enInstruction => l.credit_req_review,
       LoanRequestStatus.enAttenteAcceptationMembre => l.credit_req_counter,
-      // CH-6 . Libellé court (l10n.arb encore à enrichir si besoin).
-      LoanRequestStatus.approuveeProvisoire => 'Visite à effectuer',
+      LoanRequestStatus.approuveeProvisoire => 'Visite terrain à effectuer',
       LoanRequestStatus.approuvee => l.credit_req_approved,
       LoanRequestStatus.rejetee => l.credit_req_rejected,
+      LoanRequestStatus.enAttenteAvaliste =>
+        'En attente de l\'avaliste',
+      LoanRequestStatus.rejeteeAvaliste => 'Refusée par l\'avaliste',
+      LoanRequestStatus.enValidationCampagne =>
+        'En validation activité campagne',
+      LoanRequestStatus.rejeteeCampagne => 'Refusée (campagne)',
+      LoanRequestStatus.enAttenteFunding =>
+        'En attente de financement (24h)',
     };
 
     return PaCard(
@@ -640,6 +652,11 @@ class _RequestCard extends ConsumerWidget {
             l.credit_req_submitted_on(AppDateFormatter.long(request.dateSoumission)),
             style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
           ),
+          // §6 . Badge de la voie empruntee (BRC / Avaliste / Campagne) si connu.
+          if (request.route != null) ...[
+            const SizedBox(height: 6),
+            _RouteBadge(route: request.route!),
+          ],
           if (request.motif.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
@@ -1483,6 +1500,61 @@ class _LoanRouteCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+/// Badge "Voie empruntee" affiche sur chaque carte LoanRequest pour que le
+/// membre voie clairement par quel chemin sa demande passe (BRC, Avaliste,
+/// Campagne) . aide a comprendre le statut + le delai.
+class _RouteBadge extends StatelessWidget {
+  const _RouteBadge({required this.route});
+
+  final LoanRoute route;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, icon, color) = switch (route) {
+      LoanRoute.seniorBrc => (
+        'Voie Senior BRC',
+        Icons.account_balance_rounded,
+        PaColors.teal,
+      ),
+      LoanRoute.avaliste => (
+        'Voie Avaliste',
+        Icons.handshake_rounded,
+        PaColors.navy,
+      ),
+      LoanRoute.campagne => (
+        'Voie Campagne',
+        Icons.campaign_rounded,
+        PaColors.warning,
+      ),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.30), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 13),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
       ),
     );
   }

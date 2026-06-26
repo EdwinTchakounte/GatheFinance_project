@@ -404,6 +404,12 @@ LoanRequestEntity _parseRequest(Map<String, dynamic> json) {
     fieldVisitOutcome: _fieldVisitOutcomeFromApi(
       json['field_visit_outcome'] as String?,
     ),
+    // §6 LOT 12 . Voie d'eligibilite (BRC / avaliste / campagne).
+    // Backend renvoie `route` ou `eligibility_route` selon le serializer.
+    route: _loanRoute(
+      (json['route'] as String?) ??
+          (json['eligibility_route'] as String?),
+    ),
   );
 }
 
@@ -488,14 +494,35 @@ LoanRequestStatus _requestStatus(String raw) {
     case 'approuvee':
       return LoanRequestStatus.approuvee;
     case 'rejetee':
-    case 'rejetee_avaliste':
-    case 'rejetee_campagne':
       return LoanRequestStatus.rejetee;
-    case 'en_attente':
+    case 'rejetee_avaliste':
+      return LoanRequestStatus.rejeteeAvaliste;
+    case 'rejetee_campagne':
+      return LoanRequestStatus.rejeteeCampagne;
     case 'en_attente_avaliste':
+      return LoanRequestStatus.enAttenteAvaliste;
     case 'en_validation_campagne':
+      return LoanRequestStatus.enValidationCampagne;
+    case 'en_attente_funding':
+      return LoanRequestStatus.enAttenteFunding;
+    case 'en_attente':
     default:
       return LoanRequestStatus.enAttente;
+  }
+}
+
+LoanRoute? _loanRoute(String? raw) {
+  if (raw == null || raw.isEmpty) return null;
+  switch (raw) {
+    case 'senior_brc':
+    case 'brc':
+      return LoanRoute.seniorBrc;
+    case 'avaliste':
+      return LoanRoute.avaliste;
+    case 'campagne':
+      return LoanRoute.campagne;
+    default:
+      return null;
   }
 }
 
