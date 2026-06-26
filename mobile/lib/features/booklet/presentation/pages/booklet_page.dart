@@ -1,11 +1,14 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../../core/di/providers.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
+import '../../../../core/widgets/pdf_preview_page.dart';
 import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/booklet_order.dart';
@@ -17,11 +20,35 @@ import '../widgets/order_booklet_sheet.dart';
 /// Affiche soit la commande en cours (avec timeline status), soit un appel à
 /// commander un nouveau carnet (1 000 FCFA, Article 4 du règlement).
 /// Liste l'historique des carnets précédemment délivrés.
-class BookletPage extends ConsumerWidget {
+class BookletPage extends ConsumerStatefulWidget {
   const BookletPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BookletPage> createState() => _BookletPageState();
+}
+
+class _BookletPageState extends ConsumerState<BookletPage> {
+  Future<Map<String, dynamic>>? _coopDocs;
+
+  @override
+  void initState() {
+    super.initState();
+    _coopDocs = _loadCoopDocuments();
+  }
+
+  Future<Map<String, dynamic>> _loadCoopDocuments() async {
+    try {
+      final dio = ref.read(apiClientProvider).dio;
+      final res =
+          await dio.get<Map<String, dynamic>>('/audit/coop-documents/');
+      return res.data ?? const {};
+    } on DioException {
+      return const {};
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final ordersAsync = ref.watch(bookletProvider);
     final l = AppL10n.of(context);
 
@@ -38,7 +65,10 @@ class BookletPage extends ConsumerWidget {
             Expanded(
               child: RefreshIndicator.adaptive(
           color: PaColors.teal,
-          onRefresh: () => ref.read(bookletProvider.notifier).refresh(),
+          onRefresh: () async {
+            await ref.read(bookletProvider.notifier).refresh();
+            setState(() => _coopDocs = _loadCoopDocuments());
+          },
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
@@ -62,6 +92,16 @@ class BookletPage extends ConsumerWidget {
                     ),
                     error: (e, _) => _ErrorBox(message: e.toString()),
                   ),
+                ),
+              ),
+
+              // ── Documents officiels . reglement interieur + specimen ───
+              // Affichage permanent sur Mon Carnet (pas dans le sheet de
+              // commande) avec preview inline via PdfPreviewPage.
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+                  child: _OfficialDocsSection(future: _coopDocs),
                 ),
               ),
 
@@ -656,6 +696,181 @@ class _ErrorBox extends StatelessWidget {
             style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+// ───────────────────────────────────────────────────────────────────────────
+// Section "Documents officiels" . reglement interieur + specimen carnet
+// Affichee permanentement sur Mon Carnet. Tap -> preview inline PDF.
+// ───────────────────────────────────────────────────────────────────────────
+
+class _OfficialDocsSection extends StatelessWidget {
+  const _OfficialDocsSection({required this.future});
+
+  final Future<Map<String, dynamic>>? future;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: future,
+      builder: (context, snap) {
+        final loading = snap.connectionState == ConnectionState.waiting;
+        final docs = snap.data ?? const <String, dynamic>{};
+        final reglement = docs['reglement_interieur'] as Map<String, dynamic>?;
+        final carnet = docs['carnet_specimen'] as Map<String, dynamic>?;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+              child: Text(
+                'Documents officiels',
+                style: const TextStyle(
+                  color: PaColors.inkPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            _OfficialDocTile(
+              icon: Icons.gavel_rounded,
+              accent: PaColors.navy,
+              accentBg: const Color(0xFFE8EDFA), // navy tinted surface
+              label: 'Reglement interieur',
+              sub: 'Statuts + droits et devoirs du sociétaire.',
+              url: reglement?['url'] as String?,
+              loading: loading,
+            ),
+            const SizedBox(height: 8),
+            _OfficialDocTile(
+              icon: Icons.menu_book_outlined,
+              accent: PaColors.teal,
+              accentBg: PaColors.tealSurface,
+              label: 'Specimen du carnet',
+              sub: 'Aperçu du carnet remis après paiement.',
+              url: carnet?['url'] as String?,
+              loading: loading,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+
+class _OfficialDocTile extends StatelessWidget {
+  const _OfficialDocTile({
+    required this.icon,
+    required this.accent,
+    required this.accentBg,
+    required this.label,
+    required this.sub,
+    required this.url,
+    required this.loading,
+  });
+
+  final IconData icon;
+  final Color accent;
+  final Color accentBg;
+  final String label;
+  final String sub;
+  final String? url;
+  final bool loading;
+
+  bool get _available => url != null && url!.isNotEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    return PaCard(
+      padding: EdgeInsets.zero,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _available
+              ? () => PdfPreviewPage.open(
+                    context,
+                    url: url!,
+                    title: label,
+                  )
+              : null,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: accentBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, color: accent, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          color: PaColors.inkPrimary,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        loading
+                            ? 'Chargement...'
+                            : (_available ? sub : 'Bientôt disponible'),
+                        style: const TextStyle(
+                          color: PaColors.inkMuted,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_available)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.visibility_outlined,
+                            color: accent, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Aperçu',
+                          style: TextStyle(
+                            color: accent,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  const Icon(Icons.hourglass_empty_rounded,
+                      size: 18, color: PaColors.inkMuted),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

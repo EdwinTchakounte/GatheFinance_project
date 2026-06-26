@@ -135,6 +135,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   // ancien_apprenant (CFP Broad Range), ancien_apprenant_preuve, cga_adherent,
   // cga_preuve. Au submit, on les injecte dans `scalarExtras` + on upload
   // les fichiers via `uploadAttachment(schemaFieldId: …)` côté backend.
+  // ignore: unused_field . conserve les flags FormSchema dynamique
   bool _ancienApprenantCFP = false;
   PickedFile? _apprenantCFPProof;
   bool _cgaAdherent = false;
@@ -199,24 +200,9 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
-    // Profil emprunteur . si ancien apprenant CFP Broad Range, l'attestation
-    // est obligatoire (idem pour la carte CGA si adhérent CGA).
-    if (_ancienApprenantCFP && _apprenantCFPProof == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Joins l'attestation CFP Broad Range (ou décoche)."),
-        ),
-      );
-      return;
-    }
-    if (_cgaAdherent && _cgaProof == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Joins ta carte CGA (ou décoche)."),
-        ),
-      );
-      return;
-    }
+    // Profil emprunteur (ancien apprenant Board Range Consulting + CGA) :
+    // retire du sheet . geres dans le formulaire d'adhesion, et exposes
+    // via le moteur FormSchema (CH-4) si besoin ponctuel.
     // §6 / LOT 11 . Voie campagne : si activée, exiger un id sélectionné.
     if (_withCampaign && _selectedCampaignId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -276,15 +262,9 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
           scalarExtras[entry.key] = v;
         }
       }
-      // Profil emprunteur . réponses oui/non + preuves uploadées si oui.
-      scalarExtras['ancien_apprenant'] = _ancienApprenantCFP ? 'oui' : 'non';
-      scalarExtras['cga_adherent'] = _cgaAdherent ? 'oui' : 'non';
-      if (_ancienApprenantCFP && _apprenantCFPProof != null) {
-        fileEntries.add(MapEntry('ancien_apprenant_preuve', _apprenantCFPProof!));
-      }
-      if (_cgaAdherent && _cgaProof != null) {
-        fileEntries.add(MapEntry('cga_preuve', _cgaProof!));
-      }
+      // Profil emprunteur (CFP Board Range / CGA) deplaces vers le
+      // formulaire d'adhesion. Si l'admin veut conserver l'historique de
+      // ces reponses cote LoanRequest, il les injecte via FormSchema.
 
       // BUSINESS_RULES §7.2 . Injecte les champs avaliste dans le body
       // attendu par LoanRequestSubmitSerializer (clés snake_case backend).
@@ -546,84 +526,12 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
 
             const SizedBox(height: AppSpacing.l),
 
-            // --- Profil emprunteur . CFP Broad Range + CGA ----------------
-            //
-            // 2 questions optionnelles. Si "oui", une pièce jointe devient
-            // obligatoire (attestation / carte). Les ids des champs envoyés
-            // au backend (ancien_apprenant / ancien_apprenant_preuve /
-            // cga_adherent / cga_preuve) sont alignés avec le seed
-            // FormSchema côté backend pour le jour où l'admin éditera ces
-            // questions via l'éditeur dynamique (CH-4).
-            Text(
-              'Votre parcours de formation',
-              style: AppTypography.labelMedium,
-            ),
-            SwitchListTile.adaptive(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              value: _ancienApprenantCFP,
-              onChanged: (v) => setState(() {
-                _ancienApprenantCFP = v;
-                if (!v) _apprenantCFPProof = null;
-              }),
-              title: const Text(
-                'As-tu suivi une formation au CFP Broad Range ?',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-              subtitle: const Text(
-                'Anciens apprenants : instruction prioritaire.',
-                style: TextStyle(fontSize: 12),
-              ),
-            ),
-            if (_ancienApprenantCFP) ...[
-              const SizedBox(height: AppSpacing.s),
-              _ProofPickerTile(
-                label: 'Attestation CFP Broad Range',
-                picked: _apprenantCFPProof,
-                onPick: () async {
-                  final f = await _pickFile();
-                  if (f != null) setState(() => _apprenantCFPProof = f);
-                },
-                onClear: () => setState(() => _apprenantCFPProof = null),
-              ),
-            ],
-
-            const SizedBox(height: AppSpacing.m),
-            Text(
-              'Adhésion CGA',
-              style: AppTypography.labelMedium,
-            ),
-            SwitchListTile.adaptive(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              value: _cgaAdherent,
-              onChanged: (v) => setState(() {
-                _cgaAdherent = v;
-                if (!v) _cgaProof = null;
-              }),
-              title: const Text(
-                'Es-tu adhérent à un Centre de Gestion Agréé ?',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-              subtitle: const Text(
-                'Avantages fiscaux + analyse facilitée du dossier.',
-                style: TextStyle(fontSize: 12),
-              ),
-            ),
-            if (_cgaAdherent) ...[
-              const SizedBox(height: AppSpacing.s),
-              _ProofPickerTile(
-                label: 'Carte / attestation CGA',
-                picked: _cgaProof,
-                onPick: () async {
-                  final f = await _pickFile();
-                  if (f != null) setState(() => _cgaProof = f);
-                },
-                onClear: () => setState(() => _cgaProof = null),
-              ),
-            ],
-
-            const SizedBox(height: AppSpacing.l),
+            // Note : les questions "ancien apprenant Board Range Consulting"
+            // et "adhérent CGA" sont déjà gérées dans le formulaire d'adhésion
+            // (devenir membre) . pas la peine de les redemander ici.
+            // Si l'admin veut les ré-activer ponctuellement, le moteur
+            // FormSchema (CH-4) permet de les ajouter dynamiquement via la
+            // section "Champs supplémentaires" plus bas.
 
             // --- BUSINESS_RULES §7.2 . Désignation optionnelle d'un avaliste ---
             //

@@ -144,18 +144,9 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
             const _Hero(),
             const SizedBox(height: AppSpacing.l),
 
-            // Section "Documents utiles" . règlement + spécimen.
-            Text(
-              'Documents utiles',
-              style: AppTypography.labelMedium.copyWith(
-                color: PaColors.inkSecondary,
-                letterSpacing: 0.6,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _DocumentsSection(future: _coopDocs),
-
-            const SizedBox(height: AppSpacing.l),
+            // Note : les documents officiels (reglement + specimen carnet)
+            // ont ete deplaces dans la page Mon Carnet . on garde ici uniquement
+            // le formulaire de commande pour resserrer le focus utilisateur.
 
             // Section formulaire versement.
             Text(
