@@ -108,6 +108,20 @@ SCHEDULES = [
             "est dépassée de loans.judicial_escalation.delay_days jours."
         ),
     },
+    {
+        "name": "audit.archive_logs_3d",
+        "func": "django.core.management.call_command",
+        "args": "'archive_audit_logs'",
+        "kwargs": {"days": 3},
+        "schedule_type": Schedule.CRON,
+        "cron": "30 2 */3 * *",  # tous les 3 jours à 02:30 (Africa/Douala).
+        "description": (
+            "Archivage AuditLog → fichier TXT gzippé dans "
+            "MEDIA_ROOT/coop/logs_archive/audit_YYYY-MM-DD.txt.gz, "
+            "puis suppression des entrées > 3 jours pour libérer la BD. "
+            "Idempotent : append-mode si fichier du jour existe."
+        ),
+    },
 ]
 
 
@@ -118,13 +132,19 @@ class Command(BaseCommand):
         created = 0
         existed = 0
         for spec in SCHEDULES:
+            defaults = {
+                "func": spec["func"],
+                "schedule_type": spec["schedule_type"],
+                "cron": spec["cron"],
+            }
+            if "args" in spec:
+                defaults["args"] = spec["args"]
+            if "kwargs" in spec:
+                # django_q.Schedule.kwargs est une str repr() d'un dict.
+                defaults["kwargs"] = repr(spec["kwargs"])
             obj, was_created = Schedule.objects.get_or_create(
                 name=spec["name"],
-                defaults={
-                    "func": spec["func"],
-                    "schedule_type": spec["schedule_type"],
-                    "cron": spec["cron"],
-                },
+                defaults=defaults,
             )
             if was_created:
                 created += 1
