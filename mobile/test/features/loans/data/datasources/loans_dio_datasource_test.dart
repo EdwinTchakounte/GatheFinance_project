@@ -120,9 +120,11 @@ void main() {
       final ds = LoansDioDataSource(_client(adapter));
       final reqs = await ds.myRequests();
       expect(reqs, hasLength(2));
-      // statut_routing variants collapse en master enum
-      expect(reqs[0].statut, LoanRequestStatus.enAttente);
-      expect(reqs[1].statut, LoanRequestStatus.rejetee);
+      // Refonte BRC . les sous-statuts ne sont plus agreges, le mobile
+      // distingue precisement 'en attente avaliste' / 'rejetee campagne'
+      // pour orienter le membre.
+      expect(reqs[0].statut, LoanRequestStatus.enAttenteAvaliste);
+      expect(reqs[1].statut, LoanRequestStatus.rejeteeCampagne);
     });
   });
 
