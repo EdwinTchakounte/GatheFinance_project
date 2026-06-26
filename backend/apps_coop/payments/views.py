@@ -208,6 +208,55 @@ def init_payment(request):
         data["type"] == Payment.Type.EPARGNE_CLASSIQUE
     )
 
+    # O4 . Anti double-tap . si l'utilisateur tape 'Payer' 2 fois en moins
+    # de N secondes (defaut 30s, tunable payments.init.dedup_window_seconds),
+    # on reutilise le Payment EN_ATTENTE existant pour ne pas declencher 2
+    # STK Push simultanes. Identite : (member, type, montant, loan_id,
+    # loan_installment_id, nb_jours_couverts). Strict, donc des montants
+    # differents creent bien 2 paiements.
+    try:
+        from apps_coop.audit.services import get_int_setting
+        dedup_window = get_int_setting(
+            "payments.init.dedup_window_seconds", 30,
+        )
+    except Exception:  # noqa: BLE001
+        dedup_window = 30
+    if dedup_window > 0:
+        from datetime import timedelta
+        dedup_cutoff = timezone.now() - timedelta(seconds=dedup_window)
+        existing = (
+            Payment.objects.filter(
+                member=request.user.member,
+                type=data["type"],
+                montant=data["montant"],
+                statut=Payment.Statut.EN_ATTENTE,
+                source=Payment.Source.MOBILE_MONEY,
+                created_at__gte=dedup_cutoff,
+                loan_id=data.get("loan_id"),
+                loan_installment_id=data.get("loan_installment_id"),
+                nb_jours_couverts=nb_jours,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if existing is not None:
+            record_audit(
+                action="payment.init.dedup_hit",
+                entite_type="Payment",
+                entite_id=existing.id,
+                user=request.user,
+                details={
+                    "window_seconds": dedup_window,
+                    "type": data["type"],
+                    "montant": str(data["montant"]),
+                },
+            )
+            from .serializers import PaymentReadSerializer
+            return Response(
+                PaymentReadSerializer(existing).data,
+                status=status.HTTP_200_OK,
+            )
+
     payment = Payment.objects.create(
         member=request.user.member,
         montant=data["montant"],
