@@ -17,7 +17,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <application
-        android:label="gathe_finance"
+        android:label="Gathe Finance"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
