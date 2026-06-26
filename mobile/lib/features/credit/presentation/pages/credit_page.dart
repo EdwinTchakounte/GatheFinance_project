@@ -1375,7 +1375,7 @@ class _LoanRoutesCarousel extends StatelessWidget {
             icon: Icons.workspace_premium_rounded,
             iconColor: PaColors.teal,
             iconBg: PaColors.tealSurface,
-            title: 'Voie senior (BRC)',
+            title: 'Voie BRC',
             subtitle: plafond != null && plafond > 0
                 ? 'Plafond ${_formatPlafond(plafond)} XAF'
                 : 'Selon votre épargne',
@@ -1516,10 +1516,13 @@ class _RouteBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Voie 1 . membre du CGA BRC ou ancien apprenant CFP BRC + anciennete
+    // >= 12 mois. Les 2 justificatifs sont uploades au moment de la
+    // demande de credit (un seul suffit).
     final (label, icon, color) = switch (route) {
       LoanRoute.seniorBrc => (
-        'Voie Senior BRC',
-        Icons.account_balance_rounded,
+        'Voie BRC',
+        Icons.workspace_premium_rounded,
         PaColors.teal,
       ),
       LoanRoute.avaliste => (

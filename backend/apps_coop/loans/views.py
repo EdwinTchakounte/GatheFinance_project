@@ -181,7 +181,9 @@ def loan_request_create(request):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    # 2) Routage 3 voies.
+    # 2) Routage 3 voies. extra_payload contient les flags BRC declares
+    # sur le formulaire (cga_brc_member, cfp_brc_apprenant) qui peuvent
+    # debloquer la Voie 1 SENIOR_BRC sans validation admin prealable.
     route_eval = evaluate_routes(
         member,
         montant=data["montant_demande"],
@@ -189,6 +191,7 @@ def loan_request_create(request):
         avaliste_nom=data.get("avaliste_nom") or None,
         campaign_id=data.get("campaign_id"),
         profil_cible=data.get("profil_cible") or None,
+        extra_payload=data.get("extra_payload") or {},
     )
 
     if not route_eval.eligible:

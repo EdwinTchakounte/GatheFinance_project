@@ -121,8 +121,24 @@ class _VoieResult:
     details: dict = field(default_factory=dict)
 
 
-def _eval_senior_brc(member: Member) -> _VoieResult:
-    """Voie 1 — SENIOR_BRC."""
+def _eval_senior_brc(
+    member: Member,
+    *,
+    extra_payload: Optional[dict] = None,
+) -> _VoieResult:
+    """Voie 1 — SENIOR_BRC.
+
+    Conditions cumulatives :
+      - anciennete >= seniority.threshold_months
+      - lien BRC : CGA BRC (membre actuel) OU CFP BRC (ancien apprenant)
+
+    Le lien BRC peut venir :
+      1. du Member.is_brc_member (validation admin permanente), OU
+      2. de extra_payload['cga_brc_member'] == 'oui'  (avec preuve uploadee), OU
+      3. de extra_payload['cfp_brc_apprenant'] == 'oui' (avec preuve)
+    -> on prend OR des 3 sources pour faire is_brc_member.
+    L'admin pourra ensuite valider/invalider les preuves au comite credit.
+    """
     if not _bool_setting("loans.eligibility.allow_senior_brc", True):
         return _VoieResult(
             matched=False,
@@ -136,13 +152,20 @@ def _eval_senior_brc(member: Member) -> _VoieResult:
             f"mois — minimum requis dans 'seniority.threshold_months')."
         )
 
+    # Lien BRC . OR sur 3 sources (Member.is_brc_member + 2 flags du payload)
+    payload = extra_payload or {}
+    cga_brc_declared = str(payload.get("cga_brc_member", "")).lower() == "oui"
+    cfp_brc_declared = str(payload.get("cfp_brc_apprenant", "")).lower() == "oui"
+    member_brc_validated = bool(getattr(member, "is_brc_member", False))
+    has_brc_link = member_brc_validated or cga_brc_declared or cfp_brc_declared
+
     require_brc = _bool_setting(
         "loans.eligibility.require_brc_for_senior", True
     )
-    if require_brc and not getattr(member, "is_brc_member", False):
+    if require_brc and not has_brc_link:
         motifs.append(
-            "Statut BRC non validé. Téléversez votre justificatif puis attendez "
-            "la validation admin."
+            "Lien BRC requis . declare ton appartenance au CGA BRC ou ta formation "
+            "au CFP BRC (avec justificatif) sur le formulaire de demande."
         )
 
     matched = len(motifs) == 0
@@ -152,7 +175,10 @@ def _eval_senior_brc(member: Member) -> _VoieResult:
         details={
             "seniority_months": member.seniority_months,
             "is_senior": member.is_senior,
-            "is_brc_member": getattr(member, "is_brc_member", False),
+            "is_brc_member_validated": member_brc_validated,
+            "cga_brc_declared": cga_brc_declared,
+            "cfp_brc_declared": cfp_brc_declared,
+            "has_brc_link": has_brc_link,
             "brc_required": require_brc,
         },
     )
@@ -356,6 +382,7 @@ def evaluate_routes(
     avaliste_nom: Optional[str] = None,
     campaign_id: Optional[int] = None,
     profil_cible: Optional[str] = None,
+    extra_payload: Optional[dict] = None,
 ) -> RouteEvaluation:
     """Évalue dans l'ordre les 3 voies et renvoie la première qui matche.
 
@@ -371,7 +398,7 @@ def evaluate_routes(
 
     for voie in priority:
         if voie == EligibilityRoute.SENIOR_BRC:
-            r = _eval_senior_brc(member)
+            r = _eval_senior_brc(member, extra_payload=extra_payload)
         elif voie == EligibilityRoute.AVALISTE:
             r = _eval_avaliste(
                 member,

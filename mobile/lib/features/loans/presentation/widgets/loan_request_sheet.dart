@@ -132,14 +132,20 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   // Champs "profil emprunteur" rendus EN DUR dans le sheet (en attendant
   // que le seed FormSchema soit poussé sur la prod). Les ids correspondent
   // exactement aux noms des champs définis dans `seed_form_schemas.py` :
-  // ancien_apprenant (CFP Broad Range), ancien_apprenant_preuve, cga_adherent,
-  // cga_preuve. Au submit, on les injecte dans `scalarExtras` + on upload
-  // les fichiers via `uploadAttachment(schemaFieldId: …)` côté backend.
-  // ignore: unused_field . conserve les flags FormSchema dynamique
-  bool _ancienApprenantCFP = false;
-  PickedFile? _apprenantCFPProof;
-  bool _cgaAdherent = false;
-  PickedFile? _cgaProof;
+  // §7.1 Voie BRC . a la demande de credit on capte 2 flags qui
+  // determinent la voie privilegiee (un seul des deux suffit) :
+  //   . _cgaBrcMember : membre actuel du CGA BRC (Centre Gestion Agree)
+  //     -> upload de la carte/attestation CGA BRC
+  //   . _cfpBrcApprenant : ancien apprenant du CFP BRC (Centre Formation
+  //     Professionnelle BRC) -> upload attestation de formation
+  // Le backend les recoit dans extra_payload :
+  //   cga_brc_member / cga_brc_preuve / cfp_brc_apprenant / cfp_brc_preuve
+  // et recalcule is_brc_member = (cga_brc_member OR cfp_brc_apprenant)
+  // pour evaluer la Voie 1 SENIOR_BRC.
+  bool _cgaBrcMember = false;
+  PickedFile? _cgaBrcProof;
+  bool _cfpBrcApprenant = false;
+  PickedFile? _cfpBrcProof;
 
   double _montant = 200000;
   // Durée NON saisie manuellement : dérivée du montant (Art. 7).
@@ -200,9 +206,26 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
-    // Profil emprunteur (ancien apprenant Board Range Consulting + CGA) :
-    // retire du sheet . geres dans le formulaire d'adhesion, et exposes
-    // via le moteur FormSchema (CH-4) si besoin ponctuel.
+    // §7.1 Voie BRC . si tu coches CGA BRC ou CFP BRC, il faut joindre
+    // le justificatif correspondant (sinon snackbar + return).
+    if (_cgaBrcMember && _cgaBrcProof == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Joins ta carte / attestation CGA BRC (ou decoche)."),
+        ),
+      );
+      return;
+    }
+    if (_cfpBrcApprenant && _cfpBrcProof == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Joins ton attestation de formation CFP BRC (ou decoche)."),
+        ),
+      );
+      return;
+    }
     // §6 / LOT 11 . Voie campagne : si activée, exiger un id sélectionné.
     if (_withCampaign && _selectedCampaignId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -262,9 +285,16 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
           scalarExtras[entry.key] = v;
         }
       }
-      // Profil emprunteur (CFP Board Range / CGA) deplaces vers le
-      // formulaire d'adhesion. Si l'admin veut conserver l'historique de
-      // ces reponses cote LoanRequest, il les injecte via FormSchema.
+      // §7.1 Voie BRC . envoie au backend les 2 flags + les fichiers.
+      // Le backend recalcule is_brc_member = OR pour evaluer la Voie 1.
+      scalarExtras['cga_brc_member'] = _cgaBrcMember ? 'oui' : 'non';
+      scalarExtras['cfp_brc_apprenant'] = _cfpBrcApprenant ? 'oui' : 'non';
+      if (_cgaBrcMember && _cgaBrcProof != null) {
+        fileEntries.add(MapEntry('cga_brc_preuve', _cgaBrcProof!));
+      }
+      if (_cfpBrcApprenant && _cfpBrcProof != null) {
+        fileEntries.add(MapEntry('cfp_brc_preuve', _cfpBrcProof!));
+      }
 
       // BUSINESS_RULES §7.2 . Injecte les champs avaliste dans le body
       // attendu par LoanRequestSubmitSerializer (clés snake_case backend).
@@ -526,12 +556,100 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
 
             const SizedBox(height: AppSpacing.l),
 
-            // Note : les questions "ancien apprenant Board Range Consulting"
-            // et "adhérent CGA" sont déjà gérées dans le formulaire d'adhésion
-            // (devenir membre) . pas la peine de les redemander ici.
-            // Si l'admin veut les ré-activer ponctuellement, le moteur
-            // FormSchema (CH-4) permet de les ajouter dynamiquement via la
-            // section "Champs supplémentaires" plus bas.
+            // §7.1 Voie BRC . 2 questions independantes . cocher l'une OU
+            // l'autre OU les deux ouvre la Voie 1 SENIOR_BRC (en plus de
+            // l'anciennete >= 12 mois). Sans BRC, le membre tombe en
+            // Voie 2 (avaliste) ou Voie 3 (campagne).
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.workspace_premium_rounded,
+                      color: Color(0xFF1E3A8A), size: 18),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Voie BRC . si tu es membre du CGA BRC ou ancien apprenant CFP BRC, joins ton justificatif pour beneficier de la voie privilegiee.",
+                      style: TextStyle(
+                        color: Color(0xFF1E3A8A),
+                        fontSize: 12.5,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.m),
+
+            SwitchListTile.adaptive(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: _cgaBrcMember,
+              onChanged: (v) => setState(() {
+                _cgaBrcMember = v;
+                if (!v) _cgaBrcProof = null;
+              }),
+              title: const Text(
+                'Es-tu membre du CGA BRC ?',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Centre de Gestion Agree . Broad Range Consulting.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+            if (_cgaBrcMember) ...[
+              const SizedBox(height: AppSpacing.s),
+              _ProofPickerTile(
+                label: 'Carte / attestation CGA BRC',
+                picked: _cgaBrcProof,
+                onPick: () async {
+                  final f = await _pickFile();
+                  if (f != null) setState(() => _cgaBrcProof = f);
+                },
+                onClear: () => setState(() => _cgaBrcProof = null),
+              ),
+            ],
+
+            const SizedBox(height: AppSpacing.m),
+
+            SwitchListTile.adaptive(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: _cfpBrcApprenant,
+              onChanged: (v) => setState(() {
+                _cfpBrcApprenant = v;
+                if (!v) _cfpBrcProof = null;
+              }),
+              title: const Text(
+                'As-tu ete apprenant au CFP BRC ?',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Centre de Formation Professionnelle . Broad Range Consulting.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+            if (_cfpBrcApprenant) ...[
+              const SizedBox(height: AppSpacing.s),
+              _ProofPickerTile(
+                label: 'Attestation de formation CFP BRC',
+                picked: _cfpBrcProof,
+                onPick: () async {
+                  final f = await _pickFile();
+                  if (f != null) setState(() => _cfpBrcProof = f);
+                },
+                onClear: () => setState(() => _cfpBrcProof = null),
+              ),
+            ],
+
+            const SizedBox(height: AppSpacing.l),
 
             // --- BUSINESS_RULES §7.2 . Désignation optionnelle d'un avaliste ---
             //
