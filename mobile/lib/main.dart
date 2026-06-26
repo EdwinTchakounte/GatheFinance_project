@@ -19,20 +19,22 @@ Future<void> main() async {
     statusBarIconBrightness: Brightness.dark,
   ),);
 
-  // Notifications LOCALES (push device-side, pas FCM). Init + permissions
-  // systeme + reprogrammation des 2 rappels recurrents :
-  //   . Consultation app : ~toutes les 6h (slots 00/06/12/18h)
-  //   . Cotisation journaliere : tous les jours a 16h00 (avant cut-off 17h)
-  // Best-effort . un echec ici ne bloque pas le boot.
-  try {
-    final notifSvc = LocalNotifService.instance;
-    await notifSvc.init();
-    await notifSvc.requestPermissions();
-    await notifSvc.scheduleAppReminderEvery6h();
-    await notifSvc.scheduleCotisationDaily16h();
-  } catch (_) {
-    // Logger central pas encore initialise . on absorbe.
-  }
+  // Notifications LOCALES . on init SANS bloquer le boot.
+  // requestPermissions() peut bloquer plusieurs secondes (dialog Android)
+  // et schedule* peut bloquer sur certains devices, donc on fire-and-forget
+  // dans un microtask separe . runApp() peut continuer immediatement.
+  // Les permissions seront demandees + schedules armes une fois l'UI montee.
+  Future.microtask(() async {
+    try {
+      final notifSvc = LocalNotifService.instance;
+      await notifSvc.init();
+      await notifSvc.requestPermissions();
+      await notifSvc.scheduleAppReminderEvery6h();
+      await notifSvc.scheduleCotisationDaily16h();
+    } catch (_) {
+      // Best-effort . echec d'init notifs ne bloque jamais l'app.
+    }
+  });
 
   // Initialise le client HTTP (cookies persistants). Toujours requis — les
   // datasources mockées ont été supprimées en 2026-06 (chemins prod only).
