@@ -18,9 +18,16 @@ const nextConfig = {
       // Wagtail media (local, docker network, and the eventual production domains).
       { protocol: "http", hostname: "localhost", port: "8000" },
       { protocol: "http", hostname: "backend", port: "8000" },
+      { protocol: "http", hostname: "backend", port: "8200" },
       { protocol: "https", hostname: "cms.gathe-finance.com" },
       { protocol: "https", hostname: "media.gathe-finance.com" },
+      // Production prod actuelle . Contabo VPS sur horus-lab.com
+      { protocol: "https", hostname: "api.gathe-finance.horus-lab.com" },
+      { protocol: "https", hostname: "gathe-finance.horus-lab.com" },
       { protocol: "https", hostname: "*.backblazeb2.com" },
+      // Unsplash fallback pour covers d'articles de demo
+      { protocol: "https", hostname: "images.unsplash.com" },
+      { protocol: "https", hostname: "source.unsplash.com" },
     ],
   },
   async headers() {

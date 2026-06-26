@@ -71,48 +71,71 @@ export default async function BlogArticlePage({ params }: Params) {
           ]),
         ]}
       />
-      <Section tone="muted" spacing="md" className="border-b border-line-200">
-        <nav aria-label="Fil d'Ariane" className="text-sm text-ink-500">
-          <Link href="/" className="hover:text-blue-700">
+      {/* HERO . hauteur reduite, marges resserrees, titre tres percutant */}
+      <Section tone="default" spacing="md" className="!pt-8 !pb-4">
+        <nav aria-label="Fil d'Ariane" className="text-xs text-ink-500">
+          <Link href="/" className="hover:text-blue-700 transition-colors">
             {tn("home")}
           </Link>
-          <span aria-hidden="true" className="mx-2">/</span>
-          <Link href="/blog" className="hover:text-blue-700">
+          <span aria-hidden="true" className="mx-2 text-line-300">/</span>
+          <Link href="/blog" className="hover:text-blue-700 transition-colors">
             {tn("blog")}
           </Link>
-          <span aria-hidden="true" className="mx-2">/</span>
-          <span className="text-ink-700">{post.title}</span>
+          <span aria-hidden="true" className="mx-2 text-line-300">/</span>
+          <span className="text-ink-700 truncate">{post.title}</span>
         </nav>
-        <div className="mt-5 max-w-3xl">
+        <div className="mt-6 max-w-[55rem]">
           {post.categories[0] ? (
-            <span className="inline-block rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-green-800">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-green-800">
+              <span className="size-1.5 rounded-full bg-green-600" />
               {post.categories[0].name}
             </span>
           ) : null}
-          <h1 className="mt-3 text-balance text-3xl font-bold leading-tight text-ink-900 sm:text-4xl">{post.title}</h1>
-          <p className="mt-3 text-sm text-ink-500">{t("byline", { author: post.authorName ?? "Gathe", date })}</p>
+          <h1 className="mt-5 text-balance font-editorial text-4xl font-semibold leading-[1.1] text-ink-900 sm:text-5xl md:text-[3.5rem]">
+            {post.title}
+          </h1>
+          {post.excerpt ? (
+            <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink-600">{post.excerpt}</p>
+          ) : null}
+          <div className="mt-6 flex items-center gap-3 text-sm">
+            <div className="size-9 shrink-0 rounded-full bg-gradient-to-br from-blue-200 to-green-200" aria-hidden="true" />
+            <div>
+              <p className="font-semibold text-ink-900">{post.authorName ?? "Gathe Finance"}</p>
+              <p className="text-xs text-ink-500">{date}</p>
+            </div>
+          </div>
         </div>
       </Section>
 
-      <Section spacing="lg">
-        {(() => {
-          const url = post.coverImage?.url ?? blogFallbackImage(post.slug);
-          return (
-            <div className="mx-auto mb-12 max-w-3xl">
-              <div className="relative aspect-[16/8] overflow-hidden rounded-[var(--radius-2xl)] bg-blue-100 shadow-[var(--shadow-md)]">
-                {url ? (
-                  <Image src={url} alt={post.coverImage?.alt ?? post.title} fill priority sizes="(min-width: 768px) 50rem, 100vw" className="object-cover" />
-                ) : (
-                  <div className="absolute inset-0 bg-blue-50" />
-                )}
-              </div>
+      {/* HERO IMAGE . pleine largeur, ratio paysage, ombre prononcee */}
+      {(() => {
+        const url = post.coverImage?.url ?? blogFallbackImage(post.slug);
+        return (
+          <div className="mx-auto -mt-2 mb-8 max-w-[80rem] px-4 sm:mb-10 sm:px-8">
+            <div className="relative aspect-[16/9] overflow-hidden rounded-[var(--radius-2xl)] bg-blue-50 shadow-[0_20px_60px_-15px_rgba(15,23,42,0.25)]">
+              {url ? (
+                <Image
+                  src={url}
+                  alt={post.coverImage?.alt ?? post.title}
+                  fill
+                  priority
+                  sizes="(min-width: 1024px) 1024px, 100vw"
+                  className="object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-100 via-blue-50 to-green-50" />
+              )}
             </div>
-          );
-        })()}
-        <article className="mx-auto max-w-2xl">
+          </div>
+        );
+      })()}
+
+      {/* ARTICLE . marges resserrees, drop cap sur premier paragraphe */}
+      <Section spacing="md" className="!pt-2 !pb-16">
+        <article className="article-body mx-auto max-w-[42rem] text-ink-800">
           <StreamField blocks={post.body} />
-          <div className="mt-12 border-t border-line-200 pt-6">
-            <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-800">
+          <div className="mt-14 border-t border-line-200 pt-6">
+            <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 hover:text-blue-800 transition-colors">
               <ArrowLeft aria-hidden="true" className="size-4" /> {t("backToBlog")}
             </Link>
           </div>
