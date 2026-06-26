@@ -175,6 +175,10 @@ def _eval_senior_brc(
         details={
             "seniority_months": member.seniority_months,
             "is_senior": member.is_senior,
+            # is_brc_member . valeur effective OR utilisee par le routeur
+            # (Member.is_brc_member OR cga_brc_declared OR cfp_brc_declared).
+            # Conserve pour compat tests existants (lot12).
+            "is_brc_member": has_brc_link,
             "is_brc_member_validated": member_brc_validated,
             "cga_brc_declared": cga_brc_declared,
             "cfp_brc_declared": cfp_brc_declared,

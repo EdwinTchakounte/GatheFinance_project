@@ -251,7 +251,9 @@ def init_payment(request):
                     "montant": str(data["montant"]),
                 },
             )
-            from .serializers import PaymentReadSerializer
+            # PaymentReadSerializer est deja importe ligne 40. Un import
+            # local masquerait le scope global et provoquerait
+            # UnboundLocalError quand la fonction l'utilise plus bas.
             return Response(
                 PaymentReadSerializer(existing).data,
                 status=status.HTTP_200_OK,
