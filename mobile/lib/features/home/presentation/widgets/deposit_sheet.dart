@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,19 +15,6 @@ import '../../../savings/domain/collecte_terms.dart';
 import '../../../savings/presentation/state/classic_savings_notifier.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
 
-enum _Network { mtn, orange }
-
-extension _NetworkX on _Network {
-  String get label => switch (this) {
-        _Network.mtn => 'MTN Mobile Money',
-        _Network.orange => 'Orange Money',
-      };
-
-  Color get accent => switch (this) {
-        _Network.mtn => const Color(0xFFFFCC00),
-        _Network.orange => const Color(0xFFFF7900),
-      };
-}
 
 
 /// Modale de cotisation . style **Paysika** (palette navy/teal, cards soft).
@@ -53,7 +41,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   final _formKey = GlobalKey<FormState>();
   final _amountCtrl = TextEditingController(text: '1000');
   final _phoneCtrl = TextEditingController(text: '699 11 22 33');
-  _Network _network = _Network.mtn;
   // CH-3 . Sous-canal placement (épargne classique uniquement). Reste false
   // pour la cotisation.
   bool _isPlacement = false;
@@ -88,13 +75,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final amount = num.parse(_amountCtrl.text.replaceAll(' ', ''));
-    HapticFeedback.mediumImpact();
+    unawaited(HapticFeedback.mediumImpact());
     setState(() {
       _committedAmount = amount;
       _step = _Step.loading;
     });
 
-    final network = _network == _Network.mtn ? 'MTN' : 'ORANGE';
+    const network = 'MTN';
     if (widget.classic) {
       await ref.read(classicSavingsProvider.notifier).deposit(
             amount: amount,
@@ -456,7 +443,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             // Le montant est verrouillé sur N × kCollecteMinPerDay.
             if (!widget.classic) ...[
               const Text(
-                'COTISATION POUR…',
+                'COLLECTE POUR…',
                 style: TextStyle(
                   color: PaColors.inkSecondary,
                   fontSize: 12,

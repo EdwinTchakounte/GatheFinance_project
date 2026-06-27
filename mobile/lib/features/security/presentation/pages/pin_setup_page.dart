@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,10 +58,10 @@ class _PinSetupPageState extends ConsumerState<PinSetupPage> {
     if (_entry == _first) {
       await ref.read(pinProvider.notifier).setPin(_entry);
       if (!mounted) return;
-      HapticFeedback.heavyImpact();
+      unawaited(HapticFeedback.heavyImpact());
       context.go('/home');
     } else {
-      HapticFeedback.vibrate();
+      unawaited(HapticFeedback.vibrate());
       setState(() {
         _error = true;
         _entry = '';

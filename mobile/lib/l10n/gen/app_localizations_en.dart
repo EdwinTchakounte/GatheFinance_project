@@ -247,7 +247,7 @@ class AppL10nEn extends AppL10n {
   String get tx_deposit => 'Savings deposit';
 
   @override
-  String get tx_deposit_cotisation => 'Daily cotisation';
+  String get tx_deposit_cotisation => 'Daily collection';
 
   @override
   String get tx_withdrawal => 'Withdrawal';
@@ -727,7 +727,7 @@ class AppL10nEn extends AppL10n {
   String get states_no_active_credit => 'No active loan';
 
   @override
-  String get states_kpi_contributions => 'Fees paid';
+  String get states_kpi_contributions => 'Collection balance';
 
   @override
   String get states_kpi_seniority => 'Seniority';
@@ -974,7 +974,7 @@ class AppL10nEn extends AppL10n {
   String get home_action_savings => 'Savings';
 
   @override
-  String get home_action_cotisation => 'Cotisation';
+  String get home_action_cotisation => 'Collection';
 
   @override
   String get home_action_credit => 'Loan';

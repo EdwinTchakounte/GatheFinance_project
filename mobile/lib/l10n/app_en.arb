@@ -86,7 +86,7 @@
   "common_see_all": "See all",
 
   "tx_deposit": "Savings deposit",
-  "tx_deposit_cotisation": "Daily cotisation",
+  "tx_deposit_cotisation": "Daily collection",
   "tx_withdrawal": "Withdrawal",
   "tx_interest": "Interest credited",
   "tx_balance_after": "Balance {amount}",
@@ -242,7 +242,7 @@
   "states_kpi_savings": "Savings balance",
   "states_kpi_credit": "Outstanding loan",
   "states_no_active_credit": "No active loan",
-  "states_kpi_contributions": "Fees paid",
+  "states_kpi_contributions": "Collection balance",
   "states_kpi_seniority": "Seniority",
   "states_savings_detail": "Savings in detail",
   "states_balance_today": "Balance today",
@@ -321,7 +321,7 @@
 
   "home_action_deposit": "Deposit",
   "home_action_savings": "Savings",
-  "home_action_cotisation": "Cotisation",
+  "home_action_cotisation": "Collection",
   "home_action_credit": "Loan",
   "home_action_booklet": "Booklet",
   "home_action_history": "History",

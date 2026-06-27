@@ -78,7 +78,7 @@ class _TaraCheckoutWebViewPageState extends State<TaraCheckoutWebViewPage> {
           }
           return NavigationDecision.navigate;
         },
-      ))
+      ),)
       ..loadRequest(Uri.parse(widget.url));
   }
 

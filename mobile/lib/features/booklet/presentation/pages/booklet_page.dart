@@ -725,11 +725,11 @@ class _OfficialDocsSection extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
               child: Text(
                 'Documents officiels',
-                style: const TextStyle(
+                style: TextStyle(
                   color: PaColors.inkPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -842,7 +842,7 @@ class _OfficialDocTile extends StatelessWidget {
                 if (_available)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
+                        horizontal: 10, vertical: 5,),
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(999),
@@ -851,7 +851,7 @@ class _OfficialDocTile extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.visibility_outlined,
-                            color: accent, size: 14),
+                            color: accent, size: 14,),
                         const SizedBox(width: 4),
                         Text(
                           'Aperçu',
@@ -866,7 +866,7 @@ class _OfficialDocTile extends StatelessWidget {
                   )
                 else
                   const Icon(Icons.hourglass_empty_rounded,
-                      size: 18, color: PaColors.inkMuted),
+                      size: 18, color: PaColors.inkMuted,),
               ],
             ),
           ),

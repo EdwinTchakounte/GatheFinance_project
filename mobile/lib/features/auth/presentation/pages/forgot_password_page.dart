@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,7 +60,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             RequestPasswordResetParams(email: email),
           );
       if (!mounted) return;
-      HapticFeedback.lightImpact();
+      unawaited(HapticFeedback.lightImpact());
       setState(() {
         _step = _Step.code;
         _loading = false;
@@ -103,7 +104,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
         });
         return;
       }
-      HapticFeedback.mediumImpact();
+      unawaited(HapticFeedback.mediumImpact());
       setState(() {
         _step = _Step.done;
         _loading = false;

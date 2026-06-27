@@ -309,7 +309,7 @@ class _SendButtonState extends State<_SendButton> {
         curve: Curves.easeOut,
         width: 40,
         height: 40,
-        transform: Matrix4.identity()..scale(_pressed ? 0.93 : 1.0),
+        transform: Matrix4.identity()..scaleByDouble(_pressed ? 0.93 : 1.0, _pressed ? 0.93 : 1.0, 1.0, 1.0),
         transformAlignment: Alignment.center,
         decoration: BoxDecoration(
           gradient: LinearGradient(

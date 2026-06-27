@@ -199,7 +199,7 @@ class _CampaignRow extends StatelessWidget {
                 Row(
                   children: [
                     const Icon(Icons.payments_outlined,
-                        size: 16, color: PaColors.teal),
+                        size: 16, color: PaColors.teal,),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -268,7 +268,7 @@ class _CampaignRow extends StatelessWidget {
                             ),
                             SizedBox(width: 2),
                             Icon(Icons.arrow_forward_rounded,
-                                size: 18, color: PaColors.teal),
+                                size: 18, color: PaColors.teal,),
                           ],
                         ),
                       ),
@@ -333,7 +333,7 @@ class _EmptyState extends StatelessWidget {
       children: [
         const SizedBox(height: 80),
         const Icon(Icons.campaign_outlined,
-            color: PaColors.inkMuted, size: 56),
+            color: PaColors.inkMuted, size: 56,),
         const SizedBox(height: 16),
         const Center(
           child: Padding(

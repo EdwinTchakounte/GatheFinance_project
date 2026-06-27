@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -222,7 +223,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
       setState(() => _extraErrors = const {});
     }
     FocusScope.of(context).unfocus();
-    HapticFeedback.mediumImpact();
+    unawaited(HapticFeedback.mediumImpact());
     setState(() {
       _step = _Step.loading;
       _submitError = null;
@@ -277,8 +278,8 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
         return;
       }
       setState(() => _step = _Step.success);
-      HapticFeedback.heavyImpact();
-      _checkCtrl.forward();
+      unawaited(HapticFeedback.heavyImpact());
+      unawaited(_checkCtrl.forward());
     } catch (e) {
       if (!mounted) return;
       setState(() {

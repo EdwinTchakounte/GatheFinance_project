@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -69,7 +70,7 @@ class _PinPromptSheetState extends ConsumerState<PinPromptSheet> {
         );
     if (!mounted) return;
     if (ok) {
-      HapticFeedback.mediumImpact();
+      unawaited(HapticFeedback.mediumImpact());
       Navigator.of(context).pop(true);
     }
   }
@@ -92,10 +93,10 @@ class _PinPromptSheetState extends ConsumerState<PinPromptSheet> {
     final ok = await ref.read(pinProvider.notifier).verify(_entry);
     if (!mounted) return;
     if (ok) {
-      HapticFeedback.mediumImpact();
+      unawaited(HapticFeedback.mediumImpact());
       Navigator.of(context).pop(true);
     } else {
-      HapticFeedback.vibrate();
+      unawaited(HapticFeedback.vibrate());
       setState(() {
         _error = true;
         _entry = '';

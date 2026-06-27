@@ -562,7 +562,7 @@ abstract class AppL10n {
   /// No description provided for @tx_deposit_cotisation.
   ///
   /// In fr, this message translates to:
-  /// **'Versement cotisation'**
+  /// **'Versement collecte'**
   String get tx_deposit_cotisation;
 
   /// No description provided for @tx_withdrawal.
@@ -1426,7 +1426,7 @@ abstract class AppL10n {
   /// No description provided for @states_kpi_contributions.
   ///
   /// In fr, this message translates to:
-  /// **'Frais payés'**
+  /// **'Solde collecte'**
   String get states_kpi_contributions;
 
   /// No description provided for @states_kpi_seniority.
@@ -1870,7 +1870,7 @@ abstract class AppL10n {
   /// No description provided for @home_action_cotisation.
   ///
   /// In fr, this message translates to:
-  /// **'Cotisation'**
+  /// **'Collecte'**
   String get home_action_cotisation;
 
   /// No description provided for @home_action_credit.

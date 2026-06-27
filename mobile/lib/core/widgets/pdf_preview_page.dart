@@ -145,7 +145,7 @@ class _ErrorPanel extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.cloud_off_rounded,
-                size: 48, color: PaColors.inkMuted),
+                size: 48, color: PaColors.inkMuted,),
             const SizedBox(height: 12),
             const Text(
               'Impossible de charger l\'aperçu.',

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,7 +60,7 @@ class _PinLockPageState extends ConsumerState<PinLockPage> {
         );
     if (!mounted) return;
     if (ok) {
-      HapticFeedback.mediumImpact();
+      unawaited(HapticFeedback.mediumImpact());
       context.go('/home');
     }
   }
@@ -82,10 +83,10 @@ class _PinLockPageState extends ConsumerState<PinLockPage> {
     final ok = await ref.read(pinProvider.notifier).unlock(_entry);
     if (!mounted) return;
     if (ok) {
-      HapticFeedback.mediumImpact();
+      unawaited(HapticFeedback.mediumImpact());
       context.go('/home');
     } else {
-      HapticFeedback.vibrate();
+      unawaited(HapticFeedback.vibrate());
       setState(() {
         _error = true;
         _entry = '';
@@ -112,17 +113,17 @@ class _PinLockPageState extends ConsumerState<PinLockPage> {
           child: Column(
             children: [
               // ── Mini hero aurore + logo pont ──
-              Stack(
+              const Stack(
                 clipBehavior: Clip.none,
                 alignment: Alignment.bottomCenter,
                 children: [
                   PaBrandHero(
                     bottomRadius: 28,
                     contentPadding:
-                        const EdgeInsets.fromLTRB(20, 10, 20, 46),
-                    child: const SizedBox(height: 14),
+                        EdgeInsets.fromLTRB(20, 10, 20, 46),
+                    child: SizedBox(height: 14),
                   ),
-                  const Positioned(
+                  Positioned(
                     bottom: -34,
                     child: PaBrandHeroBridgeLogo(size: 68),
                   ),

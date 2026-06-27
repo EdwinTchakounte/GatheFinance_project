@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,7 +72,7 @@ class _WithdrawSheetState extends ConsumerState<WithdrawSheet> {
       setState(() => _error = AppL10n.of(context).wd_err_over_balance);
       return;
     }
-    HapticFeedback.mediumImpact();
+    unawaited(HapticFeedback.mediumImpact());
     setState(() {
       _step = _WithdrawStep.loading;
       _error = null;
@@ -96,7 +97,7 @@ class _WithdrawSheetState extends ConsumerState<WithdrawSheet> {
         _result = wr;
         _step = _WithdrawStep.success;
       });
-      HapticFeedback.heavyImpact();
+      unawaited(HapticFeedback.heavyImpact());
     } catch (e) {
       if (!mounted) return;
       setState(() {

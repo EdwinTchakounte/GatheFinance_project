@@ -414,8 +414,8 @@ class _PinnedDualHero extends StatelessWidget {
       ),
       cotisation: PaHeroSlot(
         amount: cPart?.solde ?? 0,
-        label: 'Ma cotisation',
-        ctaLabel: 'Payer ma cotisation',
+        label: 'Ma collecte',
+        ctaLabel: 'Payer ma collecte',
         onDeposit: onCotisationDeposit,
         trend: cTrend,
         deltaLabel: cDelta == null ? null : deltaLabelFmt(cDelta.$1),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -783,7 +784,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
       );
       return;
     }
-    HapticFeedback.mediumImpact();
+    unawaited(HapticFeedback.mediumImpact());
     setState(() => _loading = true);
     try {
       await ref.read(loanRequestsProvider.notifier).payStudyFee(
@@ -792,7 +793,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
             montant: amount,
           );
       if (!mounted) return;
-      HapticFeedback.heavyImpact();
+      unawaited(HapticFeedback.heavyImpact());
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

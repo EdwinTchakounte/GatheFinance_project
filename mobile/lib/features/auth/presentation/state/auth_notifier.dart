@@ -10,11 +10,11 @@ import '../../domain/usecases/sign_in.dart';
 /// (zéro référence à Dio / HTTP).
 class AuthNotifier extends AsyncNotifier<Member?> {
   late final SignIn _signIn = ref.read(signInUseCaseProvider);
-  late final get_current = ref.read(getCurrentMemberUseCaseProvider);
+  late final _getCurrent = ref.read(getCurrentMemberUseCaseProvider);
   late final _signOut = ref.read(signOutUseCaseProvider);
 
   @override
-  Future<Member?> build() => get_current.call(const NoParams());
+  Future<Member?> build() => _getCurrent.call(const NoParams());
 
   Future<void> signIn({required String email, required String password}) async {
     state = const AsyncValue.loading();

@@ -217,7 +217,7 @@ class CampaignDetailPage extends ConsumerWidget {
             body: 'Montant souhaité, motif, modalité . depuis le bouton « Postuler ». Joins tes pièces directement dans le formulaire.',
             done: true,
           ),
-          _TimelineStep(
+          const _TimelineStep(
             num: '02',
             title: 'Le comité examine sous 7 jours',
             body: 'Statut : « En validation campagne ». Le comité peut te demander un complément. Tu reçois une notification dès qu\'une décision est prise.',
@@ -262,10 +262,10 @@ class CampaignDetailPage extends ConsumerWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: PaColors.teal.withValues(alpha: 0.25)),
             ),
-            child: Row(
+            child: const Row(
               children: [
-                const Icon(Icons.info_outline_rounded, size: 18, color: PaColors.tealDark),
-                const SizedBox(width: 10),
+                Icon(Icons.info_outline_rounded, size: 18, color: PaColors.tealDark),
+                SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Voie campagne : pas d\'épargne préalable ni d\'avaliste requis . la coopérative assume le risque.',
@@ -543,7 +543,7 @@ class _DocBullet extends StatelessWidget {
             margin: const EdgeInsets.only(top: 5),
             width: 18,
             height: 18,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: PaColors.tealSurface,
               shape: BoxShape.circle,
             ),

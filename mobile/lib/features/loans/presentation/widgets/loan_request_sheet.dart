@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -212,7 +213,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            "Joins ta carte / attestation CGA BRC (ou decoche)."),
+            'Joins ta carte / attestation CGA BRC (ou decoche).',),
         ),
       );
       return;
@@ -221,7 +222,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            "Joins ton attestation de formation CFP BRC (ou decoche)."),
+            'Joins ton attestation de formation CFP BRC (ou decoche).',),
         ),
       );
       return;
@@ -269,7 +270,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       }
       setState(() => _extraErrors = const {});
     }
-    HapticFeedback.mediumImpact();
+    unawaited(HapticFeedback.mediumImpact());
     setState(() => _step = _Step.loading);
     try {
       // CH-5 . Sépare les fichiers (PickedFile) des scalaires : seuls les
@@ -343,8 +344,8 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
         _submission = submission;
         _step = _Step.success;
       });
-      HapticFeedback.heavyImpact();
-      _checkCtrl.forward();
+      unawaited(HapticFeedback.heavyImpact());
+      unawaited(_checkCtrl.forward());
     } catch (err) {
       if (!mounted) return;
       setState(() => _step = _Step.form);
@@ -401,7 +402,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
-    HapticFeedback.mediumImpact();
+    unawaited(HapticFeedback.mediumImpact());
     setState(() => _step = _Step.payLoading);
     try {
       await ref.read(loanRequestsProvider.notifier).payStudyFee(
@@ -411,7 +412,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
           );
       if (!mounted) return;
       setState(() => _step = _Step.paySuccess);
-      HapticFeedback.heavyImpact();
+      unawaited(HapticFeedback.heavyImpact());
     } catch (err) {
       if (!mounted) return;
       setState(() => _step = _Step.payForm);
@@ -570,11 +571,11 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
               child: const Row(
                 children: [
                   Icon(Icons.workspace_premium_rounded,
-                      color: Color(0xFF1E3A8A), size: 18),
+                      color: Color(0xFF1E3A8A), size: 18,),
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "Voie BRC . si tu es membre du CGA BRC ou ancien apprenant CFP BRC, joins ton justificatif pour beneficier de la voie privilegiee.",
+                      'Voie BRC . si tu es membre du CGA BRC ou ancien apprenant CFP BRC, joins ton justificatif pour beneficier de la voie privilegiee.',
                       style: TextStyle(
                         color: Color(0xFF1E3A8A),
                         fontSize: 12.5,
@@ -904,7 +905,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 child: Row(
                   children: [
                     const Icon(Icons.info_outline_rounded,
-                        size: 18, color: Color(0xFF92400E)),
+                        size: 18, color: Color(0xFF92400E),),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(

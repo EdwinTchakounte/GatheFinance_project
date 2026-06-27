@@ -247,7 +247,7 @@ class AppL10nFr extends AppL10n {
   String get tx_deposit => 'Dépôt épargne';
 
   @override
-  String get tx_deposit_cotisation => 'Versement cotisation';
+  String get tx_deposit_cotisation => 'Versement collecte';
 
   @override
   String get tx_withdrawal => 'Retrait';
@@ -729,7 +729,7 @@ class AppL10nFr extends AppL10n {
   String get states_no_active_credit => 'Aucun crédit actif';
 
   @override
-  String get states_kpi_contributions => 'Frais payés';
+  String get states_kpi_contributions => 'Solde collecte';
 
   @override
   String get states_kpi_seniority => 'Ancienneté';
@@ -978,7 +978,7 @@ class AppL10nFr extends AppL10n {
   String get home_action_savings => 'Épargne';
 
   @override
-  String get home_action_cotisation => 'Cotisation';
+  String get home_action_cotisation => 'Collecte';
 
   @override
   String get home_action_credit => 'Crédit';

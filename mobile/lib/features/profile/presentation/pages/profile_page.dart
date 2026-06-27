@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +8,6 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
-import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../security/data/biometric_service.dart';
 import '../../../security/presentation/state/pin_notifier.dart';
 import '../../../../core/widgets/app_card.dart';
@@ -271,7 +271,7 @@ class ProfilePage extends ConsumerWidget {
   }
 
   static Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
-    HapticFeedback.lightImpact();
+    unawaited(HapticFeedback.lightImpact());
     final ok = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: PaColors.paper,
@@ -543,7 +543,7 @@ class _BiometricTile extends ConsumerWidget {
               ),
               Switch.adaptive(
                 value: st.biometricEnabled,
-                activeColor: PaColors.teal,
+                activeTrackColor: PaColors.teal,
                 onChanged: toggle,
               ),
             ],
@@ -776,7 +776,7 @@ class _MyInfoSheetState extends ConsumerState<_MyInfoSheet> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    HapticFeedback.lightImpact();
+    unawaited(HapticFeedback.lightImpact());
     setState(() => _saving = true);
     await ref.read(authProvider.notifier).updateProfile(
           prenom: _prenomCtrl.text,
@@ -982,7 +982,7 @@ class _PasswordSheetState extends ConsumerState<_PasswordSheet>
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    HapticFeedback.lightImpact();
+    unawaited(HapticFeedback.lightImpact());
     setState(() {
       _saving = true;
       _serverError = null;
@@ -997,15 +997,15 @@ class _PasswordSheetState extends ConsumerState<_PasswordSheet>
         _saving = false;
         _serverError = err;
       });
-      HapticFeedback.heavyImpact();
+      unawaited(HapticFeedback.heavyImpact());
       return;
     }
-    HapticFeedback.heavyImpact();
+    unawaited(HapticFeedback.heavyImpact());
     setState(() {
       _saving = false;
       _success = true;
     });
-    _checkCtrl.forward();
+    unawaited(_checkCtrl.forward());
   }
 
   @override

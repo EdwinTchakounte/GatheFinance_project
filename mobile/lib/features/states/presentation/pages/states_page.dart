@@ -17,9 +17,9 @@ import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../auth/domain/entities/member.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
-import '../../../contributions/presentation/state/contributions_notifier.dart';
 import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
+import '../../../savings/presentation/state/classic_savings_notifier.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
 import '../../../savings/presentation/widgets/withdraw_sheet.dart';
 import '../../data/releve_pdf_service.dart';
@@ -33,9 +33,10 @@ class StatesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final memberAsync = ref.watch(authProvider);
-    final savings = ref.watch(savingsProvider);
-    final contributions = ref.watch(contributionsProvider);
-    final totalCotisations = ref.watch(totalContributionsValideesProvider);
+    // PARITE HOME . meme sources que la home (epargne classique + collecte
+    // journaliere) pour que les chiffres correspondent.
+    final epargne = ref.watch(classicSavingsProvider);
+    final collecte = ref.watch(savingsProvider);
     final l = AppL10n.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
 
@@ -68,7 +69,7 @@ class StatesPage extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    savings.when(
+                    collecte.when(
                       data: (d) => _WithdrawAction(soldeDisponible: d.solde),
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),
@@ -81,8 +82,8 @@ class StatesPage extends ConsumerWidget {
                   color: PaColors.teal,
                   onRefresh: () async {
                     await Future.wait([
+                      ref.read(classicSavingsProvider.notifier).refresh(),
                       ref.read(savingsProvider.notifier).refresh(),
-                      ref.read(contributionsProvider.notifier).refresh(),
                     ]);
                   },
                   child: ListView(
@@ -107,7 +108,7 @@ class StatesPage extends ConsumerWidget {
                         crossAxisSpacing: 12,
                         childAspectRatio: 1.18,
                         children: [
-                          savings.when(
+                          epargne.when(
                             data: (d) => _KpiTile(
                               icon: Icons.savings_outlined,
                               tint: PaColors.teal,
@@ -131,14 +132,13 @@ class StatesPage extends ConsumerWidget {
                             value: '0 XAF',
                             full: l.states_no_active_credit,
                           ),
-                          contributions.when(
-                            data: (_) => _KpiTile(
+                          collecte.when(
+                            data: (d) => _KpiTile(
                               icon: Icons.account_balance_wallet_outlined,
                               tint: PaColors.warning,
                               label: l.states_kpi_contributions,
-                              value:
-                                  XAFFormatter.formatCompact(totalCotisations),
-                              full: XAFFormatter.format(totalCotisations),
+                              value: XAFFormatter.formatCompact(d.solde),
+                              full: XAFFormatter.format(d.solde),
                             ),
                             loading: () => const _KpiSkeleton(),
                             error: (_, __) => _KpiTile(
@@ -159,7 +159,7 @@ class StatesPage extends ConsumerWidget {
                       Text(l.states_savings_detail,
                           style: PaText.label(size: 15),),
                       const SizedBox(height: 12),
-                      savings.when(
+                      epargne.when(
                         data: (d) => _DetailCard(
                           lines: [
                             (l.states_balance_today,
@@ -181,7 +181,7 @@ class StatesPage extends ConsumerWidget {
                         ),
                         error: (e, _) => PaErrorState(
                           onRetry: () =>
-                              ref.read(savingsProvider.notifier).refresh(),
+                              ref.read(classicSavingsProvider.notifier).refresh(),
                         ),
                       ),
                       const SizedBox(height: 22),
@@ -234,9 +234,14 @@ class StatesPage extends ConsumerWidget {
                         label: l.states_download_pdf,
                         icon: Icons.picture_as_pdf_outlined,
                         variant: PaButtonVariant.outline,
-                        onPressed: () =>
-                            _exportPdf(context, ref, savings.valueOrNull,
-                                memberAsync.valueOrNull, totalCotisations, l,),
+                        onPressed: () => _exportPdf(
+                          context,
+                          ref,
+                          epargne.valueOrNull,
+                          memberAsync.valueOrNull,
+                          collecte.valueOrNull?.solde ?? 0,
+                          l,
+                        ),
                       ),
                     ],
                   ),
@@ -265,11 +270,10 @@ class StatesPage extends ConsumerWidget {
       return;
     }
     final df = DateFormat('dd/MM/yyyy');
-    // La page Mes états affiche les transactions de cotisation journalière
-    // (savingsProvider), pas l'épargne classique . on utilise donc le libellé
-    // dédié pour ne plus brouiller les deux notions côté membre.
+    // Le PDF reflete le compte epargne classique (parite avec la Home).
+    // Le total bas-de-page = solde collecte journaliere (passe via param).
     String txLabel(SavingsType t) => switch (t) {
-          SavingsType.depot => l.tx_deposit_cotisation,
+          SavingsType.depot => l.tx_deposit,
           SavingsType.interet => l.tx_interest,
           SavingsType.retrait => l.tx_withdrawal,
         };
@@ -304,12 +308,12 @@ class StatesPage extends ConsumerWidget {
       fileName: l.releve_pdf_filename,
     );
     if (!context.mounted) return;
-    Navigator.of(context).push(
+    unawaited(Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) =>
             RelevePreviewPage(data: pdfData, title: l.releve_pdf_title),
       ),
-    );
+    ),);
   }
 }
 

@@ -284,20 +284,22 @@ class _RadioInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = value?.toString();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final o in field.options)
-          RadioListTile<String>(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            value: o.value,
-            groupValue: current,
-            title: Text(o.label,
-                style: const TextStyle(fontSize: 13.5, color: PaColors.inkPrimary),),
-            onChanged: onChange,
-          ),
-      ],
+    return RadioGroup<String>(
+      groupValue: current,
+      onChanged: onChange,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final o in field.options)
+            RadioListTile<String>(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: o.value,
+              title: Text(o.label,
+                  style: const TextStyle(fontSize: 13.5, color: PaColors.inkPrimary),),
+            ),
+        ],
+      ),
     );
   }
 }

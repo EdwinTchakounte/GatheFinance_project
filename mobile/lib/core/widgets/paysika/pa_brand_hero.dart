@@ -38,10 +38,10 @@ class PaBrandHero extends StatelessWidget {
       child: Stack(
         children: [
           // ── Fond gradient aurore vert → bleu → navy ──
-          Positioned.fill(
+          const Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment(-1, -0.6),
                   end: Alignment(1, 0.8),
                   colors: [

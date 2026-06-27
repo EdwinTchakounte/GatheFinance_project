@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,7 +26,7 @@ Future<void> main() async {
   // et schedule* peut bloquer sur certains devices, donc on fire-and-forget
   // dans un microtask separe . runApp() peut continuer immediatement.
   // Les permissions seront demandees + schedules armes une fois l'UI montee.
-  Future.microtask(() async {
+  unawaited(Future.microtask(() async {
     try {
       final notifSvc = LocalNotifService.instance;
       await notifSvc.init();
@@ -34,7 +36,7 @@ Future<void> main() async {
     } catch (_) {
       // Best-effort . echec d'init notifs ne bloque jamais l'app.
     }
-  });
+  }),);
 
   // Initialise le client HTTP (cookies persistants). Toujours requis — les
   // datasources mockées ont été supprimées en 2026-06 (chemins prod only).

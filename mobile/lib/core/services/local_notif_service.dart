@@ -44,7 +44,7 @@ class LocalNotifService {
   static const _channelReminders = AndroidNotificationChannel(
     'gathe_reminders',
     'Gathé Finance . Rappels',
-    description: 'Rappels périodiques : consultation app, cotisation quotidienne.',
+    description: 'Rappels périodiques : consultation app, collecte journalière.',
     importance: Importance.defaultImportance,
   );
 
@@ -233,8 +233,8 @@ class LocalNotifService {
     try {
       await _plugin.zonedSchedule(
         _idReminderCotisation16h,
-        'Cotisation du jour',
-        'Pense à effectuer ta cotisation journalière avant 17h00.',
+        'Collecte du jour',
+        'Pense à effectuer ta collecte journalière avant 17h00.',
         next,
         NotificationDetails(
           android: AndroidNotificationDetails(

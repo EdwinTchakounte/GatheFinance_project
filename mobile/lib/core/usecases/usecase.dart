@@ -8,9 +8,9 @@
 ///
 /// Utilisez `NoParams` quand l'action ne prend pas d'argument :
 ///   `class GetCurrentMember extends UseCase<Member?, NoParams> { ... }`
-abstract class UseCase<Type, Params> {
+abstract class UseCase<R, Params> {
   const UseCase();
-  Future<Type> call(Params params);
+  Future<R> call(Params params);
 }
 
 /// Marqueur « pas de paramètres » — évite `void` qui n'est pas compositionnel.

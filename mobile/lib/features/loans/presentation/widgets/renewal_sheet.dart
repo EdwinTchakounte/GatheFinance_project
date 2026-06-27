@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -66,7 +67,7 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
   }
 
   Future<void> _submit() async {
-    HapticFeedback.mediumImpact();
+    unawaited(HapticFeedback.mediumImpact());
     setState(() => _step = _Step.loading);
     try {
       await ref.read(loansProvider.notifier).requestRenewal(
@@ -75,8 +76,8 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
           );
       if (!mounted) return;
       setState(() => _step = _Step.success);
-      HapticFeedback.heavyImpact();
-      _checkCtrl.forward();
+      unawaited(HapticFeedback.heavyImpact());
+      unawaited(_checkCtrl.forward());
     } catch (err) {
       if (!mounted) return;
       setState(() => _step = _Step.form);

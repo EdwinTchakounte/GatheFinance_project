@@ -37,7 +37,7 @@ class PaDualHeroBalance extends StatefulWidget {
     required this.savings,
     required this.cotisation,
     this.savingsLabel = 'Épargne',
-    this.cotisationLabel = 'Cotisations',
+    this.cotisationLabel = 'Collectes',
     this.onRequestReveal,
   });
 

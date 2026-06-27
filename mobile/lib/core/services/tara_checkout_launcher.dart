@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
@@ -72,12 +73,12 @@ class TaraCheckoutLauncher {
       return false;
     }
     developer.log('[TaraCheckout] pushing WebView for $url', name: 'tara');
-    nav.push<void>(
+    unawaited(nav.push<void>(
       MaterialPageRoute<void>(
         builder: (_) => TaraCheckoutWebViewPage(url: url),
         fullscreenDialog: true,
       ),
-    );
+    ),);
     return true;
   }
 }

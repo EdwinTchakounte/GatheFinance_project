@@ -11,8 +11,8 @@ import '../../domain/entities/lender_state.dart';
 ///   - POST /savings/me/lender/opt-in/      { is_global: bool }   → [optIn]
 ///   - POST /savings/me/lender/revoke/                            → [revoke]
 ///   - POST /savings/me/lender/tranches/    { montant }           → [addTranche]
-///   - POST /savings/me/lender/tranches/<id>/cancel/              → [cancelTranche]
-///   - POST /savings/me/lender/funding-requests/<id>/respond/
+///   - POST /savings/me/lender/tranches/`<id>`/cancel/              → [cancelTranche]
+///   - POST /savings/me/lender/funding-requests/`<id>`/respond/
 ///                                          { accept: bool, comment? } → [respondFunding]
 class LenderDioDataSource {
   LenderDioDataSource(this._client);

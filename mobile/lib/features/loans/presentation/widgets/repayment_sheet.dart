@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -74,7 +75,7 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final amount = num.parse(_amountCtrl.text.replaceAll(' ', ''));
-    HapticFeedback.mediumImpact();
+    unawaited(HapticFeedback.mediumImpact());
     setState(() {
       _commited = amount;
       _step = _Step.loading;
@@ -88,8 +89,8 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
           );
       if (!mounted) return;
       setState(() => _step = _Step.success);
-      HapticFeedback.heavyImpact();
-      _checkCtrl.forward();
+      unawaited(HapticFeedback.heavyImpact());
+      unawaited(_checkCtrl.forward());
     } catch (err) {
       if (!mounted) return;
       setState(() => _step = _Step.form);

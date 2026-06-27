@@ -93,7 +93,7 @@
   "common_see_all": "Voir tout",
 
   "tx_deposit": "Dépôt épargne",
-  "tx_deposit_cotisation": "Versement cotisation",
+  "tx_deposit_cotisation": "Versement collecte",
   "tx_withdrawal": "Retrait",
   "tx_interest": "Intérêts crédités",
   "tx_balance_after": "Solde {amount}",
@@ -312,7 +312,7 @@
   "states_kpi_savings": "Solde épargne",
   "states_kpi_credit": "Encours crédit",
   "states_no_active_credit": "Aucun crédit actif",
-  "states_kpi_contributions": "Frais payés",
+  "states_kpi_contributions": "Solde collecte",
   "states_kpi_seniority": "Ancienneté",
   "states_savings_detail": "Mon épargne en détail",
   "states_balance_today": "Solde au jour",
@@ -418,7 +418,7 @@
 
   "home_action_deposit": "Verser",
   "home_action_savings": "Épargne",
-  "home_action_cotisation": "Cotisation",
+  "home_action_cotisation": "Collecte",
   "home_action_credit": "Crédit",
   "home_action_booklet": "Carnet",
   "home_action_history": "Historique",

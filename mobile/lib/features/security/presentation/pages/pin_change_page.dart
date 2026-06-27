@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -73,7 +74,7 @@ class _PinChangePageState extends ConsumerState<PinChangePage> {
               .changePin(current: _current, next: _next);
           if (!mounted) return;
           if (ok) {
-            HapticFeedback.heavyImpact();
+            unawaited(HapticFeedback.heavyImpact());
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(l.pin_updated)),
             );

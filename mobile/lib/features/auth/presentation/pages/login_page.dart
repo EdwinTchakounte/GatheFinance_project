@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,7 +53,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
     setState(() => _submitting = true);
     try {
-      HapticFeedback.lightImpact();
+      unawaited(HapticFeedback.lightImpact());
     } catch (_) {
       // Vibrate permission absente sur certains devices (Tecno) . non-bloquant.
     }
@@ -190,7 +190,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authProvider);
+    ref.watch(authProvider);
     // Le bouton est désactivé UNIQUEMENT pendant la soumission de l'utilisateur,
     // pas pendant le bootstrap initial du provider (qui peut prendre
     // jusqu'à 25 s sur réseau lent et bloquerait l'UI sinon).
