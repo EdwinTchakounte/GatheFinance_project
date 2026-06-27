@@ -208,6 +208,19 @@ export type LenderState = {
   pending_count: number;
 };
 
+// A6 . Versement d'interets recu en tant que preteur (CH-12 / LOT 9).
+export type LenderInterestPayout = {
+  id: number;
+  montant: string;
+  date: string;
+  loan: { id: number; numero_dossier: string };
+  allocation_id: number;
+  quote_part: string;
+  // "at_source" = paye a T0 (mode source CH-11) | "installment" = au remboursement
+  kind: "at_source" | "installment";
+  installment_numero: number | null;
+};
+
 // Refonte 2026 LOT 18 — Mandats d'avaliste (côté garant).
 export type AvalisteMandat = {
   id: number;
@@ -403,6 +416,12 @@ export const portalApi = {
         method: "POST",
         body: JSON.stringify(payload),
       }),
+    // A6 . Historique des interets percus en tant que preteur.
+    payouts: () =>
+      request<{
+        count: number;
+        results: LenderInterestPayout[];
+      }>("/loans/me/lender-payouts/"),
   },
   loans: {
     eligibility: () =>

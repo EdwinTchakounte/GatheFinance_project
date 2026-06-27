@@ -9,6 +9,7 @@ import {
   portalApi,
   type ApiError,
   type LenderPendingFunding,
+  type LenderInterestPayout,
   type LenderState,
   type LenderTranche,
 } from "@/lib/api";
@@ -303,7 +304,94 @@ function ActiveLenderBlock({
           funding. Les tranches sont créées par le système à chaque engagement.
         </p>
       )}
+
+      {/* A6 . Historique des interets percus (parite mobile). */}
+      <PayoutsSection />
     </div>
+  );
+}
+
+
+function PayoutsSection() {
+  const [payouts, setPayouts] = useState<LenderInterestPayout[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    portalApi.lender
+      .payouts()
+      .then((res) => {
+        if (!cancelled) setPayouts(res.results);
+      })
+      .catch(() => {
+        if (!cancelled) setPayouts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const total = (payouts ?? []).reduce(
+    (acc, p) => acc + Number(p.montant || 0),
+    0,
+  );
+
+  return (
+    <section className="rounded-lg border border-line-200 bg-paper p-5 shadow-sm">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="font-display text-base font-semibold text-ink-900">
+            Mes intérêts perçus
+          </h2>
+          <p className="mt-0.5 text-xs text-ink-600">
+            Versements reçus sur les crédits financés par mon épargne placement.
+          </p>
+        </div>
+        {payouts !== null && payouts.length > 0 ? (
+          <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+            Total {total.toLocaleString("fr-FR")} XAF
+          </span>
+        ) : null}
+      </div>
+
+      {loading ? (
+        <p className="mt-4 text-sm text-ink-600">Chargement…</p>
+      ) : !payouts || payouts.length === 0 ? (
+        <p className="mt-4 rounded-md border border-dashed border-line-200 bg-paper/70 p-6 text-center text-xs text-ink-600">
+          Aucun intérêt perçu pour le moment. Tu en recevras dès qu'un crédit
+          financé par ton épargne placement sera décaissé ou remboursé.
+        </p>
+      ) : (
+        <ul className="mt-4 divide-y divide-line-200">
+          {payouts.slice(0, 10).map((p) => (
+            <li key={p.id} className="flex items-center justify-between py-2.5">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-ink-900">
+                  Crédit {p.loan.numero_dossier}
+                </p>
+                <p className="text-[11px] text-ink-500">
+                  {p.kind === "at_source"
+                    ? "Versé à la source (décaissement)"
+                    : `Échéance #${p.installment_numero ?? "?"}`}{" "}
+                  ·{" "}
+                  {new Date(p.date).toLocaleDateString("fr-FR", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "2-digit",
+                  })}
+                </p>
+              </div>
+              <p className="font-mono text-sm font-semibold text-emerald-700">
+                +{Number(p.montant).toLocaleString("fr-FR")} XAF
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
