@@ -247,6 +247,18 @@ EVENTS: list[tuple[str, str, str, bool]] = [
         "le dossier attend une décision admin.",
         True,
     ),
+    # A5 . Engagement manuel d'une tranche preteur par l'admin (composer
+    # funding). Mail + notif in-app au preteur AVANT que les interets ne
+    # commencent a courir sur sa portion engagee.
+    (
+        "lender.tranche_engaged",
+        "Votre placement vient d'être engagé dans un crédit",
+        "L'administration a engagé une partie de votre épargne placement pour "
+        "financer un crédit. Les intérêts commencent à courir aujourd'hui sur "
+        "cette portion. Mail + notif in-app au prêteur, au moment exact de "
+        "l'engagement.",
+        True,
+    ),
 ]
 
 

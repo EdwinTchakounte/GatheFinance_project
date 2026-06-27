@@ -19,10 +19,98 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
+import logging
+
+from django.conf import settings as dj_settings
+
 from apps_coop.audit.services import client_ip, record as record_audit
 from apps_coop.members.permissions import IsAdmin
 from apps_coop.savings.models import LenderTranche
 from apps_coop.loans.models import Loan
+
+
+logger = logging.getLogger(__name__)
+
+
+def _fmt_xaf(value: Decimal) -> str:
+    """Pretty print 1234567 → '1 234 567'."""
+    try:
+        return f"{int(value):,}".replace(",", " ")
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _notify_lenders_engagement(
+    *,
+    loan: Loan,
+    per_lender_total: dict,
+    per_lender_member: dict,
+    engaged_at,
+) -> None:
+    """A5 . Envoie email + notif in-app a chaque preteur engage. Best-effort.
+
+    Envoye APRES le commit pour eviter les notifs fantome si rollback.
+    Une notif par preteur, agrégeant le montant total engagé sur ce funding.
+    Le mail mentionne le beneficiaire pour traçabilité.
+    """
+    if not per_lender_total:
+        return
+
+    beneficiaire_label = (
+        f"{loan.member.prenom} {loan.member.nom}"
+        if getattr(loan, "member", None) else "Membre coopérative"
+    )
+    portal_url = getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200")
+    date_engagement_str = engaged_at.strftime("%d/%m/%Y a %Hh%M")
+
+    for member_id, montant_total in per_lender_total.items():
+        lender = per_lender_member.get(member_id)
+        if lender is None:
+            continue
+        ctx = {
+            "prenom": lender.prenom or "",
+            "numero_membre": lender.numero_membre or "",
+            "loan_dossier": loan.numero_dossier,
+            "beneficiaire_label": beneficiaire_label,
+            "montant_engage": _fmt_xaf(montant_total),
+            "date_engagement": date_engagement_str,
+            "portal_url": portal_url,
+        }
+        # 1. Email (via emit_event, qui fallback sur send_template).
+        try:
+            from apps_coop.notifications.events import emit_event
+
+            emit_event(
+                "lender.tranche_engaged",
+                member=lender,
+                context=ctx,
+            )
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "lender.tranche_engaged email a echoue pour membre %s",
+                member_id, exc_info=True,
+            )
+
+        # 2. Notif in-app pour mobile + portail. Best-effort.
+        if getattr(lender, "user_id", None):
+            try:
+                from apps_coop.notifications.services import create_notification
+
+                create_notification(
+                    user=lender.user,
+                    type="lender.tranche_engaged",
+                    message=(
+                        f"Ton placement de {_fmt_xaf(montant_total)} FCFA "
+                        f"vient d'etre engage dans le credit {loan.numero_dossier} "
+                        f"({beneficiaire_label}). Les interets demarrent aujourd'hui."
+                    ),
+                    lien="/portal/preteur",
+                )
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "lender.tranche_engaged notif in-app echec membre %s",
+                    member_id, exc_info=True,
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +285,10 @@ def admin_compose_funding_manual(request, pk: int):
 
     now = timezone.now()
     n_engaged = n_split = 0
+    # A5 . On agrege par preteur pour envoyer UNE seule notif par membre
+    # meme s'il a plusieurs tranches engagees dans le meme funding.
+    per_lender_total: dict[int, Decimal] = {}
+    per_lender_member: dict[int, object] = {}
     with transaction.atomic():
         for tranche_id, montant in parsed:
             try:
@@ -244,6 +336,11 @@ def admin_compose_funding_manual(request, pk: int):
                 "montant", "statut", "engaged_in_loan", "engaged_at", "updated_at",
             ])
             n_engaged += 1
+            # Accumule par preteur pour la notif post-commit.
+            per_lender_total[t.member_id] = (
+                per_lender_total.get(t.member_id, Decimal("0")) + montant
+            )
+            per_lender_member.setdefault(t.member_id, t.member)
 
     record_audit(
         action="loan.funding_composed_manual",
@@ -255,8 +352,19 @@ def admin_compose_funding_manual(request, pk: int):
             "total_engage": str(total),
             "n_tranches": n_engaged,
             "n_split": n_split,
+            "n_lenders_notified": len(per_lender_total),
         },
         ip=client_ip(request),
+    )
+
+    # A5 . Notif email + in-app a chaque preteur. Best-effort : une erreur
+    # d'envoi ne doit pas casser la reponse admin. Execute APRES la
+    # transaction.atomic() pour eviter d'envoyer si rollback.
+    _notify_lenders_engagement(
+        loan=loan,
+        per_lender_total=per_lender_total,
+        per_lender_member=per_lender_member,
+        engaged_at=now,
     )
 
     return Response(

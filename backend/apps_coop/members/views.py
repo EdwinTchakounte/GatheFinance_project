@@ -639,13 +639,15 @@ def admin_dashboard_kpis(request):
         SavingsAccount.objects.aggregate(total=Sum("solde"))["total"]
         or Decimal("0")
     )
-    epargne_classique = (
+    # A3 . L'epargne classique est un seul produit avec 2 sous-canaux :
+    #   - libre = cash sur ClassicSavingsAccount.solde
+    #   - placement = LenderTranche actives (DISPONIBLE ou ENGAGEE) du membre
+    # Les deux appartiennent au membre . on les somme dans "Epargne classique".
+    # Le breakdown libre/placement est expose en sous-detail pour l'UI.
+    epargne_classique_libre = (
         ClassicSavingsAccount.objects.aggregate(total=Sum("solde"))["total"]
         or Decimal("0")
     )
-    # A3 . Le placement actif (LenderTranche DISPONIBLE + ENGAGEE) appartient
-    # toujours au membre . on l'inclut dans le solde global affiche cote admin
-    # pour eviter la divergence avec l'espace membre.
     epargne_placement = (
         LenderTranche.objects.filter(
             statut__in=[
@@ -655,11 +657,10 @@ def admin_dashboard_kpis(request):
         ).aggregate(total=Sum("montant"))["total"]
         or Decimal("0")
     )
-    epargne_total = (
-        Decimal(epargne_collecte)
-        + Decimal(epargne_classique)
-        + Decimal(epargne_placement)
+    epargne_classique = (
+        Decimal(epargne_classique_libre) + Decimal(epargne_placement)
     )
+    epargne_total = Decimal(epargne_collecte) + epargne_classique
 
     # --- Épargne classique — état du cycle anniversaire (LOT 5) ----------
     classique_notifie = ClassicSavingsAccount.objects.filter(
@@ -733,8 +734,10 @@ def admin_dashboard_kpis(request):
                 "encours_credit": str(encours),
                 "epargne_total": str(epargne_total),
                 "epargne_collecte": str(epargne_collecte),
+                # A3 . "Epargne classique" = libre + placement actif. Le
+                # breakdown est expose pour les details (tooltip / sous-texte).
                 "epargne_classique": str(epargne_classique),
-                # A3 . Decomposition Disponible/Place pour le breakdown UI.
+                "epargne_classique_libre": str(epargne_classique_libre),
                 "epargne_placement": str(epargne_placement),
             },
             "epargne_classique_cycle": {

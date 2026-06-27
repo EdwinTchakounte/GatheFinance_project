@@ -132,18 +132,11 @@ function DashboardContent() {
       large: true,
     },
     {
+      // A3 . Total = libre (cash sur ClassicSavingsAccount) + placement
+      // (LenderTranche actives). Le breakdown est dans le hint.
       label: "Épargne classique",
       value: formatXAF(kpis.finance.epargne_classique),
-      hint: "contrats 12 mois",
-      icon: PiggyBank,
-      tone: "emerald",
-      large: true,
-    },
-    {
-      // A3 . Place = tranches preteur DISPONIBLE + ENGAGEE.
-      label: "Épargne placement",
-      value: formatXAF(kpis.finance.epargne_placement),
-      hint: "tranches prêteur actives",
+      hint: `Libre ${formatXAF(kpis.finance.epargne_classique_libre)} · Placement ${formatXAF(kpis.finance.epargne_placement)}`,
       icon: PiggyBank,
       tone: "emerald",
       large: true,

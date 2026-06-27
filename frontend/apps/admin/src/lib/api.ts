@@ -116,9 +116,10 @@ export type DashboardKpis = {
     encours_credit: string;
     epargne_total: string;
     epargne_collecte: string;
+    // A3 . "Epargne classique" = libre + placement actif (LenderTranche
+    // DISPONIBLE + ENGAGEE). Le breakdown sert au sous-detail UI.
     epargne_classique: string;
-    // A3 . Solde des LenderTranche actives (DISPONIBLE + ENGAGEE) inclus
-    // dans epargne_total. Permet le breakdown Disponible/Place cote UI.
+    epargne_classique_libre: string;
     epargne_placement: string;
   };
   epargne_classique_cycle: {

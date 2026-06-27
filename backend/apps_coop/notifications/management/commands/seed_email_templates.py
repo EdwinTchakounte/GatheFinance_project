@@ -768,6 +768,40 @@ TEMPLATES = [
         ),
         "variables": ["prenom", "loan_dossier", "deficit", "portal_url"],
     },
+    # A5 . Engagement d'une tranche preteur (composer funding manuel admin).
+    # Mail envoye juste apres engagement et AVANT que les interets ne commencent.
+    {
+        "code": "lender.tranche_engaged",
+        "objet": "Ton placement de {montant_engage} XAF vient d'être engagé",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Placement engagé dans un crédit"),
+            lead(
+                "L'administration vient d'engager une partie de ton épargne "
+                "placement pour financer le crédit "
+                "<strong>{loan_dossier}</strong> au profit de "
+                "<strong>{beneficiaire_label}</strong>."
+            ),
+            info_card([
+                ("Montant engagé", "<strong>{montant_engage} XAF</strong>"),
+                ("Crédit financé", "<strong>{loan_dossier}</strong>"),
+                ("Bénéficiaire", "{beneficiaire_label}"),
+                ("Date d'engagement", "{date_engagement}"),
+                ("Début des intérêts", "À partir d'aujourd'hui"),
+            ], tone="info"),
+            p(
+                "Les intérêts seront calculés sur cette portion engagée "
+                "uniquement, selon la règle 50/50 (Article 6) sur chaque "
+                "remboursement du crédit financé."
+            ),
+            cta("Voir mon espace prêteur", "{portal_url}/portal/preteur"),
+            closing(),
+        ),
+        "variables": [
+            "prenom", "numero_membre", "loan_dossier", "beneficiaire_label",
+            "montant_engage", "date_engagement", "portal_url",
+        ],
+    },
     # ────────────────────────────────────────────────────────────────────
     # CARNET, RÉINSCRIPTION, AUTH
     # ────────────────────────────────────────────────────────────────────
