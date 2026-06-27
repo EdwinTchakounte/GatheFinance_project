@@ -453,6 +453,17 @@ export const portalApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  // PWD Option B . Verifie un token de definition de mot de passe initial.
+  verifyPasswordSetup: (token: string) =>
+    request<{ email_mask: string; expires_at: string }>(
+      `/auth/setup-password/verify/?token=${encodeURIComponent(token)}`,
+    ),
+  // PWD Option B . Consomme le token et pose le mot de passe initial.
+  confirmPasswordSetup: (payload: { token: string; password: string }) =>
+    request<{ detail: string; email: string }>("/auth/setup-password/confirm/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   logout: () => request<void>("/auth/logout/", { method: "POST" }),
   me: () => request<Identity>("/auth/me/"),
   savings: () => request<SavingsSnapshot>("/savings/me/"),

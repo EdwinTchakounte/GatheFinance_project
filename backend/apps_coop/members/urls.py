@@ -22,6 +22,17 @@ urlpatterns = [
         auth_views.confirm_password_reset,
         name="auth-password-reset-confirm",
     ),
+    # PWD Option B — Setup mot de passe initial (lien e-mail welcome, 72h).
+    path(
+        "auth/setup-password/verify/",
+        auth_views.verify_password_setup_token,
+        name="auth-setup-password-verify",
+    ),
+    path(
+        "auth/setup-password/confirm/",
+        auth_views.confirm_password_setup,
+        name="auth-setup-password-confirm",
+    ),
 
     # Member self-service
     path("members/me/", views.MemberMeView.as_view(), name="member-me"),

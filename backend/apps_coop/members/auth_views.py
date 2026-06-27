@@ -477,3 +477,138 @@ def confirm_password_reset(request):
         user_agent=request.META.get("HTTP_USER_AGENT", ""),
     )
     return Response({"detail": "Mot de passe réinitialisé."})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PWD Option B — Setup mot de passe initial (token usage unique 72h)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _mask_email(email: str) -> str:
+    """Renvoie ``j***@domain.tld`` pour la page de confirmation."""
+    if not email or "@" not in email:
+        return ""
+    local, _, domain = email.partition("@")
+    if len(local) <= 1:
+        return f"{local}***@{domain}"
+    return f"{local[0]}***@{domain}"
+
+
+@extend_schema(
+    tags=["auth"],
+    summary="Vérifier un token de définition de mot de passe",
+    description=(
+        "Vérifie qu'un token reçu dans l'e-mail de bienvenue est encore valide "
+        "(non utilisé, non expiré). Renvoie un payload `{email_mask, expires_at}` "
+        "pour la page de confirmation. 410 si expiré/utilisé, 404 si inconnu."
+    ),
+    responses={
+        200: OpenApiResponse(description="Token valide → `{email_mask, expires_at}`"),
+        404: OpenApiResponse(description="Token inconnu"),
+        410: OpenApiResponse(description="Token expiré ou déjà utilisé"),
+    },
+)
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def verify_password_setup_token(request):
+    from .models import PasswordSetupToken
+
+    token_value = (request.query_params.get("token") or "").strip()
+    if not token_value:
+        return Response({"detail": "Token requis."}, status=status.HTTP_400_BAD_REQUEST)
+
+    token = PasswordSetupToken.objects.filter(token=token_value).first()
+    if token is None:
+        return Response({"detail": "Lien invalide."}, status=status.HTTP_404_NOT_FOUND)
+    if token.is_consumed or token.is_expired:
+        return Response(
+            {"detail": "Lien expiré ou déjà utilisé. Demande un nouveau lien à l'agence."},
+            status=status.HTTP_410_GONE,
+        )
+
+    return Response({
+        "email_mask": _mask_email(token.user.email),
+        "expires_at": token.expires_at.isoformat(),
+    })
+
+
+@extend_schema(
+    tags=["auth"],
+    summary="Définir le mot de passe initial via token",
+    description=(
+        "Consomme un token reçu dans l'e-mail de bienvenue et pose le mot de "
+        "passe. Validé par les validateurs Django (longueur, complexité). Le "
+        "token est marqué utilisé — toute réutilisation est refusée. "
+        "Throttle : 5/h/IP."
+    ),
+    request={
+        "application/json": {
+            "type": "object",
+            "required": ["token", "password"],
+            "properties": {
+                "token": {"type": "string"},
+                "password": {"type": "string", "format": "password"},
+            },
+        }
+    },
+    responses={
+        200: OpenApiResponse(description="Mot de passe défini → `{email}` (pour redirect login)"),
+        400: OpenApiResponse(description="Mot de passe invalide"),
+        404: OpenApiResponse(description="Token inconnu"),
+        410: OpenApiResponse(description="Token expiré ou déjà utilisé"),
+    },
+)
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([_PasswordResetThrottle])
+def confirm_password_setup(request):
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+    from django.utils import timezone
+
+    from .models import PasswordSetupToken
+
+    token_value = (request.data.get("token") or "").strip()
+    new_password = request.data.get("password") or ""
+
+    if not token_value or not new_password:
+        return Response(
+            {"detail": "Token et mot de passe requis."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    token = PasswordSetupToken.objects.filter(token=token_value).select_related("user").first()
+    if token is None:
+        return Response({"detail": "Lien invalide."}, status=status.HTTP_404_NOT_FOUND)
+    if token.is_consumed or token.is_expired:
+        return Response(
+            {"detail": "Lien expiré ou déjà utilisé."},
+            status=status.HTTP_410_GONE,
+        )
+
+    user = token.user
+    try:
+        validate_password(new_password, user=user)
+    except ValidationError as exc:
+        return Response(
+            {"detail": " ".join(exc.messages)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+    token.used_at = timezone.now()
+    token.ip_confirm = client_ip(request)
+    token.save(update_fields=["used_at", "ip_confirm"])
+
+    record(
+        action="auth.password_setup.completed",
+        entite_type="User",
+        entite_id=user.id,
+        details={},
+        ip=client_ip(request),
+        user_agent=request.META.get("HTTP_USER_AGENT", ""),
+    )
+    return Response({"detail": "Mot de passe défini.", "email": user.email})

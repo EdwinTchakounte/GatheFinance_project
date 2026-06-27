@@ -236,6 +236,20 @@ def _send_welcome_email(member: Member, to_email: str) -> None:
 
         from apps_coop.payments.models import FeeType
 
+        # PWD Option B — token de définition de mot de passe (72h, usage unique).
+        # Sans ça, le membre approuvé ne pourrait pas se connecter pour payer ses
+        # frais d'adhésion (mot de passe random jamais transmis).
+        try:
+            setup_token = issue_password_setup_token(user=member.user)
+            portal_url = getattr(settings, "FRONTEND_PUBLIC_URL", "http://localhost:3200")
+            password_setup_url = f"{portal_url}/definir-mot-de-passe?token={setup_token.token}"
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "password setup token failed for %s — welcome email without link",
+                member.numero_membre, exc_info=True,
+            )
+            password_setup_url = ""
+
         # « Première cotisation » = frais d'adhésion + frais d'inscription
         # (montants exacts du Règlement, lus en base — jamais codés en dur).
         fees = FeeType.objects.filter(
@@ -292,6 +306,7 @@ def _send_welcome_email(member: Member, to_email: str) -> None:
                 "numero_membre": member.numero_membre,
                 "frais_montant": frais_montant,
                 "portal_url": getattr(settings, "FRONTEND_PUBLIC_URL", "http://localhost:3200"),
+                "password_setup_url": password_setup_url,
             },
             attachments=attachments or None,
         )
@@ -594,3 +609,38 @@ def _random_password(length: int = 24) -> str:
     """One-shot password — the user resets it via the password-reset flow."""
     alphabet = string.ascii_letters + string.digits + "!@#$%^&*-_=+"
     return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+# ---------------------------------------------------------------------------
+# PWD Option B — Password-setup token (link in welcome email)
+# ---------------------------------------------------------------------------
+
+
+PASSWORD_SETUP_TOKEN_TTL_HOURS = 72
+
+
+@transaction.atomic
+def issue_password_setup_token(*, user, ip_request: str | None = None):
+    """Genere un token a usage unique permettant au nouveau membre de definir
+    son mot de passe initial (PWD Option B).
+
+    Invalide tous les tokens precedents non utilises (un seul actif a la fois),
+    puis cree un nouveau token expirant dans 72h. Retourne l'instance creee
+    (le caller construit l'URL via ``token.token``).
+    """
+    from datetime import timedelta
+
+    from .models import PasswordSetupToken
+
+    now = timezone.now()
+    PasswordSetupToken.objects.filter(
+        user=user, used_at__isnull=True,
+    ).update(used_at=now)
+
+    token = PasswordSetupToken.objects.create(
+        user=user,
+        token=secrets.token_urlsafe(32),
+        expires_at=now + timedelta(hours=PASSWORD_SETUP_TOKEN_TTL_HOURS),
+        ip_request=ip_request,
+    )
+    return token

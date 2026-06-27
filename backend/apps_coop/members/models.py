@@ -584,3 +584,56 @@ class PasswordResetCode(TimestampedModel):
     @property
     def is_consumed(self) -> bool:
         return self.used_at is not None or self.attempts >= 5
+
+
+class PasswordSetupToken(TimestampedModel):
+    """Token a usage unique pour definir le mot de passe initial (PWD Option B).
+
+    Genere a l'approbation d'une MembershipRequest et envoye par e-mail dans
+    le template ``member.welcome`` (lien ``/definir-mot-de-passe?token=...``).
+    Le membre clique, choisit son mot de passe, et peut se connecter au
+    portail/mobile. Expire 72h apres emission. Une demande genere un nouveau
+    token et invalide les precedents (un seul actif a la fois par user).
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="password_setup_tokens",
+    )
+    token = models.CharField(
+        max_length=64,
+        unique=True,
+        help_text="Token URL-safe (secrets.token_urlsafe(32)). Stocke en clair "
+        "car a la fois confidentiel et a usage unique tres court.",
+    )
+    expires_at = models.DateTimeField(
+        help_text="Au-dela : token invalide meme si non utilise (72h par defaut).",
+    )
+    used_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Posee a la consommation. Toute reutilisation est refusee.",
+    )
+    ip_request = models.GenericIPAddressField(null=True, blank=True)
+    ip_confirm = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "used_at"]),
+            models.Index(fields=["expires_at"]),
+        ]
+
+    def __str__(self) -> str:
+        state = "utilise" if self.used_at else ("expire" if self.is_expired else "valide")
+        return f"PasswordSetupToken({self.user_id}) . {state}"
+
+    @property
+    def is_expired(self) -> bool:
+        from django.utils import timezone
+
+        return timezone.now() >= self.expires_at
+
+    @property
+    def is_consumed(self) -> bool:
+        return self.used_at is not None
