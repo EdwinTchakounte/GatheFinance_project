@@ -9,6 +9,7 @@ import { Container, buttonClasses } from "@gathe/ui";
 import {
   portalApi,
   type ApiError,
+  type ClassicSavingsSnapshot,
   type Identity,
   type SavingsSnapshot,
 } from "@/lib/api";
@@ -36,7 +37,12 @@ function formatDate(iso: string): string {
 export default function PortalDashboardPage() {
   const router = useRouter();
   const [identity, setIdentity] = useState<Identity | null>(null);
+  // PARITE MOBILE . le dashboard mobile affiche 2 soldes (epargne classique
+  // + collecte journaliere). On replique cote portail web pour que les
+  // chiffres correspondent strictement entre les deux canaux membre.
   const [savings, setSavings] = useState<SavingsSnapshot | null>(null);
+  const [classicSavings, setClassicSavings] =
+    useState<ClassicSavingsSnapshot | null>(null);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
   // D4 . Statut renouvellement annuel pour banniere.
   const [renewalNeeded, setRenewalNeeded] = useState<{
@@ -59,10 +65,14 @@ export default function PortalDashboardPage() {
           setLoading(false);
           return;
         }
-        const snap = await portalApi.savings();
+        const [snap, classicSnap] = await Promise.all([
+          portalApi.savings(),
+          portalApi.classicSavings().catch(() => null),
+        ]);
         if (cancelled) return;
         setIdentity(me);
         setSavings(snap);
+        setClassicSavings(classicSnap);
         // Compteur notifications — best-effort, on n'échoue pas le dashboard.
         portalApi.notifications
           .list(true)
@@ -252,24 +262,40 @@ export default function PortalDashboardPage() {
 
         {/* Below — only for active members */}
         {!isSuspended && (<>
-        {/* Solde */}
+        {/* Soldes — parite mobile (epargne classique + collecte journaliere) */}
         <section className="mt-10 grid gap-6 md:grid-cols-3">
-          <div className="md:col-span-2 rounded-md border border-line-200 bg-paper p-7">
-            <h2 className="font-editorial text-sm font-medium uppercase tracking-[0.14em] text-ink-600">
-              Solde d'épargne
-            </h2>
-            <p className="mt-3 font-editorial text-5xl font-medium leading-none text-ink-900">
-              {savings ? formatXAF(savings.solde) : "—"}
-            </p>
-            {savings ? (
-              <p className="mt-3 text-sm text-ink-600">
-                Taux annuel appliqué :{" "}
-                <span className="font-medium text-ink-900">
-                  {(Number(savings.taux_interet_applique) * 100).toFixed(2)} %
-                </span>
-                {" · "}Compte ouvert le {formatDate(savings.date_ouverture)}
+          <div className="md:col-span-2 grid gap-4 sm:grid-cols-2">
+            {/* Epargne classique — solde principal du membre (libre + placement) */}
+            <div className="rounded-md border border-line-200 bg-paper p-6">
+              <h2 className="font-editorial text-xs font-medium uppercase tracking-[0.14em] text-ink-600">
+                Mon épargne
+              </h2>
+              <p className="mt-3 font-editorial text-4xl font-medium leading-none text-ink-900">
+                {classicSavings ? formatXAF(classicSavings.solde) : "—"}
               </p>
-            ) : null}
+              {classicSavings ? (
+                <p className="mt-2 text-xs text-ink-600">
+                  Compte ouvert le {formatDate(classicSavings.date_ouverture)}
+                </p>
+              ) : null}
+            </div>
+            {/* Collecte journaliere — cotisation Article 4 */}
+            <div className="rounded-md border border-line-200 bg-paper p-6">
+              <h2 className="font-editorial text-xs font-medium uppercase tracking-[0.14em] text-ink-600">
+                Ma collecte journalière
+              </h2>
+              <p className="mt-3 font-editorial text-4xl font-medium leading-none text-ink-900">
+                {savings ? formatXAF(savings.solde) : "—"}
+              </p>
+              {savings ? (
+                <p className="mt-2 text-xs text-ink-600">
+                  Taux annuel :{" "}
+                  <span className="font-medium text-ink-900">
+                    {(Number(savings.taux_interet_applique) * 100).toFixed(2)} %
+                  </span>
+                </p>
+              ) : null}
+            </div>
           </div>
 
           <div className="rounded-md border border-line-200 bg-cream p-7">

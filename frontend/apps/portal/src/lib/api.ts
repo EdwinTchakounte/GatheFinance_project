@@ -90,10 +90,14 @@ async function request<T>(
     await _primeCsrfInternal();
   }
 
+  // FormData : laisser le navigateur poser Content-Type avec son boundary.
+  const isFormData =
+    typeof FormData !== "undefined" && init.body instanceof FormData;
+
   async function send(): Promise<Response> {
     const headers = new Headers(init.headers);
     if (!headers.has("Accept")) headers.set("Accept", "application/json");
-    if (init.body && !headers.has("Content-Type")) {
+    if (init.body && !isFormData && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }
     if (isMutating) {
@@ -168,6 +172,18 @@ export type SavingsSnapshot = {
   solde: string;
   date_ouverture: string;
   taux_interet_applique: string;
+  transactions_recentes: SavingsTransaction[];
+};
+
+// Parite mobile : compte epargne classique (libre + placement).
+export type ClassicSavingsSnapshot = {
+  id: number;
+  solde: string;
+  date_ouverture: string;
+  config: {
+    taux_interet_annuel?: string;
+    [key: string]: unknown;
+  };
   transactions_recentes: SavingsTransaction[];
 };
 
@@ -440,6 +456,8 @@ export const portalApi = {
   logout: () => request<void>("/auth/logout/", { method: "POST" }),
   me: () => request<Identity>("/auth/me/"),
   savings: () => request<SavingsSnapshot>("/savings/me/"),
+  classicSavings: () =>
+    request<ClassicSavingsSnapshot>("/savings/classic/me/"),
   // P2 . Historique paginé des transactions epargne (DRF PageNumberPagination 20/page).
   // D3 . Statut renouvellement annuel (banniere + bouton paiement carnet).
   renewalStatus: () =>
@@ -561,47 +579,25 @@ export const portalApi = {
 
     // CH-5 — Upload d'un fichier rattaché à un LoanRequest (multipart).
     // Idempotent par schema_field_id : re-upload remplace le précédent.
-    uploadAttachment: async (
+    uploadAttachment: (
       loanRequestId: number,
       schemaFieldId: string,
       file: File,
     ) => {
+      // Le wrapper request() gere FormData + CSRF + auto-recovery (C1).
       const form = new FormData();
       form.append("fichier", file);
       form.append("schema_field_id", schemaFieldId);
-      // On contourne `request` (qui force Content-Type JSON) et fait l'appel
-      // directement avec FormData — le navigateur pose le boundary.
-      const csrf =
-        document.cookie
-          .split("; ")
-          .find((c) => c.startsWith("csrftoken="))
-          ?.slice("csrftoken=".length) ?? "";
-      const res = await fetch(
-        `${API_BASE}/loans/requests/${loanRequestId}/attachments/`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "X-CSRFToken": csrf },
-          body: form,
-        },
-      );
-      if (!res.ok) {
-        let detail = "Upload échoué.";
-        try {
-          const j = await res.json();
-          if (j.detail) detail = j.detail;
-        } catch {
-          /* ignore */
-        }
-        throw { status: res.status, detail } as ApiError;
-      }
-      return (await res.json()) as {
+      return request<{
         id: number;
         schema_field_id: string;
         nom_original: string;
         taille: number;
         url: string | null;
-      };
+      }>(
+        `/loans/requests/${loanRequestId}/attachments/`,
+        { method: "POST", body: form },
+      );
     },
     // Refonte 2026 LOT 18 — Mandats d'avaliste (côté garant).
     avalisteMandats: {

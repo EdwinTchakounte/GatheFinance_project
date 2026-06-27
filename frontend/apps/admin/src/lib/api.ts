@@ -61,27 +61,83 @@ async function readError(response: Response): Promise<ApiError> {
   return { status: response.status, detail, body };
 }
 
+// C1 . Prime CSRF on demand . expose pour la retry interne du request().
+// Inline pour eviter une dependance circulaire avec adminApi.primeCsrf.
+async function _primeCsrfInternal(): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/auth/csrf/`, {
+      method: "GET",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
+  } catch {
+    // Best-effort . on remonte l'erreur d'origine si le retry echoue aussi.
+  }
+}
+
+function _isCsrfFailure(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as { status?: number; detail?: string };
+  if (e.status !== 403) return false;
+  const msg = (e.detail || "").toLowerCase();
+  return msg.includes("csrf") || msg.includes("forbidden");
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method || "GET").toUpperCase();
-  const headers = new Headers(init.headers);
-  if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  const isMutating = method !== "GET" && method !== "HEAD";
   // FormData : laisser le navigateur poser Content-Type avec son boundary.
   const isFormData =
     typeof FormData !== "undefined" && init.body instanceof FormData;
-  if (init.body && !isFormData && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
+
+  // C1 . Si POST et pas de cookie csrf, on tente de le poser AVANT le POST.
+  // Couvre le cas ou primeCsrf() au mount de la page a echoue silencieusement
+  // (par ex. blocage tiers ou perte de cookie cross-subdomain).
+  if (isMutating && !readCookie("csrftoken")) {
+    await _primeCsrfInternal();
   }
-  if (method !== "GET" && method !== "HEAD") {
-    const csrf = readCookie("csrftoken");
-    if (csrf) headers.set("X-CSRFToken", csrf);
+
+  async function send(): Promise<Response> {
+    const headers = new Headers(init.headers);
+    if (!headers.has("Accept")) headers.set("Accept", "application/json");
+    if (init.body && !isFormData && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    if (isMutating) {
+      const csrf = readCookie("csrftoken");
+      if (csrf) headers.set("X-CSRFToken", csrf);
+    }
+    return fetch(`${API_BASE}${path}`, {
+      ...init,
+      method,
+      headers,
+      credentials: "include",
+    });
   }
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    method,
-    headers,
-    credentials: "include",
-  });
-  if (!response.ok) throw await readError(response);
+
+  let response = await send();
+
+  // C1 . Si 403 CSRF, on re-prime puis on retry UNE fois. Couvre l'expiration
+  // de token entre primeCsrf() initial et le POST utilisateur.
+  if (!response.ok && response.status === 403 && isMutating) {
+    const firstError = await readError(response);
+    if (_isCsrfFailure(firstError)) {
+      await _primeCsrfInternal();
+      response = await send();
+    } else {
+      throw firstError;
+    }
+  }
+
+  if (!response.ok) {
+    const err = await readError(response);
+    // C1 . Message clair si malgre le retry on a toujours CSRF echec.
+    if (response.status === 403 && _isCsrfFailure(err) && isMutating) {
+      err.detail =
+        "Session de securite expiree. Recharge la page (Ctrl+R) puis reessaie.";
+    }
+    throw err;
+  }
   if (response.status === 204) return undefined as unknown as T;
   return (await response.json()) as T;
 }
@@ -1285,22 +1341,14 @@ export const adminApi = {
           uploaded_by: string | null;
         };
       }>("/audit/admin/cooperative-asset/"),
-    uploadReglement: async (file: File) => {
-      // Upload multipart — bypass le wrapper JSON request().
-      const csrf = readCookie("csrftoken");
+    uploadReglement: (file: File) => {
+      // Upload multipart . le wrapper request() gere FormData + CSRF + auto-recovery.
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch(
-        `${API_BASE}/audit/admin/cooperative-asset/reglement/`,
-        {
-          method: "POST",
-          body: form,
-          credentials: "include",
-          headers: csrf ? { "X-CSRFToken": csrf } : {},
-        },
+      return request<unknown>(
+        "/audit/admin/cooperative-asset/reglement/",
+        { method: "POST", body: form },
       );
-      if (!res.ok) throw await readError(res);
-      return res.json();
     },
   },
 
