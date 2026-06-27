@@ -19,6 +19,8 @@ import '../../../security/presentation/widgets/pin_prompt_sheet.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../auth/domain/entities/member.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
+import '../../../booklet/presentation/widgets/order_booklet_sheet.dart';
+import '../../data/renewal_status_provider.dart';
 import '../../../home_feed/presentation/state/feed_notifier.dart';
 import '../../../home_feed/presentation/widgets/feed_sections.dart';
 import '../../../notifications/presentation/state/notifications_notifier.dart';
@@ -71,6 +73,8 @@ class HomePage extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
                 child: _StatusBanner(status: member.statut),
               ),
+            // D5 . Banniere renouvellement annuel.
+            const _RenewalBanner(),
             // ── Hero PINNED (sortie des slivers) . toggle dual balance ──
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
@@ -708,3 +712,102 @@ class _StatusBanner extends StatelessWidget {
 }
 
 
+// D5 . Banniere renouvellement annuel d'adhesion.
+// Visible quand l'utilisateur entre dans la fenetre (J-30 avant
+// l'anniversaire) ou si son compte est suspendu pour non-renouvellement.
+// Tap -> ouvre le OrderBookletSheet (paiement frais_carnet via Tara).
+// Le hook backend _hook_carnet_fees detecte automatiquement le renouvellement.
+class _RenewalBanner extends ConsumerWidget {
+  const _RenewalBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(renewalStatusProvider);
+    return async.maybeWhen(
+      data: (status) {
+        if (status == null || !status.shouldShowBanner) {
+          return const SizedBox.shrink();
+        }
+        final isSuspended = status.isSuspended;
+        final daysLeft = status.daysUntilExpiry;
+        final message = isSuspended
+            ? 'Compte suspendu. Paie ton carnet annuel pour reactiver.'
+            : (daysLeft != null && daysLeft < 0)
+                ? 'Anniversaire annuel depasse de ${daysLeft.abs()} jour(s).'
+                : (daysLeft != null && daysLeft == 0)
+                    ? 'Anniversaire annuel . renouvelle aujourd\'hui.'
+                    : 'Renouvellement annuel dans ${daysLeft ?? 0} jour(s).';
+        final accent = isSuspended
+            ? const Color(0xFFBA2121)
+            : PaColors.warning;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+          child: Material(
+            color: accent.withValues(alpha: 0.10),
+            borderRadius: AppRadii.card,
+            child: InkWell(
+              borderRadius: AppRadii.card,
+              onTap: () {
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const OrderBookletSheet(),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: accent.withValues(alpha: 0.35)),
+                  borderRadius: AppRadii.card,
+                  color: Colors.transparent,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isSuspended
+                          ? Icons.lock_outline_rounded
+                          : Icons.event_repeat_rounded,
+                      color: accent,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isSuspended
+                                ? 'Reactivation requise'
+                                : 'Renouvellement d\'adhesion',
+                            style: PaText.body(size: 13).copyWith(
+                              color: PaColors.inkPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            message,
+                            style: PaText.body(size: 12).copyWith(
+                              color: PaColors.inkSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      color: accent,
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+}
