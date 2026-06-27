@@ -81,7 +81,7 @@ class TestRappelDefaultLeadDays:
 
         summary = rappel_reinscription_annuelle()
 
-        assert summary["rappels_envoyes"] == 1
+        assert summary["rappels_j30"] == 1
         assert summary["lead_days"] == DEFAULT_LEAD_DAYS
         # Notif in-app créée via emit_event → send_template.
         assert Notification.objects.filter(
@@ -96,7 +96,9 @@ class TestRappelDefaultLeadDays:
 
         _set_anchor(active_member, days_ago=100)
         summary = rappel_reinscription_annuelle()
-        assert summary["rappels_envoyes"] == 0
+        assert summary["rappels_j30"] == 0
+        assert summary["rappels_j7"] == 0
+        assert summary["rappels_j0"] == 0
 
 
 class TestRappelTunableLeadDays:
@@ -116,7 +118,7 @@ class TestRappelTunableLeadDays:
         summary = rappel_reinscription_annuelle()
 
         assert summary["lead_days"] == 60
-        assert summary["rappels_envoyes"] == 1
+        assert summary["rappels_j30"] == 1
 
 
 class TestRappelRespectsKillSwitch:
@@ -140,7 +142,7 @@ class TestRappelRespectsKillSwitch:
         summary = rappel_reinscription_annuelle()
 
         # Le cron a appelé emit_event qui a skippé → 0 notif.
-        assert summary["rappels_envoyes"] == 1  # le cron l'a tenté
+        assert summary["rappels_j30"] == 1  # le cron l'a tenté
         assert not Notification.objects.filter(
             user=active_member.user, type="member.reinscription_due"
         ).exists()
