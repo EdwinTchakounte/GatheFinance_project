@@ -117,6 +117,9 @@ export type DashboardKpis = {
     epargne_total: string;
     epargne_collecte: string;
     epargne_classique: string;
+    // A3 . Solde des LenderTranche actives (DISPONIBLE + ENGAGEE) inclus
+    // dans epargne_total. Permet le breakdown Disponible/Place cote UI.
+    epargne_placement: string;
   };
   epargne_classique_cycle: {
     notifie: number;
@@ -258,6 +261,82 @@ export type AdminLoanRow = {
         source: "manuel" | "mobile_money";
         reference_externe: string;
       };
+};
+
+// A1 . Detail d'un credit pour le drawer admin.
+export type AdminLoanInstallment = {
+  id: number;
+  numero_echeance: number;
+  date_echeance: string;
+  montant_capital: string;
+  montant_interets: string;
+  montant_total: string;
+  montant_paye: string;
+  montant_penalite: string;
+  statut: "a_venir" | "payee" | "en_retard" | "partielle";
+  statut_display: string;
+};
+
+export type AdminLoanRepayment = {
+  id: number;
+  installment_numero: number;
+  installment_id: number;
+  payment_id: number;
+  payment_type: string;
+  payment_source: string;
+  payment_reference_externe: string;
+  montant_impute: string;
+  date: string;
+};
+
+export type AdminLoanDetail = {
+  loan: {
+    id: number;
+    numero_dossier: string;
+    montant: string;
+    montant_total_du: string;
+    solde_restant: string;
+    statut: string;
+    statut_display: string;
+    date_decaissement: string | null;
+    member: {
+      id: number;
+      numero_membre: string;
+      nom: string;
+      prenom: string;
+    };
+  };
+  installments: AdminLoanInstallment[];
+  repayments: AdminLoanRepayment[];
+  totaux: {
+    rembourse_total: string;
+    nb_repayments: number;
+    nb_installments_payees: number;
+    nb_installments_total: number;
+  };
+};
+
+// A2 . Echeance dans le widget Suivi paiement.
+export type AdminInstallmentRow = {
+  id: number;
+  numero_echeance: number;
+  date_echeance: string;
+  montant_total: string;
+  montant_paye: string;
+  montant_penalite: string;
+  montant_restant: string;
+  statut: "a_venir" | "en_retard" | "partielle" | "payee";
+  statut_display: string;
+  loan: {
+    id: number;
+    numero_dossier: string;
+  };
+  member: {
+    id: number;
+    numero_membre: string;
+    nom: string;
+    prenom: string;
+  };
 };
 
 export type LoanDisbursementStatus = {
@@ -868,6 +947,32 @@ export const adminApi = {
     // CH-9 — URL absolue pour télécharger la note PDF (membre + admin).
     noteUrl: (requestId: number) =>
       `${API_BASE}/loans/requests/${requestId}/note/`,
+    // A1 . Detail credit pour drawer (echeances + historique remboursement).
+    detail: (loanId: number) =>
+      request<AdminLoanDetail>(`/loans/admin/${loanId}/detail/`),
+    // A2 . Liste echeances filtrables (widget "Suivi paiement").
+    listInstallments: (
+      params: {
+        statut?: string;
+        member?: number;
+        loan?: number;
+        from?: string;
+        to?: string;
+        limit?: number;
+        offset?: number;
+      } = {},
+    ) =>
+      request<Paginated<AdminInstallmentRow>>(
+        `/loans/admin/installments/${qs({
+          statut: params.statut,
+          member: params.member ? String(params.member) : undefined,
+          loan: params.loan ? String(params.loan) : undefined,
+          from: params.from,
+          to: params.to,
+          limit: params.limit ? String(params.limit) : undefined,
+          offset: params.offset ? String(params.offset) : undefined,
+        })}`,
+      ),
   },
 
   members: {

@@ -9,6 +9,7 @@ import {
   ComposeFundingModal,
   type ComposeFundingTarget,
 } from "@/components/compose-funding-modal";
+import { LoanDetailModal } from "@/components/loan-detail-modal";
 import type { ExportColumn } from "@/lib/export";
 import { adminApi, type AdminLoanRow, type ApiError } from "@/lib/api";
 
@@ -66,6 +67,8 @@ function Inner() {
   const [error, setError] = useState<string | null>(null);
   // LA-2 . cible du modal "Composer le funding".
   const [fundingTarget, setFundingTarget] = useState<ComposeFundingTarget | null>(null);
+  // A1 . cible du modal "Detail credit" (echeances + remboursements).
+  const [detailLoanId, setDetailLoanId] = useState<number | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
 
   async function reload() {
@@ -230,9 +233,14 @@ function Inner() {
                 return (
                   <tr key={l.id}>
                     <td>
-                      <p className="font-mono text-sm font-medium text-ink-900">
+                      <button
+                        type="button"
+                        onClick={() => setDetailLoanId(l.id)}
+                        title="Voir le detail (echeances + historique remboursement)"
+                        className="font-mono text-sm font-medium text-blue-700 underline-offset-2 hover:underline"
+                      >
                         {l.numero_dossier}
-                      </p>
+                      </button>
                       <p className="text-xs text-ink-500">
                         {l.duree_mois} mois · {tauxPct} %/an
                       </p>
@@ -356,6 +364,11 @@ function Inner() {
           setTimeout(() => setFlash(null), 4500);
           reload();
         }}
+      />
+
+      <LoanDetailModal
+        loanId={detailLoanId}
+        onClose={() => setDetailLoanId(null)}
       />
     </div>
   );

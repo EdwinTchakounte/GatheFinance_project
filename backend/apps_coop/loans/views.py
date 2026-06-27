@@ -1545,3 +1545,189 @@ def me_lender_payouts(request):
             ),
         })
     return Response({"count": len(results), "results": results})
+
+
+# ---------------------------------------------------------------------------
+# A1 . Admin . Detail credit (echeances + historique remboursement).
+#   Endpoint unique, retourne tout le necessaire pour le drawer admin.
+#   Marche meme si Loan.statut == cloture (historique conserve).
+# ---------------------------------------------------------------------------
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Staff — Détail d'un crédit (échéances + remboursements)",
+    description=(
+        "Pour le drawer admin du détail crédit : renvoie la liste complète des "
+        "échéances (`LoanInstallment`) ET l'historique des remboursements "
+        "(`LoanRepayment`) pour un crédit donné. Fonctionne aussi pour les "
+        "crédits clôturés (l'historique reste disponible)."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_loan_detail(request, pk: int):
+    from .models import LoanInstallment, LoanRepayment
+
+    try:
+        loan = Loan.objects.select_related("member", "loan_request").get(pk=pk)
+    except Loan.DoesNotExist:
+        return Response({"detail": "Crédit introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    installments = list(
+        LoanInstallment.objects.filter(loan=loan).order_by("numero_echeance")
+    )
+    repayments = list(
+        LoanRepayment.objects
+        .filter(installment__loan=loan)
+        .select_related("payment", "installment")
+        .order_by("-date", "-id")
+    )
+
+    return Response({
+        "loan": {
+            "id": loan.id,
+            "numero_dossier": loan.numero_dossier,
+            "montant": str(loan.montant),
+            "montant_total_du": str(loan.montant_total_du),
+            "solde_restant": str(loan.solde_restant),
+            "statut": loan.statut,
+            "statut_display": loan.get_statut_display(),
+            "date_decaissement": (
+                loan.date_decaissement.isoformat() if loan.date_decaissement else None
+            ),
+            "member": {
+                "id": loan.member_id,
+                "numero_membre": loan.member.numero_membre,
+                "nom": loan.member.nom,
+                "prenom": loan.member.prenom,
+            },
+        },
+        "installments": [
+            {
+                "id": i.id,
+                "numero_echeance": i.numero_echeance,
+                "date_echeance": i.date_echeance.isoformat(),
+                "montant_capital": str(i.montant_capital),
+                "montant_interets": str(i.montant_interets),
+                "montant_total": str(i.montant_total),
+                "montant_paye": str(i.montant_paye),
+                "montant_penalite": str(i.montant_penalite),
+                "statut": i.statut,
+                "statut_display": i.get_statut_display(),
+            }
+            for i in installments
+        ],
+        "repayments": [
+            {
+                "id": r.id,
+                "installment_numero": r.installment.numero_echeance,
+                "installment_id": r.installment_id,
+                "payment_id": r.payment_id,
+                "payment_type": r.payment.type,
+                "payment_source": r.payment.source,
+                "payment_reference_externe": r.payment.reference_externe or "",
+                "montant_impute": str(r.montant_impute),
+                "date": r.date.isoformat(),
+            }
+            for r in repayments
+        ],
+        "totaux": {
+            "rembourse_total": str(
+                sum((r.montant_impute for r in repayments), start=__import__("decimal").Decimal("0"))
+            ),
+            "nb_repayments": len(repayments),
+            "nb_installments_payees": sum(
+                1 for i in installments if i.statut == "payee"
+            ),
+            "nb_installments_total": len(installments),
+        },
+    })
+
+
+# ---------------------------------------------------------------------------
+# A2 . Admin . Liste des echeances filtrables.
+#   Sert au widget "Suivi paiement" du dashboard (echeances a venir + en retard).
+# ---------------------------------------------------------------------------
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Staff — Liste des échéances filtrables (suivi paiement)",
+    description=(
+        "Liste paginee de `LoanInstallment` pour le widget Suivi paiement. "
+        "Filtres : `?statut=a_venir|en_retard|partielle|payee` (CSV accepte), "
+        "`?member=<id>`, `?loan=<id>`, `?from=YYYY-MM-DD&to=YYYY-MM-DD` sur "
+        "`date_echeance`. Par defaut : non-payees (a_venir + en_retard + "
+        "partielle), tri date_echeance ASC."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_list_installments(request):
+    from .models import LoanInstallment
+
+    qs = (
+        LoanInstallment.objects
+        .select_related("loan", "loan__member")
+        .order_by("date_echeance", "loan_id", "numero_echeance")
+    )
+
+    statut_param = (request.query_params.get("statut") or "").strip()
+    if statut_param:
+        wanted = [s.strip() for s in statut_param.split(",") if s.strip()]
+        qs = qs.filter(statut__in=wanted)
+    else:
+        # Defaut : echeances non encore soldees (utile pour "Remboursements en
+        # attente" du dashboard).
+        qs = qs.exclude(statut=LoanInstallment.Statut.PAYEE)
+
+    member_id = request.query_params.get("member")
+    if member_id:
+        qs = qs.filter(loan__member_id=member_id)
+    loan_id = request.query_params.get("loan")
+    if loan_id:
+        qs = qs.filter(loan_id=loan_id)
+    date_from = request.query_params.get("from")
+    if date_from:
+        qs = qs.filter(date_echeance__gte=date_from)
+    date_to = request.query_params.get("to")
+    if date_to:
+        qs = qs.filter(date_echeance__lte=date_to)
+
+    from apps_coop.common import parse_pagination
+
+    offset, limit = parse_pagination(request, default_limit=25, max_limit=200)
+    count = qs.count()
+    rows = list(qs[offset : offset + limit])
+
+    results = []
+    for i in rows:
+        loan = i.loan
+        results.append({
+            "id": i.id,
+            "numero_echeance": i.numero_echeance,
+            "date_echeance": i.date_echeance.isoformat(),
+            "montant_total": str(i.montant_total),
+            "montant_paye": str(i.montant_paye),
+            "montant_penalite": str(i.montant_penalite),
+            "montant_restant": str(
+                max(
+                    __import__("decimal").Decimal(i.montant_total)
+                    + __import__("decimal").Decimal(i.montant_penalite)
+                    - __import__("decimal").Decimal(i.montant_paye),
+                    __import__("decimal").Decimal("0"),
+                )
+            ),
+            "statut": i.statut,
+            "statut_display": i.get_statut_display(),
+            "loan": {
+                "id": loan.id,
+                "numero_dossier": loan.numero_dossier,
+            },
+            "member": {
+                "id": loan.member_id,
+                "numero_membre": loan.member.numero_membre,
+                "nom": loan.member.nom,
+                "prenom": loan.member.prenom,
+            },
+        })
+    return Response(
+        {"count": count, "limit": limit, "offset": offset, "results": results}
+    )

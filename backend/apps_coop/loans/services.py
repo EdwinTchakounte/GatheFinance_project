@@ -752,6 +752,24 @@ def request_loan_renewal(
             "la reconduction n'a lieu qu'une seule fois par crédit."
         )
 
+    # A4 . Pas de reconduction tant qu'une penalite Art.12 reste impayee.
+    # On considere comme impayee toute penalite > 0 sur une echeance non
+    # encore soldee (statut != PAYEE). Si l'echeance est deja payee, c'est
+    # que la penalite a ete versee avec le capital + interets de l'echeance.
+    from .models import LoanInstallment
+
+    penalite_impayee = (
+        LoanInstallment.objects
+        .filter(loan=loan, montant_penalite__gt=Decimal("0"))
+        .exclude(statut=LoanInstallment.Statut.PAYEE)
+        .exists()
+    )
+    if penalite_impayee:
+        raise ValueError(
+            "Reconduction impossible : une penalite Article 12 reste a payer "
+            "sur ce credit. Solde les echeances en retard avant de reconduire."
+        )
+
     # Durée par défaut : +1 mois (Article 10) ; modifiable via AppSetting
     # ``loans.renewal.extra_months`` (EXT-1). On ignore toute valeur reçue
     # côté API : la durée reste pilotée centralement.

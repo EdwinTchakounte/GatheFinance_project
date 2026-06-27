@@ -15,7 +15,7 @@ import {
   UserCheck,
 } from "lucide-react";
 
-import { adminApi, type DashboardKpis } from "@/lib/api";
+import { adminApi, type AdminInstallmentRow, type DashboardKpis } from "@/lib/api";
 
 
 function formatXAF(amount: string): string {
@@ -140,6 +140,15 @@ function DashboardContent() {
       large: true,
     },
     {
+      // A3 . Place = tranches preteur DISPONIBLE + ENGAGEE.
+      label: "Épargne placement",
+      value: formatXAF(kpis.finance.epargne_placement),
+      hint: "tranches prêteur actives",
+      icon: PiggyBank,
+      tone: "emerald",
+      large: true,
+    },
+    {
       label: "Cycle anniversaire",
       value: kpis.epargne_classique_cycle.en_attente_paiement,
       hint: `${kpis.epargne_classique_cycle.notifie} notifié(s) · ${kpis.epargne_classique_cycle.urgence} urgence(s)`,
@@ -239,6 +248,9 @@ function DashboardContent() {
         </div>
       </section>
 
+      {/* A2 . Suivi paiement . echeances a venir + en retard */}
+      <UpcomingRepayments />
+
       {/* Recent payments */}
       <section className="mt-10">
         <h2 className="mb-4 font-editorial text-xl font-medium text-ink-900">
@@ -324,4 +336,145 @@ function KpiCard({
 
   const className = "block rounded-lg border border-line-200 bg-paper p-5 transition-shadow hover:shadow-[var(--shadow-sm)]";
   return href ? <a href={href} className={className}>{Inner}</a> : <div className={className}>{Inner}</div>;
+}
+
+
+// ---------------------------------------------------------------------------
+// A2 . Widget "Suivi paiement" . echeances a payer + en retard (top 15).
+//   Source : GET /loans/admin/installments/ (non-payees, tri date_echeance ASC).
+// ---------------------------------------------------------------------------
+function UpcomingRepayments() {
+  const [rows, setRows] = useState<AdminInstallmentRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"" | "en_retard" | "a_venir,partielle">("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    adminApi.loans
+      .listInstallments({ statut: filter || undefined, limit: 15 })
+      .then((res) => {
+        if (!cancelled) setRows(res.results);
+      })
+      .catch(() => {
+        if (!cancelled) setRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filter]);
+
+  return (
+    <section className="mt-10">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="font-editorial text-xl font-medium text-ink-900">
+            Remboursements à venir
+          </h2>
+          <p className="text-xs text-ink-500">
+            Échéances de crédits actifs ou en retard (top 15, tri date)
+          </p>
+        </div>
+        <div className="flex items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
+          {[
+            { v: "", l: "Tous" },
+            { v: "a_venir,partielle", l: "À venir" },
+            { v: "en_retard", l: "En retard" },
+          ].map((opt) => (
+            <button
+              key={opt.v || "all"}
+              type="button"
+              onClick={() => setFilter(opt.v as typeof filter)}
+              className={
+                "rounded px-2.5 py-1 text-xs font-medium transition-colors " +
+                (filter === opt.v
+                  ? "bg-blue-700 text-white"
+                  : "text-ink-700 hover:text-blue-700")
+              }
+            >
+              {opt.l}
+            </button>
+          ))}
+        </div>
+      </div>
+      {loading ? (
+        <p className="rounded-md border border-dashed border-line-200 bg-paper/70 p-6 text-center text-sm text-ink-600">
+          Chargement…
+        </p>
+      ) : rows.length === 0 ? (
+        <p className="rounded-md border border-dashed border-line-200 bg-paper/70 p-6 text-center text-sm text-ink-600">
+          Aucune échéance non payée.
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-md border border-line-200 bg-paper">
+          <table className="table-admin">
+            <thead>
+              <tr>
+                <th>Échéance</th>
+                <th>Membre</th>
+                <th>Dossier</th>
+                <th className="text-right">Montant restant</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="whitespace-nowrap text-sm text-ink-700">
+                    {new Date(r.date_echeance).toLocaleDateString("fr-FR", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "2-digit",
+                    })}
+                    <p className="text-[10px] text-ink-500">
+                      #{r.numero_echeance}
+                    </p>
+                  </td>
+                  <td>
+                    <p className="font-medium text-ink-900">
+                      {r.member.prenom} {r.member.nom}
+                    </p>
+                    <p className="font-mono text-xs text-ink-500">
+                      {r.member.numero_membre}
+                    </p>
+                  </td>
+                  <td>
+                    <a
+                      href="/loans"
+                      className="font-mono text-sm text-blue-700 underline-offset-2 hover:underline"
+                    >
+                      {r.loan.numero_dossier}
+                    </a>
+                  </td>
+                  <td className="text-right font-mono text-sm font-medium text-ink-900">
+                    {Number(r.montant_restant).toLocaleString("fr-FR")}
+                    <p className="text-[10px] uppercase tracking-wide text-ink-400">
+                      XAF
+                    </p>
+                  </td>
+                  <td>
+                    <span
+                      className={
+                        "pill " +
+                        (r.statut === "en_retard"
+                          ? "pill-danger"
+                          : r.statut === "partielle"
+                            ? "pill-warning"
+                            : "pill-muted")
+                      }
+                    >
+                      {r.statut_display}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
 }

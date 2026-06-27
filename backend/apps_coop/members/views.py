@@ -643,7 +643,23 @@ def admin_dashboard_kpis(request):
         ClassicSavingsAccount.objects.aggregate(total=Sum("solde"))["total"]
         or Decimal("0")
     )
-    epargne_total = Decimal(epargne_collecte) + Decimal(epargne_classique)
+    # A3 . Le placement actif (LenderTranche DISPONIBLE + ENGAGEE) appartient
+    # toujours au membre . on l'inclut dans le solde global affiche cote admin
+    # pour eviter la divergence avec l'espace membre.
+    epargne_placement = (
+        LenderTranche.objects.filter(
+            statut__in=[
+                LenderTranche.Statut.DISPONIBLE,
+                LenderTranche.Statut.ENGAGEE,
+            ]
+        ).aggregate(total=Sum("montant"))["total"]
+        or Decimal("0")
+    )
+    epargne_total = (
+        Decimal(epargne_collecte)
+        + Decimal(epargne_classique)
+        + Decimal(epargne_placement)
+    )
 
     # --- Épargne classique — état du cycle anniversaire (LOT 5) ----------
     classique_notifie = ClassicSavingsAccount.objects.filter(
@@ -718,6 +734,8 @@ def admin_dashboard_kpis(request):
                 "epargne_total": str(epargne_total),
                 "epargne_collecte": str(epargne_collecte),
                 "epargne_classique": str(epargne_classique),
+                # A3 . Decomposition Disponible/Place pour le breakdown UI.
+                "epargne_placement": str(epargne_placement),
             },
             "epargne_classique_cycle": {
                 "notifie": classique_notifie,

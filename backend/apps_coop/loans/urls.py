@@ -33,8 +33,10 @@ from .microcampaign_admin import (
 )
 from .microcampaign_public import public_active_campaigns
 from .views import (
+    admin_list_installments,
     admin_list_loan_requests,
     admin_list_loans,
+    admin_loan_detail,
     loan_disburse,
     loan_disburse_now,
     loan_disbursement_status,
@@ -95,6 +97,18 @@ urlpatterns = [
     # Admin/comité
     path("admin/requests/", admin_list_loan_requests, name="admin-list-requests"),
     path("admin/list/", admin_list_loans, name="admin-list-loans"),
+    # A1 . Detail credit (echeances + remboursements) pour drawer admin.
+    path(
+        "admin/<int:pk>/detail/",
+        admin_loan_detail,
+        name="admin-loan-detail",
+    ),
+    # A2 . Liste echeances filtrables pour widget "Suivi paiement" dashboard.
+    path(
+        "admin/installments/",
+        admin_list_installments,
+        name="admin-list-installments",
+    ),
     path("requests/<int:pk>/decide/", loan_request_decide, name="decide-request"),
     # CH-6 — Double approbation (provisoire → visite terrain → définitive).
     path(
