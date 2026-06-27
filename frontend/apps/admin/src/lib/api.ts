@@ -1039,6 +1039,29 @@ export const adminApi = {
           offset: params.offset ? String(params.offset) : undefined,
         })}`,
       ),
+    // B1 . Saisie versement agence (cash-in) par admin.
+    // Cree Payment(source=MANUEL, statut=VALIDE) + execute hook business.
+    cashIn: (payload: {
+      member_id: number;
+      type:
+        | "frais_adhesion"
+        | "frais_inscription"
+        | "frais_carnet"
+        | "frais_demande_credit"
+        | "epargne"
+        | "epargne_classique"
+        | "remboursement";
+      montant: number | string;
+      reference_externe?: string;
+      note?: string;
+      loan_id?: number;
+      nb_jours_couverts?: number;
+      is_placement?: boolean;
+    }) =>
+      request<PaymentRow>("/payments/admin/cash-in/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
   },
 
   // Refonte 2026 LOT 1 — Justificatifs BRC.

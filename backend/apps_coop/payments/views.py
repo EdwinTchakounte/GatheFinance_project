@@ -32,7 +32,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from apps_coop.audit.services import client_ip, record as record_audit
-from apps_coop.members.permissions import IsMember, IsStaff
+from apps_coop.members.permissions import IsAdmin, IsMember, IsStaff
 
 from .models import FeeType, Payment, RateParam
 from .providers import get_provider
@@ -832,4 +832,207 @@ def admin_list_payments(request):
         results.append(data)
     return Response(
         {"count": count, "limit": limit, "offset": offset, "results": results}
+    )
+
+
+# ---------------------------------------------------------------------------
+# B1 . Saisie versement agence (cash-in) par admin
+# ---------------------------------------------------------------------------
+# L'admin recoit un versement physique au comptoir et l'enregistre depuis
+# le dashboard. Cree un Payment(source=MANUEL, statut=VALIDE) puis appelle
+# directement le hook business correspondant au type (pas de webhook Tara).
+#
+# Permission : IsAdmin (plus strict que IsStaff . groupe "admin" uniquement,
+# financier sensible). validated_by stocke l'admin saisisseur. Audit
+# "payment.cash_in_admin" obligatoire avec montant, type, membre cible.
+#
+# Types autorises (whitelist) :
+#   . FRAIS_ADHESION / FRAIS_INSCRIPTION / FRAIS_CARNET . frais d'adhesion 13k
+#   . FRAIS_DEMANDE_CREDIT . frais d'etude credit (CH-7)
+#   . EPARGNE . cotisation journaliere (multi-jours via nb_jours_couverts)
+#   . EPARGNE_CLASSIQUE . depot classique (libre via is_placement=False ou
+#     placement via is_placement=True)
+#   . REMBOURSEMENT . remboursement credit (loan_id obligatoire)
+# Types interdits : DECAISSEMENT (passe par /loans/admin/disburse-now/),
+# FRAIS_RECONDUCTION (reconduction gratuite Art.10/11).
+
+_CASH_IN_ALLOWED_TYPES = {
+    Payment.Type.FRAIS_ADHESION,
+    Payment.Type.FRAIS_INSCRIPTION,
+    Payment.Type.FRAIS_CARNET,
+    Payment.Type.FRAIS_DEMANDE_CREDIT,
+    Payment.Type.EPARGNE,
+    Payment.Type.EPARGNE_CLASSIQUE,
+    Payment.Type.REMBOURSEMENT,
+}
+
+
+@extend_schema(
+    tags=["payments"],
+    summary="🔒 Admin — Saisir un versement reçu en agence (cash-in)",
+    description=(
+        "Permission : `IsAdmin` (groupe `admin` strict). Cree un Payment "
+        "`source=MANUEL`, `statut=VALIDE` immediatement et declenche le hook "
+        "business du type correspondant (activation membre, depot epargne, "
+        "imputation remboursement, etc.). Champs : `member_id`, `type`, "
+        "`montant` requis. `reference_externe` (n° bordereau papier) "
+        "fortement recommande. `note` libre. Specifiques : `loan_id` si "
+        "REMBOURSEMENT, `nb_jours_couverts` (>=1) si EPARGNE multi-jours, "
+        "`is_placement` (bool) si EPARGNE_CLASSIQUE."
+    ),
+    responses={
+        200: OpenApiResponse(description="Payment cree et hook business execute"),
+        400: OpenApiResponse(description="Donnees invalides"),
+        403: OpenApiResponse(description="Pas admin"),
+        404: OpenApiResponse(description="Membre ou crédit introuvable"),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def admin_cash_in_payment(request):
+    """Saisie versement agence . cree Payment MANUEL/VALIDE + execute hook."""
+    from django.db import transaction as db_transaction
+    from apps_coop.members.models import Member
+
+    data = request.data or {}
+
+    # 1. Validation type.
+    payment_type = (data.get("type") or "").strip()
+    if payment_type not in _CASH_IN_ALLOWED_TYPES:
+        return Response(
+            {
+                "detail": (
+                    f"Type {payment_type!r} non autorise pour saisie agence. "
+                    f"Autorises : {sorted(_CASH_IN_ALLOWED_TYPES)}."
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # 2. Montant strict > 0.
+    try:
+        montant = Decimal(str(data.get("montant") or "0"))
+    except (TypeError, InvalidOperation):
+        return Response(
+            {"detail": "Montant invalide."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if montant <= 0:
+        return Response(
+            {"detail": "Le montant doit etre strictement positif."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # 3. Resolve member.
+    try:
+        member_id = int(data.get("member_id"))
+    except (TypeError, ValueError):
+        return Response(
+            {"detail": "member_id requis."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        member = Member.objects.get(pk=member_id)
+    except Member.DoesNotExist:
+        return Response(
+            {"detail": "Membre introuvable."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # 4. Specifiques par type.
+    loan = None
+    nb_jours_couverts = 1
+    is_placement = False
+    if payment_type == Payment.Type.REMBOURSEMENT:
+        from apps_coop.loans.models import Loan
+        try:
+            loan_id = int(data.get("loan_id"))
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "loan_id requis pour un REMBOURSEMENT."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            loan = Loan.objects.get(pk=loan_id, member=member)
+        except Loan.DoesNotExist:
+            return Response(
+                {
+                    "detail": (
+                        f"Credit #{loan_id} introuvable ou pas du membre."
+                    ),
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+    elif payment_type == Payment.Type.EPARGNE:
+        try:
+            nb_jours_couverts = int(data.get("nb_jours_couverts") or 1)
+        except (TypeError, ValueError):
+            nb_jours_couverts = 1
+        if nb_jours_couverts < 1:
+            return Response(
+                {"detail": "nb_jours_couverts doit etre >= 1."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    elif payment_type == Payment.Type.EPARGNE_CLASSIQUE:
+        is_placement = bool(data.get("is_placement", False))
+
+    reference_externe = (data.get("reference_externe") or "").strip()[:64]
+    note = (data.get("note") or "").strip()[:500]
+    now = timezone.now()
+
+    # 5. Creation Payment + execution hook . tout dans une transaction pour
+    # qu'un echec du hook annule la creation Payment.
+    with db_transaction.atomic():
+        payment = Payment.objects.create(
+            member=member,
+            montant=montant,
+            type=payment_type,
+            source=Payment.Source.MANUEL,
+            statut=Payment.Statut.VALIDE,
+            loan=loan,
+            validated_by=request.user,
+            date_versement=now,
+            date_validation=now,
+            reference_externe=reference_externe,
+            nb_jours_couverts=nb_jours_couverts,
+            is_placement=is_placement,
+        )
+        # Execution du hook business . meme code que webhook Tara.
+        from .services import _BUSINESS_HOOKS
+
+        handler = _BUSINESS_HOOKS.get(payment.type)
+        if handler is not None:
+            handler(payment, {"cash_in_admin": True, "note": note})
+
+    # Audit (post-commit cote securite, mais lecture seule, ne casse pas le flow).
+    record_audit(
+        action="payment.cash_in_admin",
+        entite_type="Payment",
+        entite_id=payment.id,
+        user=request.user,
+        details={
+            "type": payment.type,
+            "montant": str(payment.montant),
+            "member_id": member.id,
+            "numero_membre": member.numero_membre,
+            "loan_id": loan.id if loan else None,
+            "reference_externe": reference_externe,
+            "note": note,
+            "is_placement": is_placement,
+            "nb_jours_couverts": nb_jours_couverts,
+        },
+        ip=client_ip(request),
+        user_agent=request.META.get("HTTP_USER_AGENT", ""),
+    )
+
+    # Notif in-app au membre (re-utilise la fonction existante).
+    try:
+        from .services import _notify_payment_confirmed
+        _notify_payment_confirmed(payment)
+    except Exception:  # noqa: BLE001
+        logger.warning("cash_in . notif in-app a echoue", exc_info=True)
+
+    return Response(
+        PaymentReadSerializer(payment).data,
+        status=status.HTTP_201_CREATED,
     )

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 
+import { CashInModal } from "@/components/cash-in-modal";
 import { ExportMenu } from "@/components/export-menu";
 import { Pagination } from "@/components/pagination";
 import type { ExportColumn } from "@/lib/export";
@@ -77,6 +78,9 @@ function Inner() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // B1 . Cash-in modal admin (saisie versement agence).
+  const [cashInOpen, setCashInOpen] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -148,6 +152,15 @@ function Inner() {
             columns={paymentsExportColumns}
             rows={items}
           />
+          <button
+            type="button"
+            onClick={() => setCashInOpen(true)}
+            title="Enregistrer un versement reçu en agence (espèces, virement, dépôt direct)"
+            className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 px-3 py-2 text-xs font-medium text-white hover:bg-blue-800"
+          >
+            <Plus className="size-3.5" />
+            Saisir versement agence
+          </button>
         </div>
       </header>
 
@@ -333,6 +346,22 @@ function Inner() {
           }}
         />
       ) : null}
+
+      {flash ? (
+        <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-md bg-emerald px-4 py-2 text-sm font-medium text-white shadow-lg">
+          {flash}
+        </div>
+      ) : null}
+
+      <CashInModal
+        open={cashInOpen}
+        onClose={() => setCashInOpen(false)}
+        onSuccess={(msg) => {
+          setFlash(msg);
+          setTimeout(() => setFlash(null), 4500);
+          reload();
+        }}
+      />
     </div>
   );
 }

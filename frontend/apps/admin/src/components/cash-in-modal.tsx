@@ -1,0 +1,345 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+import { Modal, ModalField, modalInputClass, buttonClasses } from "./modal";
+import { adminApi, type ApiError, type Member } from "@/lib/api";
+
+
+type CashInType =
+  | "frais_adhesion"
+  | "frais_inscription"
+  | "frais_carnet"
+  | "frais_demande_credit"
+  | "epargne"
+  | "epargne_classique"
+  | "remboursement";
+
+
+const TYPE_OPTIONS: { value: CashInType; label: string }[] = [
+  { value: "frais_adhesion", label: "Frais d'adhésion (10 000)" },
+  { value: "frais_inscription", label: "Frais d'inscription (2 000)" },
+  { value: "frais_carnet", label: "Frais de carnet (1 000)" },
+  { value: "frais_demande_credit", label: "Frais demande de crédit (CH-7)" },
+  { value: "epargne", label: "Cotisation journalière" },
+  { value: "epargne_classique", label: "Épargne classique (libre / placement)" },
+  { value: "remboursement", label: "Remboursement de crédit" },
+];
+
+
+export function CashInModal({
+  open,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSuccess: (msg: string) => void;
+}) {
+  const [memberQuery, setMemberQuery] = useState("");
+  const [members, setMembers] = useState<Member[]>([]);
+  const [memberLoading, setMemberLoading] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+
+  const [paymentType, setPaymentType] = useState<CashInType>("frais_adhesion");
+  const [montant, setMontant] = useState("");
+  const [reference, setReference] = useState("");
+  const [note, setNote] = useState("");
+
+  // Champs specifiques.
+  const [loanId, setLoanId] = useState("");
+  const [nbJours, setNbJours] = useState("1");
+  const [isPlacement, setIsPlacement] = useState(false);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function reset() {
+    setMemberQuery("");
+    setMembers([]);
+    setSelectedMember(null);
+    setPaymentType("frais_adhesion");
+    setMontant("");
+    setReference("");
+    setNote("");
+    setLoanId("");
+    setNbJours("1");
+    setIsPlacement(false);
+    setError(null);
+  }
+
+  useEffect(() => {
+    if (!open) {
+      reset();
+    }
+  }, [open]);
+
+  // Recherche membre . debounce simple 250ms.
+  useEffect(() => {
+    if (!open || selectedMember) return;
+    const q = memberQuery.trim();
+    if (q.length < 2) {
+      setMembers([]);
+      return;
+    }
+    const handle = setTimeout(async () => {
+      setMemberLoading(true);
+      try {
+        const res = await adminApi.members.list({ q, limit: 10 });
+        setMembers(res.results);
+      } catch {
+        setMembers([]);
+      } finally {
+        setMemberLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [memberQuery, open, selectedMember]);
+
+  async function handleSubmit() {
+    setError(null);
+    if (!selectedMember) {
+      setError("Sélectionne un membre.");
+      return;
+    }
+    const montantNum = Number(montant);
+    if (!Number.isFinite(montantNum) || montantNum <= 0) {
+      setError("Montant invalide.");
+      return;
+    }
+    if (paymentType === "remboursement" && !loanId.trim()) {
+      setError("Numéro de crédit requis pour un remboursement.");
+      return;
+    }
+
+    const payload: Parameters<typeof adminApi.payments.cashIn>[0] = {
+      member_id: selectedMember.id,
+      type: paymentType,
+      montant: montantNum,
+      reference_externe: reference.trim() || undefined,
+      note: note.trim() || undefined,
+    };
+    if (paymentType === "remboursement") {
+      payload.loan_id = Number(loanId);
+    }
+    if (paymentType === "epargne") {
+      payload.nb_jours_couverts = Number(nbJours) || 1;
+    }
+    if (paymentType === "epargne_classique") {
+      payload.is_placement = isPlacement;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await adminApi.payments.cashIn(payload);
+      onSuccess(
+        `Versement #${res.id} enregistré (${Number(res.montant).toLocaleString("fr-FR")} XAF).`,
+      );
+      onClose();
+    } catch (e) {
+      const apiErr = e as ApiError;
+      setError(apiErr.detail ?? "Saisie impossible.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Saisir un versement agence"
+      description="Crée un paiement source=MANUEL, statut=VALIDÉ immédiatement et déclenche le hook business correspondant. Action tracée dans l'audit."
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className={buttonClasses({ variant: "ghost", size: "sm" })}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting || !selectedMember || !montant}
+            className={buttonClasses({ variant: "primary", size: "sm" })}
+          >
+            {submitting ? "Enregistrement…" : "Enregistrer le versement"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {error ? (
+          <p className="rounded-md border border-rose-200 bg-rose-50/60 p-2.5 text-xs text-rose-700">
+            {error}
+          </p>
+        ) : null}
+
+        {/* Membre */}
+        <ModalField
+          label="Membre"
+          hint="Recherche par numéro, nom ou prénom (≥ 2 caractères)."
+        >
+          {selectedMember ? (
+            <div className="flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-sm">
+              <div>
+                <p className="font-medium text-ink-900">
+                  {selectedMember.prenom} {selectedMember.nom}
+                </p>
+                <p className="font-mono text-[10px] text-ink-500">
+                  {selectedMember.numero_membre} · {selectedMember.statut}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedMember(null)}
+                className="text-xs font-medium text-emerald-700 hover:underline"
+              >
+                Changer
+              </button>
+            </div>
+          ) : (
+            <>
+              <input
+                type="search"
+                value={memberQuery}
+                onChange={(e) => setMemberQuery(e.target.value)}
+                placeholder="Tape numéro, nom…"
+                className={modalInputClass}
+              />
+              {memberLoading ? (
+                <p className="mt-1 text-[11px] text-ink-500">Recherche…</p>
+              ) : null}
+              {members.length > 0 ? (
+                <ul className="mt-2 max-h-48 overflow-y-auto rounded-md border border-line-200">
+                  {members.map((m) => (
+                    <li key={m.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedMember(m);
+                          setMembers([]);
+                          setMemberQuery("");
+                        }}
+                        className="block w-full px-3 py-2 text-left text-xs hover:bg-line-100"
+                      >
+                        <span className="font-medium text-ink-900">
+                          {m.prenom} {m.nom}
+                        </span>
+                        <span className="ml-2 font-mono text-[10px] text-ink-500">
+                          {m.numero_membre} · {m.statut}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          )}
+        </ModalField>
+
+        {/* Type */}
+        <ModalField label="Type de versement">
+          <select
+            value={paymentType}
+            onChange={(e) => setPaymentType(e.target.value as CashInType)}
+            className={modalInputClass}
+          >
+            {TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </ModalField>
+
+        {/* Montant */}
+        <ModalField label="Montant (XAF)">
+          <input
+            type="number"
+            min="1"
+            step="100"
+            value={montant}
+            onChange={(e) => setMontant(e.target.value)}
+            placeholder="0"
+            className={modalInputClass}
+          />
+        </ModalField>
+
+        {/* Specifiques par type */}
+        {paymentType === "remboursement" ? (
+          <ModalField
+            label="ID du crédit"
+            hint="Numéro interne (visible dans la liste des crédits)."
+          >
+            <input
+              type="number"
+              value={loanId}
+              onChange={(e) => setLoanId(e.target.value)}
+              placeholder="ex. 42"
+              className={modalInputClass}
+            />
+          </ModalField>
+        ) : null}
+
+        {paymentType === "epargne" ? (
+          <ModalField
+            label="Nombre de jours couverts"
+            hint="1 = paiement standard. > 1 = multi-jours pré-payé."
+          >
+            <input
+              type="number"
+              min="1"
+              value={nbJours}
+              onChange={(e) => setNbJours(e.target.value)}
+              className={modalInputClass}
+            />
+          </ModalField>
+        ) : null}
+
+        {paymentType === "epargne_classique" ? (
+          <ModalField
+            label="Sous-canal"
+            hint="Placement = pool prêteur (intérêts uniquement si engagé)."
+          >
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={isPlacement}
+                onChange={(e) => setIsPlacement(e.target.checked)}
+                className="size-4"
+              />
+              Placement (sinon : épargne classique libre)
+            </label>
+          </ModalField>
+        ) : null}
+
+        {/* Reference + note */}
+        <ModalField
+          label="Référence (n° bordereau)"
+          hint="Recommandé pour la traçabilité comptable."
+        >
+          <input
+            type="text"
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            placeholder="ex. BRD-2026-00123"
+            className={modalInputClass}
+          />
+        </ModalField>
+
+        <ModalField label="Note (interne)">
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            placeholder="Contexte, remarques…"
+            className={modalInputClass}
+          />
+        </ModalField>
+      </div>
+    </Modal>
+  );
+}
