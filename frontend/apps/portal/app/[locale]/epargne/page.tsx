@@ -219,10 +219,10 @@ export default function EpargneIndexPage() {
             </h2>
             {savings && savings.transactions_recentes.length > 0 ? (
               <Link
-                href="/"
-                className="text-sm text-ink-600 hover:text-ink-900 hover:underline"
+                href="/epargne/historique"
+                className="text-sm font-medium text-blue-700 hover:underline"
               >
-                Voir tout sur le tableau de bord
+                Voir tout l'historique →
               </Link>
             ) : null}
           </div>

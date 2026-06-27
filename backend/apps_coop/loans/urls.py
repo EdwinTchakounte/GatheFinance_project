@@ -53,6 +53,7 @@ from .views import (
     loan_request_note,
     loan_request_upload_attachment,
     loans_me_active,
+    loans_me_closed,
     me_lender_payouts,
 )
 
@@ -64,6 +65,8 @@ urlpatterns = [
     path("me/eligibility/", loan_eligibility, name="eligibility"),
     path("me/requests/", loan_request_list, name="my-requests"),
     path("me/active/", loans_me_active, name="my-active-loans"),
+    # P3 . Historique credits cloturees (parite portail web).
+    path("me/closed/", loans_me_closed, name="my-closed-loans"),
     # CH-12 — Versements d'intérêts reçus en tant que prêteur.
     path("me/lender-payouts/", me_lender_payouts, name="my-lender-payouts"),
     # LOT 11 — Liste publique des campagnes micro-crédit actives (mobile +

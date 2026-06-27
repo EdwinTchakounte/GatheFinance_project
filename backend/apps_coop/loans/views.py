@@ -564,6 +564,31 @@ def loans_me_active(request):
     return Response(LoanReadSerializer(qs, many=True).data)
 
 
+# P3 . Historique des credits cloturees (parite mobile cote portail web).
+@extend_schema(
+    tags=["loans"],
+    summary="Mes crédits clôturés (historique)",
+    description=(
+        "Loans `statut=cloture` du membre, plus recents d'abord. "
+        "Inclut l'echeancier complet pour affichage de l'historique "
+        "des remboursements ligne a ligne."
+    ),
+    responses={200: LoanReadSerializer(many=True)},
+)
+@api_view(["GET"])
+@permission_classes([IsMember])
+def loans_me_closed(request):
+    qs = (
+        Loan.objects.filter(
+            member=request.user.member,
+            statut=Loan.Statut.CLOTURE,
+        )
+        .prefetch_related("installments")
+        .order_by("-date_decaissement")
+    )
+    return Response(LoanReadSerializer(qs, many=True).data)
+
+
 @extend_schema(
     tags=["loans"],
     summary="Demander la reconduction d'un crédit en cours",

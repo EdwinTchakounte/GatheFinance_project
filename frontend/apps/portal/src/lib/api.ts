@@ -420,9 +420,39 @@ export const portalApi = {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
+  // P1 . Mot de passe oublie . envoie un OTP 6 chiffres par mail.
+  // Reponse opaque (anti-enumeration) : on ne sait jamais si le mail existe.
+  requestPasswordReset: (email: string) =>
+    request<{ detail: string }>("/auth/password-reset/request/", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  // P1 . Confirme le reset avec le code OTP et un nouveau mot de passe.
+  confirmPasswordReset: (payload: {
+    email: string;
+    code: string;
+    new_password: string;
+  }) =>
+    request<{ detail: string }>("/auth/password-reset/confirm/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   logout: () => request<void>("/auth/logout/", { method: "POST" }),
   me: () => request<Identity>("/auth/me/"),
   savings: () => request<SavingsSnapshot>("/savings/me/"),
+  // P2 . Historique paginé des transactions epargne (DRF PageNumberPagination 20/page).
+  savingsTransactions: (params: { page?: number; type_op?: "depot" | "retrait" | "interet" } = {}) => {
+    const sp = new URLSearchParams();
+    if (params.page) sp.set("page", String(params.page));
+    if (params.type_op) sp.set("type_op", params.type_op);
+    const qs = sp.toString();
+    return request<{
+      count: number;
+      next: string | null;
+      previous: string | null;
+      results: SavingsTransaction[];
+    }>(`/savings/transactions/${qs ? `?${qs}` : ""}`);
+  },
 
   withdrawals: {
     listMine: () =>
@@ -490,6 +520,8 @@ export const portalApi = {
       }>("/loans/me/eligibility/"),
     listMine: () => request<LoanRequest[]>("/loans/me/requests/"),
     activeMine: () => request<Loan[]>("/loans/me/active/"),
+    // P3 . Historique credits cloturees.
+    closedMine: () => request<Loan[]>("/loans/me/closed/"),
     create: (data: {
       montant_demande: number;
       duree_mois: number;

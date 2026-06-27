@@ -229,9 +229,17 @@ export default function PortalCreditPage() {
         {/* Active credits — visible only when there is a Loan */}
         {activeLoans && activeLoans.length > 0 ? (
           <section className="mt-10">
-            <h2 className="font-editorial text-xl font-medium text-ink-900">
-              Mes crédits en cours
-            </h2>
+            <div className="flex items-end justify-between gap-3">
+              <h2 className="font-editorial text-xl font-medium text-ink-900">
+                Mes crédits en cours
+              </h2>
+              <a
+                href="/credit/historique"
+                className="text-sm font-medium text-blue-700 hover:underline"
+              >
+                Crédits clôturés →
+              </a>
+            </div>
             {activeLoans.map((loan) => {
               const nextDue = loan.installments.find((i) => i.statut !== "payee");
               return (
