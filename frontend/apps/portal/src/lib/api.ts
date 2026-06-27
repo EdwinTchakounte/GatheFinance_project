@@ -441,6 +441,18 @@ export const portalApi = {
   me: () => request<Identity>("/auth/me/"),
   savings: () => request<SavingsSnapshot>("/savings/me/"),
   // P2 . Historique paginé des transactions epargne (DRF PageNumberPagination 20/page).
+  // D3 . Statut renouvellement annuel (banniere + bouton paiement carnet).
+  renewalStatus: () =>
+    request<{
+      needs_renewal: boolean;
+      in_warning_window: boolean;
+      days_until_expiry: number | null;
+      prochaine_echeance_iso: string | null;
+      carnet_fee_xaf: string | null;
+      statut: "actif" | "suspendu" | "radie" | "temporaire";
+      lead_days: number;
+      grace_days: number;
+    }>("/members/me/renewal-status/"),
   savingsTransactions: (params: { page?: number; type_op?: "depot" | "retrait" | "interet" } = {}) => {
     const sp = new URLSearchParams();
     if (params.page) sp.set("page", String(params.page));

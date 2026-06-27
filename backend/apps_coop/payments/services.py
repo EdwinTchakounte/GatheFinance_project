@@ -748,18 +748,29 @@ def _hook_loan_request_fees(payment: Payment, _raw: dict) -> None:
     )
 
 
-def _hook_carnet_fees(payment: Payment, _raw: dict) -> None:
-    """Frais de carnet réglés → enregistre une `BookletOrder` (statut `payee`).
+def _hook_carnet_fees(payment: Payment, raw: dict) -> None:
+    """Frais de carnet réglés . trois flows distincts selon le contexte :
 
-    L'agence imprime ensuite le carnet et change le statut depuis le Django
-    admin. Idempotent : si une `BookletOrder` existe déjà pour ce Payment, on
-    no-op (le webhook Tara peut rejouer).
+      1. 1ere adhesion (membre SUSPENDU, pas encore les 3 frais soldes)
+         -> Cree BookletOrder + tentative activation CH-2 (legacy)
+      2. Renouvellement annuel (membre ACTIF/SUSPENDU dans la fenetre
+         d'anniversaire, ou flag is_renewal dans raw)
+         -> Pose date_derniere_reinscription = today, reactive si SUSPENDU
+            pour cause de non-renouvellement, PAS de nouveau BookletOrder
+            cree par defaut (le carnet en cours reste utilise ; un nouveau
+            est imprime via les admin tools si besoin).
+      3. Commande carnet supplementaire (carnet perdu hors fenetre)
+         -> Cree BookletOrder. Pas de renouvellement.
 
-    Depuis CH-2 : les frais de carnet font partie des 3 frais requis pour
-    activer le Member (cf. ``_activate_member_if_fees_settled``). Si ce
-    paiement complète le triplet, le Member bascule à ``ACTIF``.
+    Idempotent dans les 3 cas.
     """
     from apps_coop.members.models import BookletOrder
+
+    is_renewal = _is_carnet_renewal(payment, raw)
+
+    if is_renewal:
+        _apply_membership_renewal(payment)
+        return
 
     order, created = BookletOrder.objects.get_or_create(
         payment=payment,
@@ -797,6 +808,92 @@ def _hook_carnet_fees(payment: Payment, _raw: dict) -> None:
     # le triplet (adhésion + inscription + carnet), le Member passe à ACTIF.
     # Idempotent : si déjà actif (4e+ paiement), no-op.
     _activate_member_if_fees_settled(payment.member, trigger_payment=payment)
+
+
+# ---------------------------------------------------------------------------
+# D1 . Renouvellement annuel d'adhesion (chantier 2026-06)
+# ---------------------------------------------------------------------------
+#
+# Le membre paie 1 fois par an son carnet pour renouveler son adhesion. Le
+# compte (numero_membre, solde epargne, historique) reste IDENTIQUE . seule
+# Member.date_derniere_reinscription est mise a jour, ce qui decale la
+# prochaine echeance de 12 mois.
+#
+# Suspension auto J+30 grace : voir cron rappel_reinscription_annuelle (D2).
+# Reactivation : si Member.statut == SUSPENDU au moment du paiement carnet
+# de renouvellement, on rebascule ACTIF.
+
+def _is_carnet_renewal(payment: Payment, raw: dict) -> bool:
+    """Vrai si le paiement frais_carnet est un renouvellement annuel.
+
+    Critere : flag `is_renewal` dans raw (cash-in admin explicite), OU
+    Member statut ACTIF/SUSPENDU et dans la fenetre d'anniversaire (a
+    partir de J-60 avant `prochaine_reinscription_due`).
+
+    Faux pour : 1ere adhesion (TEMPORAIRE ou SUSPENDU sans frais soldes),
+    commande de carnet supplementaire hors fenetre (carnet perdu).
+    """
+    from datetime import timedelta
+    from apps_coop.members.models import Member
+
+    # Flag explicite pose par cash-in admin (D6) ou init_payment via flag.
+    if raw and raw.get("is_renewal") is True:
+        return True
+
+    member = payment.member
+    if member is None:
+        return False
+    if member.statut not in (Member.Statut.ACTIF, Member.Statut.SUSPENDU):
+        return False
+    # Pour qu'un renouvellement ait du sens, le membre doit avoir deja
+    # solde ses 3 frais d'adhesion une fois.
+    if not _membership_fees_settled(member):
+        return False
+    # Fenetre d'anniversaire : a partir de J-60 jusqu'a tres tard
+    # (couvre la grace J+30 et au-dela pour reactivation suspension).
+    base = member.date_derniere_reinscription
+    if base is None:
+        return False
+    today = timezone.localdate()
+    fenetre_debut = base + timedelta(days=305)  # J-60 avant J+365
+    return today >= fenetre_debut
+
+
+def _apply_membership_renewal(payment: Payment) -> None:
+    """Applique le renouvellement annuel : pose date_derniere_reinscription
+    et reactive si Member etait SUSPENDU pour non-renouvellement.
+
+    Idempotent. Pas de creation BookletOrder par defaut (le carnet
+    courant reste valide). Pas de nouvelle activation CH-2 (le membre
+    a deja ete actif au moins une fois).
+    """
+    from apps_coop.members.models import Member
+    from apps_coop.members.services import confirm_member_reinscription
+
+    member = payment.member
+    was_suspended = member.statut == Member.Statut.SUSPENDU
+
+    confirm_member_reinscription(
+        member,
+        confirmed_by=getattr(payment, "validated_by", None),
+        paid_amount=payment.montant,
+        note=f"Auto via paiement #{payment.id} ({payment.source})",
+    )
+
+    if was_suspended:
+        # Reactivation : on suppose que la suspension etait pour
+        # non-renouvellement (le cron D2 enregistre la raison dans audit).
+        member.statut = Member.Statut.ACTIF
+        member.save(update_fields=["statut", "updated_at"])
+        record_audit(
+            action="member.reactivated_via_renewal",
+            entite_type="Member",
+            entite_id=member.id,
+            details={
+                "payment_id": payment.id,
+                "trigger": "carnet_fees_renewal",
+            },
+        )
 
 
 def _hook_decaissement(payment: Payment, _raw: dict) -> None:

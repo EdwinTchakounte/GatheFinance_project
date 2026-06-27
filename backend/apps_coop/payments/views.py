@@ -978,6 +978,9 @@ def admin_cash_in_payment(request):
 
     reference_externe = (data.get("reference_externe") or "").strip()[:64]
     note = (data.get("note") or "").strip()[:500]
+    # D6 . Flag explicite is_renewal pour FRAIS_CARNET . declenche
+    # apply_membership_renewal au lieu de creer un nouveau BookletOrder.
+    is_renewal_flag = bool(data.get("is_renewal", False))
     now = timezone.now()
 
     # 5. Creation Payment + execution hook . tout dans une transaction pour
@@ -1002,7 +1005,16 @@ def admin_cash_in_payment(request):
 
         handler = _BUSINESS_HOOKS.get(payment.type)
         if handler is not None:
-            handler(payment, {"cash_in_admin": True, "note": note})
+            handler(
+                payment,
+                {
+                    "cash_in_admin": True,
+                    "note": note,
+                    # D6 . Propage le flag is_renewal au hook _hook_carnet_fees
+                    # qui detecte le renouvellement annuel via raw["is_renewal"].
+                    "is_renewal": is_renewal_flag,
+                },
+            )
 
     # Audit (post-commit cote securite, mais lecture seule, ne casse pas le flow).
     record_audit(

@@ -38,6 +38,11 @@ export default function PortalDashboardPage() {
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [savings, setSavings] = useState<SavingsSnapshot | null>(null);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
+  // D4 . Statut renouvellement annuel pour banniere.
+  const [renewalNeeded, setRenewalNeeded] = useState<{
+    days_until_expiry: number | null;
+    statut: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,6 +68,19 @@ export default function PortalDashboardPage() {
           .list(true)
           .then((res) => {
             if (!cancelled) setUnreadNotifs(res.unread_count);
+          })
+          .catch(() => undefined);
+        // D4 . Statut renouvellement annuel . best-effort pour banniere.
+        portalApi
+          .renewalStatus()
+          .then((res) => {
+            if (cancelled) return;
+            if (res.needs_renewal || res.statut === "suspendu") {
+              setRenewalNeeded({
+                days_until_expiry: res.days_until_expiry,
+                statut: res.statut,
+              });
+            }
           })
           .catch(() => undefined);
       } catch (err) {
@@ -182,6 +200,33 @@ export default function PortalDashboardPage() {
             </button>
           </div>
         </header>
+
+        {/* D4 . Banniere renouvellement annuel . visible si needs_renewal */}
+        {renewalNeeded && renewalNeeded.statut !== "suspendu" ? (
+          <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50/70 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-display text-xs font-semibold uppercase tracking-wider text-amber-800">
+                  Renouvellement à venir
+                </p>
+                <p className="mt-1 text-sm text-ink-700">
+                  {renewalNeeded.days_until_expiry !== null &&
+                  renewalNeeded.days_until_expiry < 0
+                    ? `Ton anniversaire annuel est dépassé de ${Math.abs(renewalNeeded.days_until_expiry)} jour(s). Régularise vite pour éviter la suspension.`
+                    : renewalNeeded.days_until_expiry === 0
+                      ? "Aujourd'hui est ton anniversaire annuel. Renouvelle dès maintenant."
+                      : `Plus que ${renewalNeeded.days_until_expiry} jour(s) avant ton renouvellement annuel.`}
+                </p>
+              </div>
+              <Link
+                href="/renouvellement-adhesion"
+                className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800"
+              >
+                Renouveler maintenant →
+              </Link>
+            </div>
+          </div>
+        ) : null}
 
         {/* Suspended members : big activation CTA instead of the savings dashboard */}
         {isSuspended ? (

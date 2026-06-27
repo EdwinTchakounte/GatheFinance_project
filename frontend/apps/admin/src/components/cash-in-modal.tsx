@@ -50,6 +50,8 @@ export function CashInModal({
   const [loanId, setLoanId] = useState("");
   const [nbJours, setNbJours] = useState("1");
   const [isPlacement, setIsPlacement] = useState(false);
+  // D6 . Flag renouvellement annuel pour frais_carnet.
+  const [isRenewal, setIsRenewal] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +67,7 @@ export function CashInModal({
     setLoanId("");
     setNbJours("1");
     setIsPlacement(false);
+    setIsRenewal(false);
     setError(null);
   }
 
@@ -127,6 +130,9 @@ export function CashInModal({
     }
     if (paymentType === "epargne_classique") {
       payload.is_placement = isPlacement;
+    }
+    if (paymentType === "frais_carnet" && isRenewal) {
+      payload.is_renewal = true;
     }
 
     setSubmitting(true);
@@ -312,6 +318,23 @@ export function CashInModal({
                 className="size-4"
               />
               Placement (sinon : épargne classique libre)
+            </label>
+          </ModalField>
+        ) : null}
+
+        {paymentType === "frais_carnet" ? (
+          <ModalField
+            label="Renouvellement annuel ?"
+            hint="Coche si c'est le carnet annuel de re-souscription (n'imprime pas de nouveau carnet, met juste à jour la date d'anniversaire)."
+          >
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={isRenewal}
+                onChange={(e) => setIsRenewal(e.target.checked)}
+                className="size-4"
+              />
+              Renouvellement annuel d'adhésion
             </label>
           </ModalField>
         ) : null}

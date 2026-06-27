@@ -1057,6 +1057,8 @@ export const adminApi = {
       loan_id?: number;
       nb_jours_couverts?: number;
       is_placement?: boolean;
+      // D6 . Flag renouvellement annuel pour frais_carnet.
+      is_renewal?: boolean;
     }) =>
       request<PaymentRow>("/payments/admin/cash-in/", {
         method: "POST",

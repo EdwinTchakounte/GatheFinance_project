@@ -25,6 +25,8 @@ urlpatterns = [
 
     # Member self-service
     path("members/me/", views.MemberMeView.as_view(), name="member-me"),
+    # D3 . Statut renouvellement annuel (banniere mobile + portail).
+    path("members/me/renewal-status/", views.renewal_status_me, name="renewal-status-me"),
     path("booklet/me/", views.booklet_orders_me, name="booklet-me"),
     # Typeahead picker avaliste (§7.2)
     path(

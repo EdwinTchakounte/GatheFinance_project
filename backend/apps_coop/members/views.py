@@ -110,6 +110,63 @@ def booklet_orders_me(request):
 
 @extend_schema(
     tags=["members"],
+    summary="Statut de renouvellement annuel du membre connecté",
+    description=(
+        "D3 . Renvoie l'etat du renouvellement annuel pour afficher la "
+        "banniere mobile + portail.\n\n"
+        "Reponse : {needs_renewal, in_warning_window, days_until_expiry, "
+        "carnet_fee_xaf, prochaine_echeance_iso, statut, grace_days}.\n\n"
+        "`needs_renewal=True` si J-30 < today (=banniere visible). "
+        "`days_until_expiry` peut etre negatif (passe l'anniversaire) ou "
+        "null si compte sans date_derniere_reinscription."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsMember])
+def renewal_status_me(request):
+    from datetime import timedelta
+
+    from apps_coop.audit.services import get_int_setting
+    from apps_coop.payments.models import FeeType
+    from django.utils import timezone
+
+    member = request.user.member
+    today = timezone.localdate()
+    grace_days = get_int_setting("members.reinscription.grace_days", 30)
+    lead_days = get_int_setting("members.reinscription.lead_days", 30)
+
+    carnet_fee = (
+        FeeType.objects.filter(code=FeeType.Code.CARNET, actif=True)
+        .values_list("montant", flat=True)
+        .first()
+    )
+
+    due_date = member.prochaine_reinscription_due
+    days_until = None
+    needs_renewal = False
+    in_warning_window = False
+    if due_date:
+        days_until = (due_date - today).days
+        # Fenetre "needs_renewal" : du J-lead jusqu'a la fin de la grace.
+        warning_start = due_date - timedelta(days=lead_days)
+        grace_end = due_date + timedelta(days=grace_days)
+        needs_renewal = warning_start <= today <= grace_end
+        in_warning_window = warning_start <= today < due_date
+
+    return Response({
+        "needs_renewal": needs_renewal,
+        "in_warning_window": in_warning_window,
+        "days_until_expiry": days_until,
+        "prochaine_echeance_iso": due_date.isoformat() if due_date else None,
+        "carnet_fee_xaf": str(carnet_fee) if carnet_fee is not None else None,
+        "statut": member.statut,
+        "lead_days": lead_days,
+        "grace_days": grace_days,
+    })
+
+
+@extend_schema(
+    tags=["members"],
     summary="Recherche d'avalistes éligibles (typeahead)",
     description=(
         "Renvoie jusqu'à 10 membres ACTIFS + SENIORS qui matchent `q` "
