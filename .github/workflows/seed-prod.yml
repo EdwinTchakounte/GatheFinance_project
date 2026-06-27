@@ -1,0 +1,65 @@
+# Manuel . workflow_dispatch pour rejouer les seeds idempotents sur le VPS
+# prod sans avoir a SSH a la main. Reutilise les memes secrets que deploy.yml.
+#
+# Cibles : seed_email_templates (--force par defaut pour recrire les
+# templates DB) + seed_event_catalog (cree les EventConfig + EventHook
+# manquants pour les emit_event() ajoutes recemment).
+#
+# Idempotent : peut etre rejoue sans risque.
+
+name: Seed prod (templates email + event catalog)
+
+on:
+  workflow_dispatch:
+    inputs:
+      seed_email_templates:
+        description: "Rejouer seed_email_templates --force ?"
+        type: boolean
+        default: true
+      seed_event_catalog:
+        description: "Rejouer seed_event_catalog ?"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    name: Seed via SSH
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Run seeds via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 5m
+          envs: SEED_EMAIL,SEED_EVENTS
+          script: |
+            set -euo pipefail
+
+            DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml --env-file .env.prod"
+
+            cd "$DEPLOY_PATH/infra"
+
+            if [ "${{ inputs.seed_email_templates }}" = "true" ]; then
+              echo ">>> seed_email_templates --force"
+              $COMPOSE exec -T backend python manage.py seed_email_templates --force
+            else
+              echo ">>> seed_email_templates skipped"
+            fi
+
+            if [ "${{ inputs.seed_event_catalog }}" = "true" ]; then
+              echo ">>> seed_event_catalog"
+              $COMPOSE exec -T backend python manage.py seed_event_catalog
+            else
+              echo ">>> seed_event_catalog skipped"
+            fi
+
+            echo ">>> Done."
