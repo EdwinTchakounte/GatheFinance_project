@@ -30,10 +30,20 @@ async function forward(req: NextRequest, action: string, method: "GET" | "POST")
     headers["X-Forwarded-For"] = ip;
     headers["X-Real-IP"] = ip;
   }
-  let body: string | undefined;
+  let body: BodyInit | undefined;
   if (method === "POST") {
-    headers["Content-Type"] = "application/json";
-    body = await req.text();
+    // Adhésion = multipart (uploads CNI/plan/photo). Le reste (contact,
+    // newsletter) reste JSON. On reflète le Content-Type entrant côté backend.
+    const incomingCT = req.headers.get("content-type") ?? "";
+    if (incomingCT.toLowerCase().startsWith("multipart/form-data")) {
+      // Préserver le boundary du multipart : on relaie le header brut tel quel.
+      headers["Content-Type"] = incomingCT;
+      const buf = await req.arrayBuffer();
+      body = buf;
+    } else {
+      headers["Content-Type"] = "application/json";
+      body = await req.text();
+    }
   }
   try {
     const res = await fetch(`${BACKEND}/api/forms/${action}/`, { method, headers, body, cache: "no-store" });

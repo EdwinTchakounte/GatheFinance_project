@@ -27,6 +27,11 @@ x-backend-env: &backend-env
   DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
   WAGTAILADMIN_BASE_URL: https://${CMS_DOMAIN}
   FRONTEND_BASE_URL: https://${SITE_DOMAIN}
+  # Domaine du PORTAIL membre (≠ site marketing). Sert à construire les liens
+  # transactionnels envoyés par e-mail : `/definir-mot-de-passe?token=...`,
+  # `/connexion`, etc. Sans cette var le backend retombe sur le default
+  # `http://localhost:3200` et tous ces liens 404 en prod.
+  FRONTEND_PUBLIC_URL: https://${PORTAL_DOMAIN}
   PUBLIC_BASE_URL: https://${API_DOMAIN}
   REVALIDATE_SECRET: ${REVALIDATE_SECRET}
   CORS_ALLOWED_ORIGINS: https://${SITE_DOMAIN},https://${PORTAL_DOMAIN},https://${ADMIN_DOMAIN}
