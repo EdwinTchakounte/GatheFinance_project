@@ -32,6 +32,11 @@ x-backend-env: &backend-env
   # `/connexion`, etc. Sans cette var le backend retombe sur le default
   # `http://localhost:3200` et tous ces liens 404 en prod.
   FRONTEND_PUBLIC_URL: https://${PORTAL_DOMAIN}
+  # Défense en profondeur : on injecte aussi PORTAL_DOMAIN tel quel, comme ça
+  # `apps_coop.portal_urls.portal_url()` peut le lire en fallback si jamais
+  # FRONTEND_PUBLIC_URL est mal configurée. Évite de re-introduire le bug
+  # « lien définir-mot-de-passe 404 » à chaque dérive de config.
+  PORTAL_DOMAIN: ${PORTAL_DOMAIN}
   PUBLIC_BASE_URL: https://${API_DOMAIN}
   REVALIDATE_SECRET: ${REVALIDATE_SECRET}
   CORS_ALLOWED_ORIGINS: https://${SITE_DOMAIN},https://${PORTAL_DOMAIN},https://${ADMIN_DOMAIN}

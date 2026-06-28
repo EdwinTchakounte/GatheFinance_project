@@ -88,16 +88,23 @@ jobs:
 
             cd "$DEPLOY_PATH/infra"
 
-            # Pull derniere version du code (best-effort : les fichiers
-            # compose et settings utilises au runtime sont surtout dans
-            # les images Docker — le git pull est utile pour les configs
-            # statiques mais n'est pas bloquant si le remote n'est pas
-            # joignable ou si l'auth Git n'est pas configuree sur le VPS).
-            echo ">>> git pull origin main (best-effort)..."
-            if (cd "$DEPLOY_PATH" && git fetch origin && git reset --hard origin/main); then
-              echo "git pull OK"
+            # Pull derniere version du code OBLIGATOIRE : sans ca, les modifs
+            # de docker-compose.prod.yml (ex : nouvelles env vars
+            # FRONTEND_PUBLIC_URL / PORTAL_DOMAIN) ne sont JAMAIS prises en
+            # compte et les images deployees voient un environnement obsolete.
+            # On fail loud si le pull echoue pour qu'on s'en apercoive.
+            echo ">>> git pull origin main (MUST succeed for compose changes)..."
+            cd "$DEPLOY_PATH"
+            git fetch origin
+            PREV_COMPOSE_SHA=$(git rev-parse HEAD:infra/docker-compose.prod.yml 2>/dev/null || echo "none")
+            git reset --hard origin/main
+            NEW_COMPOSE_SHA=$(git rev-parse HEAD:infra/docker-compose.prod.yml 2>/dev/null || echo "none")
+            cd "$DEPLOY_PATH/infra"
+            if [ "$PREV_COMPOSE_SHA" != "$NEW_COMPOSE_SHA" ]; then
+              echo ">>> docker-compose.prod.yml changed ($PREV_COMPOSE_SHA -> $NEW_COMPOSE_SHA) : --force-recreate backend qcluster"
+              RECREATE_FLAG="--force-recreate"
             else
-              echo "!!! git pull skipped (auth manquante ou remote injoignable) — on continue avec les images"
+              RECREATE_FLAG=""
             fi
 
             # Sauvegarder le tag actuel pour rollback
@@ -114,8 +121,10 @@ jobs:
 
             # Up -d (recreate uniquement si l'image a change). PAS de
             # --profile traefik : le reverse-proxy est externe (mutualise).
-            echo ">>> Starting services..."
-            $COMPOSE up -d
+            # RECREATE_FLAG est positionne plus haut si docker-compose.prod.yml
+            # a change (force re-creation pour propager les nouvelles env vars).
+            echo ">>> Starting services... ${RECREATE_FLAG:-(no recreate)}"
+            $COMPOSE up -d ${RECREATE_FLAG}
 
             # Attendre que le backend devienne healthy (max 90s)
             echo ">>> Waiting for backend healthcheck..."
