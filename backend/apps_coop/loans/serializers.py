@@ -113,12 +113,14 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
         m = getattr(obj, "member", None)
         if m is None:
             return None
+        # Le model Django utilise `phone` ; on expose `telephone` cote API
+        # pour rester aligne sur la nomenclature des autres endpoints.
         return {
             "id": m.id,
             "numero_membre": getattr(m, "numero_membre", "") or "",
             "nom": getattr(m, "nom", "") or "",
             "prenom": getattr(m, "prenom", "") or "",
-            "telephone": getattr(m, "telephone", "") or "",
+            "telephone": getattr(m, "phone", "") or "",
         }
 
     def get_attachments(self, obj):
