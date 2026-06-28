@@ -86,6 +86,10 @@ NotifKind _kindFromType(String type) {
   if (type == 'annonce' || type.startsWith('annonce.')) {
     return NotifKind.announcement;
   }
+  // lender.* couvre tranche engagee / interets percus / etc.
+  if (type.startsWith('lender')) {
+    return NotifKind.lender;
+  }
   if (type.startsWith('savings') || type.startsWith('withdrawal')) {
     return NotifKind.savings;
   }

@@ -165,6 +165,10 @@ export function ComposeFundingModal({
               {target.member_label} · capital{" "}
               <strong className="text-ink-900">{formatXAF(target.capital)} XAF</strong>
             </p>
+            <p className="mt-1.5 text-xs text-ink-500">
+              Engagement direct : les prêteurs sont notifiés et les intérêts
+              seront crédités automatiquement sur leur compte épargne classique.
+            </p>
           </div>
           <button
             type="button"

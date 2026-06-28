@@ -227,12 +227,13 @@ function Inner() {
                     </td>
                     <td>
                       {t.engaged_in_loan_dossier ? (
-                        <a
-                          href={`/loans/${t.engaged_in_loan_id}`}
-                          className="text-sm font-mono text-blue-700 hover:underline"
-                        >
+                        // Route /loans/{id} inexistante en admin : la fiche
+                        // crédit s'ouvre via la modale Funding sur /loans.
+                        // On affiche le numéro de dossier en mono comme
+                        // référence consultable, non cliquable.
+                        <span className="text-sm font-mono text-ink-900">
                           {t.engaged_in_loan_dossier}
-                        </a>
+                        </span>
                       ) : (
                         <span className="text-xs text-ink-400">—</span>
                       )}

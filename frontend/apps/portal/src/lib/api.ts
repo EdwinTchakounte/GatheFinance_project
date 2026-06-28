@@ -246,27 +246,6 @@ export type LenderTranche = {
   created_at: string;
 };
 
-export type LenderPendingFunding = {
-  id: number;
-  statut: string;
-  montant_propose: string;
-  deadline: string;
-  funding_request_id: number;
-  wave_number: number;
-  loan: {
-    id: number;
-    numero_dossier: string;
-    montant_total: string;
-    duree_mois: number;
-  };
-  borrower: {
-    id: number;
-    numero_membre: string;
-    prenom: string;
-    nom: string;
-  };
-};
-
 export type LenderState = {
   consent: LenderConsent | null;
   tranches: LenderTranche[];
@@ -276,8 +255,6 @@ export type LenderState = {
     liberee: string;
     annulee: string;
   };
-  pending_funding_requests: LenderPendingFunding[];
-  pending_count: number;
 };
 
 // A6 . Versement d'interets recu en tant que preteur (CH-12 / LOT 9).
@@ -528,20 +505,6 @@ export const portalApi = {
     cancelTranche: (id: number) =>
       request<LenderTranche>(`/savings/me/lender/tranches/${id}/cancel/`, {
         method: "POST",
-      }),
-    respondFunding: (
-      id: number,
-      payload: { accept: boolean; motif?: string },
-    ) =>
-      request<{
-        id: number;
-        statut: string;
-        responded_at: string | null;
-        refus_motif: string;
-        message: string;
-      }>(`/savings/me/lender/funding-requests/${id}/respond/`, {
-        method: "POST",
-        body: JSON.stringify(payload),
       }),
     // A6 . Historique des interets percus en tant que preteur.
     payouts: () =>

@@ -8,7 +8,6 @@ import { Container, buttonClasses } from "@gathe/ui";
 import {
   portalApi,
   type ApiError,
-  type LenderPendingFunding,
   type LenderInterestPayout,
   type LenderState,
   type LenderTranche,
@@ -16,10 +15,13 @@ import {
 
 
 /**
- * Refonte 2026 — LOT 19 — Espace prêteur (épargne-prêteur §6).
+ * Espace prêteur (épargne-prêteur §6).
  *
- * Le membre signe la convention (mode A global ou B par tranches), gère ses
- * tranches d'épargne prêtables et répond aux notifications de funding 24h.
+ * Le membre signe la convention (mode A global ou B par tranches) et gère
+ * ses tranches d'épargne prêtables. L'engagement d'une tranche dans un
+ * crédit est effectué par l'administrateur ; le prêteur est notifié et les
+ * intérêts sont crédités automatiquement sur son compte épargne classique.
+ * Aucun consentement par-funding-request n'est demandé au prêteur.
  */
 export default function LenderPage() {
   const router = useRouter();
@@ -29,8 +31,6 @@ export default function LenderPage() {
     tone: "ok" | "err";
     text: string;
   } | null>(null);
-  const [respondTarget, setRespondTarget] =
-    useState<LenderPendingFunding | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -104,29 +104,6 @@ export default function LenderPage() {
           </div>
         )}
 
-        {/* Demandes de funding en attente — section haute priorité */}
-        {state.pending_count > 0 && (
-          <section className="mb-6 rounded-md border border-terra-400/40 bg-terra-50/40 p-5">
-            <h2 className="font-display text-lg font-medium text-terra-700">
-              ⏰ {state.pending_count} demande{state.pending_count > 1 ? "s" : ""} de
-              financement à valider
-            </h2>
-            <p className="mt-1 text-xs text-ink-700">
-              Sans réponse de ta part avant la deadline, c'est considéré comme
-              <strong> tacitement accepté</strong> (silence = accord).
-            </p>
-            <ul className="mt-4 space-y-3">
-              {state.pending_funding_requests.map((p) => (
-                <FundingPendingCard
-                  key={p.id}
-                  pending={p}
-                  onAction={() => setRespondTarget(p)}
-                />
-              ))}
-            </ul>
-          </section>
-        )}
-
         {/* Convention */}
         {!isActive ? (
           <OptInBlock
@@ -141,19 +118,6 @@ export default function LenderPage() {
             state={state}
             onChange={(text) => {
               setMessage({ tone: "ok", text });
-              reload();
-            }}
-            onError={(text) => setMessage({ tone: "err", text })}
-          />
-        )}
-
-        {respondTarget && (
-          <FundingRespondModal
-            pending={respondTarget}
-            onClose={() => setRespondTarget(null)}
-            onDone={(text) => {
-              setMessage({ tone: "ok", text });
-              setRespondTarget(null);
               reload();
             }}
             onError={(text) => setMessage({ tone: "err", text })}
@@ -604,201 +568,6 @@ function TrancheBadge({
     >
       {display}
     </span>
-  );
-}
-
-
-// ---------------------------------------------------------------------------
-// Funding pending card + modal
-// ---------------------------------------------------------------------------
-
-
-function FundingPendingCard({
-  pending,
-  onAction,
-}: {
-  pending: LenderPendingFunding;
-  onAction: () => void;
-}) {
-  const deadlineMs = new Date(pending.deadline).getTime() - Date.now();
-  const hoursLeft = Math.max(0, Math.round(deadlineMs / 3600000));
-  return (
-    <li className="rounded-md border border-terra-300/50 bg-paper p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-ink-900">
-            {pending.borrower.prenom} {pending.borrower.nom}{" "}
-            <span className="text-xs font-medium text-ink-500">
-              {pending.borrower.numero_membre}
-            </span>
-          </p>
-          <p className="mt-0.5 text-xs text-ink-600">
-            Crédit {pending.loan.numero_dossier} —{" "}
-            {formatXaf(pending.loan.montant_total)} sur {pending.loan.duree_mois} mois
-          </p>
-          <p className="mt-1 text-xs text-ink-700">
-            Montant proposé : <strong>{formatXaf(pending.montant_propose)}</strong> · Vague{" "}
-            {pending.wave_number}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-terra-700">
-            ⏰ {hoursLeft}h restantes
-          </p>
-          <button
-            onClick={onAction}
-            className={buttonClasses({ variant: "primary", size: "sm" }) + " mt-2"}
-          >
-            Répondre
-          </button>
-        </div>
-      </div>
-    </li>
-  );
-}
-
-
-function FundingRespondModal({
-  pending,
-  onClose,
-  onDone,
-  onError,
-}: {
-  pending: LenderPendingFunding;
-  onClose: () => void;
-  onDone: (msg: string) => void;
-  onError: (msg: string) => void;
-}) {
-  const [action, setAction] = useState<"accept" | "refuse" | null>(null);
-  const [motif, setMotif] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  async function onSubmit() {
-    if (!action) return;
-    setSubmitting(true);
-    try {
-      await portalApi.lender.respondFunding(pending.id, {
-        accept: action === "accept",
-        motif,
-      });
-      onDone(
-        action === "accept"
-          ? "Engagement enregistré — ta tranche sera bloquée à la finalisation."
-          : "Refus enregistré — un autre prêteur sera sollicité.",
-      );
-    } catch (err) {
-      const apiErr = err as ApiError;
-      onError(apiErr.detail ?? "Réponse impossible.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 px-4"
-    >
-      <div className="w-full max-w-md rounded-md border border-line-200 bg-paper p-6 shadow-lg">
-        <h2 className="font-display text-lg font-medium text-ink-900">
-          Financer {pending.loan.numero_dossier} ?
-        </h2>
-        <p className="mt-1 text-xs text-ink-600">
-          Demandé par {pending.borrower.prenom} {pending.borrower.nom} —{" "}
-          {formatXaf(pending.loan.montant_total)} sur {pending.loan.duree_mois} mois.
-        </p>
-        <p className="mt-2 text-sm text-ink-700">
-          Montant proposé :{" "}
-          <strong className="text-ink-900">
-            {formatXaf(pending.montant_propose)}
-          </strong>
-        </p>
-
-        {!action && (
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setAction("accept")}
-              className={buttonClasses({ variant: "success", size: "md", fullWidth: true })}
-            >
-              ✓ Accepter
-            </button>
-            <button
-              onClick={() => setAction("refuse")}
-              className={buttonClasses({ variant: "secondary", size: "md", fullWidth: true })}
-            >
-              ✗ Refuser
-            </button>
-          </div>
-        )}
-
-        {action === "accept" && (
-          <div className="mt-5 space-y-3">
-            <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-800">
-              Tu engages <strong>{formatXaf(pending.montant_propose)}</strong>{" "}
-              dans ce crédit. La tranche sera bloquée jusqu'à clôture du crédit.
-              Tu percevras 50 % des intérêts perçus sur ta quote-part.
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setAction(null)}
-                className={buttonClasses({ variant: "ghost", size: "sm" })}
-              >
-                Retour
-              </button>
-              <button
-                onClick={onSubmit}
-                disabled={submitting}
-                className={buttonClasses({ variant: "success", size: "sm" })}
-              >
-                {submitting ? "Envoi…" : "Confirmer l'engagement"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {action === "refuse" && (
-          <div className="mt-5 space-y-3">
-            <label className="block text-xs font-medium text-ink-700">
-              Motif (obligatoire)
-              <textarea
-                value={motif}
-                onChange={(e) => setMotif(e.target.value)}
-                className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-sm text-ink-900 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
-                rows={3}
-                placeholder="Ex: capacité déjà engagée ailleurs…"
-              />
-            </label>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setAction(null)}
-                className={buttonClasses({ variant: "ghost", size: "sm" })}
-              >
-                Retour
-              </button>
-              <button
-                onClick={onSubmit}
-                disabled={submitting || !motif.trim()}
-                className={buttonClasses({ variant: "secondary", size: "sm" })}
-              >
-                {submitting ? "Envoi…" : "Confirmer le refus"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {!action && (
-          <div className="mt-4 text-right">
-            <button
-              onClick={onClose}
-              className="text-xs text-ink-600 hover:text-ink-900"
-            >
-              Fermer
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 

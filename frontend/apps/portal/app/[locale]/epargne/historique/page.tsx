@@ -43,6 +43,18 @@ function typeBadge(typeOp: string): { bg: string; text: string; label: string } 
       return { bg: "bg-rose-50", text: "text-rose-700", label: "Retrait" };
     case "interet":
       return { bg: "bg-blue-50", text: "text-blue-700", label: "Intérêt" };
+    // Distinction des intérêts prêteur (part 50% reversée par un crédit
+    // financé sur le placement) vs intérêt classique épargne.
+    case "interet_preteur":
+      return { bg: "bg-emerald-50", text: "text-emerald-800", label: "Intérêt prêteur" };
+    case "interet_placement":
+      return { bg: "bg-blue-50", text: "text-blue-700", label: "Intérêt placement" };
+    case "restitution_maturite":
+      return { bg: "bg-blue-50", text: "text-blue-700", label: "Restitution maturité" };
+    case "frais_renouvellement":
+      return { bg: "bg-amber-50", text: "text-amber-700", label: "Frais renouvellement" };
+    case "retrait_force":
+      return { bg: "bg-rose-100", text: "text-rose-800", label: "Saisie crédit" };
     default:
       return { bg: "bg-line-100", text: "text-ink-700", label: typeOp };
   }

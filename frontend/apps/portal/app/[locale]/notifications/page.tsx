@@ -12,11 +12,13 @@ import {
 } from "@/lib/api";
 
 
-type NotifKind = "savings" | "loan" | "payment" | "announcement" | "system";
+type NotifKind = "savings" | "loan" | "payment" | "lender" | "announcement" | "system";
 
 
 function kindFromType(type: string): NotifKind {
   if (type === "annonce" || type.startsWith("annonce.")) return "announcement";
+  // lender.* couvre tranche engagee / interets percus / etc.
+  if (type.startsWith("lender")) return "lender";
   if (type.startsWith("savings") || type.startsWith("withdrawal")) return "savings";
   if (type.startsWith("loan") || type.startsWith("repayment")) return "loan";
   if (type.startsWith("payment")) return "payment";
@@ -61,6 +63,11 @@ const KIND_META: Record<NotifKind, { label: string; tint: string; ring: string }
     label: "Paiement",
     tint: "bg-slate-50 text-slate-700",
     ring: "ring-slate-200",
+  },
+  lender: {
+    label: "Prêteur",
+    tint: "bg-emerald-50 text-emerald-800",
+    ring: "ring-emerald-300",
   },
   announcement: {
     label: "Annonce",

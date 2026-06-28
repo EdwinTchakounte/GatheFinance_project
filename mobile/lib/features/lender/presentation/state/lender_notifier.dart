@@ -4,9 +4,13 @@ import '../../../../core/di/providers.dart';
 import '../../data/datasources/lender_dio_datasource.dart';
 import '../../domain/entities/lender_state.dart';
 
-/// LOT 19 . Provider mince autour du datasource Dio. Pas de UseCase dédié :
-/// les actions (opt-in, revoke, addTranche, respond) sont appelées
-/// directement depuis la page car elles mutent toutes le même état agrégé.
+/// Provider mince autour du datasource Dio. Pas de UseCase dedie :
+/// les actions (opt-in, revoke, addTranche, cancelTranche) sont appelees
+/// directement depuis la page car elles mutent toutes le meme etat agrege.
+///
+/// Note : pas de respondFunding ici. L'admin engage les tranches directement
+/// cote backend, le preteur recoit une notif et les interets sont credites
+/// automatiquement sur son compte epargne classique.
 final lenderDataSourceProvider = Provider<LenderDioDataSource>((ref) {
   return LenderDioDataSource(ref.watch(apiClientProvider));
 });
@@ -39,20 +43,6 @@ class LenderNotifier extends AutoDisposeAsyncNotifier<LenderState> {
   Future<void> addTranche(num montant) async {
     final ds = ref.read(lenderDataSourceProvider);
     await ds.addTranche(montant: montant);
-    await refresh();
-  }
-
-  Future<void> respondFunding({
-    required int consentRequestId,
-    required bool accept,
-    String? comment,
-  }) async {
-    final ds = ref.read(lenderDataSourceProvider);
-    await ds.respondFunding(
-      consentRequestId: consentRequestId,
-      accept: accept,
-      comment: comment,
-    );
     await refresh();
   }
 }

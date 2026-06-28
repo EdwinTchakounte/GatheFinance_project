@@ -9,14 +9,17 @@ import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../domain/entities/lender_state.dart';
 import '../state/lender_notifier.dart';
 
-/// LOT 19 . Espace prêteur du membre (équivalent mobile du portail Next.js).
+/// Espace prêteur du membre (équivalent mobile du portail Next.js).
 ///
-/// Affiche en lecture la convention signée, les tranches par statut, les
-/// agrégats XAF, et les demandes de funding 24h en attente. Permet :
+/// Affiche en lecture la convention signée, les tranches par statut, et les
+/// agrégats XAF. Permet :
 ///   - opt-in (signature convention globale)
 ///   - revoke (si pas de tranche engagée)
 ///   - addTranche (rendre une nouvelle tranche disponible)
-///   - respondFunding (accepter / refuser une demande pendante)
+///
+/// Pas d'écran d'acceptation par-funding : l'admin engage les tranches
+/// directement, le prêteur reçoit une notif et les intérêts sont crédités
+/// automatiquement sur son compte épargne classique.
 class LenderPage extends ConsumerWidget {
   const LenderPage({super.key});
 
@@ -110,12 +113,6 @@ class _LenderBody extends ConsumerWidget {
           const SizedBox(height: 12),
           _TotalsCard(totals: state.totals),
           const SizedBox(height: 12),
-          _PendingFundingSection(
-            items: state.pendingFundingRequests,
-            onRespond: (id, accept) =>
-                _respond(context, ref, id, accept),
-          ),
-          const SizedBox(height: 12),
           _TranchesSection(
             tranches: state.tranches,
             onAdd: () => _openAddTranche(context, ref),
@@ -178,35 +175,6 @@ class _LenderBody extends ConsumerWidget {
     if (ok != true) return;
     try {
       await ref.read(lenderProvider.notifier).revoke();
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Échec : $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _respond(
-    BuildContext context,
-    WidgetRef ref,
-    int id,
-    bool accept,
-  ) async {
-    try {
-      await ref.read(lenderProvider.notifier).respondFunding(
-            consentRequestId: id,
-            accept: accept,
-          );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(accept
-                ? 'Funding accepté.'
-                : 'Funding refusé.',),
-          ),
-        );
-      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -451,91 +419,6 @@ class _TotalsCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PendingFundingSection extends StatelessWidget {
-  const _PendingFundingSection({
-    required this.items,
-    required this.onRespond,
-  });
-
-  final List<FundingPending> items;
-  final void Function(int id, bool accept) onRespond;
-
-  @override
-  Widget build(BuildContext context) {
-    if (items.isEmpty) return const SizedBox.shrink();
-    return PaCard(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'En attente de ta réponse (24h)',
-            style: TextStyle(
-              color: PaColors.inkPrimary,
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          for (final it in items) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    it.memberName,
-                    style: const TextStyle(
-                      color: PaColors.inkPrimary,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    '${XAFFormatter.format(it.montant)} · échéance ${AppDateFormatter.short(it.deadline)}',
-                    style: const TextStyle(
-                      color: PaColors.inkMuted,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => onRespond(it.consentRequestId, false),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: PaColors.danger),
-                            foregroundColor: PaColors.danger,
-                          ),
-                          child: const Text('Refuser'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () => onRespond(it.consentRequestId, true),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: PaColors.teal,
-                            foregroundColor: PaColors.onTeal,
-                          ),
-                          child: const Text('Accepter'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (it != items.last)
-              const Divider(height: 1, color: PaColors.line),
-          ],
         ],
       ),
     );

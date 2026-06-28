@@ -4,16 +4,18 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exceptions.dart';
 import '../../domain/entities/lender_state.dart';
 
-/// LOT 19 — Source distante pour l'espace prêteur du membre.
+/// Source distante pour l'espace preteur du membre.
 ///
 /// Routes (toutes sous `/api/v1/`) :
-///   - GET  /savings/me/lender/                                   → [me]
-///   - POST /savings/me/lender/opt-in/      { is_global: bool }   → [optIn]
-///   - POST /savings/me/lender/revoke/                            → [revoke]
-///   - POST /savings/me/lender/tranches/    { montant }           → [addTranche]
-///   - POST /savings/me/lender/tranches/`<id>`/cancel/              → [cancelTranche]
-///   - POST /savings/me/lender/funding-requests/`<id>`/respond/
-///                                          { accept: bool, comment? } → [respondFunding]
+///   - GET  /savings/me/lender/                                   -> [me]
+///   - POST /savings/me/lender/opt-in/      { is_global: bool }   -> [optIn]
+///   - POST /savings/me/lender/revoke/                            -> [revoke]
+///   - POST /savings/me/lender/tranches/    { montant }           -> [addTranche]
+///   - POST /savings/me/lender/tranches/`<id>`/cancel/            -> [cancelTranche]
+///
+/// Note : le endpoint `/savings/me/lender/funding-requests/<id>/respond/`
+/// existe encore cote backend mais n'est PAS appele depuis le mobile. Le
+/// chemin nominal est : admin engage manuellement -> notif -> interets auto.
 class LenderDioDataSource {
   LenderDioDataSource(this._client);
 
@@ -73,24 +75,6 @@ class LenderDioDataSource {
     }
   }
 
-  Future<void> respondFunding({
-    required int consentRequestId,
-    required bool accept,
-    String? comment,
-  }) async {
-    try {
-      await _dio.post<Map<String, dynamic>>(
-        '/savings/me/lender/funding-requests/$consentRequestId/respond/',
-        data: {
-          'accept': accept,
-          if (comment != null && comment.isNotEmpty) 'comment': comment,
-        },
-      );
-    } on DioException catch (e) {
-      throw mapDioError(e);
-    }
-  }
-
   // -- parsing -------------------------------------------------------------
 
   LenderState _parseState(Map<String, dynamic> json) {
@@ -101,11 +85,6 @@ class LenderDioDataSource {
           .map(_parseTranche)
           .toList(growable: false),
       totals: _parseTotals(json['totals'] as Map<String, dynamic>?),
-      pendingFundingRequests:
-          ((json['pending_funding_requests'] as List?) ?? const [])
-              .whereType<Map<String, dynamic>>()
-              .map(_parseFunding)
-              .toList(growable: false),
     );
   }
 
@@ -145,16 +124,6 @@ class LenderDioDataSource {
       engagee: parse('engagee'),
       liberee: parse('liberee'),
       annulee: parse('annulee'),
-    );
-  }
-
-  FundingPending _parseFunding(Map<String, dynamic> json) {
-    return FundingPending(
-      consentRequestId: (json['id'] as num?)?.toInt() ?? 0,
-      loanId: (json['loan_id'] as num?)?.toInt() ?? 0,
-      memberName: (json['borrower_name'] as String?) ?? '',
-      montant: num.tryParse('${json['montant']}') ?? 0,
-      deadline: _date(json['deadline']) ?? DateTime.now(),
     );
   }
 

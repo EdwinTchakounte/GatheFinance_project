@@ -1,28 +1,29 @@
 import 'package:flutter/foundation.dart';
 
-/// LOT 19 — État agrégé de l'espace prêteur d'un membre, alimenté par
+/// Etat agrege de l'espace preteur d'un membre, alimente par
 /// `GET /api/v1/savings/me/lender/`.
 ///
 /// Le backend renvoie :
-///   - `consent` : null si le membre n'a jamais signé, sinon objet décrivant
-///     la convention (mode A global vs B tranches) et son état (révoqué ou non).
-///   - `tranches` : liste détaillée des tranches du membre tous statuts.
-///   - `totals` : agrégat XAF par statut (disponible / engagee / liberee / annulee).
-///   - `pending_funding_requests` : demandes de financement en attente de
-///     consentement (fenêtre 24h, §5.4 BUSINESS_RULES_2026).
+///   - `consent` : null si le membre n'a jamais signe, sinon objet decrivant
+///     la convention (mode A global vs B tranches) et son etat (revoque ou non).
+///   - `tranches` : liste detaillee des tranches du membre tous statuts.
+///   - `totals` : agregat XAF par statut (disponible / engagee / liberee / annulee).
+///
+/// Note : la fenetre 24h de consentement par-funding-request (BUSINESS_RULES_2026
+/// §5.4) n'est PAS le chemin nominal. L'admin engage directement les tranches
+/// via `admin_compose_funding_manual` -> le preteur est notifie + les interets
+/// sont credites automatiquement. Aucun ecran d'acceptation cote membre.
 @immutable
 class LenderState {
   const LenderState({
     required this.consent,
     required this.tranches,
     required this.totals,
-    required this.pendingFundingRequests,
   });
 
   final LenderConsent? consent;
   final List<LenderTranche> tranches;
   final LenderTotals totals;
-  final List<FundingPending> pendingFundingRequests;
 
   bool get hasActiveConsent => consent != null && consent!.revokedAt == null;
 }
@@ -72,21 +73,4 @@ class LenderTotals {
   final num engagee;
   final num liberee;
   final num annulee;
-}
-
-@immutable
-class FundingPending {
-  const FundingPending({
-    required this.consentRequestId,
-    required this.loanId,
-    required this.memberName,
-    required this.montant,
-    required this.deadline,
-  });
-
-  final int consentRequestId;
-  final int loanId;
-  final String memberName;
-  final num montant;
-  final DateTime deadline;
 }

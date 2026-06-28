@@ -143,6 +143,8 @@ class _NotifCard extends StatelessWidget {
         return (icon: Icons.account_balance_outlined, tint: PaColors.teal);
       case NotifKind.payment:
         return (icon: Icons.payments_outlined, tint: PaColors.navy);
+      case NotifKind.lender:
+        return (icon: Icons.volunteer_activism_outlined, tint: PaColors.success);
       case NotifKind.announcement:
         return (icon: Icons.campaign_rounded, tint: PaColors.blue);
       case NotifKind.system:
