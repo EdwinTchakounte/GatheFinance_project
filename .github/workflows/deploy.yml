@@ -57,6 +57,9 @@ jobs:
       url: https://gathe-finance.horus-lab.com
 
     steps:
+      - name: Checkout (compose files + scripts)
+        uses: actions/checkout@v4
+
       - name: Resolve image tag
         id: tag
         run: |
@@ -67,17 +70,48 @@ jobs:
           fi
           echo "Resolved tag: $(grep ^tag= "$GITHUB_OUTPUT" | cut -d= -f2)"
 
+      - name: Hash infra/ pour detecter changement compose
+        id: infra_hash
+        run: |
+          # On hash juste les fichiers compose pour decider si --force-recreate.
+          # Inclut docker-compose.prod.yml + override nginx + scripts.
+          HASH=$(find infra/ -type f \( -name "*.yml" -o -name "*.conf" -o -name "*.sh" \) -print0 \
+            | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-12)
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+          echo "infra hash: $HASH"
+
+      - name: Upload infra/ vers le VPS (remplace git pull)
+        # Le VPS Contabo n'a pas d'auth git configuree (repo prive), donc
+        # git pull echouait silencieusement et le compose file restait obsolete.
+        # On uploade les fichiers depuis le runner (qui a fait le checkout).
+        # .env.prod NE FAIT PAS partie de l'upload : il est gere a la main
+        # sur le VPS et contient les secrets.
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          source: "infra/docker-compose.prod.yml,infra/docker-compose.nginx-external.yml,infra/nginx.gathe-finance.container.conf,infra/scripts/*"
+          target: "${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}/"
+          overwrite: true
+          strip_components: 0
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          # Timeout deploy : 10 min max (git pull + image pull + up + healthchecks + nginx reload)
+          # Timeout deploy : 10 min max (image pull + up + healthchecks + nginx reload)
           command_timeout: 10m
+          envs: INFRA_HASH
+          # On passe le hash infra calcule par le runner : si le precedent
+          # deploy avait stocke un autre hash dans /opt/gathe-finance/.infra_hash,
+          # on force-recreate les containers pour propager les nouvelles env vars.
           script: |
             set -euo pipefail
 
+            INFRA_HASH="${{ steps.infra_hash.outputs.hash }}"
             DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
             NEW_TAG="${{ steps.tag.outputs.tag }}"
             # Le VPS Contabo heberge plusieurs projets derriere un nginx
@@ -88,24 +122,17 @@ jobs:
 
             cd "$DEPLOY_PATH/infra"
 
-            # Pull derniere version du code OBLIGATOIRE : sans ca, les modifs
-            # de docker-compose.prod.yml (ex : nouvelles env vars
-            # FRONTEND_PUBLIC_URL / PORTAL_DOMAIN) ne sont JAMAIS prises en
-            # compte et les images deployees voient un environnement obsolete.
-            # On fail loud si le pull echoue pour qu'on s'en apercoive.
-            echo ">>> git pull origin main (MUST succeed for compose changes)..."
-            cd "$DEPLOY_PATH"
-            git fetch origin
-            PREV_COMPOSE_SHA=$(git rev-parse HEAD:infra/docker-compose.prod.yml 2>/dev/null || echo "none")
-            git reset --hard origin/main
-            NEW_COMPOSE_SHA=$(git rev-parse HEAD:infra/docker-compose.prod.yml 2>/dev/null || echo "none")
-            cd "$DEPLOY_PATH/infra"
-            if [ "$PREV_COMPOSE_SHA" != "$NEW_COMPOSE_SHA" ]; then
-              echo ">>> docker-compose.prod.yml changed ($PREV_COMPOSE_SHA -> $NEW_COMPOSE_SHA) : --force-recreate backend qcluster"
+            # Compare hash infra precedent vs nouveau . force recreate si change.
+            HASH_FILE="$DEPLOY_PATH/.infra_hash"
+            PREV_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "none")
+            if [ "$PREV_HASH" != "$INFRA_HASH" ]; then
+              echo ">>> infra/ changed ($PREV_HASH -> $INFRA_HASH) : --force-recreate backend qcluster"
               RECREATE_FLAG="--force-recreate"
             else
+              echo ">>> infra/ unchanged ($INFRA_HASH) : no recreate needed"
               RECREATE_FLAG=""
             fi
+            echo "$INFRA_HASH" > "$HASH_FILE"
 
             # Sauvegarder le tag actuel pour rollback
             CURRENT_TAG=$(grep "^GATHE_IMAGE_TAG=" .env.prod | cut -d= -f2 || echo "latest")
