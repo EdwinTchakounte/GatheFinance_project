@@ -1,0 +1,106 @@
+# Manuel . workflow_dispatch pour creer + approuver une MembershipRequest
+# test EN PROD afin de valider le flow welcome email + setup_password_url.
+#
+# A utiliser apres une modification du code lie au mail de bienvenue
+# (ex : helper apps_coop.portal_urls) pour confirmer en bout de chaine
+# que l'URL recu dans la boite mail pointe bien sur le portail.
+#
+# Cree une MembershipRequest, l'approuve, et affiche le URL setup
+# genere par le code Django (pour comparaison rapide avec ce qui sera
+# dans le mail Brevo).
+#
+# NB : un VRAI mail est envoye via Brevo a l'adresse fournie. Ne pas
+# spammer une adresse cliente. Defaut : horus8391@gmail.com (admin).
+
+name: Approve test membership (prod)
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Email destinataire du welcome mail"
+        required: true
+        default: "horus8391@gmail.com"
+      prenom:
+        description: "Prenom test"
+        required: false
+        default: "Test"
+      nom:
+        description: "Nom test"
+        required: false
+        default: "Setup-Password"
+
+permissions:
+  contents: read
+
+jobs:
+  approve:
+    name: Approve via SSH
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: SSH + create+approve+show URL
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 3m
+          envs: TEST_EMAIL,TEST_PRENOM,TEST_NOM
+          script: |
+            set -euo pipefail
+
+            DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml --env-file .env.prod"
+            cd "$DEPLOY_PATH/infra"
+
+            export TEST_EMAIL="${{ inputs.email }}"
+            export TEST_PRENOM="${{ inputs.prenom }}"
+            export TEST_NOM="${{ inputs.nom }}"
+
+            echo "================ Creating + approving test request ================"
+            $COMPOSE exec -T -e TEST_EMAIL -e TEST_PRENOM -e TEST_NOM backend python manage.py shell <<'PYEOF'
+            import os, datetime
+            from django.contrib.auth import get_user_model
+            from apps_coop.members.models import MembershipRequest
+            from apps_coop.members.services import approve_membership_request
+            from apps_coop.portal_urls import portal_url
+
+            email = os.environ["TEST_EMAIL"].strip().lower()
+            prenom = os.environ["TEST_PRENOM"].strip() or "Test"
+            nom = os.environ["TEST_NOM"].strip() or "Setup"
+
+            User = get_user_model()
+            # Find ou cree un admin instructor (rejoue idempotent).
+            admin = User.objects.filter(is_staff=True).first()
+            if not admin:
+                print("!!! No staff user found in DB. Aborting.")
+                raise SystemExit(1)
+
+            # Cree la MembershipRequest avec entretien favorable (pour passer
+            # le guard approve_membership_request).
+            req = MembershipRequest.objects.create(
+                nom=nom,
+                prenom=prenom,
+                email=email,
+                phone="+237 690 000 999",
+                date_entretien=datetime.date.today(),
+                entretien_favorable=True,
+                entretien_avis="Test approbation auto.",
+            )
+            print(f"Created MembershipRequest #{req.id} for {email}")
+
+            member = approve_membership_request(req, instructed_by=admin)
+            print(f"Approved -> Member #{member.id} ({member.numero_membre})")
+
+            # Le welcome email est differe au on_commit ; ici on est en autocommit
+            # (shell DJANGO), donc deja envoye via Brevo.
+            print("")
+            print("================ URL pattern that was emitted ================")
+            print(f"portal_url base : {portal_url()}")
+            print(f"setup URL pattern : {portal_url('definir-mot-de-passe?token=<TOKEN_72H>')}")
+            print(f"-> the mail to {email} contains a link in that shape.")
+            PYEOF
+            echo ">>> Done."
