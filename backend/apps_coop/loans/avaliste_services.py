@@ -361,6 +361,8 @@ def respond_to_avaliste_consent(
 def _emit(event_code: str, target_member: Member, consent: AvalisteConsent) -> None:
     """Émission best-effort d'un event Notification (LOT 11 mailing list)."""
     try:
+        from django.conf import settings
+
         from apps_coop.notifications.events import emit_event
 
         emit_event(
@@ -372,6 +374,10 @@ def _emit(event_code: str, target_member: Member, consent: AvalisteConsent) -> N
                 "borrower_nom": consent.loan_request.member.nom,
                 "montant": str(consent.loan_request.montant_demande),
                 "avaliste_numero": consent.avaliste.numero_membre,
+                # AUDIT-A2 . Les templates avaliste_consent_* utilisent
+                # {portal_url} dans le CTA . sans cette cle, _render retombe
+                # sur le corps brut (placeholders {X} litteraux).
+                "portal_url": getattr(settings, "FRONTEND_PUBLIC_URL", ""),
             },
         )
     except Exception:  # noqa: BLE001 — best-effort

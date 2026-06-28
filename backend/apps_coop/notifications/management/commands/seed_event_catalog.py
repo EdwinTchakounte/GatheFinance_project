@@ -259,6 +259,125 @@ EVENTS: list[tuple[str, str, str, bool]] = [
         "l'engagement.",
         True,
     ),
+    # --- AUDIT-A2 ajouts 2026-06-28 . events emis dans le code mais sans
+    # EventConfig . silencieusement perdus en prod (ni email ni notif).
+    # ---------------------------------------------------------------------
+    # Réinscription annuelle D2 . phases urgent / today / suspended.
+    (
+        "member.reinscription_due_urgent",
+        "Rappel urgent de réinscription (J-7)",
+        "D2 . Émis 7 jours avant l'anniversaire annuel d'adhésion.",
+        True,
+    ),
+    (
+        "member.reinscription_due_today",
+        "Anniversaire de réinscription atteint (J0)",
+        "D2 . Émis le jour-meme de l'anniversaire annuel.",
+        True,
+    ),
+    (
+        "member.reinscription_expired_suspended",
+        "Compte suspendu pour non-renouvellement",
+        "D2 . Emis quand la fenetre de grace (J+30) est depassee . le membre "
+        "passe en SUSPENDU. Email obligatoire (acte juridique).",
+        True,
+    ),
+    # BRC . cycle complet (upload / validation / rejet)
+    (
+        "member.brc_document_uploaded",
+        "Justificatif BRC reçu",
+        "LOT 1 . Le membre a uploadé un nouveau justificatif BRC. Accusé de réception.",
+        False,
+    ),
+    (
+        "member.brc_validated",
+        "Statut BRC validé",
+        "LOT 1 . L'admin a valide le justificatif . le membre devient is_brc_member=True.",
+        False,
+    ),
+    (
+        "member.brc_rejected",
+        "Justificatif BRC rejeté",
+        "LOT 1 . L'admin a rejete le justificatif avec un motif . le membre peut re-uploader.",
+        True,
+    ),
+    # Contentieux R1 . escalade judiciaire et saisie biens
+    (
+        "loan.judicial_escalation_opened",
+        "Escalade judiciaire ouverte",
+        "LOT 14 . Acte juridique formel . le dossier passe en phase D (huissier). "
+        "Notification au membre.",
+        True,
+    ),
+    (
+        "loan.biens_seized",
+        "Saisie de biens engagée",
+        "LOT 14 . Phase E . la procedure de saisie de biens corporels est engagee.",
+        True,
+    ),
+    # Withdrawal . confirmation finale (acte juridique cote tresorerie)
+    (
+        "withdrawal.completed",
+        "Retrait livré",
+        "W3 . Confirmation finale apres remise des especes (presentiel) ou payout "
+        "Tara reussi. Cloture du dossier de retrait.",
+        True,
+    ),
+    # Lender . versement d'interets aux preteurs (T0 source CH-12 + maturite)
+    (
+        "lender.interest_paid",
+        "Intérêts placement crédités",
+        "Versement d'interets sur le placement preteur (cycle paiement classique).",
+        False,
+    ),
+    (
+        "lender.interest_paid_at_source",
+        "Intérêts placement crédités à la source",
+        "CH-12 . Distribution immediate des interets a T0 du decaissement.",
+        False,
+    ),
+    # Microcampagne . cloture
+    (
+        "microcampaign.closed",
+        "Microcampagne clôturée",
+        "LOT 11 . La campagne micro-credit est fermee (deadline atteinte ou volonte admin).",
+        False,
+    ),
+    # Epargne classique . maturite, renouvellement, archivage
+    (
+        "savings.maturity_reached",
+        "Maturité d'épargne classique atteinte",
+        "LOT 5 . Une epargne classique a atteint sa date de prochaine_maturite . "
+        "le membre doit decider renouveler ou cloturer.",
+        True,
+    ),
+    (
+        "savings.renewed",
+        "Épargne classique renouvelée",
+        "L'epargne classique a ete renouvelee pour un nouveau cycle.",
+        False,
+    ),
+    (
+        "membership.archived_for_non_renewal",
+        "Adhésion archivée (non-renouvellement épargne)",
+        "L'epargne classique a expire sans renouvellement . le compte est archive.",
+        True,
+    ),
+    # Collecte . cloture mensuelle (commission 1% + restitution)
+    (
+        "collecte.balance_swept_to_savings",
+        "Solde collecte basculé sur épargne",
+        "LOT 4 . Fin de mois . le solde collecte du membre est bascule vers son "
+        "epargne classique (apres prelevement de la commission 1%).",
+        False,
+    ),
+    (
+        "collecte.monthly_restitution",
+        "Restitution collecte fin de mois",
+        "LOT 4 . Fin de mois . versement en cash de la collecte du membre (apres "
+        "prelevement de la commission 1%).",
+        False,
+    ),
 ]
 
 

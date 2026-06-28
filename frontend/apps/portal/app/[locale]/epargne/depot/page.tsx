@@ -37,12 +37,17 @@ function DepositForm() {
   //   "epargne-classique"   → dépôt sur l'épargne classique (CH-3)
   //   "credit-fees"         → frais de dossier crédit (montant depuis FeeType)
   //   "loan-repayment"      → remboursement d'une échéance (loan_id obligatoire)
-  // NB : la reconduction est SANS frais → plus de contexte "loan-renewal".
+  //   "carnet"              → commande d'un carnet (1er ou supplémentaire) — CH-2
+  //   "renewal-carnet"      → renouvellement annuel adhésion via FRAIS_CARNET — D6
+  // NB : la reconduction crédit est SANS frais → plus de contexte "loan-renewal".
   const context = searchParams.get("context") ?? "savings";
   const loanIdParam = searchParams.get("loan");
   const isCreditFees = context === "credit-fees";
   const isLoanRepayment = context === "loan-repayment";
   const isEpargneClassique = context === "epargne-classique";
+  const isCarnet = context === "carnet";
+  const isRenewalCarnet = context === "renewal-carnet";
+  const isCarnetContext = isCarnet || isRenewalCarnet;
   const loanId = loanIdParam ? Number(loanIdParam) : null;
   // Helper: la page renvoie vers /credit pour tout ce qui touche au crédit.
   const isCreditContext = isCreditFees || isLoanRepayment;
@@ -92,8 +97,18 @@ function DepositForm() {
           }
         })
         .catch(() => undefined);
+    } else if (isCarnetContext) {
+      // CH-2 + D6 . Frais carnet (premiere activation OU renouvellement annuel)
+      // . montant verrouille au tarif officiel (CARNET FeeType).
+      portalApi.payments
+        .fees()
+        .then((fees) => {
+          const fee = fees["CARNET"];
+          if (fee) setForm((f) => ({ ...f, montant: fee.montant }));
+        })
+        .catch(() => undefined);
     }
-  }, [isCreditFees, isLoanRepayment, loanId]);
+  }, [isCreditFees, isLoanRepayment, loanId, isCarnetContext]);
 
   // Auto-poll the payment status every 2 s while it's `en_attente`.
   useEffect(() => {
@@ -124,7 +139,9 @@ function DepositForm() {
             ? "remboursement"
             : isEpargneClassique
               ? "epargne_classique"
-              : "epargne",
+              : isCarnetContext
+                ? "frais_carnet"
+                : "epargne",
         // En mode multi-jours, on verrouille a nb x COLLECTE_MIN_PER_DAY
         // (le backend rejette tout autre montant).
         montant: isMultiJour
@@ -167,11 +184,25 @@ function DepositForm() {
           <button
             type="button"
             onClick={() =>
-              router.push(isCreditContext ? "/credit" : "/")
+              router.push(
+                isCreditContext
+                  ? "/credit"
+                  : isCarnet
+                    ? "/carnet"
+                    : isRenewalCarnet
+                      ? "/renouvellement-adhesion"
+                      : "/",
+              )
             }
             className="text-sm text-ink-600 transition-colors hover:text-blue-700"
           >
-            ← {isCreditContext ? "Retour à mes crédits" : "Retour au tableau de bord"}
+            ← {isCreditContext
+              ? "Retour à mes crédits"
+              : isCarnet
+                ? "Retour au carnet"
+                : isRenewalCarnet
+                  ? "Retour au renouvellement"
+                  : "Retour au tableau de bord"}
           </button>
           <h1 className="mt-3 font-editorial text-3xl font-medium text-ink-900">
             {isCreditFees
@@ -180,7 +211,11 @@ function DepositForm() {
                 ? "Rembourser mon crédit"
                 : isEpargneClassique
                   ? "Verser sur mon épargne classique"
-                  : "Verser mon épargne"}
+                  : isCarnet
+                    ? "Commander mon carnet"
+                    : isRenewalCarnet
+                      ? "Renouveler mon adhésion"
+                      : "Verser mon épargne"}
           </h1>
           <p className="mt-2 text-sm text-ink-600">
             {isCreditFees
@@ -189,7 +224,11 @@ function DepositForm() {
                 ? "Le montant sera imputé en FIFO sur tes échéances (plus anciennes d'abord)."
                 : isEpargneClassique
                   ? "Tu peux verser librement (retrait à tout moment) ou choisir de placer ce dépôt (financement de crédit + part des intérêts)."
-                  : "Épargne journalière suggérée : 1 000 FCFA. Tu restes libre de modifier."}
+                  : isCarnet
+                    ? "Frais de carnet : tarif officiel verrouillé. Une commande sera créée automatiquement pour impression à l'agence."
+                    : isRenewalCarnet
+                      ? "Frais de carnet annuels — ton anniversaire d'adhésion est échu (ou bientôt). Le paiement met à jour ta date et réactive ton compte s'il était suspendu."
+                      : "Épargne journalière suggérée : 1 000 FCFA. Tu restes libre de modifier."}
           </p>
         </header>
 

@@ -265,9 +265,12 @@ def request_funding(loan: Loan, *, actor=None) -> LoanFundingRequest:
 def _notify_lenders(fr: LoanFundingRequest) -> None:
     """Émet un événement ``loan.funding.consent_requested`` par prêteur (best-effort)."""
     try:
+        from django.conf import settings
+
         from apps_coop.notifications.events import emit_event
     except Exception:  # noqa: BLE001 — système notifs indisponible
         return
+    portal_url = getattr(settings, "FRONTEND_PUBLIC_URL", "")
     for cr in fr.consent_requests.select_related("lender", "lender__user").all():
         try:
             emit_event(
@@ -279,6 +282,8 @@ def _notify_lenders(fr: LoanFundingRequest) -> None:
                     "loan_dossier": fr.loan.numero_dossier,
                     "montant_propose": f"{int(cr.montant_propose):,}".replace(",", " "),
                     "deadline": cr.deadline.isoformat(),
+                    # AUDIT-A2 . Template utilise {portal_url} dans CTA.
+                    "portal_url": portal_url,
                 },
             )
         except Exception:  # noqa: BLE001
@@ -489,6 +494,8 @@ def _finalize_funded(fr: LoanFundingRequest) -> None:
     )
 
     try:
+        from django.conf import settings
+
         from apps_coop.notifications.events import emit_event
 
         emit_event(
@@ -498,6 +505,8 @@ def _finalize_funded(fr: LoanFundingRequest) -> None:
                 "prenom": fr.loan.member.prenom,
                 "loan_dossier": fr.loan.numero_dossier,
                 "montant": f"{int(fr.montant_total):,}".replace(",", " "),
+                # AUDIT-A2 . Template utilise {portal_url} dans CTA.
+                "portal_url": getattr(settings, "FRONTEND_PUBLIC_URL", ""),
             },
         )
     except Exception:  # noqa: BLE001
@@ -559,6 +568,8 @@ def _reallocate(fr: LoanFundingRequest) -> None:
             },
         )
         try:
+            from django.conf import settings
+
             from apps_coop.notifications.events import emit_event
 
             emit_event(
@@ -568,6 +579,8 @@ def _reallocate(fr: LoanFundingRequest) -> None:
                     "prenom": fr.loan.member.prenom,
                     "loan_dossier": fr.loan.numero_dossier,
                     "deficit": f"{int(deficit):,}".replace(",", " "),
+                    # AUDIT-A2 . Template utilise {portal_url} dans CTA.
+                    "portal_url": getattr(settings, "FRONTEND_PUBLIC_URL", ""),
                 },
             )
         except Exception:  # noqa: BLE001

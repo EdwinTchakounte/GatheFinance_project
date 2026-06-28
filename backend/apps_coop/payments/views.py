@@ -52,6 +52,12 @@ logger = logging.getLogger(__name__)
 _TYPES_ALLOWED_FOR_SUSPENDED = {
     Payment.Type.FRAIS_ADHESION,
     Payment.Type.FRAIS_INSCRIPTION,
+    # CH-2 . Le 3eme frais d'activation (carnet) doit pouvoir etre paye en
+    # statut SUSPENDU . sinon la transition SUSPENDU . ACTIF ne se declenche
+    # jamais (_membership_fees_settled exige les 3 frais VALIDE). Idem pour
+    # le renouvellement annuel D6 (FRAIS_CARNET avec is_renewal=True) ou le
+    # membre est SUSPENDU apres la fenetre de grace.
+    Payment.Type.FRAIS_CARNET,
 }
 
 
@@ -92,8 +98,9 @@ def init_payment(request):
         return Response(
             {
                 "detail": (
-                    "Compte membre suspendu — seuls les frais d'adhésion + "
-                    "d'inscription sont autorisés tant que l'activation n'est pas faite."
+                    "Compte membre suspendu — seuls les frais d'adhésion, "
+                    "d'inscription et de carnet sont autorisés tant que "
+                    "l'activation n'est pas faite."
                 )
             },
             status=status.HTTP_403_FORBIDDEN,

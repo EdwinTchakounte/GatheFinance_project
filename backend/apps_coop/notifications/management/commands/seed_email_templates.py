@@ -900,6 +900,258 @@ TEMPLATES = [
         ),
         "variables": ["prenom", "code", "ttl_minutes"],
     },
+    # ────────────────────────────────────────────────────────────────────
+    # AUDIT-A2 ajouts 2026-06-28 . 17 templates minimaux pour les events
+    # qui n'avaient ni EventConfig ni EmailTemplate seede . silencieusement
+    # perdus en prod.
+    # ────────────────────────────────────────────────────────────────────
+    # --- Reinscription annuelle D2 . phases urgent / today / suspended ---
+    {
+        "code": "member.reinscription_due_urgent",
+        "objet": "Reinscription annuelle . plus que 7 jours",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton anniversaire d'adhesion arrive dans 7 jours"),
+            lead(
+                "Pour rester actif et continuer a beneficier de tous les services, "
+                "renouvelle ton adhesion en reglant tes frais annuels."
+            ),
+            cta("Renouveler mon adhesion", "{portal_url}/renouvellement-adhesion"),
+            p("Apres l'anniversaire, tu disposes d'un delai de grace avant suspension."),
+            closing(),
+        ),
+        "variables": ["prenom", "numero_membre", "date_anniversaire", "lead_days", "grace_days", "portal_url"],
+    },
+    {
+        "code": "member.reinscription_due_today",
+        "objet": "Reinscription annuelle a faire aujourd'hui",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("C'est aujourd'hui ton anniversaire d'adhesion"),
+            lead(
+                "Pour eviter une suspension de ton compte, renouvelle ton adhesion "
+                "des aujourd'hui en reglant tes frais annuels."
+            ),
+            cta("Renouveler mon adhesion", "{portal_url}/renouvellement-adhesion"),
+            closing(),
+        ),
+        "variables": ["prenom", "numero_membre", "date_anniversaire", "lead_days", "grace_days", "portal_url"],
+    },
+    {
+        "code": "member.reinscription_expired_suspended",
+        "objet": "Compte suspendu . non-renouvellement",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton compte a ete suspendu"),
+            lead(
+                "Faute de renouvellement dans le delai de grace, ton compte est passe "
+                "en statut SUSPENDU. Tu peux le reactiver en reglant tes frais de "
+                "renouvellement."
+            ),
+            cta("Reactiver mon compte", "{portal_url}/renouvellement-adhesion"),
+            closing(),
+        ),
+        "variables": ["prenom", "numero_membre", "grace_days", "anchor", "portal_url"],
+    },
+    # --- BRC ---
+    {
+        "code": "member.brc_document_uploaded",
+        "objet": "Justificatif BRC recu",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton justificatif BRC est bien recu"),
+            lead("Notre equipe va l'examiner. Tu recevras une reponse rapidement."),
+            closing(),
+        ),
+        "variables": ["prenom", "numero_membre", "nom_original"],
+    },
+    {
+        "code": "member.brc_validated",
+        "objet": "Statut BRC valide",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton statut BRC est confirme"),
+            lead(
+                "Ton justificatif a ete valide. Tu peux desormais beneficier des "
+                "modalites credit reservees aux membres BRC."
+            ),
+            closing(),
+        ),
+        "variables": ["prenom", "numero_membre", "date_validation"],
+    },
+    {
+        "code": "member.brc_rejected",
+        "objet": "Justificatif BRC . a redeposer",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton justificatif BRC n'a pas pu etre valide"),
+            callout("<strong>Motif :</strong> {motif}", tone="warn"),
+            p("Tu peux redeposer un nouveau justificatif depuis ton espace."),
+            closing(),
+        ),
+        "variables": ["prenom", "numero_membre", "motif"],
+    },
+    # --- Contentieux R1 (acte juridique) ---
+    {
+        "code": "loan.judicial_escalation_opened",
+        "objet": "Escalade judiciaire ouverte . credit {loan_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton dossier de credit passe en procedure judiciaire"),
+            lead(
+                "Faute de regularisation, le dossier de credit <strong>{loan_dossier}</strong> "
+                "est transmis a notre service juridique. Pour eviter toute aggravation, "
+                "regularise au plus vite."
+            ),
+            closing(),
+        ),
+        "variables": ["prenom", "loan_dossier"],
+    },
+    {
+        "code": "loan.biens_seized",
+        "objet": "Saisie de biens engagee . credit {loan_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Une procedure de saisie de biens est engagee"),
+            lead(
+                "Concernant ton credit <strong>{loan_dossier}</strong>, la procedure "
+                "de saisie de biens corporels a ete declenchee. Notre equipe juridique "
+                "te contactera pour les details."
+            ),
+            closing(),
+        ),
+        "variables": ["prenom", "loan_dossier"],
+    },
+    # --- Withdrawal ---
+    {
+        "code": "withdrawal.completed",
+        "objet": "Retrait finalise",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton retrait a ete finalise"),
+            lead(
+                "Le montant de <strong>{montant} FCFA</strong> t'a ete remis "
+                "({mode_paiement})."
+            ),
+            closing(),
+        ),
+        "variables": ["prenom", "numero_membre", "montant", "mode_paiement"],
+    },
+    # --- Lender (interets payes) ---
+    {
+        "code": "lender.interest_paid",
+        "objet": "Interets de placement crediteurs",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Tes interets de placement sont credites"),
+            lead(
+                "Un versement d'interets de <strong>{montant} FCFA</strong> vient "
+                "d'etre credite sur ton compte preteur."
+            ),
+            closing(),
+        ),
+        "variables": ["prenom", "montant", "loan_dossier"],
+    },
+    {
+        "code": "lender.interest_paid_at_source",
+        "objet": "Interets de placement crediteurs (a la source)",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Tes interets de placement sont credites"),
+            lead(
+                "Une retenue d'interets a la source vient d'etre creditee sur ton "
+                "compte preteur : <strong>{montant} FCFA</strong>."
+            ),
+            closing(),
+        ),
+        "variables": ["prenom", "montant", "loan_dossier"],
+    },
+    # --- Microcampagne ---
+    {
+        "code": "microcampaign.closed",
+        "objet": "Campagne {nom_campagne} cloturee",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("La campagne {nom_campagne} est cloturee"),
+            lead("Merci a tous ceux qui ont participe. Les dossiers retenus seront notifies separement."),
+            closing(),
+        ),
+        "variables": ["prenom", "nom_campagne"],
+    },
+    # --- Epargne classique . maturite, renouvellement, archivage ---
+    {
+        "code": "savings.maturity_reached",
+        "objet": "Ton epargne classique arrive a maturite",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Maturite de ton epargne classique"),
+            lead(
+                "Ton epargne classique a atteint sa date de maturite. Tu peux la "
+                "renouveler pour un nouveau cycle, ou cloturer pour recuperer ton "
+                "capital plus interets."
+            ),
+            cta("Gerer mon epargne", "{portal_url}/epargne"),
+            closing(),
+        ),
+        "variables": ["prenom", "portal_url"],
+    },
+    {
+        "code": "savings.renewed",
+        "objet": "Epargne classique renouvelee",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton epargne classique est renouvelee"),
+            lead("Un nouveau cycle d'epargne classique vient de demarrer."),
+            closing(),
+        ),
+        "variables": ["prenom"],
+    },
+    {
+        "code": "membership.archived_for_non_renewal",
+        "objet": "Adhesion archivee . non-renouvellement",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton adhesion a ete archivee"),
+            lead(
+                "Faute de renouvellement de ton epargne classique a maturite, ton "
+                "adhesion est passee en statut ARCHIVE. Contacte l'agence si tu "
+                "souhaites reprendre."
+            ),
+            closing(),
+        ),
+        "variables": ["prenom"],
+    },
+    # --- Collecte fin de mois (bascule ou restitution) ---
+    {
+        "code": "collecte.balance_swept_to_savings",
+        "objet": "Solde collecte bascule sur ton epargne",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Cloture mensuelle de ta collecte"),
+            lead(
+                "Conformement a ta preference, ton solde collecte de fin de mois "
+                "(<strong>{montant} FCFA</strong>) a ete bascule sur ton epargne "
+                "classique apres prelevement de la commission 1%."
+            ),
+            closing(),
+        ),
+        "variables": ["prenom", "montant"],
+    },
+    {
+        "code": "collecte.monthly_restitution",
+        "objet": "Restitution de ta collecte mensuelle",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Restitution mensuelle de ta collecte"),
+            lead(
+                "Conformement a ta preference, le solde de ta collecte (<strong>"
+                "{montant} FCFA</strong>) t'a ete restitue en especes apres "
+                "prelevement de la commission 1%."
+            ),
+            closing(),
+        ),
+        "variables": ["prenom", "montant"],
+    },
 ]
 
 
