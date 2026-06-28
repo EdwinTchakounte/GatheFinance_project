@@ -1,0 +1,82 @@
+# Manuel . workflow_dispatch pour nettoyer le VPS prod quand le disque
+# est plein (typiquement containerd content store gonfle par les vieilles
+# couches d'images apres plusieurs deploy successifs).
+#
+# A lancer avant un deploy quand celui-ci echoue avec :
+#   "no space left on device"
+#   "/var/lib/containerd/io.containerd.content.v1.content/ingest/..."
+#
+# Safe : ne touche pas aux conteneurs en cours d'execution, ni aux
+# volumes (donc pas a la DB Postgres ni aux media uploads).
+
+name: Cleanup VPS (docker prune)
+
+on:
+  workflow_dispatch:
+    inputs:
+      prune_images:
+        description: "docker image prune -af (couches non utilisees)"
+        type: boolean
+        default: true
+      prune_builder:
+        description: "docker builder prune -af (cache de build)"
+        type: boolean
+        default: true
+      prune_volumes:
+        description: "docker volume prune -f (volumes orphelins, NE TOUCHE PAS aux volumes des conteneurs en cours)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    name: Cleanup via SSH
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Run cleanup via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+
+            echo ">>> Disk usage BEFORE cleanup"
+            df -h /
+            echo ""
+            echo ">>> Docker disk usage BEFORE"
+            docker system df || true
+            echo ""
+
+            if [ "${{ inputs.prune_images }}" = "true" ]; then
+              echo ">>> docker image prune -af"
+              docker image prune -af
+              echo ""
+            fi
+
+            if [ "${{ inputs.prune_builder }}" = "true" ]; then
+              echo ">>> docker builder prune -af"
+              docker builder prune -af
+              echo ""
+            fi
+
+            if [ "${{ inputs.prune_volumes }}" = "true" ]; then
+              echo ">>> docker volume prune -f"
+              docker volume prune -f
+              echo ""
+            fi
+
+            echo ">>> Docker disk usage AFTER"
+            docker system df || true
+            echo ""
+            echo ">>> Disk usage AFTER cleanup"
+            df -h /
+            echo ""
+            echo ">>> Done."
