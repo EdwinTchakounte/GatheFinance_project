@@ -26,6 +26,7 @@ from apps_coop.audit.services import (
     get_str_setting,
     record as record_audit,
 )
+from apps_coop.portal_urls import portal_url as _build_portal_url
 from apps_coop.savings.models import SavingsAccount
 
 from .models import BRCDocument, Member, MembershipRequest
@@ -240,9 +241,12 @@ def _send_welcome_email(member: Member, to_email: str) -> None:
         # Sans ça, le membre approuvé ne pourrait pas se connecter pour payer ses
         # frais d'adhésion (mot de passe random jamais transmis).
         try:
+            from apps_coop.portal_urls import portal_url as build_portal_url
+
             setup_token = issue_password_setup_token(user=member.user)
-            portal_url = getattr(settings, "FRONTEND_PUBLIC_URL", "http://localhost:3200")
-            password_setup_url = f"{portal_url}/definir-mot-de-passe?token={setup_token.token}"
+            password_setup_url = build_portal_url(
+                f"definir-mot-de-passe?token={setup_token.token}",
+            )
         except Exception:  # noqa: BLE001
             logger.warning(
                 "password setup token failed for %s — welcome email without link",
@@ -296,6 +300,8 @@ def _send_welcome_email(member: Member, to_email: str) -> None:
 
         from apps_coop.notifications.events import emit_event
 
+        from apps_coop.portal_urls import portal_url as build_portal_url
+
         emit_event(
             "member.welcome",
             member=member,
@@ -305,7 +311,7 @@ def _send_welcome_email(member: Member, to_email: str) -> None:
                 "nom": member.nom,
                 "numero_membre": member.numero_membre,
                 "frais_montant": frais_montant,
-                "portal_url": getattr(settings, "FRONTEND_PUBLIC_URL", "http://localhost:3200"),
+                "portal_url": build_portal_url(),
                 "password_setup_url": password_setup_url,
             },
             attachments=attachments or None,
@@ -364,9 +370,7 @@ def reject_membership_request(
                     "prenom": request_obj.prenom,
                     "nom": request_obj.nom,
                     "motif": motif,
-                    "portal_url": getattr(
-                        settings, "FRONTEND_PUBLIC_URL", "http://localhost:3200"
-                    ),
+                    "portal_url": _build_portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001

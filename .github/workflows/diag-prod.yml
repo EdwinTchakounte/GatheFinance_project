@@ -1,0 +1,79 @@
+# Manuel . workflow_dispatch pour diagnostiquer la prod sans devoir SSH.
+#
+# Cas d'usage typique : un lien envoye par e-mail (definir mot de passe,
+# reset password, lender consent...) renvoie 404 et on veut savoir si la
+# variable FRONTEND_PUBLIC_URL est bien injectee dans le container backend,
+# si .env.prod a PORTAL_DOMAIN, et a quoi ressemble l'URL effectivement
+# generee par le code.
+#
+# Sans effet de bord (read-only). Pas de modif de DB, pas de mail envoye.
+
+name: Diag prod (config + portal URL)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    name: Inspect VPS via SSH
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: SSH + dump config
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 3m
+          script: |
+            set -euo pipefail
+
+            DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml --env-file .env.prod"
+
+            cd "$DEPLOY_PATH/infra"
+
+            echo "================ .env.prod (front URL keys) ================"
+            grep -E "^(FRONTEND_PUBLIC_URL|FRONTEND_BASE_URL|SITE_DOMAIN|PORTAL_DOMAIN|ADMIN_DOMAIN|API_DOMAIN)=" .env.prod \
+              || echo "(none of those keys are in .env.prod)"
+            echo ""
+
+            echo "================ Container backend . env injected ================"
+            $COMPOSE exec -T backend env | grep -E "^(FRONTEND_PUBLIC_URL|FRONTEND_BASE_URL|SITE_DOMAIN|PORTAL_DOMAIN|ADMIN_DOMAIN|API_DOMAIN)=" \
+              | sort \
+              || echo "(none of those keys are in container env)"
+            echo ""
+
+            echo "================ Image tag + image digest ================"
+            grep "^GATHE_IMAGE_TAG=" .env.prod || echo "(GATHE_IMAGE_TAG not in .env.prod)"
+            $COMPOSE images backend
+            echo ""
+
+            echo "================ Generated portal URL (Django) ================"
+            $COMPOSE exec -T backend python manage.py shell -c "
+            from apps_coop.portal_urls import portal_base, portal_url
+            print('portal_base() =', repr(portal_base()))
+            print('portal_url(\"definir-mot-de-passe?token=DEMO\") =', repr(portal_url('definir-mot-de-passe?token=DEMO')))
+            from django.conf import settings
+            print('settings.FRONTEND_PUBLIC_URL =', repr(getattr(settings, 'FRONTEND_PUBLIC_URL', None)))
+            print('settings.FRONTEND_BASE_URL  =', repr(getattr(settings, 'FRONTEND_BASE_URL', None)))
+            " 2>&1 || echo "(failed to query Django shell . see error above)"
+            echo ""
+
+            echo "================ Latest welcome email candidate ================"
+            $COMPOSE exec -T backend python manage.py shell -c "
+            from apps_coop.members.models import Member
+            m = Member.objects.order_by('-id').first()
+            if m:
+                print('Most recent Member:', m.numero_membre, '|', m.prenom, m.nom, '|', getattr(m.user, 'email', 'no-user'))
+            else:
+                print('(no Member rows yet)')
+            " 2>&1 || echo "(failed)"
+
+            echo ">>> Done."

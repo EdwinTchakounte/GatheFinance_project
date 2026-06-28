@@ -13,6 +13,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from apps_coop.audit.services import client_ip, record as record_audit
+from apps_coop.portal_urls import portal_url as _portal_url
 
 from . import services
 from .models import BRCDocument, Member, MembershipRequest
@@ -305,9 +306,7 @@ def admin_record_interview(request, pk: int):
                     "nom": req.nom or "",
                     "favorable": bool(req.entretien_favorable),
                     "avis": avis,
-                    "portal_url": getattr(
-                        dj_settings, "FRONTEND_PUBLIC_URL", "https://gathe-finance.horus-lab.com",
-                    ),
+                    "portal_url": _portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001 . jamais bloquant
