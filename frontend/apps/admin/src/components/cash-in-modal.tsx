@@ -27,14 +27,36 @@ const TYPE_OPTIONS: { value: CashInType; label: string }[] = [
 ];
 
 
+// Optionnel : pre-remplir membre + type + montant a l'ouverture, pour les
+// flots ou le contexte est connu (ex: encaisser les frais d'etude d'une
+// demande precise depuis la page /loan-requests).
+//
+// `member` accepte un sous-ensemble (id + nom/prenom + identifiants) car les
+// objets renvoyes par les API connexes (LoanRequest, etc.) n'exposent pas
+// tous les champs du Member admin (statut, email, ...). On reconstruit un
+// Member minimal pour le typeahead UI.
+export type CashInPrefillMember = Pick<
+  Member,
+  "id" | "numero_membre" | "nom" | "prenom"
+> & Partial<Member>;
+
+export type CashInPrefill = {
+  member?: CashInPrefillMember | null;
+  type?: CashInType;
+  montant?: string;
+  note?: string;
+};
+
 export function CashInModal({
   open,
   onClose,
   onSuccess,
+  prefill,
 }: {
   open: boolean;
   onClose: () => void;
   onSuccess: (msg: string) => void;
+  prefill?: CashInPrefill;
 }) {
   const [memberQuery, setMemberQuery] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
@@ -74,8 +96,31 @@ export function CashInModal({
   useEffect(() => {
     if (!open) {
       reset();
+      return;
     }
-  }, [open]);
+    // Applique le prefill quand le modal s'ouvre. Le membre selectionne court-
+    // circuite la recherche typeahead. L'admin peut toujours editer.
+    if (prefill?.member) {
+      // Le typeahead `selectedMember` exige un Member complet : on comble
+      // les champs absents avec des defauts safe. L'admin peut quand meme
+      // dechecker pour resaisir si besoin.
+      const m: Member = {
+        id: prefill.member.id,
+        numero_membre: prefill.member.numero_membre,
+        nom: prefill.member.nom,
+        prenom: prefill.member.prenom,
+        email: prefill.member.email ?? "",
+        phone: prefill.member.phone ?? "",
+        statut: prefill.member.statut ?? "actif",
+        statut_display: prefill.member.statut_display ?? "",
+        date_adhesion: prefill.member.date_adhesion ?? "",
+      };
+      setSelectedMember(m);
+    }
+    if (prefill?.type) setPaymentType(prefill.type);
+    if (prefill?.montant) setMontant(prefill.montant);
+    if (prefill?.note) setNote(prefill.note);
+  }, [open, prefill]);
 
   // Recherche membre . debounce simple 250ms.
   useEffect(() => {

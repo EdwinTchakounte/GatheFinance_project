@@ -11,6 +11,7 @@ import '../../../../core/di/providers.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/network/api_config.dart';
+import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
@@ -69,6 +70,18 @@ class CreditPage extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
+            // Polling 30 s sur loans + loanRequests pour voir en quasi-temps-reel
+            // les changements d'etat fait cote dashboard admin (approbation
+            // provisoire, encaissement frais d'etude, decision definitive...).
+            // Idempotence via hash : pas de rebuild si la donnee est inchangee.
+            LivePoller(
+              refresh: () => ref.read(loansProvider.notifier).refresh(),
+              readSnapshot: () => ref.read(loansProvider).valueOrNull,
+            ),
+            LivePoller(
+              refresh: () => ref.read(loanRequestsProvider.notifier).refresh(),
+              readSnapshot: () => ref.read(loanRequestsProvider).valueOrNull,
+            ),
             // ── Header FIXE compact . band gradient soft vert→bleu ──────
             PaGradientHeaderBand(title: l.credit_title),
             const SizedBox(height: 12),

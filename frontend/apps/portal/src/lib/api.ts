@@ -551,6 +551,22 @@ export const portalApi = {
     // CH-9 — URL absolue pour télécharger la note PDF d'une demande.
     noteUrl: (requestId: number) => `${API_BASE}/loans/requests/${requestId}/note/`,
 
+    // Typeahead avaliste : recherche un membre Senior actif dispo comme
+    // garant. Anti-fraude : compare numero_membre ET nom cote backend lors
+    // de la creation de la demande. Le mobile utilise le meme endpoint.
+    searchAvaliste: (q: string) =>
+      request<{
+        results: Array<{
+          numero_membre: string;
+          nom: string;
+          prenom: string;
+          is_senior: boolean;
+          solde_total: string;
+          cautions_engagees: string;
+          capacite_caution: string;
+        }>;
+      }>(`/members/search-avaliste/?q=${encodeURIComponent(q)}`),
+
     // CH-5 — Upload d'un fichier rattaché à un LoanRequest (multipart).
     // Idempotent par schema_field_id : re-upload remplace le précédent.
     uploadAttachment: (

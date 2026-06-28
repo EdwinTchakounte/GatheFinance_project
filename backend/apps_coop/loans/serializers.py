@@ -78,6 +78,9 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
 
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     loan = serializers.SerializerMethodField()
+    # Sociétaire qui a soumis la demande : indispensable pour l'admin
+    # (savoir qui encaisser, qui contacter, vérifier l'identité).
+    member = serializers.SerializerMethodField()
     # Réponses CFP Broad Range + CGA + autres champs FormSchema → l'admin
     # voit ces données dans la carte "Profil emprunteur" pour valider.
     extra_payload = serializers.JSONField(read_only=True)
@@ -89,6 +92,7 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
         model = LoanRequest
         fields = (
             "id",
+            "member",
             "montant_demande",
             "duree_mois",
             "motif",
@@ -104,6 +108,18 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "attachments",
         )
         read_only_fields = fields
+
+    def get_member(self, obj):
+        m = getattr(obj, "member", None)
+        if m is None:
+            return None
+        return {
+            "id": m.id,
+            "numero_membre": getattr(m, "numero_membre", "") or "",
+            "nom": getattr(m, "nom", "") or "",
+            "prenom": getattr(m, "prenom", "") or "",
+            "telephone": getattr(m, "telephone", "") or "",
+        }
 
     def get_attachments(self, obj):
         """Liste les Documents indexés (schema_field_id, file URL, taille).

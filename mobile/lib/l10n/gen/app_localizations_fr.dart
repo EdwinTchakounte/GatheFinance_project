@@ -574,6 +574,18 @@ class AppL10nFr extends AppL10n {
   String get booklet_error_title => 'Carnet indisponible';
 
   @override
+  String get booklet_active_title => 'Carnet actif';
+
+  @override
+  String booklet_active_subtitle(String date) {
+    return 'Délivré le $date. Tu peux l\'utiliser pour tes versements à l\'agence.';
+  }
+
+  @override
+  String get booklet_active_reorder_hint =>
+      'Carnet épuisé ? Commander un nouveau';
+
+  @override
   String get notifs_title => 'Notifications';
 
   @override

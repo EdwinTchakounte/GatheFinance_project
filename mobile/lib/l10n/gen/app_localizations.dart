@@ -1141,6 +1141,24 @@ abstract class AppL10n {
   /// **'Carnet indisponible'**
   String get booklet_error_title;
 
+  /// No description provided for @booklet_active_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Carnet actif'**
+  String get booklet_active_title;
+
+  /// No description provided for @booklet_active_subtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Délivré le {date}. Tu peux l\'utiliser pour tes versements à l\'agence.'**
+  String booklet_active_subtitle(String date);
+
+  /// No description provided for @booklet_active_reorder_hint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Carnet épuisé ? Commander un nouveau'**
+  String get booklet_active_reorder_hint;
+
   /// No description provided for @notifs_title.
   ///
   /// In fr, this message translates to:

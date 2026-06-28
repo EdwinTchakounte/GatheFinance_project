@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, FileText, Send, X } from "lucide-react";
+import { Check, Coins, FileText, Send, X } from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
 
+import { CashInModal, type CashInPrefill } from "@/components/cash-in-modal";
 import { Modal, ModalField, modalInputClass } from "@/components/modal";
 import { adminApi, type ApiError, type LoanRequest } from "@/lib/api";
 
@@ -31,10 +32,19 @@ export default function LoanRequestsPage() {
   );
 }
 
+type LoanRequestFilter =
+  | "en_attente"
+  | "en_instruction"
+  | "approuvee_provisoire"
+  | "approuvee"
+  | "rejetee"
+  | "";
+
 function Inner() {
-  const [filter, setFilter] = useState<
-    "en_instruction" | "approuvee_provisoire" | "approuvee" | "rejetee" | ""
-  >("en_instruction");
+  // Defaut sur "en_attente" : les demandes fraichement soumises restent
+  // bloquees en attente du paiement des frais d'etude (CH-7). C'est la
+  // file la plus urgente cote admin (relance + cash-in agence).
+  const [filter, setFilter] = useState<LoanRequestFilter>("en_attente");
   const [items, setItems] = useState<LoanRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<number | null>(null);
@@ -46,6 +56,9 @@ function Inner() {
   // CH-6 — Workflow double approbation : provisoire → visite terrain → définitive.
   const [provisionalTarget, setProvisionalTarget] = useState<LoanRequest | null>(null);
   const [fieldVisitTarget, setFieldVisitTarget] = useState<LoanRequest | null>(null);
+  // Cash-in admin frais d'etude (CH-7) : encaisser les frais en agence quand
+  // le membre paie en especes au lieu de Tara MoMo.
+  const [cashInTarget, setCashInTarget] = useState<LoanRequest | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -174,6 +187,7 @@ function Inner() {
 
         <div className="flex items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
           {[
+            { v: "en_attente", l: "Frais à percevoir" },
             { v: "en_instruction", l: "En instruction" },
             { v: "approuvee_provisoire", l: "Provisoires" },
             { v: "approuvee", l: "Approuvées" },
@@ -183,16 +197,7 @@ function Inner() {
             <button
               key={opt.v}
               type="button"
-              onClick={() =>
-                setFilter(
-                  opt.v as
-                    | "en_instruction"
-                    | "approuvee_provisoire"
-                    | "approuvee"
-                    | "rejetee"
-                    | "",
-                )
-              }
+              onClick={() => setFilter(opt.v as LoanRequestFilter)}
               className={[
                 "rounded px-3 py-1.5 text-xs font-medium transition-colors",
                 filter === opt.v ? "bg-blue-700 text-white" : "text-ink-700 hover:text-blue-700",
@@ -227,6 +232,7 @@ function Inner() {
             <thead>
               <tr>
                 <th>Demande</th>
+                <th>Membre</th>
                 <th className="text-right">Montant</th>
                 <th>Durée</th>
                 <th>Objet</th>
@@ -239,6 +245,21 @@ function Inner() {
               {items.map((r) => (
                 <tr key={r.id}>
                   <td className="font-mono text-xs text-ink-600">#{r.id}</td>
+                  <td>
+                    {r.member ? (
+                      <div className="min-w-[10rem]">
+                        <p className="text-sm font-medium text-ink-900">
+                          {r.member.prenom} {r.member.nom}
+                        </p>
+                        <p className="font-mono text-[11px] text-ink-500">
+                          {r.member.numero_membre}
+                          {r.member.telephone ? ` · ${r.member.telephone}` : ""}
+                        </p>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-ink-400">—</span>
+                    )}
+                  </td>
                   <td className="text-right font-mono font-medium">{formatXAF(r.montant_demande)}</td>
                   <td className="whitespace-nowrap">{r.duree_mois} mois</td>
                   <td className="max-w-md">
@@ -251,7 +272,8 @@ function Inner() {
                   <td>
                     <span className={
                       "pill " +
-                      (r.statut === "en_instruction" ? "pill-info"
+                      (r.statut === "en_attente" ? "pill-warning"
+                        : r.statut === "en_instruction" ? "pill-info"
                         : r.statut === "approuvee_provisoire" ? "pill-warning"
                         : r.statut === "approuvee" ? "pill-success"
                         : r.statut === "rejetee" ? "pill-danger" : "pill-muted")
@@ -279,7 +301,30 @@ function Inner() {
                     {r.motif_rejet ? <p className="mt-1 text-xs text-terra-700 max-w-[14rem]">{r.motif_rejet}</p> : null}
                   </td>
                   <td className="text-right">
-                    {r.statut === "en_instruction" ? (
+                    {r.statut === "en_attente" ? (
+                      <div className="flex flex-col items-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setCashInTarget(r)}
+                          disabled={actingId === r.id}
+                          className={buttonClasses({ variant: "primary", size: "sm" })}
+                          title="Encaisser les frais d'etude en agence (cash-in)"
+                        >
+                          <Coins className="size-3.5" aria-hidden="true" />Encaisser frais
+                        </button>
+                        <p className="text-[11px] text-ink-500 max-w-[14rem] text-right">
+                          La demande passera en instruction des reception des frais (Tara ou cash-in agence).
+                        </p>
+                        <a
+                          href={adminApi.loans.noteUrl(r.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
+                        >
+                          <FileText className="size-3" />Note PDF
+                        </a>
+                      </div>
+                    ) : r.statut === "en_instruction" ? (
                       <div className="flex flex-col items-end gap-1.5">
                         <div className="flex gap-2">
                           <button
@@ -426,6 +471,35 @@ function Inner() {
         onClose={() => setFieldVisitTarget(null)}
         onSubmit={submitFieldVisit}
         submitting={actingId !== null}
+      />
+
+      {/* Cash-in frais d'etude (CH-7). Pre-remplit membre + type + montant
+          a partir de la demande selectionnee. L'admin peut tout editer. */}
+      <CashInModal
+        open={cashInTarget !== null}
+        onClose={() => setCashInTarget(null)}
+        onSuccess={(text) => {
+          setMessage({ tone: "ok", text });
+          setCashInTarget(null);
+          void reload();
+        }}
+        prefill={
+          cashInTarget && cashInTarget.member
+            ? ({
+                // LoanRequest.member expose `telephone` (champ Django) alors
+                // que le type Member admin utilise `phone` : on traduit ici.
+                member: {
+                  id: cashInTarget.member.id,
+                  numero_membre: cashInTarget.member.numero_membre,
+                  nom: cashInTarget.member.nom,
+                  prenom: cashInTarget.member.prenom,
+                  phone: cashInTarget.member.telephone,
+                },
+                type: "frais_demande_credit",
+                note: `Frais d'etude demande #${cashInTarget.id}`,
+              } satisfies CashInPrefill)
+            : undefined
+        }
       />
     </div>
   );

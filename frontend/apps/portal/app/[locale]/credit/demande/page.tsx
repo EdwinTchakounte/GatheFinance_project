@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Container, buttonClasses } from "@gathe/ui";
 
 import { portalApi, type ApiError, type FormSchemaPublic } from "@/lib/api";
+import { computeLoanBreakdown, durationMonthsFor, type PaymentModality } from "@/lib/loan-terms";
 import {
   DynamicFields,
   validateDynamicFields,
@@ -18,10 +19,22 @@ type Voie = "senior_brc" | "avaliste" | "campaign";
 
 type Canal = "tara_momo" | "tara_om" | "agence_especes";
 
+type AvalisteCandidate = {
+  numero_membre: string;
+  nom: string;
+  prenom: string;
+  is_senior: boolean;
+  solde_total: string;
+  cautions_engagees: string;
+  capacite_caution: string;
+};
+
 type FormState = {
   voie: Voie;
   montant_demande: string;
-  duree_mois: string;
+  // CH-T1b : 3 modalites (journalier/hebdo/mensuel). Defaut mensuel
+  // (Article 8 du Reglement). Le mobile fait pareil.
+  modalite: PaymentModality;
   motif: string;
   avaliste_numero: string;
   avaliste_nom: string;
@@ -35,8 +48,15 @@ type FormState = {
 // CH-4 — Champs câblés en dur dans cette page (UI dédiée, métier 3 voies).
 // Tous les autres champs du schéma loan_request actif sont rendus par
 // <DynamicFields> sous le formulaire principal.
+//
+// NB : `modalite_paiement` DOIT etre rendu par <DynamicFields> via le
+// FormSchema (option seedee dans seed_form_schemas.py). On le retire de
+// la liste hardcoded pour qu'il s'affiche.
+//
+// `duree_mois` reste hardcoded mais en LECTURE SEULE : la duree est derivee
+// du montant via Article 7 (palier table). Le mobile fait pareil.
 const HARDCODED_LOAN_FIELDS = new Set([
-  "montant_demande", "duree_mois", "motif", "modalite_paiement",
+  "montant_demande", "duree_mois", "motif",
   "avaliste_numero", "avaliste_nom", "campaign_id", "profil_cible",
   "moyen_reception", "recipient_phone",
 ]);
@@ -64,7 +84,7 @@ export default function PortalLoanRequestPage() {
   const [form, setForm] = useState<FormState>({
     voie: "senior_brc",
     montant_demande: "",
-    duree_mois: "12",
+    modalite: "mensuel",
     motif: "",
     avaliste_numero: "",
     avaliste_nom: "",
@@ -83,6 +103,37 @@ export default function PortalLoanRequestPage() {
   const [schema, setSchema] = useState<FormSchemaPublic | null>(null);
   const [extraValues, setExtraValues] = useState<FormValues>({});
   const [extraErrors, setExtraErrors] = useState<Record<string, string>>({});
+
+  // Typeahead avaliste (parite mobile loan_request_sheet.dart).
+  const [avalisteQuery, setAvalisteQuery] = useState("");
+  const [avalisteSuggestions, setAvalisteSuggestions] = useState<AvalisteCandidate[]>([]);
+  const [avalisteSelected, setAvalisteSelected] = useState<AvalisteCandidate | null>(null);
+  const [avalisteSearching, setAvalisteSearching] = useState(false);
+  const avalisteDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // CH-7 — Recap frais d'etude affiche apres submit, AVANT redirection vers
+  // /epargne/depot. Parite mobile (loan_request_sheet.dart success step).
+  type FeeRecap = {
+    requestId: number;
+    montant: string;
+    libelle: string;
+  };
+  const [feeRecap, setFeeRecap] = useState<FeeRecap | null>(null);
+
+  // Derivation duree via Article 7 (palier table = source mobile).
+  // Affichee en lecture seule sous le montant. Recalculee a chaque saisie.
+  const dureeMoisDerivee = useMemo(() => {
+    const m = Number(form.montant_demande);
+    if (!Number.isFinite(m) || m < 5000) return null;
+    return durationMonthsFor(m);
+  }, [form.montant_demande]);
+
+  // Recap complet (interets, total du, nb echeances) pour le membre.
+  const breakdown = useMemo(() => {
+    const m = Number(form.montant_demande);
+    if (!Number.isFinite(m) || m < 5000) return null;
+    return computeLoanBreakdown(m, form.modalite);
+  }, [form.montant_demande, form.modalite]);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +169,51 @@ export default function PortalLoanRequestPage() {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
+  // Typeahead avaliste : recherche backend avec debounce 300 ms (parite mobile).
+  // Ne fire que si voie=avaliste, qu'aucun candidat n'est encore selectionne,
+  // et que la query fait >= 2 caracteres.
+  useEffect(() => {
+    if (form.voie !== "avaliste" || avalisteSelected) {
+      setAvalisteSuggestions([]);
+      return;
+    }
+    const q = avalisteQuery.trim();
+    if (q.length < 2) {
+      setAvalisteSuggestions([]);
+      return;
+    }
+    if (avalisteDebounceRef.current) {
+      clearTimeout(avalisteDebounceRef.current);
+    }
+    avalisteDebounceRef.current = setTimeout(async () => {
+      setAvalisteSearching(true);
+      try {
+        const res = await portalApi.loans.searchAvaliste(q);
+        setAvalisteSuggestions(res.results);
+      } catch {
+        setAvalisteSuggestions([]);
+      } finally {
+        setAvalisteSearching(false);
+      }
+    }, 300);
+    return () => {
+      if (avalisteDebounceRef.current) {
+        clearTimeout(avalisteDebounceRef.current);
+      }
+    };
+  }, [avalisteQuery, form.voie, avalisteSelected]);
+
+  // Quand l'utilisateur change de voie, on reset les champs avaliste pour
+  // eviter qu'une selection orpheline ne pollue le payload.
+  useEffect(() => {
+    if (form.voie !== "avaliste") {
+      setAvalisteSelected(null);
+      setAvalisteQuery("");
+      setAvalisteSuggestions([]);
+      setForm((f) => ({ ...f, avaliste_numero: "", avaliste_nom: "" }));
+    }
+  }, [form.voie]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting) return;
@@ -142,6 +238,30 @@ export default function PortalLoanRequestPage() {
       setExtraErrors({});
     }
 
+    // Validation montant + duree derivee.
+    const montantNum = Number(form.montant_demande);
+    if (!Number.isFinite(montantNum) || montantNum < 5000) {
+      setError("Le montant doit etre d'au moins 5 000 XAF.");
+      return;
+    }
+    const dureeMois = durationMonthsFor(montantNum);
+
+    // Motif aligne mobile : 10 chars minimum (au lieu de 20 cote portail
+    // historique). 2000 max conserve.
+    if (form.motif.trim().length < 10) {
+      setError("Le motif doit faire au moins 10 caracteres.");
+      return;
+    }
+
+    // Voie avaliste : un candidat valide doit etre selectionne via le
+    // typeahead (pas de saisie libre). Garde anti-typo/fraude.
+    if (form.voie === "avaliste" && !avalisteSelected) {
+      setError(
+        "Selectionne un avaliste dans la liste (recherche par nom ou numero de membre).",
+      );
+      return;
+    }
+
     // CH-9 — Validation locale : téléphone requis pour les canaux Tara.
     const phone = form.recipient_phone.trim();
     const needsPhone = form.moyen_reception === "tara_om" ||
@@ -163,18 +283,23 @@ export default function PortalLoanRequestPage() {
       }
 
       const payload: Parameters<typeof portalApi.loans.create>[0] = {
-        montant_demande: Number(form.montant_demande),
-        duree_mois: Number(form.duree_mois),
+        montant_demande: montantNum,
+        // Duree DERIVEE du montant (Article 7) ; le client ne la choisit pas.
+        duree_mois: dureeMois,
         motif: form.motif.trim(),
+        // Modalite de paiement (3 valeurs : journalier / hebdomadaire / mensuel)
+        // routee vers extra_payload via le compat layer backend.
+        modalite_paiement: form.modalite,
         // CH-9 — Canal de réception + téléphone (vide pour agence_especes).
         moyen_reception: form.moyen_reception,
         recipient_phone: needsPhone ? phone : "",
         // CH-4 — Champs scalaires supplémentaires routés vers extra_payload.
         ...scalarExtras,
       };
-      if (form.voie === "avaliste") {
-        payload.avaliste_numero = form.avaliste_numero.trim();
-        payload.avaliste_nom = form.avaliste_nom.trim();
+      if (form.voie === "avaliste" && avalisteSelected) {
+        // Numero + nom valides via le typeahead backend (anti-fraude).
+        payload.avaliste_numero = avalisteSelected.numero_membre;
+        payload.avaliste_nom = avalisteSelected.nom;
       } else if (form.voie === "campaign") {
         if (form.campaign_id.trim()) {
           payload.campaign_id = Number(form.campaign_id);
@@ -218,7 +343,19 @@ export default function PortalLoanRequestPage() {
         );
         return;
       }
-      // SENIOR_BRC → paiement des frais
+      // SENIOR_BRC → recap frais d'etude AVANT redirection vers /epargne/depot.
+      // Le membre voit le montant + la mention "non-remboursable" + un bouton
+      // explicite. Parite mobile (CH-7 success step).
+      if (result.frais_a_payer) {
+        setFeeRecap({
+          requestId: result.loan_request.id,
+          montant: result.frais_a_payer.montant,
+          libelle: result.frais_a_payer.libelle,
+        });
+        setSubmitting(false);
+        return;
+      }
+      // Pas de frais a payer (cas degenere) : on redirige direct.
       router.push(
         `/epargne/depot?context=credit-fees&request=${result.loan_request.id}`,
       );
@@ -250,6 +387,75 @@ export default function PortalLoanRequestPage() {
     eligibility?.motifs_ineligibilite?.find((m) =>
       /en cours|déjà|statut/i.test(m),
     ) || null;
+
+  // CH-7 — Apres soumission, on affiche un recap des frais d'etude AVANT
+  // de rediriger vers /epargne/depot. Parite mobile : le membre voit le
+  // montant + la mention non-remboursable + un bouton explicite "Payer".
+  if (feeRecap) {
+    return (
+      <main className="py-12 lg:py-16">
+        <Container className="max-w-lg">
+          <div className="rounded-md border border-line-200 bg-paper p-8 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+              <span className="text-3xl">✓</span>
+            </div>
+            <h1 className="mt-5 font-editorial text-2xl font-medium text-ink-900">
+              Demande enregistree
+            </h1>
+            <p className="mt-2 text-sm text-ink-600">
+              Ta demande est sauvegardee. Pour qu&apos;elle passe en
+              instruction, regle maintenant les frais d&apos;etude.
+            </p>
+
+            <div className="mt-6 rounded-md border border-blue-300 bg-blue-50/60 p-5">
+              <p className="text-xs font-medium uppercase tracking-wide text-blue-700">
+                {feeRecap.libelle}
+              </p>
+              <p className="mt-2 font-editorial text-3xl font-semibold text-ink-900">
+                {Number(feeRecap.montant).toLocaleString("fr-FR")} XAF
+              </p>
+            </div>
+
+            <div className="mt-4 rounded-md border border-terra-400/40 bg-terra-50/60 p-3 text-xs text-terra-700">
+              <strong>Important — ces frais sont non-remboursables.</strong>{" "}
+              Ils couvrent l&apos;instruction du dossier et la visite terrain
+              eventuelle. Aucun remboursement ne sera effectue, y compris en
+              cas de refus.
+            </div>
+
+            <div className="mt-6 space-y-2">
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(
+                    `/epargne/depot?context=credit-fees&request=${feeRecap.requestId}`,
+                  )
+                }
+                className={buttonClasses({
+                  variant: "success",
+                  size: "lg",
+                  fullWidth: true,
+                })}
+              >
+                Payer {Number(feeRecap.montant).toLocaleString("fr-FR")} XAF maintenant
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/credit")}
+                className="block w-full text-sm font-medium text-ink-600 transition-colors hover:text-ink-900"
+              >
+                Payer plus tard
+              </button>
+              <p className="text-[11px] text-ink-500">
+                Tu pourras retrouver ta demande en attente sur la page Credit
+                et regler les frais a tout moment.
+              </p>
+            </div>
+          </div>
+        </Container>
+      </main>
+    );
+  }
 
   return (
     <main className="py-12 lg:py-16">
@@ -330,26 +536,64 @@ export default function PortalLoanRequestPage() {
             </p>
           )}
 
-          <label
-            className="mt-5 block text-sm font-medium text-ink-900"
-            htmlFor="duree_mois"
-          >
-            Durée (mois)
-          </label>
-          <select
-            id="duree_mois"
-            required
-            value={form.duree_mois}
-            onChange={(e) => set("duree_mois", e.target.value)}
-            className={inputCls}
-          >
-            <option value="3">3 mois</option>
-            <option value="6">6 mois</option>
-            <option value="12">12 mois</option>
-            <option value="18">18 mois</option>
-            <option value="24">24 mois</option>
-            <option value="36">36 mois</option>
-          </select>
+          {/* Duree : DERIVEE du montant via Article 7 (palier table). Le
+              membre ne choisit pas. Aligne sur mobile. */}
+          <div className="mt-5">
+            <p className="block text-sm font-medium text-ink-900">
+              Duree de remboursement (Article 7)
+            </p>
+            <div className="mt-2 flex items-center gap-3 rounded-md border border-line-200 bg-cream/40 px-3 py-2.5">
+              <span className="text-2xl font-semibold text-ink-900">
+                {dureeMoisDerivee ?? "—"}
+              </span>
+              <span className="text-sm text-ink-600">
+                mois — derivee automatiquement du montant
+              </span>
+            </div>
+            {breakdown && (
+              <p className="mt-1 text-[11px] text-ink-500">
+                Total a rembourser :{" "}
+                <strong className="text-ink-700">
+                  {breakdown.montantTotalDu.toLocaleString("fr-FR")} XAF
+                </strong>{" "}
+                · {breakdown.nbEcheances} echeances de{" "}
+                <strong className="text-ink-700">
+                  {breakdown.montantParEcheance.toLocaleString("fr-FR")} XAF
+                </strong>{" "}
+                (interets flat 10 %).
+              </p>
+            )}
+          </div>
+
+          {/* Modalite de paiement (3 chips). Le mobile fait pareil.
+              Recharge le recap des echeances ci-dessus. */}
+          <p className="mt-5 block text-sm font-medium text-ink-900">
+            Modalite de remboursement (Article 8)
+          </p>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {(["journalier", "hebdomadaire", "mensuel"] as const).map((mod) => {
+              const selected = form.modalite === mod;
+              return (
+                <button
+                  key={mod}
+                  type="button"
+                  onClick={() => set("modalite", mod)}
+                  className={[
+                    "rounded-md border px-3 py-2 text-sm font-medium transition-colors",
+                    selected
+                      ? "border-blue-700 bg-blue-50/60 text-blue-700"
+                      : "border-line-200 bg-paper text-ink-700 hover:border-blue-700/40",
+                  ].join(" ")}
+                >
+                  {mod === "journalier"
+                    ? "Journalier"
+                    : mod === "hebdomadaire"
+                      ? "Hebdomadaire"
+                      : "Mensuel"}
+                </button>
+              );
+            })}
+          </div>
 
           <label
             className="mt-5 block text-sm font-medium text-ink-900"
@@ -361,58 +605,118 @@ export default function PortalLoanRequestPage() {
             id="motif"
             required
             rows={4}
-            minLength={20}
+            minLength={10}
             maxLength={2000}
             value={form.motif}
             onChange={(e) => set("motif", e.target.value)}
             className={inputCls}
-            placeholder="Achat de matériel, fonds de roulement, formation…"
+            placeholder="Achat de materiel, fonds de roulement, formation…"
           />
+          <p className="mt-1 text-[11px] text-ink-500">
+            10 caracteres minimum.
+          </p>
 
-          {/* Champs voie AVALISTE */}
+          {/* Voie AVALISTE : typeahead backend (anti-fraude) - parite mobile.
+              On recherche un membre Senior actif puis on le selectionne. La
+              capacite de caution restante est affichee sous chaque candidat. */}
           {form.voie === "avaliste" && (
             <div className="mt-6 space-y-3 rounded-md border border-line-200 bg-cream/40 p-4">
               <h3 className="text-sm font-semibold text-ink-900">
-                Désignation de l'avaliste
+                Designation de l'avaliste
               </h3>
               <p className="text-xs text-ink-600">
-                Tape le numéro de membre <strong>et</strong> le nom de famille
-                exacts (double-clé anti-fraude). L'avaliste recevra une
-                notification pour accepter ou refuser le mandat depuis son
-                espace.
+                Tape le nom ou le numero de membre. Seuls les membres anciens
+                (Senior) actifs sont propose. L'avaliste recevra une notification
+                pour accepter ou refuser le mandat depuis son espace.
               </p>
-              <div>
-                <label
-                  className="block text-xs font-medium text-ink-700"
-                  htmlFor="avaliste_numero"
-                >
-                  Numéro de membre
-                </label>
-                <input
-                  id="avaliste_numero"
-                  required
-                  value={form.avaliste_numero}
-                  onChange={(e) => set("avaliste_numero", e.target.value)}
-                  className={inputCls}
-                  placeholder="GF-2024-0042"
-                />
-              </div>
-              <div>
-                <label
-                  className="block text-xs font-medium text-ink-700"
-                  htmlFor="avaliste_nom"
-                >
-                  Nom de famille
-                </label>
-                <input
-                  id="avaliste_nom"
-                  required
-                  value={form.avaliste_nom}
-                  onChange={(e) => set("avaliste_nom", e.target.value)}
-                  className={inputCls}
-                  placeholder="DUPONT"
-                />
-              </div>
+
+              {avalisteSelected ? (
+                <div className="rounded-md border border-blue-300 bg-blue-50/60 p-3">
+                  <p className="text-sm font-semibold text-blue-900">
+                    {avalisteSelected.prenom} {avalisteSelected.nom}
+                  </p>
+                  <p className="mt-0.5 font-mono text-[11px] text-blue-800">
+                    {avalisteSelected.numero_membre}
+                  </p>
+                  <p className="mt-1 text-[11px] text-ink-600">
+                    Capacite restante :{" "}
+                    <strong>
+                      {Number(avalisteSelected.capacite_caution).toLocaleString("fr-FR")} XAF
+                    </strong>{" "}
+                    (solde {Number(avalisteSelected.solde_total).toLocaleString("fr-FR")} XAF
+                    − cautions {Number(avalisteSelected.cautions_engagees).toLocaleString("fr-FR")} XAF).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAvalisteSelected(null);
+                      setAvalisteQuery("");
+                    }}
+                    className="mt-2 text-xs font-medium text-blue-700 underline-offset-2 hover:underline"
+                  >
+                    Changer d'avaliste
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    id="avaliste_search"
+                    type="text"
+                    value={avalisteQuery}
+                    onChange={(e) => setAvalisteQuery(e.target.value)}
+                    placeholder="Tape un nom ou un numero (min 2 lettres)"
+                    className={inputCls}
+                    autoComplete="off"
+                  />
+                  {avalisteSearching && (
+                    <p className="mt-1 text-[11px] text-ink-500">Recherche…</p>
+                  )}
+                  {!avalisteSearching && avalisteQuery.trim().length >= 2 && avalisteSuggestions.length === 0 && (
+                    <p className="mt-1 text-[11px] text-ink-500">
+                      Aucun membre Senior actif trouve.
+                    </p>
+                  )}
+                  {avalisteSuggestions.length > 0 && (
+                    <ul className="mt-2 max-h-60 divide-y divide-line-200 overflow-y-auto rounded-md border border-line-200 bg-paper">
+                      {avalisteSuggestions.map((c) => {
+                        const capacity = Number(c.capacite_caution);
+                        const disabled = capacity <= 0;
+                        return (
+                          <li key={c.numero_membre}>
+                            <button
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => {
+                                setAvalisteSelected(c);
+                                setAvalisteSuggestions([]);
+                              }}
+                              className={[
+                                "block w-full px-3 py-2 text-left text-sm transition-colors",
+                                disabled
+                                  ? "cursor-not-allowed bg-paper/50 text-ink-400"
+                                  : "hover:bg-blue-50/40",
+                              ].join(" ")}
+                            >
+                              <span className="font-medium text-ink-900">
+                                {c.prenom} {c.nom}
+                              </span>
+                              <span className="ml-2 font-mono text-[11px] text-ink-500">
+                                {c.numero_membre}
+                              </span>
+                              <span className="block text-[11px] text-ink-600">
+                                Capacite :{" "}
+                                {capacity > 0
+                                  ? `${capacity.toLocaleString("fr-FR")} XAF dispo`
+                                  : "saturee (pas de marge)"}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

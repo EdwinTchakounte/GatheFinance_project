@@ -191,6 +191,12 @@
   "booklet_history_item": "Passbook #{id}",
   "booklet_history_delivered_on": "Delivered on {date}",
   "booklet_error_title": "Passbook unavailable",
+  "booklet_active_title": "Active passbook",
+  "booklet_active_subtitle": "Delivered on {date}. Use it for deposits at the agency.",
+  "@booklet_active_subtitle": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "booklet_active_reorder_hint": "Passbook exhausted? Order a new one",
 
   "notifs_title": "Notifications",
   "notifs_mark_all_read": "Mark all read",

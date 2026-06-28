@@ -238,6 +238,15 @@ export type MembershipRequest = {
 
 export type LoanRequest = {
   id: number;
+  // Membre qui a soumis la demande. Indispensable pour l'admin (cash-in
+  // frais d'etude en `en_attente`, identification, contact).
+  member: {
+    id: number;
+    numero_membre: string;
+    nom: string;
+    prenom: string;
+    telephone: string;
+  } | null;
   montant_demande: string;
   duree_mois: number;
   motif: string;

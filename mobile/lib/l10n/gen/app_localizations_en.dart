@@ -572,6 +572,18 @@ class AppL10nEn extends AppL10n {
   String get booklet_error_title => 'Passbook unavailable';
 
   @override
+  String get booklet_active_title => 'Active passbook';
+
+  @override
+  String booklet_active_subtitle(String date) {
+    return 'Delivered on $date. Use it for deposits at the agency.';
+  }
+
+  @override
+  String get booklet_active_reorder_hint =>
+      'Passbook exhausted? Order a new one';
+
+  @override
   String get notifs_title => 'Notifications';
 
   @override

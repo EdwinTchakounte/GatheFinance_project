@@ -78,12 +78,26 @@ class _BookletPageState extends ConsumerState<BookletPage> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                   child: ordersAsync.when(
                     data: (orders) {
+                      // Priorite 1 : commande en cours -> timeline statut
                       final pending = orders
                           .where((o) => o.statut != BookletStatus.delivree)
                           .toList();
                       if (pending.isNotEmpty) {
                         return _PendingOrderCard(order: pending.first);
                       }
+                      // Priorite 2 : carnet actif (au moins un delivree)
+                      // -> mini carte "Carnet actif", PAS la CTA Commander.
+                      // Le lien "Commander un nouveau" reste accessible
+                      // discretement pour cas carnet epuise.
+                      final delivered = orders
+                          .where((o) => o.statut == BookletStatus.delivree)
+                          .toList()
+                        ..sort((a, b) => (b.dateDelivrance ?? b.dateCommande)
+                            .compareTo(a.dateDelivrance ?? a.dateCommande),);
+                      if (delivered.isNotEmpty) {
+                        return _ActiveBookletCard(order: delivered.first);
+                      }
+                      // Priorite 3 : aucun carnet -> CTA "Commander mon carnet"
                       return const _OrderNewCard();
                     },
                     loading: () => const PaCard(
@@ -390,6 +404,101 @@ class _TimelineStep extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+
+// ───────────────────────────────────────────────────────────────────────────
+// Card "Carnet actif" . affichee quand au moins un carnet delivree existe
+// et qu'aucune commande n'est en cours. Remplace la CTA "Commander mon
+// carnet" pour eviter de proposer un re-achat alors que le membre a deja
+// un carnet utilisable a l'agence.
+// ───────────────────────────────────────────────────────────────────────────
+
+class _ActiveBookletCard extends StatelessWidget {
+  const _ActiveBookletCard({required this.order});
+  final BookletOrder order;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final date = AppDateFormatter.short(
+      order.dateDelivrance ?? order.dateCommande,
+    );
+
+    return PaCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: PaColors.successSurface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: PaColors.success,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.booklet_active_title,
+                      style: const TextStyle(
+                        color: PaColors.inkPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l.booklet_active_subtitle(date),
+                      style: const TextStyle(
+                        color: PaColors.inkSecondary,
+                        fontSize: 12.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 4,),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: PaColors.inkMuted,
+              ),
+              onPressed: () => OrderBookletSheet.show(context),
+              child: Text(
+                l.booklet_active_reorder_hint,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

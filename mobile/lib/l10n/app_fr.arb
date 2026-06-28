@@ -243,6 +243,12 @@
     "placeholders": { "date": { "type": "String" } }
   },
   "booklet_error_title": "Carnet indisponible",
+  "booklet_active_title": "Carnet actif",
+  "booklet_active_subtitle": "Délivré le {date}. Tu peux l'utiliser pour tes versements à l'agence.",
+  "@booklet_active_subtitle": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "booklet_active_reorder_hint": "Carnet épuisé ? Commander un nouveau",
 
   "notifs_title": "Notifications",
   "notifs_mark_all_read": "Tout lire",
