@@ -6,6 +6,7 @@ import '../../core/services/global_nav.dart';
 
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/setup_password_page.dart';
 import '../../features/auth/presentation/state/auth_notifier.dart';
 import '../../features/avaliste/presentation/pages/avaliste_mandats_page.dart';
 import '../../features/lender/presentation/pages/lender_page.dart';
@@ -121,6 +122,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'forgot-password',
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const ForgotPasswordPage()),
+      ),
+      // PWD Option B . Definir mot de passe initial via token email welcome.
+      // Le membre peut passer `?token=XXX` (futur deep link) ou laisser vide
+      // pour saisir manuellement (collage depuis email).
+      GoRoute(
+        path: '/auth/setup-password',
+        name: 'setup-password',
+        pageBuilder: (context, state) {
+          final token = state.uri.queryParameters['token'];
+          return _paSlideFadePage(
+            state,
+            SetupPasswordPage(initialToken: token),
+          );
+        },
       ),
 
       // Configuration du PIN (1er login) + déverrouillage (ouverture app).

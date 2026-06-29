@@ -210,6 +210,68 @@ class AuthDioDataSource implements AuthRemoteDataSource {
       throw mapDioError(e);
     }
   }
+
+  @override
+  Future<PasswordSetupTokenInfo> verifySetupToken(String token) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/auth/setup-password/verify/',
+        queryParameters: {'token': token.trim()},
+      );
+      final body = res.data ?? const <String, dynamic>{};
+      final emailMask = (body['email_mask'] as String?) ?? '';
+      final expiresAtRaw = (body['expires_at'] as String?) ?? '';
+      final expiresAt =
+          DateTime.tryParse(expiresAtRaw) ?? DateTime.now().add(const Duration(hours: 72));
+      return PasswordSetupTokenInfo(emailMask: emailMask, expiresAt: expiresAt);
+    } on DioException catch (e) {
+      // 404 = token inconnu, 410 = expire/consume → on remonte un message lisible.
+      final code = e.response?.statusCode;
+      if (code == 404 || code == 410 || code == 400) {
+        final body = e.response?.data;
+        if (body is Map<String, dynamic>) {
+          final detail = body['detail'];
+          if (detail is String && detail.isNotEmpty) {
+            throw Exception(detail);
+          }
+        }
+        throw Exception('Lien invalide ou expire.');
+      }
+      throw mapDioError(e);
+    }
+  }
+
+  @override
+  Future<String?> confirmPasswordSetup({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      await _client.primeCsrf();
+      await _dio.post<void>(
+        '/auth/setup-password/confirm/',
+        data: {
+          'token': token.trim(),
+          'password': newPassword,
+        },
+      );
+      return null;
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (code == 400 || code == 404 || code == 410) {
+        final body = e.response?.data;
+        if (body is Map<String, dynamic>) {
+          final detail = body['detail'];
+          if (detail is String && detail.isNotEmpty) return detail;
+        }
+        return 'Mot de passe invalide ou lien expire.';
+      }
+      if (code == 429) {
+        return 'Trop de tentatives . reessayez dans une heure.';
+      }
+      throw mapDioError(e);
+    }
+  }
 }
 
 Member _toMember(Map<String, dynamic> data) {

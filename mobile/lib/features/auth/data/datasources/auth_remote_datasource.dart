@@ -36,4 +36,27 @@ abstract class AuthRemoteDataSource {
     required String code,
     required String newPassword,
   });
+
+  /// GET /auth/setup-password/verify/?token=XXX — valide un token de
+  /// definition initiale (PWD Option B). Renvoie email mask + expiry si OK,
+  /// jette en cas d'invalide/expire.
+  Future<PasswordSetupTokenInfo> verifySetupToken(String token);
+
+  /// POST /auth/setup-password/confirm/ — pose le mot de passe initial.
+  /// `null` = succes, sinon un message d'erreur a afficher.
+  Future<String?> confirmPasswordSetup({
+    required String token,
+    required String newPassword,
+  });
+}
+
+/// Resultat de verify : email mask (pour confirmation visuelle) + date d'expiry.
+class PasswordSetupTokenInfo {
+  const PasswordSetupTokenInfo({
+    required this.emailMask,
+    required this.expiresAt,
+  });
+
+  final String emailMask;
+  final DateTime expiresAt;
 }

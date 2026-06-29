@@ -388,7 +388,33 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                   ),
 
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 10),
+
+                  // Premier acces (PWD Option B) . le membre approuve a recu
+                  // un email avec un lien token; il peut le saisir ici si
+                  // jamais le clic mail vers le portail web echoue.
+                  Center(
+                    child: TextButton(
+                      onPressed: loading
+                          ? null
+                          : () => context.push('/auth/setup-password'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: PaColors.inkSecondary,
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      child: const Text(
+                        'Premier acces ? Definir mon mot de passe',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
 
                   // ── Footer faint ───────────────────────────────────────
                   Center(

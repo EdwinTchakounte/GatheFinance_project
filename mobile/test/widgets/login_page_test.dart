@@ -57,6 +57,19 @@ class _ScriptedAuthDs implements AuthRemoteDataSource {
     required String code,
     required String newPassword,
   }) async => null;
+
+  @override
+  Future<PasswordSetupTokenInfo> verifySetupToken(String token) async =>
+      PasswordSetupTokenInfo(
+        emailMask: 'a***@test',
+        expiresAt: DateTime.now().add(const Duration(hours: 72)),
+      );
+
+  @override
+  Future<String?> confirmPasswordSetup({
+    required String token,
+    required String newPassword,
+  }) async => null;
 }
 
 void main() {
