@@ -98,3 +98,9 @@ livre_projet/
 /capture_rh.jpeg
 /capture_*.png
 /capture_*.jpeg
+
+# APK de l'app mobile servi en download depuis la vitrine. Le fichier est
+# depose manuellement sur le VPS (cf. frontend/apps/site/public/downloads/
+# README.md) — pas commite (74 Mo).
+frontend/apps/site/public/downloads/*.apk
+frontend/apps/site/public/downloads/*.aab

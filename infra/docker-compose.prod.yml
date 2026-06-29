@@ -159,6 +159,12 @@ services:
       NEXT_PUBLIC_PORTAL_URL: https://${PORTAL_DOMAIN}
     depends_on: [backend]
     networks: [internal, web]
+    # APK Android (~74 Mo) servi par la page /telecharger-app. Le fichier est
+    # depose manuellement sur le VPS (`scp` cf README dans le dossier) — pas
+    # dans l'image Docker pour eviter de la gonfler a chaque build CI.
+    # GATHE_APK_DIR par defaut : /srv/gathe-finance/apk.
+    volumes:
+      - ${GATHE_APK_DIR:-/srv/gathe-finance/apk}:/app/public/downloads:ro
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.gathe-site.rule=Host(`${SITE_DOMAIN}`)"

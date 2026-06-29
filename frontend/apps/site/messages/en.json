@@ -28,6 +28,7 @@
     "servicesInvestmentDesc": "Community and secured investment",
     "servicesEducationDesc": "Workshops, seminars and personalised advice",
     "blog": "Blog",
+    "downloadApp": "Download app",
     "contact": "Contact",
     "join": "Become a member",
     "memberSpace": "Member area",
@@ -258,6 +259,29 @@
         }
       }
     }
+  },
+  "download": {
+    "eyebrow": "Mobile app",
+    "title": "Download the Gathe Finance app",
+    "lead": "Access your member space from your smartphone: contribution, savings, credit, passbook and notifications, all in a single app.",
+    "androidEyebrow": "Android",
+    "androidTitle": "Android install (direct APK)",
+    "androidDesc": "Our app is not yet available on the Play Store. You can download it below and install it manually.",
+    "downloadButton": "Download the Android APK",
+    "metaVersion": "Version",
+    "metaSize": "Size",
+    "metaPlatform": "Compatibility",
+    "installTitle": "How to install the APK",
+    "installStep1": "Download the file by clicking the button above.",
+    "installStep2": "Open the file from your phone's Downloads folder.",
+    "installStep3": "If Android asks, allow installation from this source (Settings › Security).",
+    "installStep4": "Follow the on-screen steps, then launch Gathe Finance.",
+    "iosTitle": "iOS — coming soon",
+    "iosDesc": "The iPhone version is being finalised. In the meantime, you can use your member space from this website without installing anything.",
+    "qrEyebrow": "Mobile phone",
+    "qrTitle": "Scan to download",
+    "qrAlt": "QR code to download the Gathe Finance app for Android",
+    "qrHelp": "Open your phone's camera and point it at the QR code to start the download."
   },
   "contact": {
     "eyebrow": "Contact",

@@ -91,6 +91,7 @@ export const mainNav: readonly NavItem[] = [
     ],
   },
   { key: "blog", href: "/blog" },
+  { key: "downloadApp", href: "/telecharger-app" },
   { key: "contact", href: "/contact" },
 ];
 

@@ -28,6 +28,7 @@
     "servicesInvestmentDesc": "Investissement communautaire et sécurisé",
     "servicesEducationDesc": "Ateliers, séminaires et conseils personnalisés",
     "blog": "Blog",
+    "downloadApp": "Télécharger l'app",
     "contact": "Contact",
     "join": "Devenir membre",
     "memberSpace": "Espace membre",
@@ -258,6 +259,29 @@
         }
       }
     }
+  },
+  "download": {
+    "eyebrow": "Application mobile",
+    "title": "Télécharger l'app Gathe Finance",
+    "lead": "Accède à ton espace membre depuis ton smartphone : cotisation, épargne, crédit, carnet et notifications, le tout dans une seule application.",
+    "androidEyebrow": "Android",
+    "androidTitle": "Installation Android (APK direct)",
+    "androidDesc": "Notre application n'est pas encore disponible sur le Play Store. Tu peux la télécharger ci-dessous et l'installer manuellement.",
+    "downloadButton": "Télécharger l'APK Android",
+    "metaVersion": "Version",
+    "metaSize": "Taille",
+    "metaPlatform": "Compatibilité",
+    "installTitle": "Comment installer l'APK",
+    "installStep1": "Télécharge le fichier en cliquant sur le bouton ci-dessus.",
+    "installStep2": "Ouvre le fichier depuis le dossier Téléchargements de ton téléphone.",
+    "installStep3": "Si Android te le demande, autorise l'installation depuis cette source (Paramètres › Sécurité).",
+    "installStep4": "Suis les étapes à l'écran, puis lance Gathe Finance.",
+    "iosTitle": "iOS — bientôt disponible",
+    "iosDesc": "La version iPhone est en cours de finalisation. En attendant, tu peux utiliser ton espace membre depuis ce site web sans rien installer.",
+    "qrEyebrow": "Téléphone portable",
+    "qrTitle": "Scanne pour télécharger",
+    "qrAlt": "QR code de téléchargement de l'application Gathe Finance pour Android",
+    "qrHelp": "Ouvre l'appareil photo de ton téléphone et pointe le vers le QR code pour lancer le téléchargement."
   },
   "contact": {
     "eyebrow": "Contact",
