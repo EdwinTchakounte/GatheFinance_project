@@ -44,7 +44,13 @@ export default function ReconductionPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await portalApi.loans.requestRenewal(loanId, { modalite });
+      // Le backend (LoanRenewalRequestSerializer) attend
+      // `interets_au_comptant: bool`, pas `modalite`. Mobile envoie le bon
+      // champ ; on s'aligne. Sinon le backend tombait sur le defaut false
+      // (taux 15 % systematique) peu importe le choix membre.
+      const res = await portalApi.loans.requestRenewal(loanId, {
+        interets_au_comptant: modalite === "comptant",
+      });
       const paymentId = res.renewal.frais_reconduction_payment_id;
       if (paymentId) {
         router.push(`/epargne/depot?context=credit-fees&payment_id=${paymentId}`);

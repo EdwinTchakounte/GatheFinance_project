@@ -757,13 +757,29 @@ class _MyInfoSheetState extends ConsumerState<_MyInfoSheet> {
   late final TextEditingController _phoneCtrl;
   final _formKey = GlobalKey<FormState>();
   bool _saving = false;
+  String? _serverError;
+  // Detection dirty : on n'active "Enregistrer" que si au moins un champ
+  // a change vs valeurs initiales. Evite les round-trips API inutiles.
+  bool _dirty = false;
 
   @override
   void initState() {
     super.initState();
-    _prenomCtrl = TextEditingController(text: widget.prenom);
-    _nomCtrl = TextEditingController(text: widget.nom);
-    _phoneCtrl = TextEditingController(text: widget.phone);
+    _prenomCtrl = TextEditingController(text: widget.prenom)
+      ..addListener(_onChanged);
+    _nomCtrl = TextEditingController(text: widget.nom)
+      ..addListener(_onChanged);
+    _phoneCtrl = TextEditingController(text: widget.phone)
+      ..addListener(_onChanged);
+  }
+
+  void _onChanged() {
+    final isDirty = _prenomCtrl.text.trim() != widget.prenom.trim() ||
+        _nomCtrl.text.trim() != widget.nom.trim() ||
+        _phoneCtrl.text.trim() != widget.phone.trim();
+    if (isDirty != _dirty) {
+      setState(() => _dirty = isDirty);
+    }
   }
 
   @override
@@ -777,12 +793,27 @@ class _MyInfoSheetState extends ConsumerState<_MyInfoSheet> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     unawaited(HapticFeedback.lightImpact());
-    setState(() => _saving = true);
-    await ref.read(authProvider.notifier).updateProfile(
-          prenom: _prenomCtrl.text,
-          nom: _nomCtrl.text,
-          phone: _phoneCtrl.text,
-        );
+    setState(() {
+      _saving = true;
+      _serverError = null;
+    });
+    try {
+      await ref.read(authProvider.notifier).updateProfile(
+            prenom: _prenomCtrl.text,
+            nom: _nomCtrl.text,
+            phone: _phoneCtrl.text,
+          );
+    } catch (e) {
+      // Cf. AuthNotifier.updateProfile : le Failure est rethrow. On
+      // l'attrape pour afficher un message dans le sheet, sans crash.
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _serverError = e.toString().replaceFirst('Exception: ', '');
+      });
+      unawaited(HapticFeedback.heavyImpact());
+      return;
+    }
     if (!mounted) return;
     setState(() => _saving = false);
     Navigator.of(context).pop();
@@ -897,12 +928,44 @@ class _MyInfoSheetState extends ConsumerState<_MyInfoSheet> {
                   ),
                 ),
 
+                if (_serverError != null) ...[
+                  const SizedBox(height: AppSpacing.m),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: PaColors.danger.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: PaColors.danger.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.error_outline_rounded,
+                            color: PaColors.danger, size: 18,),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _serverError!,
+                            style: AppTypography.bodySmall.copyWith(
+                              color: PaColors.danger,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: AppSpacing.xl),
 
                 PaButton(
                   label: l.common_save,
                   loading: _saving,
-                  onPressed: _saving ? null : _save,
+                  // Active uniquement si au moins un champ a change. Evite
+                  // un PATCH inutile si l'utilisateur ouvre puis ferme.
+                  onPressed: (_saving || !_dirty) ? null : _save,
                 ),
                 const SizedBox(height: 6),
                 SizedBox(
