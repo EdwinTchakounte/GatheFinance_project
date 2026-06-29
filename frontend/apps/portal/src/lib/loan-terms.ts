@@ -48,6 +48,31 @@ export type LoanBreakdown = {
   montantParEcheance: number;
 };
 
+// === Reconduction (Articles 10/11) =========================================
+
+/** Taux applique sur le capital restant si interets payes au comptant. */
+export const RENEWAL_RATE_COMPTANT = 0.1;
+
+/** Taux applique sur le capital restant si interets reportes au mois suivant. */
+export const RENEWAL_RATE_REPORTE = 0.15;
+
+/** Mois supplementaires ajoutes a la duree restante (Article 10) = +1 mois fixe. */
+export const RENEWAL_EXTRA_MONTHS = 1;
+
+/**
+ * Calcule les interets de reconduction (Article 11).
+ *
+ * Le taux porte UNIQUEMENT sur le capital restant du (pas d'interet sur
+ * interet). Le mobile fait pareil via `renewalInterest()`.
+ */
+export function renewalInterest(
+  capitalRestant: number,
+  modalite: "comptant" | "reporte",
+): number {
+  const taux = modalite === "comptant" ? RENEWAL_RATE_COMPTANT : RENEWAL_RATE_REPORTE;
+  return Math.round(capitalRestant * taux);
+}
+
 /** Calcule le recap d'un credit (flat 10 % + paliers + modalite). */
 export function computeLoanBreakdown(
   montant: number,

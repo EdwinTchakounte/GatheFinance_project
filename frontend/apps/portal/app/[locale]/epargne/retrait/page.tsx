@@ -63,8 +63,11 @@ export default function WithdrawalRequestPage() {
     e.preventDefault();
     setMessage(null);
     const amount = parseInt(montant, 10);
-    if (!amount || amount < 1) {
-      setMessage({ tone: "err", text: "Montant invalide." });
+    // Min 500 XAF aligne sur mobile (withdraw_sheet.dart l197 — regle metier
+    // partagee). Etait 1 XAF avant : laxisme web qui permettait des micro-
+    // retraits absurdes que le mobile rejetait.
+    if (!amount || amount < 500) {
+      setMessage({ tone: "err", text: "Le montant minimum est de 500 FCFA." });
       return;
     }
     if (mode === "momo" && !phone.trim()) {
@@ -137,7 +140,8 @@ export default function WithdrawalRequestPage() {
               </label>
               <input
                 type="number"
-                min={1}
+                min={500}
+                step={500}
                 value={montant}
                 onChange={(e) => setMontant(e.target.value)}
                 className="mt-1 w-full rounded-md border border-line-200 px-3 py-2 text-sm focus:border-emerald focus:outline-none focus:ring-1 focus:ring-emerald"
@@ -145,6 +149,7 @@ export default function WithdrawalRequestPage() {
                 required
                 disabled={submitting}
               />
+              <p className="mt-1 text-[11px] text-ink-500">Minimum 500 FCFA.</p>
             </div>
 
             <div>

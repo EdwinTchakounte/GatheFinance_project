@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,8 +43,11 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _phoneCtrl = TextEditingController();
-  // TODO: REMOVE_FOR_PROD. Mode test 100 XAF, à retirer après recette STK.
-  final _amountCtrl = TextEditingController(text: '100');
+  // Frais de carnet (Article 4 du Reglement) = 1 000 XAF officiel.
+  // En kDebugMode (dev local) on baisse a 100 pour faciliter les tests STK
+  // sandbox Tara qui plafonnent les micro-paiements ; en release le champ
+  // est figé sur 1 000 et caché de l'UI.
+  final _amountCtrl = TextEditingController(text: kDebugMode ? '100' : '1000');
   _Step _step = _Step.form;
   late final AnimationController _checkCtrl;
 
@@ -166,25 +170,28 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
               },
             ),
 
-            const SizedBox(height: AppSpacing.l),
-
-            // TODO: REMOVE_FOR_PROD.
-            Text('Montant (XAF). mode test', style: AppTypography.labelMedium),
-            const SizedBox(height: AppSpacing.s),
-            TextFormField(
-              controller: _amountCtrl,
-              keyboardType: TextInputType.number,
-              style: AppTypography.bodyLarge,
-              decoration: const InputDecoration(
-                hintText: '100',
-                suffixText: 'XAF',
+            // Champ montant : edition possible uniquement en debug (sandbox
+            // Tara). En release on cache le champ — montant fige a 1 000 XAF
+            // par le default du controller. Cf. _amountCtrl plus haut.
+            if (kDebugMode) ...[
+              const SizedBox(height: AppSpacing.l),
+              Text('Montant (XAF) - mode dev', style: AppTypography.labelMedium),
+              const SizedBox(height: AppSpacing.s),
+              TextFormField(
+                controller: _amountCtrl,
+                keyboardType: TextInputType.number,
+                style: AppTypography.bodyLarge,
+                decoration: const InputDecoration(
+                  hintText: '100',
+                  suffixText: 'XAF',
+                ),
+                validator: (v) {
+                  final n = int.tryParse((v ?? '').trim());
+                  if (n == null || n < 100) return 'Montant min. 100 XAF.';
+                  return null;
+                },
               ),
-              validator: (v) {
-                final n = int.tryParse((v ?? '').trim());
-                if (n == null || n < 100) return 'Montant min. 100 XAF.';
-                return null;
-              },
-            ),
+            ],
 
             const SizedBox(height: AppSpacing.l),
 

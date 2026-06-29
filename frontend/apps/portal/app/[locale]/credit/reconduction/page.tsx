@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Container } from "@gathe/ui";
 
 import { portalApi, type ApiError, type Loan } from "@/lib/api";
+import { renewalInterest, RENEWAL_EXTRA_MONTHS } from "@/lib/loan-terms";
 
 
 export default function ReconductionPage() {
@@ -59,6 +60,21 @@ export default function ReconductionPage() {
   }
 
   const currentLoan = loans.find((l) => l.id === loanId);
+
+  // Recap interets calcules live (parite mobile). Utilise le solde restant
+  // du credit selectionne et le taux de la modalite choisie.
+  const renewalRecap = useMemo(() => {
+    if (!currentLoan) return null;
+    const capitalRestant = Number(currentLoan.solde_restant ?? 0);
+    if (!Number.isFinite(capitalRestant) || capitalRestant <= 0) return null;
+    const interets = renewalInterest(capitalRestant, modalite);
+    return {
+      capitalRestant,
+      interets,
+      totalAPayer: modalite === "comptant" ? interets : 0,
+      capitalReportable: modalite === "reporte" ? capitalRestant + interets : 0,
+    };
+  }, [currentLoan, modalite]);
 
   return (
     <main className="min-h-svh bg-cream py-10">
@@ -151,6 +167,42 @@ export default function ReconductionPage() {
                 </label>
               </div>
             </div>
+
+            {/* Recap interets live (parite mobile renewal_sheet.dart). */}
+            {renewalRecap ? (
+              <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50/40 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  Recap interets (Article 11)
+                </p>
+                <div className="mt-2 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-ink-500">Capital restant</p>
+                    <p className="font-mono font-semibold text-ink-900">
+                      {renewalRecap.capitalRestant.toLocaleString("fr-FR")} XAF
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-ink-500">
+                      Interets a {modalite === "comptant" ? "regler comptant" : "reporter"}
+                    </p>
+                    <p className="font-mono font-semibold text-blue-800">
+                      {renewalRecap.interets.toLocaleString("fr-FR")} XAF
+                    </p>
+                  </div>
+                  {modalite === "reporte" && renewalRecap.capitalReportable > 0 ? (
+                    <div className="sm:col-span-2">
+                      <p className="text-xs text-ink-500">Nouveau capital a rembourser (mois suivant)</p>
+                      <p className="font-mono font-semibold text-ink-900">
+                        {renewalRecap.capitalReportable.toLocaleString("fr-FR")} XAF
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-[11px] text-ink-500">
+                  Duree prolongee : +{RENEWAL_EXTRA_MONTHS} mois (Article 10, fixe).
+                </p>
+              </div>
+            ) : null}
 
             {submitError ? (
               <p className="mt-4 rounded-lg border border-terra-400/40 bg-terra-50/60 px-3 py-2.5 text-sm text-terra-700">{submitError}</p>
