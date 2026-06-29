@@ -6,6 +6,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/formatters/date_formatter.dart';
+import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/paysika/pa_action_pill.dart';
 import '../../../../core/widgets/paysika/pa_avatar.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
@@ -59,6 +60,16 @@ class HomePage extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
+            // Polling 30s sur les 2 soldes (epargne + cotisation) pour voir
+            // un cash-in admin sans pull-to-refresh. Idempotent via hash JSON.
+            LivePoller(
+              refresh: () => ref.read(classicSavingsProvider.notifier).refresh(),
+              readSnapshot: () => ref.read(classicSavingsProvider).valueOrNull,
+            ),
+            LivePoller(
+              refresh: () => ref.read(savingsProvider.notifier).refresh(),
+              readSnapshot: () => ref.read(savingsProvider).valueOrNull,
+            ),
             // ── Header FIXE (ne défile pas) . logo + greeting + cloche ──
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),

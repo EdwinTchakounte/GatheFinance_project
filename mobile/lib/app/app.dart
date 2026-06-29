@@ -2,7 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/auth/presentation/state/auth_notifier.dart';
+import '../features/avaliste/presentation/state/avaliste_notifier.dart';
+import '../features/booklet/presentation/state/booklet_notifier.dart';
+import '../features/home_feed/presentation/state/feed_notifier.dart';
+import '../features/lender/presentation/state/lender_notifier.dart';
+import '../features/loans/presentation/state/loans_notifier.dart';
+import '../features/notifications/presentation/state/notifications_notifier.dart';
 import '../features/preferences/presentation/state/locale_notifier.dart';
+import '../features/savings/presentation/state/classic_savings_notifier.dart';
+import '../features/savings/presentation/state/savings_notifier.dart';
 import '../features/security/presentation/state/pin_notifier.dart';
 import '../l10n/gen/app_localizations.dart';
 import 'router/app_router.dart';
@@ -59,7 +68,44 @@ class _GatheAppState extends ConsumerState<GatheApp>
       if (elapsed >= _lockGrace) {
         ref.read(pinProvider.notifier).lock();
       }
+      // Phase 1B . Resume-refresh des providers live a partir de 3 s en
+      // background (gap inferieur = aller-retour rapide file picker, pas
+      // utile de re-fetch). Couvre le cas "je quitte l'app, admin change
+      // un truc, je reviens" sans attendre le polling 30 s.
+      if (elapsed >= _resumeRefreshGrace) {
+        _invalidateLiveProviders();
+      }
     }
+  }
+
+  /// Delai minimum en arriere-plan apres lequel on declenche un re-fetch
+  /// des providers live au retour foreground. Inferieur a [_lockGrace] :
+  /// on veut refresh meme pour un retour rapide, mais pas pour un round-trip
+  /// instantane (< 3 s = file picker, retour ecran d'a cote).
+  static const _resumeRefreshGrace = Duration(seconds: 3);
+
+  void _invalidateLiveProviders() {
+    // Invalide forcement le cache des providers AsyncNotifier "live" (donnees
+    // qui peuvent avoir change cote admin pendant l'absence). Riverpod
+    // refetch automatiquement quand quelqu'un re-watch.
+    //
+    // Securite : enveloppe chaque invalidate dans un try/catch pour
+    // qu'une provider non-encore-initialisee ne casse pas le chain.
+    void safeInvalidate(ProviderOrFamily provider) {
+      try {
+        ref.invalidate(provider);
+      } catch (_) {/* provider pas instancie : rien a invalider */}
+    }
+    safeInvalidate(authProvider);
+    safeInvalidate(savingsProvider);
+    safeInvalidate(classicSavingsProvider);
+    safeInvalidate(loansProvider);
+    safeInvalidate(loanRequestsProvider);
+    safeInvalidate(notificationsProvider);
+    safeInvalidate(bookletProvider);
+    safeInvalidate(lenderProvider);
+    safeInvalidate(avalisteProvider);
+    safeInvalidate(homeFeedProvider);
   }
 
   @override

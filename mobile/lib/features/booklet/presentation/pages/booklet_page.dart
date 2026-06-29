@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/formatters/date_formatter.dart';
+import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
@@ -59,6 +60,12 @@ class _BookletPageState extends ConsumerState<BookletPage> {
         bottom: false,
         child: Column(
           children: [
+            // Polling 30s sur les commandes carnet pour voir le passage
+            // payee → enImpression → delivree des qu'il a lieu cote admin.
+            LivePoller(
+              refresh: () => ref.read(bookletProvider.notifier).refresh(),
+              readSnapshot: () => ref.read(bookletProvider).valueOrNull,
+            ),
             // ── Header FIXE compact . band gradient soft vert→bleu ──────
             PaGradientHeaderBand(title: l.booklet_title),
             const SizedBox(height: 12),

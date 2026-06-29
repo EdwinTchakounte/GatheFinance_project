@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/formatters/date_formatter.dart';
+import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
@@ -61,7 +62,15 @@ class NotificationsPage extends ConsumerWidget {
           const SizedBox(width: 4),
         ],
       ),
-      body: PaPatternBackground(
+      body: Stack(
+        children: [
+          // Polling 30s : voit les nouvelles notifs admin sans pull-to-refresh.
+          // Idempotence : pas de rebuild si le hash JSON est inchange.
+          LivePoller(
+            refresh: () => ref.read(notificationsProvider.notifier).refresh(),
+            readSnapshot: () => ref.read(notificationsProvider).valueOrNull,
+          ),
+          PaPatternBackground(
         child: RefreshIndicator.adaptive(
           color: PaColors.teal,
           onRefresh: () => ref.read(notificationsProvider.notifier).refresh(),
@@ -124,6 +133,8 @@ class NotificationsPage extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+        ],
       ),
     );
   }

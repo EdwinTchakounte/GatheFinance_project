@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
+import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../domain/entities/lender_state.dart';
@@ -28,7 +29,15 @@ class LenderPage extends ConsumerWidget {
     final state = ref.watch(lenderProvider);
     return Scaffold(
       backgroundColor: PaColors.canvas,
-      body: PaPatternBackground(
+      body: Stack(
+        children: [
+          // Polling 30s : voit les engagements admin sur ses tranches +
+          // crediter intérêts sans avoir a pull-to-refresh.
+          LivePoller(
+            refresh: () => ref.read(lenderProvider.notifier).refresh(),
+            readSnapshot: () => ref.read(lenderProvider).valueOrNull,
+          ),
+          PaPatternBackground(
         child: SafeArea(
           child: RefreshIndicator.adaptive(
             color: PaColors.teal,
@@ -73,6 +82,8 @@ class LenderPage extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+        ],
       ),
     );
   }

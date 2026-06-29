@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
+import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
@@ -106,7 +107,15 @@ class _AvalisteMandatsPageState extends ConsumerState<AvalisteMandatsPage> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
       ),
-      body: PaPatternBackground(
+      body: Stack(
+        children: [
+          // Polling 30s : nouveaux mandats d'avaliste assignes par admin
+          // ou changements de statut visibles sans pull-to-refresh.
+          LivePoller(
+            refresh: () => ref.read(avalisteProvider.notifier).refresh(),
+            readSnapshot: () => ref.read(avalisteProvider).valueOrNull,
+          ),
+          PaPatternBackground(
         child: SafeArea(
           top: false,
           child: asyncList.when(
@@ -131,6 +140,8 @@ class _AvalisteMandatsPageState extends ConsumerState<AvalisteMandatsPage> {
             ),
           ),
         ),
+      ),
+        ],
       ),
     );
   }
