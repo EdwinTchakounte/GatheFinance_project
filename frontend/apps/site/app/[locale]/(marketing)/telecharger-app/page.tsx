@@ -9,10 +9,18 @@ import { images, siteConfig } from "@/lib/site-config";
 
 type Params = { params: Promise<{ locale: string }> };
 
-// URL servie en prod via le volume `site_downloads` monte sur
-// /app/public/downloads/. L'admin SCP le fichier `gathe-finance.apk` apres
-// chaque release (cf. README dans `public/downloads/`).
-const APK_PATH = "/downloads/gathe-finance.apk";
+// APK heberge sur Google Drive (74 Mo, evite de gonfler le repo et le
+// container Docker). File ID stable ; pour le rotater il suffit d'uploader
+// une nouvelle version et de coller le nouvel ID ici.
+const APK_DRIVE_FILE_ID = "1CqqRehipMPZOwk28oZ9q2DYJtgSqVlPQ";
+// URL "share" (preview Drive) : utilisee pour le QR code → ouvre l'app
+// Drive sur mobile, l'utilisateur clique "Télécharger" depuis l'app.
+const APK_SHARE_URL =
+  `https://drive.google.com/file/d/${APK_DRIVE_FILE_ID}/view?usp=sharing`;
+// URL "direct download" : pour le bouton desktop, force le telechargement
+// du blob sans passer par l'UI Drive (necessite le param uc + export).
+const APK_DOWNLOAD_URL =
+  `https://drive.google.com/uc?export=download&id=${APK_DRIVE_FILE_ID}`;
 const APK_VERSION = "1.0.0";
 const APK_SIZE = "74,5 Mo";
 
@@ -37,12 +45,9 @@ export default async function DownloadAppPage({ params }: Params) {
   const t = await getTranslations({ locale, namespace: "download" });
   const tn = await getTranslations({ locale, namespace: "nav" });
 
-  // URL absolue de l'APK pour le QR code (le QR doit etre lisible meme
-  // hors-contexte de la page courante).
-  const baseUrl = (siteConfig as { url?: string }).url
-    ?? process.env.NEXT_PUBLIC_SITE_URL
-    ?? "https://gathe-finance.horus-lab.com";
-  const apkAbsoluteUrl = `${baseUrl}${APK_PATH}`;
+  // URL pour le QR code : on encode l'URL "share" Drive, qui ouvre
+  // proprement l'app Drive sur mobile (clic → bouton Telecharger natif).
+  const apkAbsoluteUrl = APK_SHARE_URL;
 
   return (
     <>
@@ -79,8 +84,9 @@ export default async function DownloadAppPage({ params }: Params) {
                 </div>
 
                 <a
-                  href={APK_PATH}
-                  download="gathe-finance.apk"
+                  href={APK_DOWNLOAD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-emerald-800 sm:w-auto"
                 >
                   <Download className="h-5 w-5" aria-hidden="true" />

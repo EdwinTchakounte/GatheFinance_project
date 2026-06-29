@@ -1,52 +1,40 @@
-# Downloads — APK mobile
+# Téléchargement APK — hébergement Google Drive
 
-Ce dossier est servi par Next.js sur `https://gathe-finance.horus-lab.com/downloads/`.
+L'APK Android est **hébergé sur Google Drive**, plus servi par la vitrine.
 
-La page vitrine `/telecharger-app/` propose le bouton "Télécharger l'APK Android"
-qui pointe vers `/downloads/gathe-finance.apk` (ce dossier).
+- File ID Drive : `1CqqRehipMPZOwk28oZ9q2DYJtgSqVlPQ`
+- URL share (preview) : https://drive.google.com/file/d/1CqqRehipMPZOwk28oZ9q2DYJtgSqVlPQ/view?usp=sharing
+- URL direct download : https://drive.google.com/uc?export=download&id=1CqqRehipMPZOwk28oZ9q2DYJtgSqVlPQ
 
-## Mettre à jour l'APK en prod
+Le bouton "Télécharger l'APK Android" sur `/fr/telecharger-app` pointe vers
+l'URL direct download. Le QR code encode l'URL share (meilleure UX mobile :
+ouvre l'app Drive native qui propose un bouton Télécharger).
 
-Le fichier `gathe-finance.apk` n'est PAS commité (gitignored) car il pèse ~74 Mo.
-Le déploiement Docker construit l'image vitrine sans le fichier — l'admin doit le
-poser manuellement sur le VPS après chaque release.
+## Mettre à jour l'APK
 
-### En local (test)
+1. Build l'APK release :
+   ```bash
+   cd mobile && flutter build apk --release
+   ```
+2. Upload `mobile/build/app/outputs/flutter-apk/app-release.apk` sur Drive en
+   **remplaçant** le fichier existant (clic droit → Gérer les versions →
+   Importer une nouvelle version). Le file ID reste inchangé.
+3. Si nouveau file ID nécessaire (suppression + upload), update la constante
+   `APK_DRIVE_FILE_ID` dans
+   `app/[locale]/(marketing)/telecharger-app/page.tsx` puis déployer.
 
-```bash
-# Build l'APK release
-cd mobile && flutter build apk --release
+## Permissions Drive
 
-# Copie-le dans public/downloads/
-cp build/app/outputs/flutter-apk/app-release.apk \
-   ../frontend/apps/site/public/downloads/gathe-finance.apk
+Le fichier doit être en partage **"Tous les utilisateurs avec le lien"**
+(rôle Lecteur). Sinon le téléchargement renvoie une 401/403.
 
-# npm run dev → accessible sur http://localhost:3000/downloads/gathe-finance.apk
-```
+## Pourquoi Drive plutôt que self-hosted ?
 
-### En prod (VPS Contabo)
+- APK = 74 Mo. Évite de gonfler le container Docker ou un volume VPS.
+- Pas de SCP nécessaire pour chaque release — l'upload Drive suffit.
+- Drive gère le bandwidth gratuitement.
 
-1. Build l'APK release localement (voir ci-dessus).
-2. SCP vers le VPS :
-
-```bash
-scp mobile/build/app/outputs/flutter-apk/app-release.apk \
-    user@gathe-finance.horus-lab.com:/srv/gathe-finance/apk/gathe-finance.apk
-```
-
-3. Le `docker-compose.prod.yml` monte `/srv/gathe-finance/apk/` dans le container
-   vitrine sur `/app/public/downloads/`. Le fichier est immédiatement servi sans
-   redéploiement.
-
-## Versionnage
-
-Si tu veux servir plusieurs versions, nomme les fichiers :
-
-```
-gathe-finance.apk             # toujours la version courante (lien stable)
-gathe-finance-v1.0.0.apk      # archive
-gathe-finance-v1.1.0.apk      # archive
-```
-
-Et update `APK_VERSION` + `APK_SIZE` dans la page vitrine :
-`app/[locale]/(marketing)/telecharger-app/page.tsx`.
+Le dossier `public/downloads/` est conservé pour `.gitkeep`. Le volume Docker
+`${GATHE_APK_DIR}:/app/public/downloads:ro` a été retiré du compose prod. Pour
+revenir en self-hosted, restaurer le volume et héberger l'APK dans
+`/srv/gathe-finance/apk/`.
