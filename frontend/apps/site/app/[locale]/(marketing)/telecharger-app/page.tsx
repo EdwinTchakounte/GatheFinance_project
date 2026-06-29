@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Apple, Download, Shield, Smartphone } from "lucide-react";
+import { Download, Shield, Smartphone } from "lucide-react";
 
 import { Container } from "@gathe/ui";
 import { PageHeader } from "@/components/page-shell";
@@ -139,16 +139,6 @@ export default async function DownloadAppPage({ params }: Params) {
                 </div>
               </div>
 
-              {/* iOS coming soon */}
-              <div className="rounded-2xl border border-line-200 bg-cream/40 p-6">
-                <div className="flex items-start gap-3">
-                  <Apple className="mt-0.5 h-5 w-5 shrink-0 text-ink-700" aria-hidden="true" />
-                  <div>
-                    <h3 className="font-semibold text-ink-900">{t("iosTitle")}</h3>
-                    <p className="mt-1 text-sm text-ink-600">{t("iosDesc")}</p>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* QR code lateral */}
