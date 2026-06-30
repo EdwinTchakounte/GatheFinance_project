@@ -70,7 +70,27 @@ function DepositForm() {
   // nbJours x kCollecteMinPerDay (1000 par defaut, ajustable backend).
   const [nbJours, setNbJours] = useState<number>(1);
   const COLLECTE_MIN_PER_DAY = 1000;
-  const isMultiJour = context === "savings" && nbJours > 1;
+  // Pas du montant : la collecte se verse par multiples de 50 FCFA (aligné
+  // backend `collecte.amount_step`). En multi-jours le montant est LIBRE tant
+  // qu'il respecte ce pas ET le minimum de 1 000/jour (≥ N × 1 000).
+  const COLLECTE_AMOUNT_STEP = 50;
+  const isCollecte = context === "savings";
+  const isMultiJour = isCollecte && nbJours > 1;
+  // Minimum applicable selon le contexte (aligné backend) :
+  //   collecte journalière → N × 1 000 (1 000/jour) ; épargne classique → 1 000 ;
+  //   frais / remboursement / carnet → montant prérempli, garde-fou 100.
+  const minAmount = isCollecte
+    ? nbJours * COLLECTE_MIN_PER_DAY
+    : isEpargneClassique
+      ? COLLECTE_MIN_PER_DAY
+      : 100;
+  const amountHelp = isCollecte
+    ? `Minimum ${(nbJours * COLLECTE_MIN_PER_DAY).toLocaleString("fr-FR")} XAF${
+        nbJours > 1 ? ` (${nbJours} j × 1 000)` : ""
+      }, multiple de 50.`
+    : isEpargneClassique
+      ? "Minimum 1 000 XAF."
+      : "Minimum 100 XAF.";
 
   // Prime CSRF + pre-fill amount according to context.
   useEffect(() => {
@@ -130,6 +150,32 @@ function DepositForm() {
     e.preventDefault();
     if (submitting) return;
     setError(null);
+
+    // Validation montant (alignée backend) — AVANT l'appel API pour éviter
+    // un 400 et donner un message clair. Scopée aux contextes épargne :
+    // les frais / remboursement / carnet ont un montant prérempli.
+    const amount = Number(form.montant);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Saisis un montant valide.");
+      return;
+    }
+    if (isCollecte) {
+      if (amount % COLLECTE_AMOUNT_STEP !== 0) {
+        setError("Le montant doit être un multiple de 50 XAF.");
+        return;
+      }
+      if (amount < nbJours * COLLECTE_MIN_PER_DAY) {
+        setError(
+          `Minimum ${(nbJours * COLLECTE_MIN_PER_DAY).toLocaleString("fr-FR")} XAF` +
+            (nbJours > 1 ? ` (${nbJours} jour(s) × 1 000).` : " (1 000/jour)."),
+        );
+        return;
+      }
+    } else if (isEpargneClassique && amount < COLLECTE_MIN_PER_DAY) {
+      setError("Minimum 1 000 XAF.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const result = await portalApi.payments.init({
@@ -142,11 +188,9 @@ function DepositForm() {
               : isCarnetContext
                 ? "frais_carnet"
                 : "epargne",
-        // En mode multi-jours, on verrouille a nb x COLLECTE_MIN_PER_DAY
-        // (le backend rejette tout autre montant).
-        montant: isMultiJour
-          ? nbJours * COLLECTE_MIN_PER_DAY
-          : Number(form.montant),
+        // Montant LIBRE (≥ N × 1 000, multiple de 50 pour la collecte) —
+        // plus de verrouillage : le membre peut verser davantage.
+        montant: amount,
         phone: form.phone,
         network: form.network,
         loan_id: isLoanRepayment ? loanId : null,
@@ -366,8 +410,9 @@ function DepositForm() {
               Couvrir combien de jours ?
             </h2>
             <p className="mt-1 text-xs text-ink-500">
-              Pré-paye plusieurs jours d&apos;avance. Le montant est verrouillé
-              à {COLLECTE_MIN_PER_DAY.toLocaleString("fr-FR")} XAF/jour.
+              Pré-paye plusieurs jours d&apos;avance. Montant libre : minimum{" "}
+              {COLLECTE_MIN_PER_DAY.toLocaleString("fr-FR")} XAF/jour, par
+              multiples de 50.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <label className="text-sm text-ink-700" htmlFor="nb-jours">Jours :</label>
@@ -378,12 +423,17 @@ function DepositForm() {
                 max={30}
                 step={1}
                 value={nbJours}
-                onChange={(e) => setNbJours(Math.max(1, Math.min(30, Number(e.target.value) || 1)))}
+                onChange={(e) => {
+                  const n = Math.max(1, Math.min(30, Number(e.target.value) || 1));
+                  setNbJours(n);
+                  // Pré-remplit le minimum (N × 1 000) ; le montant reste éditable.
+                  setForm((f) => ({ ...f, montant: String(n * COLLECTE_MIN_PER_DAY) }));
+                }}
                 className="w-24 rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
               />
               {isMultiJour ? (
                 <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-200">
-                  Total : {(nbJours * COLLECTE_MIN_PER_DAY).toLocaleString("fr-FR")} XAF
+                  Minimum {(nbJours * COLLECTE_MIN_PER_DAY).toLocaleString("fr-FR")} XAF
                 </span>
               ) : null}
             </div>
@@ -404,19 +454,14 @@ function DepositForm() {
               id="montant"
               name="montant"
               type="number"
-              min={100}
-              step={isLoanRepayment ? "0.01" : 100}
+              min={minAmount}
+              step={isLoanRepayment ? "0.01" : isCollecte ? COLLECTE_AMOUNT_STEP : 100}
               required
-              disabled={isMultiJour}
-              value={isMultiJour ? String(nbJours * COLLECTE_MIN_PER_DAY) : form.montant}
+              value={form.montant}
               onChange={(e) => setForm({ ...form, montant: e.target.value })}
-              className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700 disabled:bg-cream/60 disabled:text-ink-600"
+              className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
             />
-            <p className="mt-1 text-xs text-ink-600">
-              {isMultiJour
-                ? `Montant verrouille (mode multi-jours).`
-                : "Minimum 100 XAF."}
-            </p>
+            <p className="mt-1 text-xs text-ink-600">{amountHelp}</p>
 
             <div className="mt-5 grid grid-cols-2 gap-4">
               <div>
