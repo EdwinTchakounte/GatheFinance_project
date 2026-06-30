@@ -50,6 +50,10 @@ const Set<String> _hardcodedLoanFields = {
   'recipient_phone',
 };
 
+/// Les 3 voies d'éligibilité présentées sur la page crédit. Permet d'ouvrir
+/// le sheet en présélectionnant la voie que le membre a touchée.
+enum LoanRequestVoie { brc, avaliste, campaign }
+
 /// Modale demande de crédit . 2 étapes :
 /// 1. Eligibility check + formulaire (montant slider + durée slider + motif)
 /// 2. Success (demande créée, lien vers paiement frais à venir)
@@ -58,6 +62,7 @@ class LoanRequestSheet extends ConsumerStatefulWidget {
     super.key,
     required this.eligibility,
     this.prefillCampaignId,
+    this.initialVoie,
   });
 
   final Eligibility eligibility;
@@ -67,10 +72,15 @@ class LoanRequestSheet extends ConsumerStatefulWidget {
   /// la voie campagne du formulaire.
   final int? prefillCampaignId;
 
+  /// Voie présélectionnée quand le membre ouvre le sheet en touchant une
+  /// carte « voie de crédit » sur la page crédit. `null` → voie BRC (défaut).
+  final LoanRequestVoie? initialVoie;
+
   static Future<void> show(
     BuildContext context,
     Eligibility eligibility, {
     int? prefillCampaignId,
+    LoanRequestVoie? initialVoie,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -87,6 +97,7 @@ class LoanRequestSheet extends ConsumerStatefulWidget {
       builder: (_) => LoanRequestSheet(
         eligibility: eligibility,
         prefillCampaignId: prefillCampaignId,
+        initialVoie: initialVoie,
       ),
     );
   }
@@ -171,6 +182,17 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     if (widget.prefillCampaignId != null) {
       _withCampaign = true;
       _selectedCampaignId = widget.prefillCampaignId;
+    }
+    // Présélection de la voie quand on arrive depuis une carte « voie de
+    // crédit » de la page crédit. BRC = défaut (aucun toggle à activer).
+    switch (widget.initialVoie) {
+      case LoanRequestVoie.avaliste:
+        _withAvaliste = true;
+      case LoanRequestVoie.campaign:
+        _withCampaign = true;
+      case LoanRequestVoie.brc:
+      case null:
+        break;
     }
   }
 

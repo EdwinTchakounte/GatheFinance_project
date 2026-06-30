@@ -160,9 +160,13 @@ class CreditPage extends ConsumerWidget {
                         ref.watch(eligibilityProvider).valueOrNull;
                     return _LoanRoutesCarousel(
                       eligibility: eligibility,
-                      onTap: eligibility == null
+                      onSelect: eligibility == null
                           ? null
-                          : () => LoanRequestSheet.show(context, eligibility),
+                          : (voie) => LoanRequestSheet.show(
+                                context,
+                                eligibility,
+                                initialVoie: voie,
+                              ),
                     );
                   },
                 ),
@@ -949,14 +953,16 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
+    // Empty-state soft & compact : une ligne icône + texte, un petit indice
+    // dessous. Beaucoup moins imposant que l'ancienne grosse carte.
     return PaCard(
-      padding: const EdgeInsets.all(22),
-      child: Column(
+      padding: const EdgeInsets.all(14),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 38,
+            height: 38,
             decoration: const BoxDecoration(
               color: PaColors.tealSurface,
               shape: BoxShape.circle,
@@ -965,47 +971,47 @@ class _EmptyState extends StatelessWidget {
             child: const Icon(
               Icons.account_balance_outlined,
               color: PaColors.teal,
-              size: 28,
+              size: 19,
             ),
           ),
-          const SizedBox(height: 14),
-          Text(
-            l.credit_empty_title,
-            style: const TextStyle(
-              color: PaColors.inkPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            l.credit_empty_body,
-            style: const TextStyle(
-              color: PaColors.inkSecondary,
-              fontSize: 13.5,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: PaColors.tealSurface,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.arrow_downward_rounded,
-                    color: PaColors.teal, size: 14,),
-                const SizedBox(width: 4),
                 Text(
-                  l.credit_empty_hint,
+                  l.credit_empty_title,
                   style: const TextStyle(
-                    color: PaColors.teal,
-                    fontSize: 12,
+                    color: PaColors.inkPrimary,
+                    fontSize: 14.5,
                     fontWeight: FontWeight.w700,
                   ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  l.credit_empty_body,
+                  style: const TextStyle(
+                    color: PaColors.inkSecondary,
+                    fontSize: 12.5,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.arrow_downward_rounded,
+                        color: PaColors.teal, size: 13,),
+                    const SizedBox(width: 4),
+                    Text(
+                      l.credit_empty_hint,
+                      style: const TextStyle(
+                        color: PaColors.teal,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1366,49 +1372,72 @@ class _LenderPayoutsEntryTile extends ConsumerWidget {
 class _LoanRoutesCarousel extends StatelessWidget {
   const _LoanRoutesCarousel({
     required this.eligibility,
-    required this.onTap,
+    required this.onSelect,
   });
 
   final Eligibility? eligibility;
-  final VoidCallback? onTap;
+  // Callback avec la voie touchée → ouvre le formulaire présélectionné.
+  final void Function(LoanRequestVoie voie)? onSelect;
 
   @override
   Widget build(BuildContext context) {
     final elig = eligibility;
     final isEligible = elig != null && elig.eligible;
     final plafond = elig?.plafondMax;
+    final ready = onSelect != null;
 
-    return SizedBox(
-      height: 158,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        physics: const BouncingScrollPhysics(),
-        children: [
-          _LoanRouteCard(
-            icon: Icons.workspace_premium_rounded,
-            iconColor: PaColors.teal,
-            iconBg: PaColors.tealSurface,
-            title: 'Voie BRC',
-            subtitle: plafond != null && plafond > 0
-                ? 'Plafond ${_formatPlafond(plafond)} XAF'
-                : 'Selon votre épargne',
-            statusLabel: isEligible ? 'Disponible' : 'Non éligible',
-            statusOk: isEligible,
-            onTap: isEligible ? onTap : null,
-          ),
-          const SizedBox(width: 12),
-          _LoanRouteCard(
-            icon: Icons.handshake_rounded,
-            iconColor: PaColors.blue,
-            iconBg: const Color(0xFFE8EEFC),
-            title: 'Avec un avaliste',
-            subtitle: 'Garant désigné (membre actif)',
-            statusLabel: 'Disponible',
-            statusOk: true,
-            onTap: onTap,
-          ),
-        ],
+    // Les 3 voies tiennent sur UNE ligne (Row + Expanded), hauteurs égalisées
+    // via IntrinsicHeight. Toucher une carte ouvre le formulaire sur la voie.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _LoanRouteCard(
+                icon: Icons.workspace_premium_rounded,
+                iconColor: PaColors.teal,
+                iconBg: PaColors.tealSurface,
+                title: 'BRC',
+                subtitle: plafond != null && plafond > 0
+                    ? '${_formatPlafond(plafond)} XAF'
+                    : 'Selon épargne',
+                statusLabel: isEligible ? 'Disponible' : 'Non éligible',
+                statusOk: isEligible,
+                onTap: ready && isEligible
+                    ? () => onSelect!(LoanRequestVoie.brc)
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _LoanRouteCard(
+                icon: Icons.handshake_rounded,
+                iconColor: PaColors.blue,
+                iconBg: const Color(0xFFE8EEFC),
+                title: 'Avaliste',
+                subtitle: 'Garant désigné',
+                statusLabel: 'Disponible',
+                statusOk: true,
+                onTap: ready ? () => onSelect!(LoanRequestVoie.avaliste) : null,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _LoanRouteCard(
+                icon: Icons.campaign_rounded,
+                iconColor: PaColors.warning,
+                iconBg: PaColors.warningSurface,
+                title: 'Campagne',
+                subtitle: 'Micro-crédit',
+                statusLabel: 'Disponible',
+                statusOk: true,
+                onTap: ready ? () => onSelect!(LoanRequestVoie.campaign) : null,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1449,70 +1478,67 @@ class _LoanRouteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final disabled = onTap == null;
     return Opacity(
-      opacity: disabled ? 0.72 : 1.0,
-      child: SizedBox(
-        width: 230,
-        child: PaCard(
-          padding: const EdgeInsets.all(14),
-          onTap: onTap,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: iconColor, size: 22),
+      opacity: disabled ? 0.6 : 1.0,
+      // Carte compacte conçue pour vivre dans un Expanded (3 par ligne).
+      child: PaCard(
+        padding: const EdgeInsets.all(11),
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(height: 10),
-              Text(
-                title,
+              child: Icon(icon, color: iconColor, size: 19),
+            ),
+            const SizedBox(height: 9),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: PaColors.inkPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: PaColors.inkSecondary,
+                fontSize: 10.5,
+                height: 1.25,
+              ),
+            ),
+            const SizedBox(height: 9),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: statusOk
+                    ? PaColors.successSurface
+                    : PaColors.warningSurface,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                statusLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: PaColors.inkPrimary,
-                  fontSize: 14.5,
+                style: TextStyle(
+                  color: statusOk ? PaColors.success : PaColors.warning,
+                  fontSize: 9.5,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: PaColors.inkSecondary,
-                  fontSize: 12,
-                  height: 1.3,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: statusOk
-                      ? PaColors.successSurface
-                      : PaColors.warningSurface,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: TextStyle(
-                    color: statusOk ? PaColors.success : PaColors.warning,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
