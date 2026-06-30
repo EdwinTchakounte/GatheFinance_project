@@ -171,6 +171,60 @@ class TestModeBValidation:
         )
         assert resp.status_code == 400
 
+    def test_multi_day_accepts_amount_above_min(
+        self, active_member, member_client
+    ):
+        # Montant LIBRE : 5 jours, 10 000 (= 2 000/jour ≥ 1 000) → accepté.
+        resp = member_client.post(
+            _INIT_PATH,
+            data={
+                "type": "epargne",
+                "montant": "10000",
+                "phone": "237699000000",
+                "network": "MTN",
+                "nb_jours_couverts": 5,
+            },
+            format="json",
+        )
+        assert resp.status_code in (200, 201), resp.content
+        payment = Payment.objects.get(member=active_member)
+        assert payment.montant == Decimal("10000")
+        assert payment.nb_jours_couverts == 5
+
+    def test_amount_must_be_multiple_of_step(
+        self, active_member, member_client
+    ):
+        # 5 jours, 10 025 (non multiple de 50) → 400.
+        resp = member_client.post(
+            _INIT_PATH,
+            data={
+                "type": "epargne",
+                "montant": "10025",
+                "phone": "237699000000",
+                "network": "MTN",
+                "nb_jours_couverts": 5,
+            },
+            format="json",
+        )
+        assert resp.status_code == 400
+        assert b"multiple" in resp.content
+
+    def test_single_day_below_min_rejected(
+        self, active_member, member_client
+    ):
+        # 1 jour, 500 (< 1 000/jour) → 400.
+        resp = member_client.post(
+            _INIT_PATH,
+            data={
+                "type": "epargne",
+                "montant": "500",
+                "phone": "237699000000",
+                "network": "MTN",
+            },
+            format="json",
+        )
+        assert resp.status_code == 400
+
 
 # ---------------------------------------------------------------------------
 # Hook _hook_savings_deposit propage nb_jours_couverts

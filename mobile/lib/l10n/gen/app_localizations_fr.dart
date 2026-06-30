@@ -1258,6 +1258,15 @@ class AppL10nFr extends AppL10n {
   String get err_min_100 => 'Minimum 100 XAF.';
 
   @override
+  String get err_amount_multiple_50 =>
+      'Le montant doit être un multiple de 50.';
+
+  @override
+  String err_collecte_min_per_day(String min, int days) {
+    return 'Minimum $min ($days jour(s) × 1 000).';
+  }
+
+  @override
   String get err_number_incomplete => 'Numéro incomplet.';
 
   @override

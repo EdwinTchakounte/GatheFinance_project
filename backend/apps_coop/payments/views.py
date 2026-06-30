@@ -145,11 +145,15 @@ def init_payment(request):
     nb_jours = data.get("nb_jours_couverts", 1) or 1
     # TODO: REMOVE_FOR_PROD — bypass montant pour tester STK Push réel.
     _test_any_amount = getattr(settings, "PAYMENTS_TEST_ALLOW_ANY_AMOUNT", False)
-    if data["type"] == Payment.Type.EPARGNE and nb_jours != 1:
+    if data["type"] == Payment.Type.EPARGNE:
         from apps_coop.audit.services import get_int_setting
 
         min_per_day = get_int_setting("collecte.min_per_day", 1000)
         max_days = get_int_setting("collecte.prepay.max_days", 30)
+        # Pas du montant : la collecte se verse par multiples de 50 FCFA
+        # (tunable). Le multi-jours autorise un montant LIBRE tant qu'il
+        # respecte ce pas ET le minimum de min_per_day par jour.
+        step = get_int_setting("collecte.amount_step", 50)
         if nb_jours > max_days:
             return Response(
                 {
@@ -160,16 +164,30 @@ def init_payment(request):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        expected = nb_jours * min_per_day
-        if not _test_any_amount and data["montant"] != expected:
+        montant = data["montant"]
+        if not _test_any_amount and step > 0 and montant % step != 0:
             return Response(
                 {
                     "detail": (
-                        f"Mode multi-jours : montant attendu "
-                        f"{nb_jours} × {min_per_day} = {expected} FCFA "
-                        f"(reçu {int(data['montant'])})."
+                        f"Le montant de la collecte doit être un multiple "
+                        f"de {step} FCFA (reçu {int(montant)})."
                     )
                 },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Minimum min_per_day PAR JOUR → total ≥ nb_jours × min_per_day.
+        # (Avant : montant figé EXACTEMENT à N × min_per_day. Désormais le
+        # membre peut verser davantage, ex. 10 000 sur 5 j = 2 000/jour.)
+        min_total = nb_jours * min_per_day
+        if not _test_any_amount and montant < min_total:
+            label = (
+                f"Mode multi-jours : montant minimum {nb_jours} × {min_per_day} "
+                f"= {min_total} FCFA"
+                if nb_jours > 1
+                else f"Montant minimum de la collecte : {min_per_day} FCFA par jour"
+            )
+            return Response(
+                {"detail": f"{label} (reçu {int(montant)})."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
     elif data["type"] != Payment.Type.EPARGNE and nb_jours != 1:

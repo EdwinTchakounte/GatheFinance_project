@@ -12,3 +12,8 @@ const int kCollecteMinPerDay = 1000;
 
 /// Plafond du multi-jours pré-payé (verse N jours à l'avance, max 30).
 const int kCollectePrepayMaxDays = 30;
+
+/// Pas du montant de collecte : tout versement doit être un multiple de 50 FCFA
+/// (contrainte opérationnelle de la coopérative). Le multi-jours autorise un
+/// montant libre tant qu'il respecte ce pas ET le minimum de 1 000/jour.
+const int kCollecteAmountStep = 50;

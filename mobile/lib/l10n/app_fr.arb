@@ -528,6 +528,9 @@
   "common_number": "Numéro",
   "err_enter_amount": "Saisis un montant.",
   "err_min_100": "Minimum 100 XAF.",
+  "err_amount_multiple_50": "Le montant doit être un multiple de 50.",
+  "err_collecte_min_per_day": "Minimum {min} ({days} jour(s) × 1 000).",
+  "@err_collecte_min_per_day": { "placeholders": { "min": { "type": "String" }, "days": { "type": "int" } } },
   "err_number_incomplete": "Numéro incomplet.",
 
   "dep_title": "Verser mon épargne",

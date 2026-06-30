@@ -440,7 +440,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
 
             // LOT 6 . Sélecteur multi-jours pré-payés (cotisation uniquement).
             // Le membre peut verser pour 1, 3, 5, 7, 15 ou 30 jours d'avance.
-            // Le montant est verrouillé sur N × kCollecteMinPerDay.
+            // Le montant reste LIBRE et éditable : sélectionner N jours
+            // pré-remplit N × 1 000 (minimum), mais le membre peut saisir un
+            // montant plus élevé (multiple de 50, ≥ 1 000/jour).
             if (!widget.classic) ...[
               const Text(
                 'COLLECTE POUR…',
@@ -468,8 +470,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                       onTap: () {
                         setState(() {
                           _nbJoursCouverts = n;
-                          _amountCtrl.text =
-                              '${n * kCollecteMinPerDay}';
+                          // Pré-remplit le minimum (N × 1 000) ; éditable.
+                          _amountCtrl.text = '${n * kCollecteMinPerDay}';
                         });
                       },
                     );
@@ -478,31 +480,39 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               ),
               if (_nbJoursCouverts > 1) ...[
                 const SizedBox(height: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: PaColors.tealSurface,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.bolt_outlined,
-                          size: 16, color: PaColors.teal,),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Pré-paiement $_nbJoursCouverts jours × ${XAFFormatter.format(kCollecteMinPerDay)} = ${XAFFormatter.format(_nbJoursCouverts * kCollecteMinPerDay)}',
-                          style: const TextStyle(
-                            color: PaColors.navy,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            height: 1.35,
-                          ),
-                        ),
+                Builder(
+                  builder: (_) {
+                    // Récap dynamique : montant réellement saisi → par jour.
+                    final total =
+                        num.tryParse(_amountCtrl.text.replaceAll(' ', '')) ?? 0;
+                    final perDay = total / _nbJoursCouverts;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8,),
+                      decoration: BoxDecoration(
+                        color: PaColors.tealSurface,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                    ],
-                  ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.bolt_outlined,
+                              size: 16, color: PaColors.teal,),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '$_nbJoursCouverts jours · ${XAFFormatter.format(perDay)}/jour = ${XAFFormatter.format(total)}',
+                              style: const TextStyle(
+                                color: PaColors.navy,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ],
               const SizedBox(height: 16),
@@ -522,8 +532,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             TextFormField(
               controller: _amountCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: false),
-              // Quand on est en multi-jours, le montant est verrouillé.
-              readOnly: !widget.classic && _nbJoursCouverts > 1,
+              // Montant toujours éditable (y compris en multi-jours) : le
+              // membre choisit librement, sous contrainte ×50 et ≥1 000/jour.
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (_) => setState(() {}),
               style: const TextStyle(
@@ -565,7 +575,24 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                 final t = (v ?? '').trim();
                 if (t.isEmpty) return l.err_enter_amount;
                 final n = num.tryParse(t);
-                if (n == null || n < 100) return l.err_min_100;
+                if (n == null) return l.err_enter_amount;
+                if (widget.classic) {
+                  // Épargne classique : minimum simple.
+                  if (n < 100) return l.err_min_100;
+                  return null;
+                }
+                // Collecte journalière : multiple de 50 ET ≥ 1 000 par jour
+                // (donc total ≥ nbJours × 1 000).
+                if (n % kCollecteAmountStep != 0) {
+                  return l.err_amount_multiple_50;
+                }
+                final minTotal = _nbJoursCouverts * kCollecteMinPerDay;
+                if (n < minTotal) {
+                  return l.err_collecte_min_per_day(
+                    XAFFormatter.format(minTotal),
+                    _nbJoursCouverts,
+                  );
+                }
                 return null;
               },
             ),

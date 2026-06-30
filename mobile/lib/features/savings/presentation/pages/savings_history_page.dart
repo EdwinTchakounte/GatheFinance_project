@@ -13,6 +13,11 @@ import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/savings_transaction.dart';
 import '../state/classic_savings_notifier.dart';
+import '../state/savings_notifier.dart';
+
+/// Une transaction + sa provenance (collecte journalière vs épargne classique),
+/// pour libeller chaque ligne sans ambiguïté dans l'historique fusionné.
+typedef _Entry = ({SavingsTransaction tx, bool collecte});
 
 /// Page Historique . style **Paysika** (palette navy/teal).
 ///
@@ -33,9 +38,11 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Aligné sur le hero de la Home (épargne classique). L'historique
-    // cotisation reste accessible depuis Mes états (page states_page).
+    // Historique unifié : épargne classique + collecte journalière, pour que
+    // les versements collecte soient visibles ici (et plus seulement dans
+    // Mes états). Les deux comptes sont fusionnés et triés par date.
     final savings = ref.watch(classicSavingsProvider);
+    final cotisation = ref.watch(savingsProvider);
     final l = AppL10n.of(context);
 
     return Scaffold(
@@ -69,13 +76,22 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
           Expanded(
             child: RefreshIndicator.adaptive(
               color: PaColors.teal,
-              onRefresh: () =>
+              onRefresh: () async {
+                await Future.wait([
                   ref.read(classicSavingsProvider.notifier).refresh(),
+                  ref.read(savingsProvider.notifier).refresh(),
+                ]);
+              },
               child: savings.when(
-                data: (data) => _List(
-                  transactions: data.transactions,
-                  typeFilter: _type,
-                ),
+                data: (data) {
+                  final coti = cotisation.valueOrNull?.transactions ??
+                      const <SavingsTransaction>[];
+                  final entries = <_Entry>[
+                    for (final t in data.transactions) (tx: t, collecte: false),
+                    for (final t in coti) (tx: t, collecte: true),
+                  ];
+                  return _List(entries: entries, typeFilter: _type);
+                },
                 loading: () => const _LoadingList(),
                 error: (e, _) => _ErrorState(message: e.toString()),
               ),
@@ -168,26 +184,27 @@ class _FilterChip extends StatelessWidget {
 
 
 class _List extends StatelessWidget {
-  const _List({required this.transactions, required this.typeFilter});
+  const _List({required this.entries, required this.typeFilter});
 
-  final List<SavingsTransaction> transactions;
+  final List<_Entry> entries;
   final SavingsType? typeFilter;
 
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
     final filtered = typeFilter == null
-        ? transactions
-        : transactions.where((t) => t.type == typeFilter).toList();
+        ? entries
+        : entries.where((e) => e.tx.type == typeFilter).toList();
 
     if (filtered.isEmpty) {
       return _EmptyState(message: l.savings_empty_period);
     }
 
     final groups = <String, _MonthGroup>{};
-    for (final tx in filtered) {
-      final key = '${tx.date.year}-${tx.date.month.toString().padLeft(2, '0')}';
-      groups.putIfAbsent(key, () => _MonthGroup(month: tx.date)).add(tx);
+    for (final e in filtered) {
+      final d = e.tx.date;
+      final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
+      groups.putIfAbsent(key, () => _MonthGroup(month: d)).add(e);
     }
     final keys = groups.keys.toList()..sort((a, b) => b.compareTo(a));
 
@@ -206,19 +223,19 @@ class _List extends StatelessWidget {
 class _MonthGroup {
   _MonthGroup({required this.month});
   final DateTime month;
-  final List<SavingsTransaction> transactions = [];
+  final List<_Entry> entries = [];
 
-  void add(SavingsTransaction tx) => transactions.add(tx);
+  void add(_Entry e) => entries.add(e);
 
   num get netTotal {
     num n = 0;
-    for (final tx in transactions) {
-      switch (tx.type) {
+    for (final e in entries) {
+      switch (e.tx.type) {
         case SavingsType.depot:
         case SavingsType.interet:
-          n += tx.montant;
+          n += e.tx.montant;
         case SavingsType.retrait:
-          n -= tx.montant;
+          n -= e.tx.montant;
       }
     }
     return n;
@@ -277,14 +294,18 @@ class _MonthSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             child: Column(
               children: [
-                for (var i = 0; i < group.transactions.length; i++) ...[
+                for (var i = 0; i < group.entries.length; i++) ...[
                   PaTransactionTile(
-                    kind: _mapKind(group.transactions[i].type),
-                    label: _label(l, group.transactions[i].type),
-                    time: AppDateFormatter.withTime(group.transactions[i].date),
-                    amount: group.transactions[i].montant,
+                    kind: _mapKind(group.entries[i].tx.type),
+                    label: _label(
+                      l,
+                      group.entries[i].tx.type,
+                      group.entries[i].collecte,
+                    ),
+                    time: AppDateFormatter.withTime(group.entries[i].tx.date),
+                    amount: group.entries[i].tx.montant,
                   ),
-                  if (i < group.transactions.length - 1)
+                  if (i < group.entries.length - 1)
                     const Divider(
                       height: 1,
                       thickness: 0.6,
@@ -305,8 +326,9 @@ class _MonthSection extends StatelessWidget {
         SavingsType.retrait => PaTxKind.retrait,
       };
 
-  String _label(AppL10n l, SavingsType t) => switch (t) {
-        SavingsType.depot => l.tx_deposit,
+  String _label(AppL10n l, SavingsType t, bool collecte) => switch (t) {
+        SavingsType.depot =>
+          collecte ? l.tx_deposit_cotisation : l.tx_deposit,
         SavingsType.interet => l.tx_interest,
         SavingsType.retrait => l.tx_withdrawal,
       };

@@ -2383,6 +2383,18 @@ abstract class AppL10n {
   /// **'Minimum 100 XAF.'**
   String get err_min_100;
 
+  /// No description provided for @err_amount_multiple_50.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le montant doit être un multiple de 50.'**
+  String get err_amount_multiple_50;
+
+  /// No description provided for @err_collecte_min_per_day.
+  ///
+  /// In fr, this message translates to:
+  /// **'Minimum {min} ({days} jour(s) × 1 000).'**
+  String err_collecte_min_per_day(String min, int days);
+
   /// No description provided for @err_number_incomplete.
   ///
   /// In fr, this message translates to:

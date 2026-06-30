@@ -34,17 +34,18 @@ class PaymentInitSerializer(serializers.Serializer):
     loan_id = serializers.IntegerField(required=False, allow_null=True)
     loan_installment_id = serializers.IntegerField(required=False, allow_null=True)
     # LOT 6 (refonte 2026) — multi-jours pré-payé sur la collecte journalière.
-    # N = 1 : versement classique d'1 jour, montant libre ≥ collecte.min_per_day.
-    # N > 1 : mode multi-jours, montant doit valoir EXACTEMENT
-    #         N × collecte.min_per_day (validation côté view).
-    # Plafond N ≤ collecte.prepay.max_days (défaut 30).
+    # Montant LIBRE : ≥ collecte.min_per_day par jour ET multiple de
+    # collecte.amount_step (50 par défaut). N = 1 : versement d'1 jour.
+    # N > 1 : couvre N jours, total ≥ N × collecte.min_per_day (validation
+    # côté view). Plafond N ≤ collecte.prepay.max_days (défaut 30).
     nb_jours_couverts = serializers.IntegerField(
         required=False,
         min_value=1,
         default=1,
         help_text=(
             "Nombre de jours couverts par le versement (multi-jours pré-payé). "
-            "Défaut 1. > 1 → montant figé à N × collecte.min_per_day."
+            "Défaut 1. Montant libre ≥ N × collecte.min_per_day, multiple de "
+            "collecte.amount_step."
         ),
     )
     # CH-3 (refonte 2026) — Sous-canal placement épargne classique.

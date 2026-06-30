@@ -256,9 +256,22 @@ class HomePage extends ConsumerWidget {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 60),
                   child: epargne.when(
-                    data: (data) => _RecentList(
-                      transactions: data.transactions.take(4).toList(),
-                    ),
+                    data: (data) {
+                      // Opérations récentes = épargne classique ET collecte
+                      // journalière fusionnées, triées par date décroissante.
+                      // (Avant : seule l'épargne classique apparaissait, donc
+                      // les versements collecte étaient invisibles.)
+                      final coti = cotisation.valueOrNull?.transactions ??
+                          const <SavingsTransaction>[];
+                      final entries = <_RecentEntry>[
+                        for (final t in data.transactions)
+                          (tx: t, collecte: false),
+                        for (final t in coti) (tx: t, collecte: true),
+                      ]..sort((a, b) => b.tx.date.compareTo(a.tx.date));
+                      return _RecentList(
+                        entries: entries.take(4).toList(),
+                      );
+                    },
                     loading: () => const PaCard(
                       padding: EdgeInsets.symmetric(vertical: 18, horizontal: 16),
                       child: PaShimmerList(count: 3),
@@ -525,16 +538,20 @@ class _NotifBell extends StatelessWidget {
 // Liste des opérations récentes (4 max) . PaCard wrapping 4 PaTransactionTile
 // ───────────────────────────────────────────────────────────────────────────
 
-class _RecentList extends StatelessWidget {
-  const _RecentList({required this.transactions});
+/// Une opération récente + sa provenance (collecte journalière vs épargne
+/// classique) pour libeller la tile sans ambiguïté.
+typedef _RecentEntry = ({SavingsTransaction tx, bool collecte});
 
-  final List<SavingsTransaction> transactions;
+class _RecentList extends StatelessWidget {
+  const _RecentList({required this.entries});
+
+  final List<_RecentEntry> entries;
 
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
 
-    if (transactions.isEmpty) {
+    if (entries.isEmpty) {
       return PaCard(
         padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
         child: Center(
@@ -550,14 +567,14 @@ class _RecentList extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       child: Column(
         children: [
-          for (var i = 0; i < transactions.length; i++) ...[
+          for (var i = 0; i < entries.length; i++) ...[
             PaTransactionTile(
-              kind: _mapKind(transactions[i].type),
-              label: _label(l, transactions[i].type),
-              time: AppDateFormatter.withTime(transactions[i].date),
-              amount: transactions[i].montant,
+              kind: _mapKind(entries[i].tx.type),
+              label: _label(l, entries[i].tx.type, entries[i].collecte),
+              time: AppDateFormatter.withTime(entries[i].tx.date),
+              amount: entries[i].tx.montant,
             ),
-            if (i < transactions.length - 1)
+            if (i < entries.length - 1)
               const Divider(
                 height: 1,
                 thickness: 0.6,
@@ -575,8 +592,9 @@ class _RecentList extends StatelessWidget {
         SavingsType.retrait => PaTxKind.retrait,
       };
 
-  String _label(AppL10n l, SavingsType t) => switch (t) {
-        SavingsType.depot => l.tx_deposit,
+  String _label(AppL10n l, SavingsType t, bool collecte) => switch (t) {
+        SavingsType.depot =>
+          collecte ? l.tx_deposit_cotisation : l.tx_deposit,
         SavingsType.interet => l.tx_interest,
         SavingsType.retrait => l.tx_withdrawal,
       };
