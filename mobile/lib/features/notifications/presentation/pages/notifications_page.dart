@@ -16,11 +16,30 @@ import '../state/notifications_notifier.dart';
 /// AppBar minimaliste + liste de notif tiles (avatar coloré + titre + body
 /// + temps relatif). Notifs non-lues mises en avant par un dot + fond
 /// blanc + bord teal soft ; lues = fond gris pâle.
-class NotificationsPage extends ConsumerWidget {
+class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationsPage> createState() => _NotificationsPageState();
+}
+
+class _NotificationsPageState extends ConsumerState<NotificationsPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Ouvrir la page de notifications = le membre les a « vues » → on marque
+    // tout comme lu automatiquement (post-frame pour ne pas muter un provider
+    // pendant le 1er build). Le badge de la cloche retombe ainsi à 0.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ref.read(unreadNotifsCountProvider) > 0) {
+        ref.read(notificationsProvider.notifier).markAllRead();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final notifsAsync = ref.watch(notificationsProvider);
     final unread = ref.watch(unreadNotifsCountProvider);
     final l = AppL10n.of(context);
