@@ -419,6 +419,7 @@
   "common_number": "Number",
   "err_enter_amount": "Enter an amount.",
   "err_min_100": "Minimum 100 XAF.",
+  "err_min_1000": "Minimum 1,000 XAF.",
   "err_amount_multiple_50": "Amount must be a multiple of 50.",
   "err_collecte_min_per_day": "Minimum {min} ({days} day(s) × 1,000).",
   "@err_collecte_min_per_day": { "placeholders": { "min": { "type": "String" }, "days": { "type": "int" } } },

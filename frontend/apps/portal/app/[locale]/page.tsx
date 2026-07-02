@@ -304,7 +304,7 @@ export default function PortalDashboardPage() {
             </h2>
             <button
               type="button"
-              onClick={() => router.push("/epargne/depot")}
+              onClick={() => router.push("/epargne")}
               className={buttonClasses({ variant: "success", size: "md", fullWidth: true }) + " mt-4"}
             >
               Verser mon épargne
@@ -329,37 +329,80 @@ export default function PortalDashboardPage() {
           </div>
         </section>
 
-        {/* Transactions récentes */}
-        <section className="mt-12">
-          <h2 className="font-editorial text-xl font-medium text-ink-900">
-            Transactions récentes
-          </h2>
-          {savings && savings.transactions_recentes.length > 0 ? (
-            <ul className="mt-5 divide-y divide-line-200 rounded-md border border-line-200 bg-paper">
-              {savings.transactions_recentes.map((tx) => (
-                <li key={tx.id} className="flex items-center justify-between px-5 py-3.5">
-                  <div>
-                    <p className="font-medium text-ink-900">{tx.type_display}</p>
-                    <p className="text-xs text-ink-600">{formatDate(tx.date)}</p>
-                  </div>
-                  <p className={
-                    tx.type_op === "retrait"
-                      ? "font-mono text-terra-700"
-                      : "font-mono text-emerald"
-                  }>
-                    {tx.type_op === "retrait" ? "−" : "+"}
-                    {formatXAF(tx.montant)}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-5 rounded-md border border-dashed border-line-200 bg-paper/70 p-8 text-center text-sm text-ink-600">
-              Aucune transaction pour le moment. Effectue ton 1<sup>er</sup> dépôt
-              quand tu veux.
-            </p>
-          )}
-        </section>
+        {/* Transactions récentes — flux unifié, badge de source (cotisation
+            collecte vs épargne classique) pour dissocier les deux produits. */}
+        {(() => {
+          const merged = [
+            ...(savings?.transactions_recentes ?? []).map(
+              (tx) => ({ tx, source: "collecte" as const }),
+            ),
+            ...(classicSavings?.transactions_recentes ?? []).map(
+              (tx) => ({ tx, source: "classique" as const }),
+            ),
+          ]
+            .sort(
+              (a, b) =>
+                new Date(b.tx.date).getTime() - new Date(a.tx.date).getTime(),
+            )
+            .slice(0, 6);
+          return (
+            <section className="mt-12">
+              <h2 className="font-editorial text-xl font-medium text-ink-900">
+                Transactions récentes
+              </h2>
+              {merged.length > 0 ? (
+                <ul className="mt-5 divide-y divide-line-200 rounded-md border border-line-200 bg-paper">
+                  {merged.map((e) => {
+                    const isCollecte = e.source === "collecte";
+                    const isRetrait = e.tx.type_op === "retrait";
+                    return (
+                      <li
+                        key={`${e.source}-${e.tx.id}`}
+                        className="flex items-center justify-between px-5 py-3.5"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={
+                                "inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
+                                (isCollecte
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-emerald/15 text-emerald")
+                              }
+                            >
+                              {isCollecte ? "Cotisation" : "Épargne"}
+                            </span>
+                            <p className="truncate font-medium text-ink-900">
+                              {e.tx.type_display}
+                            </p>
+                          </div>
+                          <p className="mt-0.5 text-xs text-ink-600">
+                            {formatDate(e.tx.date)}
+                          </p>
+                        </div>
+                        <p
+                          className={
+                            isRetrait
+                              ? "font-mono text-terra-700"
+                              : "font-mono text-emerald"
+                          }
+                        >
+                          {isRetrait ? "−" : "+"}
+                          {formatXAF(e.tx.montant)}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="mt-5 rounded-md border border-dashed border-line-200 bg-paper/70 p-8 text-center text-sm text-ink-600">
+                  Aucune transaction pour le moment. Effectue ton 1
+                  <sup>er</sup> dépôt quand tu veux.
+                </p>
+              )}
+            </section>
+          );
+        })()}
         </>)}
       </Container>
     </main>

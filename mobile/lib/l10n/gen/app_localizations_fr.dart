@@ -1258,6 +1258,9 @@ class AppL10nFr extends AppL10n {
   String get err_min_100 => 'Minimum 100 XAF.';
 
   @override
+  String get err_min_1000 => 'Minimum 1 000 XAF.';
+
+  @override
   String get err_amount_multiple_50 =>
       'Le montant doit être un multiple de 50.';
 

@@ -212,10 +212,14 @@ def init_payment(request):
                 {"detail": "L'épargne classique n'est pas ouverte aux dépôts pour le moment."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Plancher réglementaire : tout versement (collecte OU épargne classique)
+        # a un minimum de 1 000 XAF. La config admin `depot_min` ne peut que le
+        # RELEVER, jamais l'abaisser sous 1 000.
+        min_deposit = max(int(cfg.depot_min or 0), 1000)
         # TODO: REMOVE_FOR_PROD — bypass min/max pour tester STK Push réel.
-        if not _test_any_amount and data["montant"] < cfg.depot_min:
+        if not _test_any_amount and data["montant"] < min_deposit:
             return Response(
-                {"detail": f"Dépôt minimum : {int(cfg.depot_min)} XAF."},
+                {"detail": f"Dépôt minimum : {min_deposit} XAF."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if (

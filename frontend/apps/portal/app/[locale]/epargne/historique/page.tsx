@@ -61,6 +61,10 @@ function typeBadge(typeOp: string): { bg: string; text: string; label: string } 
 }
 
 
+// Produit d'épargne — dissocié : cotisation collecte vs épargne classique.
+// Chaque produit a son propre ledger (endpoint distinct côté backend).
+type Product = "collecte" | "classique";
+
 export default function SavingsHistoryPage() {
   const router = useRouter();
   const [items, setItems] = useState<SavingsTransaction[]>([]);
@@ -68,6 +72,7 @@ export default function SavingsHistoryPage() {
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
   const [filter, setFilter] = useState<TypeOp>("");
+  const [product, setProduct] = useState<Product>("collecte");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +80,11 @@ export default function SavingsHistoryPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await portalApi.savingsTransactions({
+      const fetcher =
+        product === "classique"
+          ? portalApi.classicSavingsTransactions
+          : portalApi.savingsTransactions;
+      const res = await fetcher({
         page,
         type_op: filter || undefined,
       });
@@ -93,7 +102,7 @@ export default function SavingsHistoryPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, filter]);
+  }, [page, filter, product]);
 
   return (
     <Container>
@@ -109,8 +118,40 @@ export default function SavingsHistoryPage() {
           Historique de mes transactions
         </h1>
         <p className="mt-2 text-sm text-ink-600">
-          Toutes les opérations sur ton compte d'épargne, plus récentes d'abord.
+          Deux produits dissociés : choisis le compte à consulter. Opérations les
+          plus récentes d'abord.
         </p>
+
+        {/* Sélecteur de produit — dissocie cotisation collecte / épargne classique */}
+        <div className="mt-5 inline-flex rounded-md border border-line-200 bg-paper p-1">
+          {([
+            { v: "collecte", l: "Cotisation collecte" },
+            { v: "classique", l: "Épargne classique" },
+          ] as { v: Product; l: string }[]).map((opt) => {
+            const active = product === opt.v;
+            const activeCls =
+              opt.v === "collecte"
+                ? "bg-blue-700 text-white"
+                : "bg-emerald text-white";
+            return (
+              <button
+                key={opt.v}
+                type="button"
+                onClick={() => {
+                  setProduct(opt.v);
+                  setFilter("");
+                  setPage(1);
+                }}
+                className={
+                  "rounded px-3.5 py-1.5 text-sm font-medium transition-colors " +
+                  (active ? activeCls : "text-ink-700 hover:text-blue-700")
+                }
+              >
+                {opt.l}
+              </button>
+            );
+          })}
+        </div>
       </header>
 
       <section className="mt-8">

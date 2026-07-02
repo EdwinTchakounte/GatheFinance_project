@@ -577,8 +577,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                 final n = num.tryParse(t);
                 if (n == null) return l.err_enter_amount;
                 if (widget.classic) {
-                  // Épargne classique : minimum simple.
-                  if (n < 100) return l.err_min_100;
+                  // Épargne classique : minimum 1 000 XAF (aligné backend —
+                  // plancher `max(depot_min, 1000)`). Parité avec le portail.
+                  if (n < kCollecteMinPerDay) return l.err_min_1000;
                   return null;
                 }
                 // Collecte journalière : multiple de 50 ET ≥ 1 000 par jour

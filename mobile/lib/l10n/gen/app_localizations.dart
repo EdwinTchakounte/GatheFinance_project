@@ -2383,6 +2383,12 @@ abstract class AppL10n {
   /// **'Minimum 100 XAF.'**
   String get err_min_100;
 
+  /// No description provided for @err_min_1000.
+  ///
+  /// In fr, this message translates to:
+  /// **'Minimum 1 000 XAF.'**
+  String get err_min_1000;
+
   /// No description provided for @err_amount_multiple_50.
   ///
   /// In fr, this message translates to:

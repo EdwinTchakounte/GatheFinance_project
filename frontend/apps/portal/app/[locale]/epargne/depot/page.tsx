@@ -62,8 +62,9 @@ function DepositForm() {
   const [simulating, setSimulating] = useState(false);
   // CH-3 — Sous-canal placement : "libre" = retrait à tout moment,
   // "placement" = crée une tranche prêteur (admin l'allouera à un crédit).
+  // Pré-sélection via ?mode=placement (bouton « Placer » du hub /epargne).
   const [placementMode, setPlacementMode] = useState<"libre" | "placement">(
-    "libre",
+    searchParams.get("mode") === "placement" ? "placement" : "libre",
   );
   // LOT 6 — Multi-jours pré-payé sur la cotisation journalière (context savings).
   // 1 = mode normal (montant libre, min 100). > 1 = montant verrouille a

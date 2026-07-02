@@ -194,6 +194,47 @@ def classic_savings_me(request):
 
 @extend_schema(
     tags=["savings"],
+    summary="Historique paginé des transactions d'épargne classique",
+    description=(
+        "Liste paginée (20/page) des transactions du compte épargne classique "
+        "du membre, les plus récentes d'abord. Filtre optionnel "
+        "`?type_op=depot|retrait|interet`. Miroir de "
+        "`/savings/transactions/` (collecte) — permet de dissocier l'affichage "
+        "des deux produits côté portail. Réservé au membre connecté."
+    ),
+)
+class ClassicSavingsTransactionListView(generics.ListAPIView):
+    """GET /api/v1/savings/classic/transactions/?page=&type_op="""
+
+    permission_classes = [IsMember]
+    pagination_class = _TxPagination
+
+    def get_serializer_class(self):
+        from .serializers import ClassicSavingsTransactionReadSerializer
+
+        return ClassicSavingsTransactionReadSerializer
+
+    def get_queryset(self):
+        from datetime import date
+
+        from .models import ClassicSavingsTransaction
+
+        member = self.request.user.member
+        account, _ = ClassicSavingsAccount.objects.get_or_create(
+            member=member,
+            defaults={"date_ouverture": date.today()},
+        )
+        qs = ClassicSavingsTransaction.objects.filter(account=account).order_by(
+            "-date", "-id"
+        )
+        type_op = self.request.query_params.get("type_op")
+        if type_op:
+            qs = qs.filter(type_op=type_op)
+        return qs
+
+
+@extend_schema(
+    tags=["savings"],
     summary="🔒 Admin — configuration de l'épargne classique",
     description="GET lit la config, PATCH la met à jour (staff). Singleton.",
 )

@@ -34,6 +34,11 @@ urlpatterns = [
     path("withdrawals/me/", views.my_withdrawals, name="withdrawals-me"),
     # Épargne classique (dissociée de la cotisation) — dépôt via /payments/init/
     path("classic/me/", views.classic_savings_me, name="classic-me"),
+    path(
+        "classic/transactions/",
+        views.ClassicSavingsTransactionListView.as_view(),
+        name="classic-transactions",
+    ),
     path("classic/config/", views.classic_savings_config, name="classic-config"),
     # LOT 7-admin (refonte 2026) — Renouvellements épargne classique.
     path("admin/renewals/", views.admin_list_renewals, name="admin-renewals-list"),

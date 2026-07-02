@@ -471,6 +471,19 @@ export const portalApi = {
       results: SavingsTransaction[];
     }>(`/savings/transactions/${qs ? `?${qs}` : ""}`);
   },
+  // Historique paginé de l'épargne classique (dissocié de la collecte).
+  classicSavingsTransactions: (params: { page?: number; type_op?: "depot" | "retrait" | "interet" } = {}) => {
+    const sp = new URLSearchParams();
+    if (params.page) sp.set("page", String(params.page));
+    if (params.type_op) sp.set("type_op", params.type_op);
+    const qs = sp.toString();
+    return request<{
+      count: number;
+      next: string | null;
+      previous: string | null;
+      results: SavingsTransaction[];
+    }>(`/savings/classic/transactions/${qs ? `?${qs}` : ""}`);
+  },
 
   withdrawals: {
     listMine: () =>
