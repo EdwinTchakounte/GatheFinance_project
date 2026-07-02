@@ -38,6 +38,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _obscure = true;
   bool _submitting = false;
 
+  /// Erreur de connexion affichée **inline** dans la carte (au-dessus du CTA),
+  /// et non plus en SnackBar flottant : le membre voit tout de suite pourquoi
+  /// la connexion a échoué (mot de passe incorrect, réseau, serveur…).
+  String? _loginError;
+
   @override
   void dispose() {
     _emailCtrl.dispose();
@@ -51,7 +56,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       debugPrint('[LOGIN] validation FAILED');
       return;
     }
-    setState(() => _submitting = true);
+    setState(() {
+      _submitting = true;
+      _loginError = null; // on efface l'erreur précédente à chaque tentative
+    });
     try {
       unawaited(HapticFeedback.lightImpact());
     } catch (_) {
@@ -77,51 +85,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         } else {
           // signIn() a réussi côté HTTP mais le payload n'a pas de Member.
           // Le serveur a renvoyé un compte staff/sans profil membre.
-          _showErrorToast(context, 'Ce compte n\'a pas de profil membre.');
+          setState(() =>
+              _loginError = 'Ce compte n\'a pas de profil membre.');
         }
       },
-    );
-  }
-
-  /// Toast d'erreur . rouge, icône warning, durée 4 s, dismissible.
-  /// Mappe les messages techniques (NetworkException, CredentialsException…)
-  /// vers des chaînes lisibles pour l'utilisateur final.
-  void _showErrorToast(BuildContext context, Object err) {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.clearSnackBars();
-    final raw = err.toString();
-    final human = _humanizeError(raw);
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.white, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                human,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: PaColors.danger,
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: 'OK',
-          textColor: Colors.white,
-          onPressed: messenger.hideCurrentSnackBar,
-        ),
-      ),
     );
   }
 
@@ -199,7 +166,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     ref.listen<AsyncValue<dynamic>>(authProvider, (prev, next) {
       next.whenOrNull(
-        error: (err, _) => _showErrorToast(context, err),
+        // Erreur de connexion → bannière inline dans la carte (plus de toast).
+        error: (err, _) {
+          if (mounted) {
+            setState(() => _loginError = _humanizeError(err));
+          }
+        },
         data: (member) {
           // Connexion réussie ET le provider passe de loading→data avec member.
           if (member != null && (prev?.isLoading ?? false)) {
@@ -342,6 +314,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               return null;
                             },
                           ),
+                          // ── Bannière d'erreur inline (mot de passe, réseau…) ──
+                          if (_loginError != null) ...[
+                            const SizedBox(height: 16),
+                            _ErrorBanner(message: _loginError!),
+                          ],
                           const SizedBox(height: 22),
                           // ── CTA bleu gradient pleine largeur ──
                           _BlueCta(
@@ -672,6 +649,50 @@ class _BlueCta extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+/// Bannière d'erreur inline affichée dans la carte de connexion :
+/// fond rouge très clair, bordure douce, icône + message sur plusieurs lignes.
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: PaColors.danger.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: PaColors.danger.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline_rounded,
+              color: PaColors.danger, size: 19),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: PaText.body(
+                size: 13,
+                color: PaColors.danger,
+                weight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

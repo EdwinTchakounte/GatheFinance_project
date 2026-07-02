@@ -930,6 +930,23 @@ export const adminApi = {
   logout: () => request<void>("/auth/logout/", { method: "POST" }),
   me: () => request<Identity>("/auth/me/"),
 
+  // Mot de passe oublie (flow OTP 6 chiffres par e-mail, memes endpoints que
+  // le portail membre). Reponse etape 1 opaque (anti-enumeration).
+  requestPasswordReset: (email: string) =>
+    request<{ detail: string }>("/auth/password-reset/request/", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  confirmPasswordReset: (payload: {
+    email: string;
+    code: string;
+    new_password: string;
+  }) =>
+    request<{ detail: string }>("/auth/password-reset/confirm/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
   dashboard: () => request<DashboardKpis>("/admin/dashboard/"),
 
   membershipRequests: {

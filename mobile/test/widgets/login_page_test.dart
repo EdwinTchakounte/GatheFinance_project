@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gathe_finance/core/di/providers.dart';
+import 'package:gathe_finance/core/error/exceptions.dart';
 import 'package:gathe_finance/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:gathe_finance/features/auth/domain/entities/member.dart';
 import 'package:gathe_finance/features/auth/presentation/pages/login_page.dart';
@@ -142,5 +143,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(ds.signInCalls, 1);
+  });
+
+  testWidgets('Login — mauvais mot de passe → erreur affichée inline',
+      (tester) async {
+    final ds = _ScriptedAuthDs()
+      ..throwOnSignIn = const CredentialsException('Identifiants invalides.');
+    await tester.pumpWidget(app(const LoginPage(), ds));
+    await tester.pumpAndSettle();
+
+    final emailField = find.byType(TextFormField).first;
+    final passField = find.byType(TextFormField).last;
+    await tester.enterText(emailField, 'jean.kamga@test.local');
+    await tester.enterText(passField, 'mauvais');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Se connecter'));
+    await tester.pumpAndSettle();
+
+    // Le message doit apparaître DANS la page (bannière inline), pas en toast.
+    expect(find.text('Email ou mot de passe incorrect.'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
   });
 }

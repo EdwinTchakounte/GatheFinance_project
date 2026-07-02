@@ -156,6 +156,15 @@ export default function AdminLoginPage() {
               >
                 {submitting ? "Connexion…" : "Se connecter"}
               </button>
+
+              <div className="pt-1 text-center">
+                <a
+                  href="/mot-de-passe-oublie"
+                  className="text-xs font-medium text-ink-500 hover:text-blue-700"
+                >
+                  Mot de passe oublié ?
+                </a>
+              </div>
             </form>
           </div>
 
