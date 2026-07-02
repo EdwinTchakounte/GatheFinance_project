@@ -792,8 +792,11 @@ def admin_campaign_application_decide(request, pk: int):
     )
     from .models import CampaignApplication
 
+    # Pas de select_for_update ici (la vue n'est pas dans une transaction ;
+    # Postgres l'interdit). Le verrou métier est assuré par le check de statut
+    # EN_ATTENTE dans les services accept/reject, eux-mêmes @transaction.atomic.
     try:
-        app = CampaignApplication.objects.select_for_update(of=("self",)).get(pk=pk)
+        app = CampaignApplication.objects.get(pk=pk)
     except CampaignApplication.DoesNotExist:
         return Response({"detail": "Candidature introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
