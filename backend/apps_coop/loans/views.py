@@ -134,6 +134,9 @@ def _universal_blockers(member) -> list[str]:
             LoanRequest.Statut.EN_ATTENTE_ACCEPTATION_MEMBRE,
             LoanRequest.Statut.EN_ATTENTE_AVALISTE,
             LoanRequest.Statut.EN_VALIDATION_CAMPAGNE,
+            # Approuvée provisoirement (attente visite terrain) = toujours en
+            # cours → bloque une 2e demande parallèle.
+            LoanRequest.Statut.APPROUVEE_PROVISOIRE,
         ],
     ).count()
     if pending:

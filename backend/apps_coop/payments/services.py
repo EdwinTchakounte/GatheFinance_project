@@ -418,6 +418,11 @@ def _hook_savings_deposit(payment: Payment, _raw: dict) -> None:
     from apps_coop.savings.models import SavingsAccount, SavingsTransaction
 
     # Verrou ligne sur le compte du membre — sérialise les dépôts simultanés.
+    # get_or_create défensif (aligné sur l'épargne classique) : un membre sans
+    # compte collecte (ex. bénéficiaire campagne créé sans dépôt) ne doit PAS
+    # faire échouer la validation du paiement (sinon Payment bloqué en_attente
+    # et solde à 0 malgré un versement encaissé).
+    SavingsAccount.objects.get_or_create(member=payment.member)
     account = SavingsAccount.objects.select_for_update().get(member=payment.member)
 
     nouveau_solde = account.solde + payment.montant

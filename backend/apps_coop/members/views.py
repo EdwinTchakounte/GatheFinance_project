@@ -532,7 +532,13 @@ def admin_list_members(request):
         r["member_id"]: r["total"] or ZERO
         for r in Loan.objects.filter(
             member_id__in=ids,
-            statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD],
+            # Inclure CONTENTIEUX : le solde restant y est réel (créance la plus
+            # à risque). Seul CLOTURE (soldé) est exclu.
+            statut__in=[
+                Loan.Statut.ACTIF,
+                Loan.Statut.EN_RETARD,
+                Loan.Statut.CONTENTIEUX,
+            ],
         )
         .values("member_id")
         .annotate(total=Sum("solde_restant"))
@@ -541,13 +547,18 @@ def admin_list_members(request):
     data = MemberReadSerializer(rows, many=True).data
     for row in data:
         mid = row["id"]
-        collecte = collecte_map.get(mid, ZERO) or ZERO
-        libre = libre_map.get(mid, ZERO) or ZERO
-        placement = placement_map.get(mid, ZERO) or ZERO
+        collecte = Decimal(collecte_map.get(mid, ZERO) or ZERO)
+        # ClassicSavingsAccount.solde = libre + placement (le placement est déjà
+        # inclus). On dérive le "libre" = solde − placement, et le total épargne
+        # = collecte + solde_classique (SANS ré-ajouter le placement, sinon
+        # double-comptage).
+        classique_solde = Decimal(libre_map.get(mid, ZERO) or ZERO)
+        placement = Decimal(placement_map.get(mid, ZERO) or ZERO)
+        libre = max(Decimal("0"), classique_solde - placement)
         row["epargne_collecte"] = str(collecte)
         row["epargne_classique_libre"] = str(libre)
         row["epargne_placement"] = str(placement)
-        row["epargne_total"] = str(Decimal(collecte) + Decimal(libre) + Decimal(placement))
+        row["epargne_total"] = str(collecte + classique_solde)
         row["credit_encours"] = str(credit_map.get(mid, ZERO) or ZERO)
 
     return Response(
