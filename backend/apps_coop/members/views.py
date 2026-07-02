@@ -490,13 +490,72 @@ def admin_list_members(request):
         request, default_limit=25, max_limit=_ADMIN_MEMBERS_PAGE_SIZE
     )
     count = qs.count()
-    rows = qs[offset : offset + limit]
+    rows = list(qs[offset : offset + limit])
+
+    # Recap financier par membre (soldes globaux) — agrégé sur la page courante
+    # pour éviter le N+1 : 4 requêtes bornées aux ids affichés.
+    from decimal import Decimal
+
+    from django.db.models import Sum
+
+    from apps_coop.loans.models import Loan
+    from apps_coop.savings.models import (
+        ClassicSavingsAccount,
+        LenderTranche,
+        SavingsAccount,
+    )
+
+    ZERO = Decimal("0")
+    ids = [m.id for m in rows]
+
+    collecte_map = dict(
+        SavingsAccount.objects.filter(member_id__in=ids).values_list("member_id", "solde")
+    )
+    libre_map = dict(
+        ClassicSavingsAccount.objects.filter(member_id__in=ids).values_list(
+            "member_id", "solde"
+        )
+    )
+    placement_map = {
+        r["member_id"]: r["total"] or ZERO
+        for r in LenderTranche.objects.filter(
+            member_id__in=ids,
+            statut__in=[
+                LenderTranche.Statut.DISPONIBLE,
+                LenderTranche.Statut.ENGAGEE,
+            ],
+        )
+        .values("member_id")
+        .annotate(total=Sum("montant"))
+    }
+    credit_map = {
+        r["member_id"]: r["total"] or ZERO
+        for r in Loan.objects.filter(
+            member_id__in=ids,
+            statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD],
+        )
+        .values("member_id")
+        .annotate(total=Sum("solde_restant"))
+    }
+
+    data = MemberReadSerializer(rows, many=True).data
+    for row in data:
+        mid = row["id"]
+        collecte = collecte_map.get(mid, ZERO) or ZERO
+        libre = libre_map.get(mid, ZERO) or ZERO
+        placement = placement_map.get(mid, ZERO) or ZERO
+        row["epargne_collecte"] = str(collecte)
+        row["epargne_classique_libre"] = str(libre)
+        row["epargne_placement"] = str(placement)
+        row["epargne_total"] = str(Decimal(collecte) + Decimal(libre) + Decimal(placement))
+        row["credit_encours"] = str(credit_map.get(mid, ZERO) or ZERO)
+
     return Response(
         {
             "count": count,
             "limit": limit,
             "offset": offset,
-            "results": MemberReadSerializer(rows, many=True).data,
+            "results": data,
         }
     )
 

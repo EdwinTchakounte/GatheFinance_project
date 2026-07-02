@@ -68,11 +68,11 @@ export function Modal({
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className={
-          "w-full max-w-lg overflow-hidden rounded-md bg-paper shadow-xl outline-none " +
+          "flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-md bg-paper shadow-xl outline-none " +
           accent
         }
       >
-        <header className="flex items-start justify-between gap-4 px-6 pt-5 pb-3">
+        <header className="flex shrink-0 items-start justify-between gap-4 px-6 pt-5 pb-3">
           <div>
             <h2
               id="modal-title"

@@ -434,6 +434,12 @@ export type Member = {
   brc_validated_at?: string | null;
   seniority_months?: number;
   is_senior?: boolean;
+  // Recap financier par membre (liste admin) — soldes globaux.
+  epargne_collecte?: string;
+  epargne_classique_libre?: string;
+  epargne_placement?: string;
+  epargne_total?: string;
+  credit_encours?: string;
 };
 
 // Refonte 2026 — LOT 1 BRC.

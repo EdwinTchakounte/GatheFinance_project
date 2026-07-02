@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Mail, Phone, Search } from "lucide-react";
 
+import { ColumnsMenu } from "@/components/columns-menu";
 import { ExportMenu } from "@/components/export-menu";
 import { Pagination } from "@/components/pagination";
 import type { ExportColumn } from "@/lib/export";
@@ -12,41 +13,186 @@ import { adminApi, type ApiError, type Member } from "@/lib/api";
 type StatutFilter = "" | "actif" | "suspendu" | "radie";
 
 
-const membersExportColumns: ExportColumn<Member>[] = [
-  { key: "numero", label: "N° membre", value: (r) => r.numero_membre },
-  { key: "prenom", label: "Prénom", value: (r) => r.prenom },
-  { key: "nom", label: "Nom", value: (r) => r.nom },
-  { key: "email", label: "Email", value: (r) => r.email },
-  { key: "phone", label: "Téléphone", value: (r) => r.phone },
-  { key: "statut", label: "Statut", value: (r) => r.statut_display },
-  { key: "adhesion", label: "Adhésion", value: (r) => r.date_adhesion },
+function fmtXAF(v?: string): string {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? n.toLocaleString("fr-FR") : "0";
+}
+
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+
+// ── Définition des colonnes ────────────────────────────────────────────────
+// `text` : valeur brute pour filtre + export. `num` : colonne numérique
+// (filtre = seuil minimum ≥). `locked` : toujours visible.
+type Col = {
+  key: string;
+  label: string;
+  locked?: boolean;
+  defaultVisible: boolean;
+  numeric?: boolean;
+  align?: "right";
+  text: (m: Member) => string;
+  render: (m: Member) => ReactNode;
+};
+
+const COLUMNS: Col[] = [
   {
-    key: "anciennete",
-    label: "Ancienneté (mois)",
-    value: (r) => r.seniority_months ?? "",
+    key: "numero",
+    label: "N° membre",
+    locked: true,
+    defaultVisible: true,
+    text: (m) => m.numero_membre,
+    render: (m) => (
+      <span className="font-mono text-sm font-medium text-ink-900">
+        {m.numero_membre}
+      </span>
+    ),
   },
   {
-    key: "senior",
-    label: "Sénior",
-    value: (r) => (r.is_senior ? "oui" : "non"),
+    key: "membre",
+    label: "Membre",
+    locked: true,
+    defaultVisible: true,
+    text: (m) => `${m.prenom} ${m.nom}`,
+    render: (m) => (
+      <span className="font-medium text-ink-900">
+        {m.prenom} {m.nom}
+      </span>
+    ),
   },
   {
-    key: "brc",
-    label: "BRC validé",
-    value: (r) =>
-      r.is_brc_member
-        ? r.brc_validated_at?.slice(0, 10) ?? "oui"
-        : "non",
+    key: "contact",
+    label: "Contact",
+    defaultVisible: false,
+    text: (m) => `${m.email ?? ""} ${m.phone ?? ""}`.trim(),
+    render: (m) => (
+      <div className="space-y-1">
+        {m.email ? (
+          <p className="flex items-center gap-1.5 text-sm text-ink-700">
+            <Mail className="size-3.5 text-ink-400" aria-hidden="true" />
+            {m.email}
+          </p>
+        ) : null}
+        {m.phone ? (
+          <p className="flex items-center gap-1.5 text-xs text-ink-600">
+            <Phone className="size-3 text-ink-400" aria-hidden="true" />
+            {m.phone}
+          </p>
+        ) : null}
+      </div>
+    ),
+  },
+  {
+    key: "statut",
+    label: "Statut",
+    defaultVisible: true,
+    text: (m) => m.statut_display,
+    render: (m) => (
+      <div className="flex flex-wrap items-center gap-1">
+        <span
+          className={
+            "pill " +
+            (m.statut === "actif"
+              ? "pill-success"
+              : m.statut === "suspendu"
+                ? "pill-warning"
+                : "pill-muted")
+          }
+        >
+          {m.statut_display}
+        </span>
+        {m.is_brc_member ? <span className="pill pill-success">BRC</span> : null}
+        {m.is_senior ? <span className="pill pill-muted">Ancien</span> : null}
+      </div>
+    ),
+  },
+  {
+    key: "collecte",
+    label: "Épargne collecte",
+    defaultVisible: true,
+    numeric: true,
+    align: "right",
+    text: (m) => fmtXAF(m.epargne_collecte),
+    render: (m) => <span className="tabular-nums">{fmtXAF(m.epargne_collecte)}</span>,
+  },
+  {
+    key: "libre",
+    label: "Épargne libre",
+    defaultVisible: true,
+    numeric: true,
+    align: "right",
+    text: (m) => fmtXAF(m.epargne_classique_libre),
+    render: (m) => (
+      <span className="tabular-nums">{fmtXAF(m.epargne_classique_libre)}</span>
+    ),
+  },
+  {
+    key: "placement",
+    label: "Placement",
+    defaultVisible: true,
+    numeric: true,
+    align: "right",
+    text: (m) => fmtXAF(m.epargne_placement),
+    render: (m) => <span className="tabular-nums">{fmtXAF(m.epargne_placement)}</span>,
+  },
+  {
+    key: "epargne_total",
+    label: "Épargne totale",
+    defaultVisible: true,
+    numeric: true,
+    align: "right",
+    text: (m) => fmtXAF(m.epargne_total),
+    render: (m) => (
+      <span className="font-semibold tabular-nums text-ink-900">
+        {fmtXAF(m.epargne_total)}
+      </span>
+    ),
+  },
+  {
+    key: "credit",
+    label: "Crédit en cours",
+    defaultVisible: true,
+    numeric: true,
+    align: "right",
+    text: (m) => fmtXAF(m.credit_encours),
+    render: (m) => {
+      const v = Number(m.credit_encours ?? 0);
+      return (
+        <span
+          className={
+            "tabular-nums " + (v > 0 ? "font-medium text-terra-700" : "text-ink-500")
+          }
+        >
+          {fmtXAF(m.credit_encours)}
+        </span>
+      );
+    },
+  },
+  {
+    key: "adhesion",
+    label: "Adhésion",
+    defaultVisible: false,
+    text: (m) => m.date_adhesion,
+    render: (m) => (
+      <span className="whitespace-nowrap text-sm text-ink-600">
+        {fmtDate(m.date_adhesion)}
+        {typeof m.seniority_months === "number" ? (
+          <span className="ml-1 text-xs text-ink-400">({m.seniority_months} m.)</span>
+        ) : null}
+      </span>
+    ),
   },
 ];
 
 
 export default function MembersPage() {
-  return (
-    
-      <Inner />
-    
-  );
+  return <Inner />;
 }
 
 
@@ -59,6 +205,12 @@ function Inner() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Colonnes visibles + filtres par colonne (appliqués à la page courante).
+  const [visible, setVisible] = useState<Set<string>>(
+    () => new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key)),
+  );
+  const [colFilters, setColFilters] = useState<Record<string, string>>({});
 
   async function reload() {
     setLoading(true);
@@ -85,6 +237,33 @@ function Inner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statut, limit, offset]);
 
+  const shownCols = COLUMNS.filter((c) => visible.has(c.key));
+
+  // Filtre par colonne : texte = "contient" (insensible à la casse) ;
+  // numérique = seuil minimum (≥).
+  const filtered = useMemo(() => {
+    const active = Object.entries(colFilters).filter(([, v]) => v.trim() !== "");
+    if (active.length === 0) return items;
+    return items.filter((m) =>
+      active.every(([key, raw]) => {
+        const col = COLUMNS.find((c) => c.key === key);
+        if (!col) return true;
+        if (col.numeric) {
+          const min = Number(raw.replace(/\s/g, "").replace(",", "."));
+          if (!Number.isFinite(min)) return true;
+          return Number(col.text(m).replace(/\s/g, "")) >= min;
+        }
+        return col.text(m).toLowerCase().includes(raw.trim().toLowerCase());
+      }),
+    );
+  }, [items, colFilters]);
+
+  const exportColumns: ExportColumn<Member>[] = shownCols.map((c) => ({
+    key: c.key,
+    label: c.label,
+    value: (r) => c.text(r),
+  }));
+
   return (
     <div className="px-8 py-8 lg:px-12 lg:py-10">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -96,19 +275,33 @@ function Inner() {
             Annuaire des membres
           </h1>
           <p className="mt-1 text-sm text-ink-600">
-            Liste filtrable et recherchable du registre des membres.
+            Recap financier par membre — épargne (collecte, libre, placement) et
+            crédit en cours. Filtres par colonne + export.
           </p>
         </div>
 
         <div className="flex items-center gap-3 text-sm text-ink-600">
-          <span className="font-mono text-ink-900 font-medium">{count}</span>
-          <span>membre{count > 1 ? "s" : ""} (vue actuelle)</span>
+          <span className="font-mono font-medium text-ink-900">{count}</span>
+          <span>membre{count > 1 ? "s" : ""}</span>
+          <ColumnsMenu
+            columns={COLUMNS.map((c) => ({ key: c.key, label: c.label }))}
+            visible={visible}
+            lockedKeys={COLUMNS.filter((c) => c.locked).map((c) => c.key)}
+            onToggle={(key) =>
+              setVisible((prev) => {
+                const next = new Set(prev);
+                if (next.has(key)) next.delete(key);
+                else next.add(key);
+                return next;
+              })
+            }
+          />
           <ExportMenu
             filenamePrefix="membres"
             title="Annuaire des membres — Gathé Finance"
             subtitle={`Filtre : ${statut || "tous"}${q ? ` · recherche : ${q}` : ""}`}
-            columns={membersExportColumns}
-            rows={items}
+            columns={exportColumns}
+            rows={filtered}
           />
         </div>
       </header>
@@ -185,94 +378,80 @@ function Inner() {
           Aucun membre ne correspond à ces filtres.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-md border border-line-200 bg-paper">
-          <table className="table-admin">
+        <div className="overflow-x-auto rounded-md border border-line-200 bg-paper">
+          <table className="table-admin min-w-full">
             <thead>
               <tr>
-                <th>N° membre</th>
-                <th>Membre</th>
-                <th>Contact</th>
-                <th>Statut</th>
-                <th>Adhésion</th>
+                {shownCols.map((c) => (
+                  <th key={c.key} className={c.align === "right" ? "text-right" : ""}>
+                    {c.label}
+                  </th>
+                ))}
+              </tr>
+              {/* Ligne de filtres par colonne (applique à la page courante) */}
+              <tr className="bg-paper-soft/60">
+                {shownCols.map((c) => (
+                  <th key={c.key} className="py-1.5">
+                    <input
+                      value={colFilters[c.key] ?? ""}
+                      onChange={(e) =>
+                        setColFilters((prev) => ({ ...prev, [c.key]: e.target.value }))
+                      }
+                      placeholder={c.numeric ? "≥ min" : "filtrer…"}
+                      className={
+                        "w-full rounded border border-line-200 bg-paper px-2 py-1 text-xs font-normal placeholder:text-ink-300 focus:border-blue-700 focus:outline-none " +
+                        (c.align === "right" ? "text-right" : "")
+                      }
+                    />
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {items.map((m) => (
+              {filtered.map((m) => (
                 <tr key={m.id}>
-                  <td className="font-mono text-sm font-medium text-ink-900">
-                    {m.numero_membre}
-                  </td>
-                  <td>
-                    <p className="font-medium text-ink-900">
-                      {m.prenom} {m.nom}
-                    </p>
-                  </td>
-                  <td className="space-y-1">
-                    {m.email ? (
-                      <p className="flex items-center gap-1.5 text-sm text-ink-700">
-                        <Mail className="size-3.5 text-ink-400" aria-hidden="true" />
-                        {m.email}
-                      </p>
-                    ) : null}
-                    {m.phone ? (
-                      <p className="flex items-center gap-1.5 text-xs text-ink-600">
-                        <Phone className="size-3 text-ink-400" aria-hidden="true" />
-                        {m.phone}
-                      </p>
-                    ) : null}
-                  </td>
-                  <td>
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span
-                        className={
-                          "pill " +
-                          (m.statut === "actif"
-                            ? "pill-success"
-                            : m.statut === "suspendu"
-                              ? "pill-warning"
-                              : "pill-muted")
-                        }
-                      >
-                        {m.statut_display}
-                      </span>
-                      {/* Refonte 2026 — badges BRC + ancienneté. */}
-                      {m.is_brc_member ? (
-                        <span
-                          className="pill pill-success"
-                          title={
-                            m.brc_validated_at
-                              ? `Validé le ${new Date(m.brc_validated_at).toLocaleDateString("fr-FR")}`
-                              : "Statut BRC validé"
-                          }
-                        >
-                          BRC
-                        </span>
-                      ) : null}
-                      {m.is_senior ? (
-                        <span
-                          className="pill pill-muted"
-                          title={`Ancienneté ${m.seniority_months ?? "?"} mois`}
-                        >
-                          Ancien
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="whitespace-nowrap text-sm text-ink-600">
-                    {new Date(m.date_adhesion).toLocaleDateString("fr-FR", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                    {typeof m.seniority_months === "number" ? (
-                      <span className="ml-1 text-xs text-ink-400">
-                        ({m.seniority_months} m.)
-                      </span>
-                    ) : null}
-                  </td>
+                  {shownCols.map((c) => (
+                    <td key={c.key} className={c.align === "right" ? "text-right" : ""}>
+                      {c.render(m)}
+                    </td>
+                  ))}
                 </tr>
               ))}
+              {filtered.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={shownCols.length}
+                    className="py-6 text-center text-sm text-ink-500"
+                  >
+                    Aucune ligne ne correspond aux filtres de colonne (sur cette page).
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
+            {filtered.length > 0 && shownCols.some((c) => c.numeric) ? (
+              <tfoot>
+                <tr className="border-t-2 border-line-300 bg-paper-soft/60 font-semibold">
+                  {shownCols.map((c, i) => {
+                    if (c.numeric) {
+                      const total = filtered.reduce(
+                        (s, m) => s + Number(c.text(m).replace(/\s/g, "")),
+                        0,
+                      );
+                      return (
+                        <td key={c.key} className="text-right tabular-nums text-ink-900">
+                          {total.toLocaleString("fr-FR")}
+                        </td>
+                      );
+                    }
+                    return (
+                      <td key={c.key} className="text-ink-600">
+                        {i === 0 ? `Total (${filtered.length})` : ""}
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tfoot>
+            ) : null}
           </table>
         </div>
       )}
