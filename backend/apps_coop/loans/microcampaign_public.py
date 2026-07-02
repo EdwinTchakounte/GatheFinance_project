@@ -116,3 +116,66 @@ def public_active_campaigns(request):
             "results": [_row(c, request) for c in items],
         }
     )
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="Candidature publique à une campagne (visiteur non-membre)",
+    description=(
+        "POST public (AllowAny). Enregistre une candidature pour une campagne "
+        "``membre_requis=False``. Le compte n'est PAS créé ici — l'admin décide, "
+        "et à l'acceptation un compte est créé sans frais d'adhésion. "
+        "Body : nom, prenom, phone, email (requis), montant, motif."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def public_campaign_apply(request, pk):
+    from decimal import Decimal, InvalidOperation
+
+    from .microcampaign_services import create_public_application
+
+    try:
+        campaign = MicrocreditCampaign.objects.get(pk=pk, deleted_at__isnull=True)
+    except MicrocreditCampaign.DoesNotExist:
+        return Response({"detail": "Campagne introuvable."}, status=404)
+
+    data = request.data
+    missing = [
+        f for f in ("nom", "prenom", "email", "montant")
+        if not str(data.get(f, "")).strip()
+    ]
+    if missing:
+        return Response(
+            {"detail": f"Champs requis manquants : {', '.join(missing)}."},
+            status=400,
+        )
+    try:
+        montant = Decimal(str(data.get("montant")))
+    except (InvalidOperation, TypeError, ValueError):
+        return Response({"detail": "Montant invalide."}, status=400)
+
+    try:
+        app = create_public_application(
+            campaign,
+            nom=str(data.get("nom")),
+            prenom=str(data.get("prenom")),
+            phone=str(data.get("phone", "")),
+            email=str(data.get("email")),
+            montant=montant,
+            motif=str(data.get("motif", "")),
+        )
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=400)
+
+    return Response(
+        {
+            "id": app.id,
+            "statut": app.statut,
+            "message": (
+                "Candidature enregistrée. La coopérative l'étudie et te "
+                "recontactera par email si elle est acceptée."
+            ),
+        },
+        status=201,
+    )

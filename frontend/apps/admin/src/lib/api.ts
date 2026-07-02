@@ -768,6 +768,8 @@ export type MicrocampaignRow = {
   taux_interet: string;
   nb_jours_recouvrement: number;
   plafond_beneficiaires: number | null;
+  membre_requis: boolean;
+  frais_etude_montant: string | null;
   actif: boolean;
   is_open: boolean;
   closed_at: string | null;
@@ -826,6 +828,23 @@ export type MicrocampaignDetail = MicrocampaignRow & {
   targeted_members: MicrocampaignTargetedMember[];
 };
 
+// 2026 — Candidature d'un visiteur non-membre à une campagne (membre_requis=False).
+export type CampaignApplicationRow = {
+  id: number;
+  nom: string;
+  prenom: string;
+  phone: string;
+  email: string;
+  montant_demande: string;
+  motif: string;
+  statut: "en_attente" | "acceptee" | "rejetee";
+  statut_display: string;
+  created_at: string;
+  member_id: number | null;
+  numero_membre: string | null;
+  loan_request_id: number | null;
+};
+
 export type MicrocampaignTargetedAddResponse = {
   campaign: MicrocampaignRow;
   added_count: number;
@@ -880,6 +899,8 @@ export type MicrocampaignCreateInput = {
   taux_interet: string | number;
   nb_jours_recouvrement: number;
   plafond_beneficiaires?: number | null;
+  membre_requis?: boolean;
+  frais_etude_montant?: string | number | null;
 };
 
 function qs(params: Record<string, string | undefined>): string {
@@ -1257,6 +1278,27 @@ export const adminApi = {
         motif_rejet?: string;
         message: string;
       }>(`/loans/admin/requests/${requestId}/campaign-decide/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    // 2026 — Candidatures visiteurs (non-membres) d'une campagne.
+    applications: (campaignId: number, statut?: string) =>
+      request<{ count: number; results: CampaignApplicationRow[] }>(
+        `/loans/admin/campaigns/${campaignId}/applications/${qs(statut ? { statut } : {})}`,
+      ),
+    decideApplication: (
+      applicationId: number,
+      payload:
+        | { decision: "accepte" }
+        | { decision: "rejete"; motif_rejet: string },
+    ) =>
+      request<{
+        id: number;
+        statut: string;
+        member_id?: number | null;
+        loan_request_id?: number | null;
+        message?: string;
+      }>(`/loans/admin/campaign-applications/${applicationId}/decide/`, {
         method: "POST",
         body: JSON.stringify(payload),
       }),

@@ -25,6 +25,7 @@ import {
   adminApi,
   type ApiError,
   type MicrocampaignBeneficiaire,
+  type CampaignApplicationRow,
   type MicrocampaignCreateInput,
   type MicrocampaignDetail,
   type MicrocampaignPendingRequest,
@@ -401,6 +402,8 @@ function CreateModal({
     taux_interet: 0.1,
     nb_jours_recouvrement: 60,
     plafond_beneficiaires: null,
+    membre_requis: true,
+    frais_etude_montant: null,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -565,6 +568,39 @@ function CreateModal({
           />
         </Field>
 
+        {/* Onboarding 2026 — qui peut postuler + frais d'étude. */}
+        <Field
+          label="Qui peut postuler ?"
+          hint="Ouverte aux visiteurs = un non-membre peut candidater sur la vitrine ; à l'acceptation, son compte est créé sans les frais d'adhésion (13K)."
+        >
+          <select
+            value={form.membre_requis ? "membres" : "visiteurs"}
+            onChange={(e) => set("membre_requis", e.target.value === "membres")}
+            className={inputCls}
+          >
+            <option value="membres">Membres uniquement</option>
+            <option value="visiteurs">Ouverte aux visiteurs (non-membres)</option>
+          </select>
+        </Field>
+        <Field
+          label="Frais d'étude de dossier (XAF)"
+          hint="Vide = tarif standard. 0 = gratuit (aucun frais pour postuler)."
+        >
+          <input
+            type="number"
+            min={0}
+            value={form.frais_etude_montant ?? ""}
+            onChange={(e) =>
+              set(
+                "frais_etude_montant",
+                e.target.value === "" ? null : Number(e.target.value),
+              )
+            }
+            className={inputCls}
+            placeholder="Standard"
+          />
+        </Field>
+
         <Field
           label="Flyer (image PNG/JPG)"
           hint="Visuel affiché dans l'admin et envoyé aux membres ciblés."
@@ -693,6 +729,106 @@ function CloseModal({
 // ---------------------------------------------------------------------------
 
 
+// Candidatures visiteurs (non-membres) — accepter crée le compte sans 13K.
+function ApplicationsSection({ campaignId }: { campaignId: number }) {
+  const [rows, setRows] = useState<CampaignApplicationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function reload() {
+    try {
+      const res = await adminApi.campaigns.applications(campaignId);
+      setRows(res.results);
+    } catch (err) {
+      setError((err as ApiError).detail ?? "Chargement impossible.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    reload();
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [campaignId]);
+
+  async function decide(
+    id: number,
+    payload: { decision: "accepte" } | { decision: "rejete"; motif_rejet: string },
+  ) {
+    setBusyId(id);
+    setError(null);
+    try {
+      await adminApi.campaigns.decideApplication(id, payload);
+      await reload();
+    } catch (err) {
+      setError((err as ApiError).detail ?? "Décision impossible.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (loading) return null;
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-line-200 bg-paper-soft p-3">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-600">
+        Candidatures visiteurs ({rows.length})
+      </h4>
+      {error && (
+        <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
+          {error}
+        </div>
+      )}
+      <ul className="space-y-2">
+        {rows.map((a) => (
+          <li
+            key={a.id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line-200 bg-white px-3 py-2 text-xs"
+          >
+            <div className="min-w-0">
+              <p className="font-medium text-ink-900">
+                {a.prenom} {a.nom}{" "}
+                <span className="font-normal text-ink-500">· {a.email}</span>
+              </p>
+              <p className="text-ink-500">
+                {Number(a.montant_demande).toLocaleString("fr-FR")} XAF ·{" "}
+                {a.statut_display}
+                {a.numero_membre ? ` · ${a.numero_membre}` : ""}
+              </p>
+            </div>
+            {a.statut === "en_attente" ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={busyId === a.id}
+                  onClick={() => decide(a.id, { decision: "accepte" })}
+                  className="rounded-md bg-emerald-600 px-2.5 py-1 font-medium text-white disabled:opacity-50"
+                >
+                  Accepter
+                </button>
+                <button
+                  type="button"
+                  disabled={busyId === a.id}
+                  onClick={() => {
+                    const m = window.prompt("Motif du rejet ?");
+                    if (m && m.trim())
+                      decide(a.id, { decision: "rejete", motif_rejet: m.trim() });
+                  }}
+                  className="rounded-md border border-line-300 px-2.5 py-1 font-medium text-ink-700 disabled:opacity-50"
+                >
+                  Rejeter
+                </button>
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+
 function DetailModal({
   campaignId,
   onClose,
@@ -755,6 +891,7 @@ function DetailModal({
         <p className="text-sm text-ink-500">Chargement…</p>
       ) : (
         <div className="space-y-5">
+          <ApplicationsSection campaignId={campaignId} />
           <div className="grid grid-cols-2 gap-3 rounded-lg border border-line-200 bg-paper-soft p-3 text-xs">
             <Info label="Profil cible" value={detail.profil_cible} />
             <Info

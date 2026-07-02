@@ -72,6 +72,24 @@ class MicrocreditCampaign(TimestampedModel):
         ),
     )
 
+    # Config onboarding (2026) — spécifiée par l'admin à la création.
+    membre_requis = models.BooleanField(
+        default=True,
+        help_text=(
+            "True = seul un membre existant peut postuler (flux membre). "
+            "False = un VISITEUR non-membre peut candidater via la vitrine ; "
+            "à l'acceptation, un compte est créé sans frais d'adhésion (13K)."
+        ),
+    )
+    frais_etude_montant = money_field(
+        null=True,
+        blank=True,
+        help_text=(
+            "Frais d'étude de dossier pour cette campagne (FCFA). "
+            "NULL = tarif DEMANDE_CREDIT standard (legacy). 0 = gratuit."
+        ),
+    )
+
     actif = models.BooleanField(
         default=True,
         db_index=True,
@@ -142,6 +160,74 @@ class MicrocreditCampaign(TimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.nom} · {self.date_debut} → {self.date_fin}"
+
+
+class CampaignApplication(TimestampedModel):
+    """Candidature d'un VISITEUR non-membre à une campagne (membre_requis=False).
+
+    Le compte n'est PAS créé à la candidature (anti-abus) : seule l'acceptation
+    admin matérialise un ``Member`` (statut actif, sans frais 13K) + un
+    ``LoanRequest`` en instruction, et déclenche le mail de définition de mot
+    de passe. Les candidats déjà membres passent par le flux membre standard
+    (``POST /loans/requests/`` avec ``campaign_id``).
+    """
+
+    class Statut(models.TextChoices):
+        EN_ATTENTE = "en_attente", "En attente"
+        ACCEPTEE = "acceptee", "Acceptée"
+        REJETEE = "rejetee", "Rejetée"
+
+    campaign = models.ForeignKey(
+        MicrocreditCampaign,
+        on_delete=models.PROTECT,
+        related_name="applications",
+    )
+    nom = models.CharField(max_length=120)
+    prenom = models.CharField(max_length=120)
+    phone = models.CharField(max_length=32)
+    email = models.EmailField(
+        help_text="Requis : sert à envoyer le lien de définition du mot de passe.",
+    )
+    montant_demande = money_field()
+    motif = models.TextField(blank=True)
+
+    statut = models.CharField(
+        max_length=12,
+        choices=Statut.choices,
+        default=Statut.EN_ATTENTE,
+        db_index=True,
+    )
+    motif_rejet = models.CharField(max_length=2000, blank=True)
+    date_decision = models.DateTimeField(null=True, blank=True)
+    decide_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="campaign_applications_decided",
+    )
+    # Renseignés à l'acceptation : le compte + la demande de crédit créés.
+    member = models.ForeignKey(
+        Member,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="campaign_applications",
+    )
+    loan_request = models.ForeignKey(
+        "loans.LoanRequest",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="campaign_application",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["campaign", "statut"])]
+
+    def __str__(self) -> str:
+        return f"Candidature {self.prenom} {self.nom} · {self.campaign_id} · {self.statut}"
 
 
 class LoanRequest(TimestampedModel):

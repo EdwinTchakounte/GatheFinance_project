@@ -63,6 +63,13 @@ class MicrocampaignCreateSerializer(serializers.Serializer):
     plafond_beneficiaires = serializers.IntegerField(
         required=False, allow_null=True, min_value=1, max_value=10000
     )
+    # Config onboarding 2026.
+    membre_requis = serializers.BooleanField(required=False, default=True)
+    frais_etude_montant = serializers.DecimalField(
+        max_digits=14, decimal_places=2, min_value=0,
+        required=False, allow_null=True,
+        help_text="Frais d'étude (FCFA). Vide = tarif standard ; 0 = gratuit.",
+    )
     flyer = serializers.ImageField(
         required=False, allow_null=True,
         help_text="Visuel facultatif joint à la campagne (PNG/JPG).",
@@ -141,6 +148,10 @@ def _row(
         "taux_interet": str(c.taux_interet),
         "nb_jours_recouvrement": c.nb_jours_recouvrement,
         "plafond_beneficiaires": c.plafond_beneficiaires,
+        "membre_requis": c.membre_requis,
+        "frais_etude_montant": (
+            str(c.frais_etude_montant) if c.frais_etude_montant is not None else None
+        ),
         "actif": c.actif,
         "is_open": is_open,
         "closed_at": c.closed_at.isoformat() if c.closed_at else None,
@@ -230,6 +241,8 @@ def _create_campaign(request):
         taux_interet=data["taux_interet"],
         nb_jours_recouvrement=data["nb_jours_recouvrement"],
         plafond_beneficiaires=data.get("plafond_beneficiaires"),
+        membre_requis=data.get("membre_requis", True),
+        frais_etude_montant=data.get("frais_etude_montant"),
         actif=True,
         created_by=request.user,
     )
@@ -716,3 +729,96 @@ def admin_campaign_targeted_remove(request, pk: int, member_id: int):
             details={"removed_member_id": m.id, "numero": m.numero_membre},
         )
     return Response({"removed": was_targeted, "targeted_count": c.targeted_members.count()})
+
+
+# ---------------------------------------------------------------------------
+# Candidatures visiteurs (non-membres) — liste + décision (onboarding 2026)
+# ---------------------------------------------------------------------------
+
+
+@extend_schema(
+    tags=["loans-admin"],
+    summary="🔒 Comité — liste des candidatures visiteurs d'une campagne",
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_campaign_applications(request, pk: int):
+    from .models import CampaignApplication
+
+    try:
+        c = MicrocreditCampaign.objects.get(pk=pk)
+    except MicrocreditCampaign.DoesNotExist:
+        return Response({"detail": "Campagne introuvable."}, status=status.HTTP_404_NOT_FOUND)
+    statut = request.query_params.get("statut")
+    qs = c.applications.all().order_by("-created_at")
+    if statut:
+        qs = qs.filter(statut=statut)
+    rows = [
+        {
+            "id": a.id,
+            "nom": a.nom,
+            "prenom": a.prenom,
+            "phone": a.phone,
+            "email": a.email,
+            "montant_demande": str(a.montant_demande),
+            "motif": a.motif,
+            "statut": a.statut,
+            "statut_display": a.get_statut_display(),
+            "created_at": a.created_at.isoformat(),
+            "member_id": a.member_id,
+            "numero_membre": a.member.numero_membre if a.member_id else None,
+            "loan_request_id": a.loan_request_id,
+        }
+        for a in qs[:300]
+    ]
+    return Response({"count": len(rows), "results": rows})
+
+
+@extend_schema(
+    tags=["loans-admin"],
+    summary="🔒 Comité — accepter/rejeter une candidature visiteur",
+    description=(
+        "`decision=accepte` → crée le compte bénéficiaire (statut actif, SANS "
+        "frais d'adhésion), envoie le mail de mot de passe et ouvre un "
+        "LoanRequest en instruction. `decision=rejete` → aucun compte créé."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsComite])
+def admin_campaign_application_decide(request, pk: int):
+    from .microcampaign_services import (
+        accept_campaign_application,
+        reject_campaign_application,
+    )
+    from .models import CampaignApplication
+
+    try:
+        app = CampaignApplication.objects.select_for_update(of=("self",)).get(pk=pk)
+    except CampaignApplication.DoesNotExist:
+        return Response({"detail": "Candidature introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    decision = (request.data.get("decision") or "").strip()
+    try:
+        if decision == "accepte":
+            app = accept_campaign_application(app, decided_by=request.user)
+            return Response(
+                {
+                    "id": app.id,
+                    "statut": app.statut,
+                    "member_id": app.member_id,
+                    "loan_request_id": app.loan_request_id,
+                    "message": "Candidature acceptée — compte créé, mail de mot de passe envoyé.",
+                }
+            )
+        if decision == "rejete":
+            app = reject_campaign_application(
+                app, decided_by=request.user,
+                motif_rejet=request.data.get("motif_rejet", ""),
+            )
+            return Response({"id": app.id, "statut": app.statut})
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        {"detail": "decision doit être 'accepte' ou 'rejete'."},
+        status=status.HTTP_400_BAD_REQUEST,
+    )

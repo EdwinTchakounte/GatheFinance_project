@@ -24,6 +24,8 @@ from .judicial_admin import (
     admin_open_escalation,
 )
 from .microcampaign_admin import (
+    admin_campaign_application_decide,
+    admin_campaign_applications,
     admin_campaign_close,
     admin_campaign_detail,
     admin_campaign_targeted_add,
@@ -31,7 +33,7 @@ from .microcampaign_admin import (
     admin_campaigns,
     admin_loan_request_campaign_decide,
 )
-from .microcampaign_public import public_active_campaigns
+from .microcampaign_public import public_active_campaigns, public_campaign_apply
 from .views import (
     admin_list_installments,
     admin_list_loan_requests,
@@ -72,6 +74,7 @@ urlpatterns = [
     # LOT 11 — Liste publique des campagnes micro-crédit actives (mobile +
     # vitrine). Pas d'auth : un membre peut partager le flyer en externe.
     path("campaigns/active/", public_active_campaigns, name="public-active-campaigns"),
+    path("campaigns/<int:pk>/apply/", public_campaign_apply, name="public-campaign-apply"),
     path("requests/", loan_request_create, name="create-request"),
     # CH-5 — Upload de fichier rattaché à un LoanRequest (CGA, CFP, CNI, etc.).
     path(
@@ -155,6 +158,16 @@ urlpatterns = [
     path("admin/campaigns/", admin_campaigns, name="admin-campaigns"),
     path("admin/campaigns/<int:pk>/", admin_campaign_detail, name="admin-campaign-detail"),
     path("admin/campaigns/<int:pk>/close/", admin_campaign_close, name="admin-campaign-close"),
+    path(
+        "admin/campaigns/<int:pk>/applications/",
+        admin_campaign_applications,
+        name="admin-campaign-applications",
+    ),
+    path(
+        "admin/campaign-applications/<int:pk>/decide/",
+        admin_campaign_application_decide,
+        name="admin-campaign-application-decide",
+    ),
     path(
         "admin/campaigns/<int:pk>/targeted/",
         admin_campaign_targeted_add,

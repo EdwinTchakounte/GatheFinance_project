@@ -203,3 +203,175 @@ def _emit(event_code: str, campaign: MicrocreditCampaign) -> None:
 # get_int_setting is imported in case downstream LOT 12 needs default tunables
 # from this module — kept here to keep the import surface stable.
 _ = get_int_setting  # noqa: F841 (placeholder, no warn)
+
+
+# ---------------------------------------------------------------------------
+# Candidature visiteur (non-membre) + onboarding à l'acceptation (2026)
+# ---------------------------------------------------------------------------
+
+
+def create_public_application(
+    campaign, *, nom, prenom, phone, email, montant, motif=""
+):
+    """Enregistre une candidature d'un VISITEUR non-membre.
+
+    Le compte N'EST PAS créé ici (anti-abus) : seule l'acceptation admin
+    matérialise le compte. Lève ``ValueError`` si la campagne n'accepte pas
+    les visiteurs (``membre_requis``), si elle est fermée, ou si le montant
+    est hors bornes.
+    """
+    from .models import CampaignApplication
+
+    if campaign.membre_requis:
+        raise ValueError(
+            "Cette campagne est réservée aux membres — connecte-toi et postule "
+            "depuis ton espace crédit."
+        )
+    if not is_campaign_open(campaign):
+        raise ValueError("Cette campagne n'est plus ouverte aux candidatures.")
+    validate_amount_against_campaign(campaign, Decimal(montant))
+    if not (email or "").strip():
+        raise ValueError("Un email est requis pour créer ton accès.")
+
+    return CampaignApplication.objects.create(
+        campaign=campaign,
+        nom=nom.strip(),
+        prenom=prenom.strip(),
+        phone=(phone or "").strip(),
+        email=email.strip().lower(),
+        montant_demande=Decimal(montant),
+        motif=(motif or "").strip(),
+    )
+
+
+@transaction.atomic
+def accept_campaign_application(application, *, decided_by):
+    """Accepte une candidature → crée le compte bénéficiaire (statut ACTIF,
+    accès complet, SANS les frais d'adhésion 13K), envoie le mail de
+    définition de mot de passe, et ouvre un ``LoanRequest`` en instruction.
+
+    Idempotent : une candidature déjà acceptée est renvoyée telle quelle.
+    """
+    from datetime import date
+
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.models import Group
+
+    from apps_coop.members.models import Member
+    from apps_coop.members.services import (
+        _random_password,
+        _send_welcome_email,
+        generate_numero_membre,
+    )
+    from apps_coop.savings.models import SavingsAccount
+
+    from .models import CampaignApplication, LoanRequest
+    from .terms import duration_months_for
+
+    if application.statut == CampaignApplication.Statut.ACCEPTEE and application.member_id:
+        return application
+    if application.statut != CampaignApplication.Statut.EN_ATTENTE:
+        raise ValueError(f"Candidature déjà décidée (statut={application.statut}).")
+
+    campaign = application.campaign
+    montant = Decimal(application.montant_demande)
+    # Re-contrôle au moment de l'acceptation (campagne encore ouverte + bornes).
+    validate_amount_against_campaign(campaign, montant)
+
+    User = get_user_model()
+    email = application.email.strip().lower()
+    user, user_created = User.objects.get_or_create(
+        email=email,
+        defaults={
+            "username": email,
+            "first_name": application.prenom,
+            "last_name": application.nom,
+            "is_active": True,
+        },
+    )
+    if user_created:
+        user.set_password(_random_password())
+        user.save(update_fields=["password"])
+    group, _ = Group.objects.get_or_create(name="member")
+    user.groups.add(group)
+
+    member, _created = Member.objects.get_or_create(
+        user=user,
+        defaults={
+            "numero_membre": generate_numero_membre(),
+            "nom": application.nom,
+            "prenom": application.prenom,
+            "phone": application.phone,
+            # Accès complet immédiat SANS les 13K. Le FK microcampaign marque
+            # l'origine « bénéficiaire campagne » (Q15 assoupli 2026).
+            "statut": Member.Statut.ACTIF,
+            "date_adhesion": date.today(),
+            "microcampaign": campaign,
+        },
+    )
+    SavingsAccount.objects.get_or_create(
+        member=member,
+        defaults={"solde": 0, "date_ouverture": date.today(), "taux_interet_applique": 0},
+    )
+
+    # LoanRequest directement en instruction standard : l'acceptation de la
+    # candidature FAIT office de validation campagne (pas de 2e porte).
+    lr = LoanRequest.objects.create(
+        member=member,
+        montant_demande=montant,
+        duree_mois=duration_months_for(montant),
+        motif=application.motif or f"Candidature campagne {campaign.nom}",
+        microcampaign=campaign,
+        statut=LoanRequest.Statut.EN_INSTRUCTION,
+    )
+
+    application.statut = CampaignApplication.Statut.ACCEPTEE
+    application.member = member
+    application.loan_request = lr
+    application.decide_par = decided_by
+    application.date_decision = timezone.now()
+    application.save(update_fields=[
+        "statut", "member", "loan_request", "decide_par", "date_decision", "updated_at",
+    ])
+
+    record_audit(
+        action="microcampaign.application_accepted",
+        entite_type="CampaignApplication",
+        entite_id=application.id,
+        user=decided_by,
+        details={
+            "campaign_id": campaign.id,
+            "member_id": member.id,
+            "numero_membre": member.numero_membre,
+            "loan_request_id": lr.id,
+        },
+    )
+    # Mail de définition de mot de passe (compte créé) — émis au commit.
+    transaction.on_commit(lambda: _send_welcome_email(member, email))
+    return application
+
+
+def reject_campaign_application(application, *, decided_by, motif_rejet):
+    """Rejette une candidature visiteur. Aucun compte n'est créé."""
+    from .models import CampaignApplication
+
+    if application.statut != CampaignApplication.Statut.EN_ATTENTE:
+        raise ValueError(f"Candidature déjà décidée (statut={application.statut}).")
+    motif = (motif_rejet or "").strip()
+    if not motif:
+        raise ValueError("Motif de rejet requis.")
+    application.statut = CampaignApplication.Statut.REJETEE
+    application.motif_rejet = motif
+    application.decide_par = decided_by
+    application.date_decision = timezone.now()
+    application.save(update_fields=[
+        "statut", "motif_rejet", "decide_par", "date_decision", "updated_at",
+    ])
+    record_audit(
+        action="microcampaign.application_rejected",
+        entite_type="CampaignApplication",
+        entite_id=application.id,
+        user=decided_by,
+        details={"campaign_id": application.campaign_id, "motif": motif},
+    )
+    return application
