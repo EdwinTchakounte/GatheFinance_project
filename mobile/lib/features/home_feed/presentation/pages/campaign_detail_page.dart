@@ -88,7 +88,11 @@ class CampaignDetailPage extends ConsumerWidget {
     final c = campaign;
     final df = DateFormat('dd MMM yyyy', 'fr_FR');
     final daysLeft = c.dateFin.difference(DateTime.now()).inDays;
-    final docs = _docsForProfil(c.profilCible);
+    // Pièces exigées : celles saisies par l'admin sur la campagne priment ;
+    // sinon on retombe sur la liste indicative par profil.
+    final docs = c.documentsRequis.isNotEmpty
+        ? c.documentsRequis
+        : _docsForProfil(c.profilCible);
     return Scaffold(
       backgroundColor: PaColors.canvas,
       appBar: AppBar(

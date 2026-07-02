@@ -46,6 +46,7 @@ def _row(c: MicrocreditCampaign, request) -> dict:
         "frais_etude_montant": (
             str(c.frais_etude_montant) if c.frais_etude_montant is not None else None
         ),
+        "documents_requis": list(c.documents_requis or []),
         "flyer_url": _flyer_url(c, request),
     }
 
@@ -89,6 +90,9 @@ def public_active_campaigns(request):
             "montant_max",
             "taux_interet",
             "nb_jours_recouvrement",
+            "membre_requis",
+            "frais_etude_montant",
+            "documents_requis",
             "flyer",
         )
     )
@@ -160,6 +164,14 @@ def public_campaign_apply(request, pk):
     except (InvalidOperation, TypeError, ValueError):
         return Response({"detail": "Montant invalide."}, status=400)
 
+    # Pièces justificatives : un fichier par libellé de ``documents_requis``,
+    # envoyé en multipart sous la clé ``doc_<index>`` (ordre de la liste).
+    requis = [str(d).strip() for d in (campaign.documents_requis or []) if str(d).strip()]
+    documents = [
+        (label, request.FILES.get(f"doc_{i}"))
+        for i, label in enumerate(requis)
+    ]
+
     try:
         app = create_public_application(
             campaign,
@@ -169,6 +181,7 @@ def public_campaign_apply(request, pk):
             email=str(data.get("email")),
             montant=montant,
             motif=str(data.get("motif", "")),
+            documents=documents,
         )
     except ValueError as exc:
         return Response({"detail": str(exc)}, status=400)

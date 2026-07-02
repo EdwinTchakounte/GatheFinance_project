@@ -5,6 +5,7 @@ import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { buttonClasses, cn, Container } from "@gathe/ui";
 import { Link } from "@/i18n/navigation";
 import { ArticleCard } from "@/components/article-card";
+import { CampaignsTeaser } from "@/components/campaigns-teaser";
 import { InstitutionalDecor } from "@/components/institutional-decor";
 import { CtaBand } from "@/components/cta-band";
 import { CurveDivider } from "@/components/curve-divider";
@@ -232,6 +233,9 @@ export default async function HomePage({ params }: Params) {
         </Container>
       </section>
 
+
+      {/* ===== CAMPAGNES en cours (masqué si aucune ouverte) ===== */}
+      <CampaignsTeaser />
 
       {/* ===== BLOG teaser ===== */}
       <section className="relative isolate overflow-hidden section-pad bg-paper">

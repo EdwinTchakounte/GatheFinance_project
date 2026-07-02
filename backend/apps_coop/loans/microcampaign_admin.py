@@ -70,6 +70,9 @@ class MicrocampaignCreateSerializer(serializers.Serializer):
         required=False, allow_null=True,
         help_text="Frais d'étude (FCFA). Vide = tarif standard ; 0 = gratuit.",
     )
+    # Pièces exigées du candidat visiteur (liste de libellés). Accepte une
+    # liste JSON (corps JSON) ou une chaîne JSON (multipart avec flyer).
+    documents_requis = serializers.JSONField(required=False, default=list)
     flyer = serializers.ImageField(
         required=False, allow_null=True,
         help_text="Visuel facultatif joint à la campagne (PNG/JPG).",
@@ -84,6 +87,15 @@ class MicrocampaignCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"montant_max": "Doit être ≥ montant_min."}
             )
+        # Normalise documents_requis → liste de libellés non vides.
+        docs = attrs.get("documents_requis") or []
+        if not isinstance(docs, list):
+            raise serializers.ValidationError(
+                {"documents_requis": "Doit être une liste de libellés."}
+            )
+        attrs["documents_requis"] = [
+            str(d).strip() for d in docs if str(d).strip()
+        ]
         return attrs
 
 
@@ -152,6 +164,7 @@ def _row(
         "frais_etude_montant": (
             str(c.frais_etude_montant) if c.frais_etude_montant is not None else None
         ),
+        "documents_requis": list(c.documents_requis or []),
         "actif": c.actif,
         "is_open": is_open,
         "closed_at": c.closed_at.isoformat() if c.closed_at else None,
@@ -243,6 +256,7 @@ def _create_campaign(request):
         plafond_beneficiaires=data.get("plafond_beneficiaires"),
         membre_requis=data.get("membre_requis", True),
         frais_etude_montant=data.get("frais_etude_montant"),
+        documents_requis=data.get("documents_requis") or [],
         actif=True,
         created_by=request.user,
     )
@@ -750,9 +764,21 @@ def admin_campaign_applications(request, pk: int):
     except MicrocreditCampaign.DoesNotExist:
         return Response({"detail": "Campagne introuvable."}, status=status.HTTP_404_NOT_FOUND)
     statut = request.query_params.get("statut")
-    qs = c.applications.all().order_by("-created_at")
+    qs = (
+        c.applications.all()
+        .select_related("member")
+        .prefetch_related("documents")
+        .order_by("-created_at")
+    )
     if statut:
         qs = qs.filter(statut=statut)
+
+    def _doc_url(doc):
+        try:
+            return doc.fichier.url if doc.fichier else None
+        except (ValueError, AttributeError):
+            return None
+
     rows = [
         {
             "id": a.id,
@@ -768,6 +794,10 @@ def admin_campaign_applications(request, pk: int):
             "member_id": a.member_id,
             "numero_membre": a.member.numero_membre if a.member_id else None,
             "loan_request_id": a.loan_request_id,
+            "documents": [
+                {"label": d.label, "url": _doc_url(d)}
+                for d in a.documents.all()
+            ],
         }
         for a in qs[:300]
     ]

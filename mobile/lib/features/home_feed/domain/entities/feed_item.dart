@@ -19,6 +19,7 @@ class CampaignFlyer {
     required this.flyerUrl,
     this.fraisEtudeMontant,
     this.membreRequis = true,
+    this.documentsRequis = const [],
   });
 
   final int id;
@@ -32,6 +33,8 @@ class CampaignFlyer {
   final num? fraisEtudeMontant;
   // False = campagne ouverte aux visiteurs non-membres (candidature vitrine).
   final bool membreRequis;
+  // Pièces justificatives exigées du candidat (libellés). Vide = aucune.
+  final List<String> documentsRequis;
 
   /// True si la campagne ne prélève aucun frais d'étude de dossier.
   bool get sansFrais => fraisEtudeMontant != null && fraisEtudeMontant == 0;

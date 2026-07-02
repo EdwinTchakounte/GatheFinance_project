@@ -770,6 +770,7 @@ export type MicrocampaignRow = {
   plafond_beneficiaires: number | null;
   membre_requis: boolean;
   frais_etude_montant: string | null;
+  documents_requis: string[];
   actif: boolean;
   is_open: boolean;
   closed_at: string | null;
@@ -843,6 +844,7 @@ export type CampaignApplicationRow = {
   member_id: number | null;
   numero_membre: string | null;
   loan_request_id: number | null;
+  documents: { label: string; url: string | null }[];
 };
 
 export type MicrocampaignTargetedAddResponse = {
@@ -901,6 +903,7 @@ export type MicrocampaignCreateInput = {
   plafond_beneficiaires?: number | null;
   membre_requis?: boolean;
   frais_etude_montant?: string | number | null;
+  documents_requis?: string[];
 };
 
 function qs(params: Record<string, string | undefined>): string {
@@ -1234,7 +1237,10 @@ export const adminApi = {
       if (flyer) {
         const form = new FormData();
         Object.entries(payload).forEach(([k, v]) => {
-          if (v !== undefined && v !== null) form.append(k, String(v));
+          if (v === undefined || v === null) return;
+          // Les tableaux/objets (ex. documents_requis) sont sérialisés en JSON
+          // pour que le backend (JSONField) les relise correctement en multipart.
+          form.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
         });
         form.append("flyer", flyer);
         return request<MicrocampaignRow>("/loans/admin/campaigns/", {

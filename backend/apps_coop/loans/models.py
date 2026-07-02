@@ -90,6 +90,20 @@ class MicrocreditCampaign(TimestampedModel):
         ),
     )
 
+    # Onboarding 2026 — pièces justificatives exigées du candidat visiteur.
+    # Liste de libellés libres saisis par l'admin à la création, ex.
+    # ["Preuve d'activité commerçant", "Pièce d'identité"]. Le candidat
+    # uploade un fichier par libellé au moment de postuler (vitrine).
+    documents_requis = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Liste de libellés de pièces exigées du candidat (ex. « Preuve "
+            "d'activité commerçant »). Le visiteur uploade un fichier par "
+            "libellé en postulant."
+        ),
+    )
+
     actif = models.BooleanField(
         default=True,
         db_index=True,
@@ -228,6 +242,35 @@ class CampaignApplication(TimestampedModel):
 
     def __str__(self) -> str:
         return f"Candidature {self.prenom} {self.nom} · {self.campaign_id} · {self.statut}"
+
+
+class CampaignApplicationDocument(TimestampedModel):
+    """Pièce justificative uploadée par un candidat visiteur (onboarding 2026).
+
+    Une ligne par ``documents_requis`` de la campagne : ``label`` reprend le
+    libellé exigé (ex. « Preuve d'activité commerçant ») et ``fichier``
+    contient l'upload du candidat. Visible/téléchargeable côté admin avant
+    la décision d'acceptation.
+    """
+
+    application = models.ForeignKey(
+        CampaignApplication,
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
+    label = models.CharField(max_length=200, help_text="Libellé de la pièce exigée.")
+    fichier = models.FileField(
+        upload_to="coop/microcampaigns/candidatures/%Y/%m/",
+        help_text="Fichier uploadé par le candidat (image ou PDF).",
+    )
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = "Pièce candidature campagne"
+        verbose_name_plural = "Pièces candidatures campagne"
+
+    def __str__(self) -> str:
+        return f"{self.label} · candidature #{self.application_id}"
 
 
 class LoanRequest(TimestampedModel):

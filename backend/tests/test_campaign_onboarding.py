@@ -47,7 +47,7 @@ def comite_client(db):
     return c
 
 
-def _campaign(*, membre_requis, frais=None):
+def _campaign(*, membre_requis, frais=None, docs=None):
     today = date.today()
     return MicrocreditCampaign.objects.create(
         nom="Campagne visiteurs",
@@ -60,6 +60,7 @@ def _campaign(*, membre_requis, frais=None):
         nb_jours_recouvrement=60,
         membre_requis=membre_requis,
         frais_etude_montant=frais,
+        documents_requis=docs or [],
         actif=True,
         created_by=UserFactory(),
     )
@@ -135,3 +136,38 @@ class TestAcceptOnboarding:
         app.refresh_from_db()
         assert app.statut == CampaignApplication.Statut.REJETEE
         assert app.member_id is None
+
+
+class TestDocumentsRequis:
+    """Pièces justificatives exigées du candidat (onboarding 2026)."""
+
+    def test_missing_document_rejected(self):
+        camp = _campaign(
+            membre_requis=False, frais=Decimal("0"),
+            docs=["Preuve d'activité commerçant"],
+        )
+        # Candidature sans le fichier exigé → refus, aucune candidature créée.
+        resp = APIClient().post(_APPLY.format(camp.id), _BODY, format="json")
+        assert resp.status_code == 400, resp.content
+        assert not CampaignApplication.objects.exists()
+
+    def test_document_uploaded_creates_row(self, settings, tmp_path):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        settings.MEDIA_ROOT = str(tmp_path)
+        camp = _campaign(
+            membre_requis=False, frais=Decimal("0"),
+            docs=["Preuve d'activité commerçant"],
+        )
+        proof = SimpleUploadedFile("preuve.pdf", b"%PDF-1.4 fake", content_type="application/pdf")
+        resp = APIClient().post(
+            _APPLY.format(camp.id),
+            {**_BODY, "doc_0": proof},
+            format="multipart",
+        )
+        assert resp.status_code == 201, resp.content
+        app = CampaignApplication.objects.get()
+        docs = list(app.documents.all())
+        assert len(docs) == 1
+        assert docs[0].label == "Preuve d'activité commerçant"
+        assert docs[0].fichier

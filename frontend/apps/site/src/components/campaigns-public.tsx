@@ -12,6 +12,8 @@ type Campaign = {
   taux_interet: string;
   nb_jours_recouvrement: number;
   flyer_url: string;
+  frais_etude_montant?: string | null;
+  documents_requis?: string[];
 };
 
 function fmtXAF(v: string): string {
@@ -45,18 +47,39 @@ function ApplyForm({ campaign }: { campaign: Campaign }) {
   });
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const docsRequis = campaign.documents_requis ?? [];
+  const [files, setFiles] = useState<Record<number, File | null>>({});
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (state === "sending") return;
+    // Vérifie que chaque pièce exigée a bien un fichier sélectionné.
+    const missing = docsRequis.findIndex((_, i) => !files[i]);
+    if (docsRequis.length > 0 && missing !== -1) {
+      setError(`Merci de joindre : ${docsRequis[missing]}.`);
+      setState("error");
+      return;
+    }
     setState("sending");
     setError(null);
     try {
-      const res = await fetch("/api/campaigns/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campaign_id: campaign.id, ...form }),
-      });
+      let res: Response;
+      if (docsRequis.length > 0) {
+        const fd = new FormData();
+        fd.append("campaign_id", String(campaign.id));
+        Object.entries(form).forEach(([k, v]) => fd.append(k, String(v)));
+        docsRequis.forEach((_, i) => {
+          const f = files[i];
+          if (f) fd.append(`doc_${i}`, f);
+        });
+        res = await fetch("/api/campaigns/apply", { method: "POST", body: fd });
+      } else {
+        res = await fetch("/api/campaigns/apply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ campaign_id: campaign.id, ...form }),
+        });
+      }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data?.detail ?? "Impossible d'envoyer ta candidature.");
@@ -150,6 +173,27 @@ function ApplyForm({ campaign }: { campaign: Campaign }) {
           className={inputCls}
         />
       </label>
+      {docsRequis.length > 0 ? (
+        <div className="space-y-2 rounded-md border border-line-200 bg-cream/50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-600">
+            Pièces justificatives à joindre
+          </p>
+          {docsRequis.map((label, i) => (
+            <label key={i} className="block text-sm text-ink-700">
+              {label}
+              <input
+                required
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) =>
+                  setFiles((prev) => ({ ...prev, [i]: e.target.files?.[0] ?? null }))
+                }
+                className="mt-1 block w-full text-xs text-ink-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald file:px-3 file:py-1.5 file:text-white"
+              />
+            </label>
+          ))}
+        </div>
+      ) : null}
       {error ? (
         <p className="rounded-md border border-terra-400/40 bg-terra-50/60 px-3 py-2 text-sm text-terra-700">
           {error}

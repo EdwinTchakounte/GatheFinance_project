@@ -99,6 +99,11 @@ class FeedDioDataSource {
           ? null
           : num.tryParse('${json['frais_etude_montant']}'),
       membreRequis: json['membre_requis'] as bool? ?? true,
+      documentsRequis: (json['documents_requis'] as List?)
+              ?.map((e) => '$e')
+              .where((e) => e.trim().isNotEmpty)
+              .toList(growable: false) ??
+          const [],
     );
   }
 

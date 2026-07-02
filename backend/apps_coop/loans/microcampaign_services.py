@@ -210,17 +210,22 @@ _ = get_int_setting  # noqa: F841 (placeholder, no warn)
 # ---------------------------------------------------------------------------
 
 
+@transaction.atomic
 def create_public_application(
-    campaign, *, nom, prenom, phone, email, montant, motif=""
+    campaign, *, nom, prenom, phone, email, montant, motif="", documents=None
 ):
     """Enregistre une candidature d'un VISITEUR non-membre.
 
     Le compte N'EST PAS créé ici (anti-abus) : seule l'acceptation admin
     matérialise le compte. Lève ``ValueError`` si la campagne n'accepte pas
-    les visiteurs (``membre_requis``), si elle est fermée, ou si le montant
-    est hors bornes.
+    les visiteurs (``membre_requis``), si elle est fermée, si le montant est
+    hors bornes, ou s'il manque une pièce exigée (``documents_requis``).
+
+    ``documents`` = liste de tuples ``(label, uploaded_file)`` fournis par le
+    candidat. Chaque libellé de ``campaign.documents_requis`` doit avoir un
+    fichier correspondant.
     """
-    from .models import CampaignApplication
+    from .models import CampaignApplication, CampaignApplicationDocument
 
     if campaign.membre_requis:
         raise ValueError(
@@ -233,7 +238,16 @@ def create_public_application(
     if not (email or "").strip():
         raise ValueError("Un email est requis pour créer ton accès.")
 
-    return CampaignApplication.objects.create(
+    # Contrôle des pièces exigées : chaque libellé doit avoir un fichier.
+    requis = [str(d).strip() for d in (campaign.documents_requis or []) if str(d).strip()]
+    fournis = {str(lbl).strip(): f for lbl, f in (documents or []) if f is not None}
+    manquants = [lbl for lbl in requis if not fournis.get(lbl)]
+    if manquants:
+        raise ValueError(
+            "Pièces justificatives manquantes : " + ", ".join(manquants) + "."
+        )
+
+    app = CampaignApplication.objects.create(
         campaign=campaign,
         nom=nom.strip(),
         prenom=prenom.strip(),
@@ -242,6 +256,11 @@ def create_public_application(
         montant_demande=Decimal(montant),
         motif=(motif or "").strip(),
     )
+    for lbl in requis:
+        CampaignApplicationDocument.objects.create(
+            application=app, label=lbl, fichier=fournis[lbl]
+        )
+    return app
 
 
 @transaction.atomic

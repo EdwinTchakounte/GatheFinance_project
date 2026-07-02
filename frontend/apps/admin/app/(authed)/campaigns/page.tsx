@@ -404,6 +404,7 @@ function CreateModal({
     plafond_beneficiaires: null,
     membre_requis: true,
     frais_etude_montant: null,
+    documents_requis: [],
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -602,6 +603,50 @@ function CreateModal({
         </Field>
 
         <Field
+          label="Documents requis du candidat"
+          hint="Pièces que le visiteur devra téléverser en postulant (ex. « Preuve d'activité commerçant »). Laisser vide si aucune."
+        >
+          <div className="space-y-2">
+            {(form.documents_requis ?? []).map((doc, i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  value={doc}
+                  onChange={(e) => {
+                    const next = [...(form.documents_requis ?? [])];
+                    next[i] = e.target.value;
+                    set("documents_requis", next);
+                  }}
+                  className={inputCls}
+                  placeholder="Libellé de la pièce"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    set(
+                      "documents_requis",
+                      (form.documents_requis ?? []).filter((_, j) => j !== i),
+                    )
+                  }
+                  className="shrink-0 rounded-md border border-line-300 px-3 text-sm text-ink-600 hover:bg-paper-soft"
+                  aria-label="Retirer"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() =>
+                set("documents_requis", [...(form.documents_requis ?? []), ""])
+              }
+              className="rounded-md border border-dashed border-line-300 px-3 py-1.5 text-sm font-medium text-ink-700 hover:bg-paper-soft"
+            >
+              + Ajouter une pièce
+            </button>
+          </div>
+        </Field>
+
+        <Field
           label="Flyer (image PNG/JPG)"
           hint="Visuel affiché dans l'admin et envoyé aux membres ciblés."
         >
@@ -784,41 +829,64 @@ function ApplicationsSection({ campaignId }: { campaignId: number }) {
         {rows.map((a) => (
           <li
             key={a.id}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line-200 bg-white px-3 py-2 text-xs"
+            className="rounded-md border border-line-200 bg-white px-3 py-2 text-xs"
           >
-            <div className="min-w-0">
-              <p className="font-medium text-ink-900">
-                {a.prenom} {a.nom}{" "}
-                <span className="font-normal text-ink-500">· {a.email}</span>
-              </p>
-              <p className="text-ink-500">
-                {Number(a.montant_demande).toLocaleString("fr-FR")} XAF ·{" "}
-                {a.statut_display}
-                {a.numero_membre ? ` · ${a.numero_membre}` : ""}
-              </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-medium text-ink-900">
+                  {a.prenom} {a.nom}{" "}
+                  <span className="font-normal text-ink-500">· {a.email}</span>
+                </p>
+                <p className="text-ink-500">
+                  {Number(a.montant_demande).toLocaleString("fr-FR")} XAF ·{" "}
+                  {a.statut_display}
+                  {a.numero_membre ? ` · ${a.numero_membre}` : ""}
+                </p>
+              </div>
+              {a.statut === "en_attente" ? (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={busyId === a.id}
+                    onClick={() => decide(a.id, { decision: "accepte" })}
+                    className="rounded-md bg-emerald-600 px-2.5 py-1 font-medium text-white disabled:opacity-50"
+                  >
+                    Accepter
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyId === a.id}
+                    onClick={() => {
+                      const m = window.prompt("Motif du rejet ?");
+                      if (m && m.trim())
+                        decide(a.id, { decision: "rejete", motif_rejet: m.trim() });
+                    }}
+                    className="rounded-md border border-line-300 px-2.5 py-1 font-medium text-ink-700 disabled:opacity-50"
+                  >
+                    Rejeter
+                  </button>
+                </div>
+              ) : null}
             </div>
-            {a.statut === "en_attente" ? (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={busyId === a.id}
-                  onClick={() => decide(a.id, { decision: "accepte" })}
-                  className="rounded-md bg-emerald-600 px-2.5 py-1 font-medium text-white disabled:opacity-50"
-                >
-                  Accepter
-                </button>
-                <button
-                  type="button"
-                  disabled={busyId === a.id}
-                  onClick={() => {
-                    const m = window.prompt("Motif du rejet ?");
-                    if (m && m.trim())
-                      decide(a.id, { decision: "rejete", motif_rejet: m.trim() });
-                  }}
-                  className="rounded-md border border-line-300 px-2.5 py-1 font-medium text-ink-700 disabled:opacity-50"
-                >
-                  Rejeter
-                </button>
+            {a.documents.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-2 border-t border-line-100 pt-2">
+                {a.documents.map((d, i) =>
+                  d.url ? (
+                    <a
+                      key={i}
+                      href={d.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-md bg-paper-soft px-2 py-1 font-medium text-emerald-700 hover:underline"
+                    >
+                      📎 {d.label}
+                    </a>
+                  ) : (
+                    <span key={i} className="text-ink-400">
+                      {d.label} (indisponible)
+                    </span>
+                  ),
+                )}
               </div>
             ) : null}
           </li>
