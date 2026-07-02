@@ -50,9 +50,14 @@ function statutColor(s: LoanRequest["statut"]): string {
       return "text-blue-700";
     case "en_attente_acceptation_membre":
       return "text-terra-700";
+    case "en_attente_avaliste":
+    case "en_validation_campagne":
+      return "text-blue-700";
     case "approuvee":
       return "text-emerald";
     case "rejetee":
+    case "rejetee_avaliste":
+    case "rejetee_campagne":
       return "text-terra-700";
     default:
       return "text-ink-600";
@@ -429,7 +434,10 @@ export default function PortalCreditPage() {
                       📄 Télécharger ma note de demande (PDF)
                     </a>
                   </div>
-                  {r.statut === "rejetee" && r.motif_rejet ? (
+                  {(r.statut === "rejetee" ||
+                    r.statut === "rejetee_avaliste" ||
+                    r.statut === "rejetee_campagne") &&
+                  r.motif_rejet ? (
                     <p className="mt-2 text-sm text-terra-700">Motif : {r.motif_rejet}</p>
                   ) : null}
                   {r.statut === "en_attente_acceptation_membre" && r.montant_revise ? (

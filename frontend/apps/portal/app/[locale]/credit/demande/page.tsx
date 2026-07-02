@@ -40,6 +40,10 @@ type FormState = {
   avaliste_nom: string;
   profil_cible: string;
   campaign_id: string;
+  // Voie SENIOR_BRC — auto-déclaration BRC (parité mobile). Le backend
+  // (evaluate_routes) débloque la voie via cga_brc_member/cfp_brc_apprenant.
+  cga_brc_member: boolean;
+  cfp_brc_apprenant: boolean;
   // CH-9 — Canal de réception du décaissement choisi par le membre.
   moyen_reception: Canal;
   recipient_phone: string;
@@ -90,12 +94,17 @@ export default function PortalLoanRequestPage() {
     avaliste_nom: "",
     profil_cible: "",
     campaign_id: "",
+    cga_brc_member: false,
+    cfp_brc_apprenant: false,
     // CH-9 — Canal de réception par défaut : MTN MoMo (le plus courant
     // pour les membres). Le membre peut changer avant soumission.
     moyen_reception: "tara_momo",
     recipient_phone: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  // Preuves BRC (optionnelles) — uploadées après création, parité mobile.
+  const [cgaProof, setCgaProof] = useState<File | null>(null);
+  const [cfpProof, setCfpProof] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorList, setErrorList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -320,6 +329,12 @@ export default function PortalLoanRequestPage() {
         // CH-4 — Champs scalaires supplémentaires routés vers extra_payload.
         ...scalarExtras,
       };
+      if (form.voie === "senior_brc") {
+        // Auto-déclaration BRC (parité mobile) : ces clés débloquent la voie
+        // côté backend (evaluate_routes lit extra_payload).
+        payload.cga_brc_member = form.cga_brc_member ? "oui" : "non";
+        payload.cfp_brc_apprenant = form.cfp_brc_apprenant ? "oui" : "non";
+      }
       if (form.voie === "avaliste" && avalisteSelected) {
         // Numero + nom valides via le typeahead backend (anti-fraude).
         payload.avaliste_numero = avalisteSelected.numero_membre;
@@ -351,6 +366,20 @@ export default function PortalLoanRequestPage() {
               `Upload de ${fieldId} échoué — la demande est créée, ré-uploader plus tard.`,
               uploadErr,
             );
+          }
+        }
+      }
+
+      // Preuves BRC (parité mobile : ids cga_brc_preuve / cfp_brc_preuve).
+      if (result.loan_request?.id) {
+        const brcProofs: Array<[string, File]> = [];
+        if (form.cga_brc_member && cgaProof) brcProofs.push(["cga_brc_preuve", cgaProof]);
+        if (form.cfp_brc_apprenant && cfpProof) brcProofs.push(["cfp_brc_preuve", cfpProof]);
+        for (const [fieldId, file] of brcProofs) {
+          try {
+            await portalApi.loans.uploadAttachment(result.loan_request.id, fieldId, file);
+          } catch (uploadErr) {
+            console.warn(`Upload preuve ${fieldId} échoué.`, uploadErr);
           }
         }
       }
@@ -535,6 +564,54 @@ export default function PortalLoanRequestPage() {
               hint="Pour les non-adhérents ou nouveaux membres ciblés (commerçants, agriculteurs…)."
             />
           </fieldset>
+
+          {/* Voie SENIOR_BRC — auto-déclaration BRC (parité mobile). Ces cases
+              débloquent la voie côté backend (evaluate_routes). */}
+          {form.voie === "senior_brc" && (
+            <div className="mt-5 space-y-3 rounded-md border border-line-200 bg-cream/40 p-4">
+              <p className="text-sm font-medium text-ink-900">
+                Ton lien avec BRC (Broad Range Consulting)
+              </p>
+              <label className="flex items-start gap-2.5 text-sm text-ink-700">
+                <input
+                  type="checkbox"
+                  checked={form.cga_brc_member}
+                  onChange={(e) => set("cga_brc_member", e.target.checked)}
+                  className="mt-0.5 size-4"
+                />
+                <span>Je suis membre / adhérent CGA de BRC</span>
+              </label>
+              {form.cga_brc_member && (
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => setCgaProof(e.target.files?.[0] ?? null)}
+                  className="block w-full text-xs text-ink-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald file:px-3 file:py-1.5 file:text-white"
+                />
+              )}
+              <label className="flex items-start gap-2.5 text-sm text-ink-700">
+                <input
+                  type="checkbox"
+                  checked={form.cfp_brc_apprenant}
+                  onChange={(e) => set("cfp_brc_apprenant", e.target.checked)}
+                  className="mt-0.5 size-4"
+                />
+                <span>Je suis apprenant CFP de BRC</span>
+              </label>
+              {form.cfp_brc_apprenant && (
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => setCfpProof(e.target.files?.[0] ?? null)}
+                  className="block w-full text-xs text-ink-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald file:px-3 file:py-1.5 file:text-white"
+                />
+              )}
+              <p className="text-[11px] text-ink-500">
+                Coche au moins une option si tu n'es pas déjà validé BRC par la
+                coopérative — sinon cette voie sera refusée.
+              </p>
+            </div>
+          )}
 
           {/* Montant + durée + motif (communs) */}
           <label
