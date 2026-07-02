@@ -577,17 +577,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                 final n = num.tryParse(t);
                 if (n == null) return l.err_enter_amount;
                 if (widget.classic) {
-                  // Épargne classique : minimum 1 000 XAF (aligné backend —
-                  // plancher `max(depot_min, 1000)`). Parité avec le portail.
-                  if (n < kCollecteMinPerDay) return l.err_min_1000;
+                  // TODO: REMOVE_FOR_PROD — plancher test 100 XAF (au lieu de
+                  // 1000) pour valider les flows. Voir kTestMinDeposit.
+                  if (n < kTestMinDeposit) return l.err_min_1000;
                   return null;
                 }
-                // Collecte journalière : multiple de 50 ET ≥ 1 000 par jour
-                // (donc total ≥ nbJours × 1 000).
+                // Collecte journalière : multiple de 50 ET ≥ plancher par jour.
                 if (n % kCollecteAmountStep != 0) {
                   return l.err_amount_multiple_50;
                 }
-                final minTotal = _nbJoursCouverts * kCollecteMinPerDay;
+                // TODO: REMOVE_FOR_PROD — plancher par jour abaissé à 100.
+                final minTotal = _nbJoursCouverts * kTestMinDeposit;
                 if (n < minTotal) {
                   return l.err_collecte_min_per_day(
                     XAFFormatter.format(minTotal),
@@ -604,7 +604,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             Wrap(
               spacing: 8,
               children: [
-                for (final v in [1000, 2000, 5000, 10000])
+                // TODO: REMOVE_FOR_PROD — puce 100 pour tester les flows.
+                for (final v in [100, 1000, 2000, 5000])
                   _AmountChip(
                     value: v,
                     selected: _amountCtrl.text == '$v',

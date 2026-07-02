@@ -10,6 +10,14 @@
 /// synchroniser, mais ce n'est pas indispensable au MVP multi-jours.
 const int kCollecteMinPerDay = 1000;
 
+/// TODO: REMOVE_FOR_PROD — plancher de VALIDATION en mode test.
+/// Abaisse le minimum accepté à 100 XAF pour les DEUX types de versement
+/// (épargne classique + collecte journalière) afin de valider les flows Tara
+/// avec de petits montants. À remettre à [kCollecteMinPerDay] (1000) avant la
+/// vraie mise en prod. Le backend doit avoir PAYMENTS_TEST_ALLOW_ANY_AMOUNT=1
+/// pour accepter ces montants côté serveur.
+const int kTestMinDeposit = 100;
+
 /// Plafond du multi-jours pré-payé (verse N jours à l'avance, max 30).
 const int kCollectePrepayMaxDays = 30;
 
