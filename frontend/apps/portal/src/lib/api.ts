@@ -187,6 +187,21 @@ export type ClassicSavingsSnapshot = {
   transactions_recentes: SavingsTransaction[];
 };
 
+// LOT 11 — Campagne micro-crédit (voie 3). Miroir du /campaigns mobile :
+// catalogue public des campagnes ouvertes + sélecteur dans la demande.
+export type Campaign = {
+  id: number;
+  nom: string;
+  profil_cible: string;
+  date_debut: string;
+  date_fin: string;
+  montant_min: string;
+  montant_max: string;
+  taux_interet: string;
+  nb_jours_recouvrement: number;
+  flyer_url: string;
+};
+
 export type PaymentRead = {
   id: number;
   montant: string;
@@ -563,6 +578,21 @@ export const portalApi = {
 
     // CH-9 — URL absolue pour télécharger la note PDF d'une demande.
     noteUrl: (requestId: number) => `${API_BASE}/loans/requests/${requestId}/note/`,
+
+    // LOT 11 — Catalogue public des campagnes micro-crédit ouvertes (miroir
+    // du carousel/liste mobile). Endpoint AllowAny paginé limit/offset.
+    activeCampaigns: (params: { limit?: number; offset?: number } = {}) => {
+      const sp = new URLSearchParams();
+      if (params.limit) sp.set("limit", String(params.limit));
+      if (params.offset) sp.set("offset", String(params.offset));
+      const qs = sp.toString();
+      return request<{
+        count: number;
+        next: string | null;
+        previous: string | null;
+        results: Campaign[];
+      }>(`/loans/campaigns/active/${qs ? `?${qs}` : ""}`);
+    },
 
     // Typeahead avaliste : recherche un membre Senior actif dispo comme
     // garant. Anti-fraude : compare numero_membre ET nom cote backend lors

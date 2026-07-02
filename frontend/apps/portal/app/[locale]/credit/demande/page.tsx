@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { Container, buttonClasses } from "@gathe/ui";
 
-import { portalApi, type ApiError, type FormSchemaPublic } from "@/lib/api";
+import { portalApi, type ApiError, type Campaign, type FormSchemaPublic } from "@/lib/api";
 import { computeLoanBreakdown, durationMonthsFor, type PaymentModality } from "@/lib/loan-terms";
 import {
   DynamicFields,
@@ -103,6 +103,30 @@ export default function PortalLoanRequestPage() {
   const [schema, setSchema] = useState<FormSchemaPublic | null>(null);
   const [extraValues, setExtraValues] = useState<FormValues>({});
   const [extraErrors, setExtraErrors] = useState<Record<string, string>>({});
+  // LOT 11 — Campagnes ouvertes pour le sélecteur de la voie campagne
+  // (remplace la saisie manuelle d'ID). Parité avec le picker mobile.
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+
+  // LOT 11 — Chargement des campagnes ouvertes + pré-remplissage depuis les
+  // query params (?voie=campaign&campaign=<id>) posés par le bouton
+  // « Postuler » du catalogue /credit/campagnes. Lu via window.location pour
+  // éviter la frontière Suspense qu'imposerait useSearchParams (Next 15).
+  useEffect(() => {
+    portalApi.loans
+      .activeCampaigns({ limit: 50 })
+      .then((res) => setCampaigns(res.results))
+      .catch(() => undefined);
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      const voieParam = sp.get("voie");
+      const campaignParam = sp.get("campaign");
+      setForm((f) => ({
+        ...f,
+        ...(voieParam === "campaign" ? { voie: "campaign" as Voie } : {}),
+        ...(campaignParam ? { campaign_id: campaignParam } : {}),
+      }));
+    }
+  }, []);
 
   // Typeahead avaliste (parite mobile loan_request_sheet.dart).
   const [avalisteQuery, setAvalisteQuery] = useState("");
@@ -693,23 +717,66 @@ export default function PortalLoanRequestPage() {
             </div>
           )}
 
-          {/* Champs voie CAMPAIGN */}
+          {/* Champs voie CAMPAIGN — sélecteur des campagnes ouvertes
+              (parité picker mobile ; remplace la saisie manuelle d'ID). */}
           {form.voie === "campaign" && (
             <div className="mt-6 space-y-3 rounded-md border border-line-200 bg-cream/40 p-4">
-              <h3 className="text-sm font-semibold text-ink-900">
-                Campagne micro-crédit
-              </h3>
-              <p className="text-xs text-ink-600">
-                Renseigne soit l'ID exact d'une campagne (si fourni), soit
-                ton profil ciblé — le système trouvera la campagne ouverte
-                correspondante.
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-ink-900">
+                  Campagne micro-crédit
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => router.push("/credit/campagnes")}
+                  className="text-xs font-medium text-blue-700 hover:underline"
+                >
+                  Voir les campagnes →
+                </button>
+              </div>
+
+              {campaigns.length > 0 ? (
+                <div>
+                  <label
+                    className="block text-xs font-medium text-ink-700"
+                    htmlFor="campaign_id"
+                  >
+                    Choisis une campagne ouverte
+                  </label>
+                  <select
+                    id="campaign_id"
+                    value={form.campaign_id}
+                    onChange={(e) => set("campaign_id", e.target.value)}
+                    className={inputCls}
+                  >
+                    <option value="">— Sélectionne une campagne —</option>
+                    {campaigns.map((c) => (
+                      <option key={c.id} value={String(c.id)}>
+                        {c.nom}
+                        {c.profil_cible ? ` · ${c.profil_cible}` : ""} (
+                        {Number(c.montant_min).toLocaleString("fr-FR")}–
+                        {Number(c.montant_max).toLocaleString("fr-FR")} XAF)
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-ink-500">
+                    Aucune campagne ne te correspond ? Renseigne ton profil
+                    ci-dessous, le système cherchera une campagne ouverte.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-ink-600">
+                  Aucune campagne ouverte listée pour le moment. Tu peux
+                  renseigner ton profil ciblé — le système cherchera une
+                  campagne ouverte correspondante.
+                </p>
+              )}
+
               <div>
                 <label
                   className="block text-xs font-medium text-ink-700"
                   htmlFor="profil_cible"
                 >
-                  Mon profil (ex: commerçants, agriculteurs…)
+                  Mon profil (optionnel — ex: commerçants, agriculteurs…)
                 </label>
                 <input
                   id="profil_cible"
@@ -717,23 +784,6 @@ export default function PortalLoanRequestPage() {
                   onChange={(e) => set("profil_cible", e.target.value)}
                   className={inputCls}
                   placeholder="commercants"
-                />
-              </div>
-              <div>
-                <label
-                  className="block text-xs font-medium text-ink-700"
-                  htmlFor="campaign_id"
-                >
-                  ID campagne (optionnel)
-                </label>
-                <input
-                  id="campaign_id"
-                  type="number"
-                  min={1}
-                  value={form.campaign_id}
-                  onChange={(e) => set("campaign_id", e.target.value)}
-                  className={inputCls}
-                  placeholder="42"
                 />
               </div>
             </div>

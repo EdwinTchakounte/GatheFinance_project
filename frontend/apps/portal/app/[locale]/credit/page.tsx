@@ -191,6 +191,17 @@ export default function PortalCreditPage() {
                   </button>
                 )}
                 <p className="mt-4 text-xs text-ink-600">
+                  Pas d'ancienneté suffisante ? Une campagne micro-crédit peut
+                  te concerner —{" "}
+                  <button
+                    type="button"
+                    onClick={() => router.push("/credit/campagnes")}
+                    className="font-medium text-blue-700 underline-offset-2 hover:underline"
+                  >
+                    Voir les campagnes ouvertes →
+                  </button>
+                </p>
+                <p className="mt-2 text-xs text-ink-600">
                   Tu es désigné(e) comme garant pour quelqu'un ?{" "}
                   <button
                     type="button"
