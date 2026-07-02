@@ -24,7 +24,6 @@ from .models import Loan, LoanInstallment, LoanRenewal, LoanRequest
 from .terms import (
     PaymentModality,
     duration_months_for,
-    n_installments,
 )
 
 
@@ -204,7 +203,6 @@ def generate_installments_flat_interest(
     L'historique conservait l'ancien nom ``generate_installments_amortissement_constant``
     par compat ; il pointe désormais sur cette fonction (alias en bas du module).
     """
-    n = n_installments(loan.duree_mois, loan.modalite_paiement)
     mode_source = (
         getattr(loan, "mode_retenue_interets", "echeances") == Loan.ModeRetenue.SOURCE
     )
@@ -223,36 +221,30 @@ def generate_installments_flat_interest(
             interets_totaux = _q(montant * taux)
         else:
             interets_totaux = _q(Decimal(interets_totaux))
-    capital_par_ech = _q(montant / n)
-    interets_par_ech = _q(interets_totaux / n)
 
-    installments: list[LoanInstallment] = []
-    capital_distribue = Decimal("0")
-    interets_distribues = Decimal("0")
-    for i in range(1, n + 1):
-        if i == n:
-            # Dernière échéance : absorbe le reliquat d'arrondi.
-            capital = _q(montant - capital_distribue)
-            interets = _q(interets_totaux - interets_distribues)
-        else:
-            capital = capital_par_ech
-            interets = interets_par_ech
-        montant_total = _q(capital + interets)
-        inst = LoanInstallment.objects.create(
-            loan=loan,
-            numero_echeance=i,
-            date_echeance=_next_installment_date(
-                loan.date_premiere_echeance, i - 1, loan.modalite_paiement
-            ),
-            montant_capital=capital,
-            montant_interets=interets,
-            montant_total=montant_total,
-            statut=LoanInstallment.Statut.A_VENIR,
-        )
-        installments.append(inst)
-        capital_distribue += capital
-        interets_distribues += interets
-    return installments
+    # Règle 2026 « DATE BUTOIR UNIQUE » : l'échéancier n'est plus fractionné en
+    # N mensualités. Une **seule échéance** porte la totalité du montant dû et
+    # est exigible à la **date butoir** (= date_premiere_echeance + (durée − 1)
+    # mois — inchangée par rapport à l'ancienne dernière échéance, pour ne pas
+    # décaler la pénalité ni le contentieux). Le membre rembourse **librement**
+    # (montant/moment de son choix) d'ici là : chaque versement s'impute en FIFO
+    # sur cette unique ligne (cf. ``repay_loan``). Pénalité (Art. 12) et
+    # contentieux se déclenchent quand cette échéance bascule en retard.
+    capital = _q(montant)
+    interets = _q(interets_totaux)
+    deadline = _add_months(
+        loan.date_premiere_echeance, max(0, loan.duree_mois - 1)
+    )
+    inst = LoanInstallment.objects.create(
+        loan=loan,
+        numero_echeance=1,
+        date_echeance=deadline,
+        montant_capital=capital,
+        montant_interets=interets,
+        montant_total=_q(capital + interets),
+        statut=LoanInstallment.Statut.A_VENIR,
+    )
+    return [inst]
 
 
 #: Alias rétro-compat. Anciens appels ``generate_installments_amortissement_constant``

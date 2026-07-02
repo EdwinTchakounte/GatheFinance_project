@@ -126,7 +126,7 @@ class TestApproveSourceMode:
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
         installments = list(loan.installments.all())
-        assert len(installments) == 3  # mensuel × 3 mois
+        assert len(installments) == 1  # règle 2026 : échéance unique (date butoir)
         total_capital = sum(Decimal(i.montant_capital) for i in installments)
         total_interets = sum(Decimal(i.montant_interets) for i in installments)
         total = sum(Decimal(i.montant_total) for i in installments)

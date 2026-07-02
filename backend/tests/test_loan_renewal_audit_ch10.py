@@ -137,20 +137,14 @@ class TestArticle11InterestOnRemainingCapital:
         DOIT diminuer de moitié (porte sur le restant, pas l'initial)."""
         _enable_source_mode(False)
         loan = _approve_initial(active_member, comite_user)
-        # Rembourse 50k de capital + intérêts proportionnels via installments.
-        # On force capital_restant ≈ 50k en réglant montant_paye sur les
-        # premières échéances jusqu'à atteindre la moitié du capital.
-        capital_a_solder = Decimal("50000")
-        capital_paye = Decimal("0")
-        for inst in loan.installments.order_by("numero_echeance"):
-            if capital_paye >= capital_a_solder:
-                break
-            inst.montant_paye = inst.montant_total  # Solde toute l'échéance
-            inst.statut = "payee"
-            inst.save(
-                update_fields=["montant_paye", "statut", "updated_at"]
-            )
-            capital_paye += Decimal(inst.montant_capital)
+        # Règle 2026 « échéance unique » : le crédit n'a qu'une seule échéance
+        # portant tout le capital. Pour laisser ≈ 50 % du capital dû, on règle
+        # la MOITIÉ du montant total (l'imputation est proratisée capital/intérêt
+        # dans ``_remaining_capital_and_interest`` → capital_restant = capital/2).
+        inst = loan.installments.get()
+        inst.montant_paye = (Decimal(inst.montant_total) / 2).quantize(Decimal("0.01"))
+        inst.statut = "partielle"
+        inst.save(update_fields=["montant_paye", "statut", "updated_at"])
 
         renewal = _request_renewal(loan, interets_au_comptant=True)
         nouveau = approve_loan_renewal(

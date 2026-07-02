@@ -160,13 +160,16 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   PickedFile? _cfpBrcProof;
 
   double _montant = 200000;
-  // Durée NON saisie manuellement : dérivée du montant (Art. 7).
-  PaymentModality _modalite = PaymentModality.mensuel;
+  // Ni la durée ni la cadence ne sont choisies par le membre : la PÉRIODE de
+  // remboursement est entièrement dérivée du montant emprunté (paliers Art. 7),
+  // à cadence mensuelle. Le sélecteur de modalité a été retiré de l'UI.
   _Step _step = _Step.form;
   late final AnimationController _checkCtrl;
 
   /// Décomposition règlementaire live (taux 10 %, durée par palier, échéancier).
-  LoanBreakdown get _bd => computeLoanBreakdown(_montant, modalite: _modalite);
+  /// Cadence figée à mensuel : n_échéances = durée_mois (fonction du montant).
+  LoanBreakdown get _bd =>
+      computeLoanBreakdown(_montant, modalite: PaymentModality.mensuel);
 
   @override
   void initState() {
@@ -530,28 +533,11 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
 
             const SizedBox(height: AppSpacing.l),
 
-            // --- Modalité de remboursement (Art. 8) ---
-            Text(l.lreq_modality, style: AppTypography.labelMedium),
-            const SizedBox(height: AppSpacing.s),
-            Row(
-              children: [
-                for (final m in PaymentModality.values) ...[
-                  Expanded(
-                    child: _ModalityChip(
-                      label: m.label,
-                      selected: _modalite == m,
-                      onTap: () => setState(() => _modalite = m),
-                    ),
-                  ),
-                  if (m != PaymentModality.values.last)
-                    const SizedBox(width: 8),
-                ],
-              ],
-            ),
-
-            const SizedBox(height: AppSpacing.l),
-
             // --- Récap période + montant par échéance (CH-11 source) ---
+            //
+            // La période de remboursement n'est plus choisie par le membre :
+            // elle découle du montant emprunté (paliers Art. 7), en versements
+            // mensuels. Le récap ci-dessous l'affiche à titre indicatif.
             //
             // On NE montre PAS de tableau "intérêts par échéance" car les
             // intérêts sont retenus à la source dès le décaissement
@@ -1296,51 +1282,6 @@ class _Grabber extends StatelessWidget {
 }
 
 
-/// Chip de modalité de remboursement (journalier / hebdo / mensuel).
-class _ModalityChip extends StatelessWidget {
-  const _ModalityChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? PaColors.navy : PaColors.cardBg,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 42,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? PaColors.navy : PaColors.line,
-              width: 1,
-            ),
-          ),
-          child: Text(
-            label,
-            style: AppTypography.labelMedium.copyWith(
-              color: selected ? Colors.white : PaColors.inkSecondary,
-              fontWeight: FontWeight.w600,
-              fontSize: 12.5,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
 /// Récap période + montant par échéance . aligné CH-11 (mode source).
 ///
 /// Sous le régime CH-11, les intérêts (10 %) sont **retenus à la source dès
@@ -1364,11 +1305,6 @@ class _RepaymentRecap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final montantNet = bd.montant - bd.interetsTotaux;
-    final cadenceLabel = switch (bd.modalite) {
-      PaymentModality.journalier => 'journalières',
-      PaymentModality.hebdomadaire => 'hebdomadaires',
-      PaymentModality.mensuel => 'mensuelles',
-    };
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1392,17 +1328,17 @@ class _RepaymentRecap extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          _row('Durée', '${bd.dureeMois} mois'),
+          // Règle 2026 « date butoir unique » : pas d'échéancier fractionné.
+          // La durée (fonction du montant) fixe une date limite ; le membre
+          // rembourse librement d'ici là, en une ou plusieurs fois.
+          _row('Délai de remboursement', '${bd.dureeMois} mois'),
           _row(
-            '${bd.nbEcheances} échéances $cadenceLabel',
-            XAFFormatter.format(bd.capitalParEcheance),
+            'À rembourser (avant la date butoir)',
+            XAFFormatter.format(montantNet),
             strong: true,
             accent: true,
           ),
           const Divider(height: 18, color: PaColors.line),
-          // CH-11 . Mention explicite : intérêts retenus à la source.
-          // Le membre voit en clair le net qu'il touche pour ne pas être
-          // surpris au moment du décaissement.
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1413,8 +1349,10 @@ class _RepaymentRecap extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Vous recevrez ${XAFFormatter.format(montantNet)} net . '
-                  'les intérêts (10 %) sont retenus dès le décaissement.',
+                  'Un seul délai, pas d\'échéances imposées : vous remboursez '
+                  'librement avant la date butoir (fixée à l\'approbation). '
+                  'Vous recevrez ${XAFFormatter.format(montantNet)} net — les '
+                  'intérêts (10 %) sont retenus dès le décaissement.',
                   style: const TextStyle(
                     color: PaColors.inkSecondary,
                     fontSize: 12,

@@ -299,9 +299,9 @@ export default function PortalCreditPage() {
                     </div>
                     {nextDue ? (
                       <div className="rounded-md bg-cream p-4">
-                        <p className="font-display text-[0.7rem] font-medium uppercase tracking-[0.14em] text-ink-600">Prochaine échéance</p>
+                        <p className="font-display text-[0.7rem] font-medium uppercase tracking-[0.14em] text-ink-600">À rembourser avant</p>
                         <p className="mt-1 font-editorial text-xl font-medium text-ink-900">{formatXAF(nextDue.montant_total)}</p>
-                        <p className="text-xs text-ink-600">due le {formatDate(nextDue.date_echeance)}</p>
+                        <p className="text-xs text-ink-600">date butoir : {formatDate(nextDue.date_echeance)}</p>
                       </div>
                     ) : null}
                   </div>
@@ -313,7 +313,7 @@ export default function PortalCreditPage() {
                         onClick={() => router.push(`/epargne/depot?context=loan-repayment&loan=${loan.id}`)}
                         className={buttonClasses({ variant: "success", size: "md" })}
                       >
-                        Rembourser ma prochaine échéance
+                        Rembourser mon crédit
                       </button>
                       <button
                         type="button"
@@ -328,7 +328,7 @@ export default function PortalCreditPage() {
                   {/* Echeancier — first 6 rows by default */}
                   <details className="mt-5 group">
                     <summary className="cursor-pointer text-sm text-blue-700 hover:underline">
-                      Voir l'échéancier complet ({loan.installments.length} échéances)
+                      Voir le détail du remboursement
                     </summary>
                     <div className="mt-3 overflow-x-auto">
                       <table className="w-full border-collapse text-sm">

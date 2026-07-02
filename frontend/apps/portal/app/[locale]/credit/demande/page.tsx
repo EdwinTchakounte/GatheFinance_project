@@ -552,48 +552,21 @@ export default function PortalLoanRequestPage() {
             </div>
             {breakdown && (
               <p className="mt-1 text-[11px] text-ink-500">
-                Total a rembourser :{" "}
+                À rembourser :{" "}
                 <strong className="text-ink-700">
                   {breakdown.montantTotalDu.toLocaleString("fr-FR")} XAF
                 </strong>{" "}
-                · {breakdown.nbEcheances} echeances de{" "}
-                <strong className="text-ink-700">
-                  {breakdown.montantParEcheance.toLocaleString("fr-FR")} XAF
-                </strong>{" "}
-                (interets flat 10 %).
+                (intérêts flat 10 %), en une fois ou plusieurs versements
+                libres, <strong className="text-ink-700">avant la date
+                butoir</strong> (fixée à l'approbation).
               </p>
             )}
           </div>
 
-          {/* Modalite de paiement (3 chips). Le mobile fait pareil.
-              Recharge le recap des echeances ci-dessus. */}
-          <p className="mt-5 block text-sm font-medium text-ink-900">
-            Modalite de remboursement (Article 8)
-          </p>
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            {(["journalier", "hebdomadaire", "mensuel"] as const).map((mod) => {
-              const selected = form.modalite === mod;
-              return (
-                <button
-                  key={mod}
-                  type="button"
-                  onClick={() => set("modalite", mod)}
-                  className={[
-                    "rounded-md border px-3 py-2 text-sm font-medium transition-colors",
-                    selected
-                      ? "border-blue-700 bg-blue-50/60 text-blue-700"
-                      : "border-line-200 bg-paper text-ink-700 hover:border-blue-700/40",
-                  ].join(" ")}
-                >
-                  {mod === "journalier"
-                    ? "Journalier"
-                    : mod === "hebdomadaire"
-                      ? "Hebdomadaire"
-                      : "Mensuel"}
-                </button>
-              );
-            })}
-          </div>
+          {/* Règle 2026 « date butoir unique » : plus de modalité imposée
+              (journalier/hebdo/mensuel). La durée (fonction du montant) fixe
+              une date limite ; le membre rembourse librement d'ici là. Le
+              sélecteur de modalité a donc été retiré. */}
 
           <label
             className="mt-5 block text-sm font-medium text-ink-900"
