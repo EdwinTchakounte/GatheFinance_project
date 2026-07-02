@@ -184,6 +184,33 @@ class CampaignDetailPage extends ConsumerWidget {
               height: 1.25,
             ),
           ),
+          // Onboarding 2026 — mention « sans frais » si l'admin a fixé des
+          // frais d'étude à 0 sur la campagne.
+          if (c.sansFrais) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: PaColors.success.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.verified_outlined, size: 15, color: PaColors.success),
+                  SizedBox(width: 6),
+                  Text(
+                    'Sans frais de dossier',
+                    style: TextStyle(
+                      color: PaColors.success,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           _MetaRow(
             icon: Icons.payments_outlined,

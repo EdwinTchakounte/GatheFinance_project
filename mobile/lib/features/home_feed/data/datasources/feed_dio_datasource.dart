@@ -95,6 +95,10 @@ class FeedDioDataSource {
       flyerUrl: (json['flyer_url'] as String?)?.isNotEmpty == true
           ? json['flyer_url'] as String
           : null,
+      fraisEtudeMontant: json['frais_etude_montant'] == null
+          ? null
+          : num.tryParse('${json['frais_etude_montant']}'),
+      membreRequis: json['membre_requis'] as bool? ?? true,
     );
   }
 

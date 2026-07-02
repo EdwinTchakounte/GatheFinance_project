@@ -17,6 +17,8 @@ class CampaignFlyer {
     required this.tauxInteret,
     required this.dateFin,
     required this.flyerUrl,
+    this.fraisEtudeMontant,
+    this.membreRequis = true,
   });
 
   final int id;
@@ -26,6 +28,13 @@ class CampaignFlyer {
   final num montantMax;
   final num tauxInteret;
   final DateTime dateFin;
+  // Frais d'étude : null = tarif standard, 0 = gratuit (« sans frais »).
+  final num? fraisEtudeMontant;
+  // False = campagne ouverte aux visiteurs non-membres (candidature vitrine).
+  final bool membreRequis;
+
+  /// True si la campagne ne prélève aucun frais d'étude de dossier.
+  bool get sansFrais => fraisEtudeMontant != null && fraisEtudeMontant == 0;
   // URL retournée par le backend — peuplée pour 100 % des campagnes
   // (vrai flyer si uploadé, sinon photo stock choisie côté serveur).
   final String? flyerUrl;

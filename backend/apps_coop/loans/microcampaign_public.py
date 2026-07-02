@@ -41,6 +41,11 @@ def _row(c: MicrocreditCampaign, request) -> dict:
         "montant_max": str(c.montant_max),
         "taux_interet": str(c.taux_interet),
         "nb_jours_recouvrement": c.nb_jours_recouvrement,
+        "membre_requis": c.membre_requis,
+        # Frais d'étude : None = tarif standard, "0.00" = gratuit (« sans frais »).
+        "frais_etude_montant": (
+            str(c.frais_etude_montant) if c.frais_etude_montant is not None else None
+        ),
         "flyer_url": _flyer_url(c, request),
     }
 
