@@ -21,6 +21,26 @@ from wagtail.search import index
 from .blocks import body_stream_block
 
 
+def _absolute_media_url(url: str | None) -> str | None:
+    """Rends une URL média absolue.
+
+    Les renditions Wagtail sur un stockage fichier local renvoient un chemin
+    relatif (`/media/images/…`). Consommé tel quel par l'admin Next.js
+    (`admin.*`), le mobile ou le portail — tous sur un autre hôte que l'API —
+    le navigateur résout `/media/…` contre le mauvais domaine → image cassée.
+    On préfixe donc avec l'URL publique du backend. Les URL déjà absolues
+    (stockage S3/CDN, photos stock Unsplash) sont renvoyées telles quelles.
+    """
+    if not url or url.startswith(("http://", "https://", "//")):
+        return url
+    base = (
+        getattr(settings, "WAGTAILADMIN_BASE_URL", None)
+        or getattr(settings, "PUBLIC_BASE_URL", None)
+        or ""
+    ).rstrip("/")
+    return f"{base}{url}" if base else url
+
+
 def _frontend_url_for(page: Page) -> str:
     """URL absolue Next.js pour une page Wagtail (locale-aware).
 
@@ -258,8 +278,13 @@ class BlogPostPage(BasePage):
         """
         if self.cover_image:
             rendition = self.cover_image.get_rendition("fill-1280x720")
+            # `full_url` = URL absolue (préfixe WAGTAILADMIN_BASE_URL si le
+            # stockage renvoie un chemin relatif ; renvoyée telle quelle en
+            # S3/CDN). Indispensable : admin / mobile / portail consomment
+            # cette URL depuis un autre hôte que l'API — un `/media/…` relatif
+            # s'y résout contre le mauvais domaine → image cassée.
             return {
-                "url": rendition.url,
+                "url": _absolute_media_url(rendition.full_url),
                 "width": rendition.width,
                 "height": rendition.height,
                 "alt": self.cover_image.title,
@@ -267,7 +292,7 @@ class BlogPostPage(BasePage):
             }
         from apps_cms.cms.stock_images import article_image_for
         url = article_image_for(self.title)
-        return {"url": url, "width": 900, "height": 506, "alt": self.title, "source": "stock"}
+        return {"url": _absolute_media_url(url), "width": 900, "height": 506, "alt": self.title, "source": "stock"}
 
     api_fields = BasePage.api_fields + [
         APIField("date"),
