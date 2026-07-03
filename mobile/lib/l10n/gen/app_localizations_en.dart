@@ -1835,7 +1835,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get lreq_avaliste_subtitle =>
-      'Senior+BRC member who backs the loan (§7.2).';
+      'Senior+BRC member who backs the loan.';
 
   @override
   String get lreq_avaliste_search_hint => 'Search a member (number or name)';

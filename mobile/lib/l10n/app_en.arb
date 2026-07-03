@@ -616,7 +616,7 @@
   "@offline_banner": { "placeholders": { "when": { "type": "String" } } },
 
   "lreq_avaliste_title": "Designate a guarantor",
-  "lreq_avaliste_subtitle": "Senior+BRC member who backs the loan (§7.2).",
+  "lreq_avaliste_subtitle": "Senior+BRC member who backs the loan.",
   "lreq_avaliste_search_hint": "Search a member (number or name)",
   "lreq_avaliste_saturated": "Capacity reached ({amount} committed)",
   "@lreq_avaliste_saturated": { "placeholders": { "amount": { "type": "String" } } },

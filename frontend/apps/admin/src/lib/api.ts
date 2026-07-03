@@ -1176,6 +1176,19 @@ export const adminApi = {
       }),
   },
 
+  // Édition rapide des articles vitrine (image de couverture) sans passer
+  // par Wagtail. Le backend republie la page → revalidation ISR de la vitrine.
+  cmsBlog: {
+    setCoverImage: (pageId: number, file: File) => {
+      const fd = new FormData();
+      fd.append("image", file);
+      return request<{ ok: boolean; cover_image_data: { url: string } | null }>(
+        `/cms/blog/${pageId}/cover-image/`,
+        { method: "POST", body: fd },
+      );
+    },
+  },
+
   payments: {
     list: (
       params: {

@@ -1848,7 +1848,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get lreq_avaliste_subtitle =>
-      'Membre senior+BRC qui garantit le crédit (§7.2).';
+      'Membre senior+BRC qui garantit le crédit.';
 
   @override
   String get lreq_avaliste_search_hint =>

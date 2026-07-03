@@ -51,6 +51,20 @@ export default function CostsPage() {
         </p>
       </header>
 
+      {/* Rappel métier — les intérêts de crédit sont prélevés à la source. */}
+      <div className="mb-6 rounded-md border border-emerald/30 bg-emerald/5 p-4">
+        <p className="text-sm font-medium text-ink-900">
+          Intérêts de crédit prélevés à la source
+        </p>
+        <p className="mt-1 max-w-3xl text-sm text-ink-700">
+          Le taux d&apos;intérêt du crédit est appliqué <strong>une seule fois, au moment
+          du prêt</strong> : les intérêts sont retenus dès le décaissement (le membre
+          reçoit le capital net des intérêts). Ce ne sont donc pas des intérêts qui
+          courent au fil des échéances — le taux ci-dessous sert au calcul unique
+          effectué à l&apos;octroi du crédit.
+        </p>
+      </div>
+
       {error ? (
         <div className="mb-5 rounded-md border border-terra-400/40 bg-terra-50/60 px-4 py-2.5 text-sm text-terra-700">
           {error}

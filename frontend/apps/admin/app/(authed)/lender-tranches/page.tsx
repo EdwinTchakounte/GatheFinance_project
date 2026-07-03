@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Coins, Search, Filter, Layers } from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
@@ -152,9 +153,27 @@ function Inner() {
           Pool de tranches preteur
         </h1>
         <p className="mt-1 text-sm text-ink-600">
-          Visualise les tranches d'epargne placement et compose manuellement le funding d'un credit.
+          Visualise les tranches d'épargne placement disponibles pour financer les crédits.
         </p>
       </header>
+
+      {/* Guide — comment construire le funding d'un crédit par tranches. */}
+      <div className="mb-6 flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50/60 p-4">
+        <Layers className="mt-0.5 size-5 shrink-0 text-blue-700" aria-hidden="true" />
+        <div className="text-sm text-ink-700">
+          <p className="font-medium text-ink-900">Construire un crédit par tranches</p>
+          <p className="mt-0.5">
+            Cette page présente la réserve mobilisable. Pour <strong>financer un crédit</strong>,
+            ouvrez sa fiche dans{" "}
+            <Link href="/loans" className="font-medium text-blue-700 hover:underline">
+              Crédits
+            </Link>{" "}
+            puis cliquez sur <strong>« Funding »</strong> : vous sélectionnez les tranches
+            à engager, le prêteur est notifié et reçoit automatiquement sa quote-part
+            d'intérêts (50/50).
+          </p>
+        </div>
+      </div>
 
       {/* Summary cards */}
       {summary ? (

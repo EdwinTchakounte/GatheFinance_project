@@ -299,7 +299,7 @@ class _OptInCard extends StatelessWidget {
           const Text(
             'Une partie de ton épargne classique pourra financer les crédits '
             "d'autres membres. Tu reçois 50 % des intérêts générés, "
-            'conformément au §5 du Règlement.',
+            'conformément au Règlement intérieur.',
             style: TextStyle(
               color: PaColors.inkSecondary,
               fontSize: 13,

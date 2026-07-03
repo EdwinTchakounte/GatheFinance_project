@@ -26,4 +26,6 @@ urlpatterns = [
     path("forms/", include("apps_coop.forms.urls")),
     # Interactions sociales (likes + commentaires sur articles & campagnes).
     path("social/", include("apps_coop.social.urls")),
+    # Admin CMS — édition rapide des articles vitrine (image de couverture).
+    path("cms/", include("apps_cms.cms.api_urls")),
 ]

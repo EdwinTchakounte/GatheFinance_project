@@ -26,7 +26,7 @@ from django.conf import settings as dj_settings
 from apps_coop.audit.services import client_ip, record as record_audit
 from apps_coop.members.permissions import IsAdmin
 from apps_coop.savings.models import LenderTranche
-from apps_coop.loans.models import Loan
+from apps_coop.loans.models import LenderAllocation, Loan
 
 
 logger = logging.getLogger(__name__)
@@ -335,6 +335,19 @@ def admin_compose_funding_manual(request, pk: int):
             t.save(update_fields=[
                 "montant", "statut", "engaged_in_loan", "engaged_at", "updated_at",
             ])
+            # Allocation prêteur — indispensable au partage 50/50 des intérêts.
+            # Sans elle, distribute_interest_share() est inerte et le prêteur
+            # ne toucherait jamais sa quote-part (mirroir du flux automatique).
+            quote_part = (montant / Decimal(loan.montant)).quantize(
+                Decimal("0.00000001")
+            )
+            LenderAllocation.objects.create(
+                loan=loan,
+                lender=t.member,
+                tranche=t,
+                montant_alloue=montant,
+                quote_part=quote_part,
+            )
             n_engaged += 1
             # Accumule par preteur pour la notif post-commit.
             per_lender_total[t.member_id] = (

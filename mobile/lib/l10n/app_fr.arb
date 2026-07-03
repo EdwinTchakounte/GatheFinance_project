@@ -737,7 +737,7 @@
   "@offline_banner": { "placeholders": { "when": { "type": "String" } } },
 
   "lreq_avaliste_title": "Désigner un avaliste",
-  "lreq_avaliste_subtitle": "Membre senior+BRC qui garantit le crédit (§7.2).",
+  "lreq_avaliste_subtitle": "Membre senior+BRC qui garantit le crédit.",
   "lreq_avaliste_search_hint": "Rechercher un membre (numéro ou nom)",
   "lreq_avaliste_saturated": "Plafond atteint ({amount} engagés)",
   "@lreq_avaliste_saturated": { "placeholders": { "amount": { "type": "String" } } },

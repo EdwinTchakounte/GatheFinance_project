@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ImagePlus, Loader2 } from "lucide-react";
+
+import { adminApi } from "@/lib/api";
 
 type WagtailArticle = {
   id: number;
@@ -46,19 +49,25 @@ export default function BlogAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     setLoading(true);
     setError(null);
+    // Cache-buster pour forcer une lecture fraîche de l'API Wagtail après un
+    // changement d'image (évite un cache HTTP intermédiaire).
     const url =
       `${wagtailBase()}/pages/?type=cms.BlogPostPage` +
       `&fields=date,excerpt,cover_image_data,author_name` +
-      `&order=-date&limit=50&locale=${locale}`;
-    fetch(url, { credentials: "include" })
+      `&order=-date&limit=50&locale=${locale}&_=${Date.now()}`;
+    fetch(url, { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.statusText)))
       .then((data) => setItems((data?.items as WagtailArticle[]) ?? []))
       .catch((e) => setError(typeof e === "string" ? e : "Echec du chargement"))
       .finally(() => setLoading(false));
   }, [locale]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   return (
     <div className="space-y-6">
@@ -127,52 +136,115 @@ export default function BlogAdminPage() {
             Aucun article publié pour cette langue.
           </p>
         ) : (
-          items.map((it) => {
-            const cover = it.cover_image_data?.url;
-            const wagtailEditUrl = `${wagtailAdminBase()}/pages/${it.id}/edit/`;
-            return (
-              <article key={it.id} className="overflow-hidden rounded-xl border border-line-200 bg-paper shadow-sm transition-all hover:shadow">
-                {cover ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={cover} alt="" className="aspect-[16/10] w-full object-cover" />
-                ) : (
-                  <div className="aspect-[16/10] bg-cream/60" />
-                )}
-                <div className="space-y-2 p-4">
-                  <p className="font-mono text-[0.65rem] uppercase tracking-wide text-ink-500">
-                    {it.date ? new Date(it.date).toLocaleDateString("fr-CM") : "Brouillon"}
-                    {" · "}{it.author_name || "Gathé"}
-                  </p>
-                  <h2 className="font-editorial text-base font-medium leading-tight text-ink-900">
-                    {it.title}
-                  </h2>
-                  {it.excerpt ? (
-                    <p className="line-clamp-2 text-xs text-ink-600">{it.excerpt}</p>
-                  ) : null}
-                  <div className="flex items-center justify-between pt-2">
-                    <a
-                      href={it.meta.html_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-medium text-blue-700 hover:underline"
-                    >
-                      Voir en ligne →
-                    </a>
-                    <a
-                      href={wagtailEditUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg bg-ink-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-ink-800"
-                    >
-                      Éditer dans Wagtail
-                    </a>
-                  </div>
-                </div>
-              </article>
-            );
-          })
+          items.map((it) => (
+            <ArticleCard
+              key={it.id}
+              article={it}
+              wagtailEditUrl={`${wagtailAdminBase()}/pages/${it.id}/edit/`}
+              onChanged={reload}
+            />
+          ))
         )}
       </div>
     </div>
+  );
+}
+
+
+function ArticleCard({
+  article,
+  wagtailEditUrl,
+  onChanged,
+}: {
+  article: WagtailArticle;
+  wagtailEditUrl: string;
+  onChanged: () => void;
+}) {
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const cover = article.cover_image_data?.url;
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Réinitialise l'input pour permettre de re-choisir le même fichier.
+    if (fileRef.current) fileRef.current.value = "";
+    if (!file) return;
+    setErr(null);
+    setBusy(true);
+    try {
+      await adminApi.cmsBlog.setCoverImage(article.id, file);
+      onChanged(); // refetch la liste → nouvelle image visible immédiatement.
+    } catch (e2) {
+      const msg = (e2 as { detail?: string }).detail;
+      setErr(msg ?? "Échec du changement d'image.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <article className="overflow-hidden rounded-xl border border-line-200 bg-paper shadow-sm transition-all hover:shadow">
+      <div className="group relative">
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={cover} alt="" className="aspect-[16/10] w-full object-cover" />
+        ) : (
+          <div className="aspect-[16/10] bg-cream/60" />
+        )}
+        {/* Overlay bouton « Changer l'image » */}
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={busy}
+          className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-lg bg-ink-900/80 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur transition hover:bg-ink-900 disabled:opacity-70"
+        >
+          {busy ? (
+            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <ImagePlus className="size-3.5" aria-hidden="true" />
+          )}
+          {busy ? "Envoi…" : "Changer l'image"}
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          onChange={onPick}
+          className="hidden"
+        />
+      </div>
+      <div className="space-y-2 p-4">
+        <p className="font-mono text-[0.65rem] uppercase tracking-wide text-ink-500">
+          {article.date ? new Date(article.date).toLocaleDateString("fr-CM") : "Brouillon"}
+          {" · "}
+          {article.author_name || "Gathé"}
+        </p>
+        <h2 className="font-editorial text-base font-medium leading-tight text-ink-900">
+          {article.title}
+        </h2>
+        {article.excerpt ? (
+          <p className="line-clamp-2 text-xs text-ink-600">{article.excerpt}</p>
+        ) : null}
+        {err ? <p className="text-xs text-terra-700">{err}</p> : null}
+        <div className="flex items-center justify-between pt-2">
+          <a
+            href={article.meta.html_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium text-blue-700 hover:underline"
+          >
+            Voir en ligne →
+          </a>
+          <a
+            href={wagtailEditUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg bg-ink-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-ink-800"
+          >
+            Éditer dans Wagtail
+          </a>
+        </div>
+      </div>
+    </article>
   );
 }
