@@ -370,7 +370,7 @@ export default function PortalDashboardPage() {
                                   : "bg-emerald/15 text-emerald")
                               }
                             >
-                              {isCollecte ? "Cotisation" : "Épargne"}
+                              {isCollecte ? "Collecte" : "Épargne"}
                             </span>
                             <p className="truncate font-medium text-ink-900">
                               {e.tx.type_display}

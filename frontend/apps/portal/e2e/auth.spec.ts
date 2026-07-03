@@ -49,7 +49,7 @@ test.describe("Authentification portail", () => {
       .isVisible()
       .catch(() => false);
     const hasSolde = await page
-      .getByText(/épargne|cotisation|solde/i)
+      .getByText(/épargne|collecte|solde/i)
       .first()
       .isVisible()
       .catch(() => false);

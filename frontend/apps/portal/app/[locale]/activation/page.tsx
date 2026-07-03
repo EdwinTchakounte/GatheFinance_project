@@ -46,7 +46,7 @@ const FEE_STEPS = [
     code: "ADHESION",
     paymentType: "frais_adhesion" as const,
     label: "Frais d'adhésion",
-    description: "Cotisation d'entrée dans la coopérative.",
+    description: "Droit d'entrée dans la coopérative.",
   },
   {
     code: "INSCRIPTION",
@@ -58,7 +58,7 @@ const FEE_STEPS = [
     code: "CARNET",
     paymentType: "frais_carnet" as const,
     label: "Frais de carnet",
-    description: "Édition de votre carnet de cotisations.",
+    description: "Édition de votre carnet de collecte.",
   },
 ];
 

@@ -21,7 +21,7 @@ const TYPE_OPTIONS: { value: CashInType; label: string }[] = [
   { value: "frais_inscription", label: "Frais d'inscription (2 000)" },
   { value: "frais_carnet", label: "Frais de carnet (1 000)" },
   { value: "frais_demande_credit", label: "Frais demande de crédit (CH-7)" },
-  { value: "epargne", label: "Cotisation journalière" },
+  { value: "epargne", label: "Collecte journalière" },
   { value: "epargne_classique", label: "Épargne classique (libre / placement)" },
   { value: "remboursement", label: "Remboursement de crédit" },
 ];

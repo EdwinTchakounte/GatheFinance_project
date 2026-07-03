@@ -11,7 +11,7 @@ test.describe("Pages portail LOT P-A", () => {
     await authedPage.goto("/fr/carnet");
 
     await expect(
-      authedPage.getByRole("heading", { name: /Mon carnet de cotisations/i }),
+      authedPage.getByRole("heading", { name: /Mon carnet de collecte/i }),
     ).toBeVisible();
 
     // CTA principal

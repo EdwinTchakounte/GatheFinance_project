@@ -153,7 +153,7 @@ export default function EpargneIndexPage() {
             Mon épargne
           </h1>
           <p className="mt-1 text-sm text-ink-600">
-            Deux produits distincts : la cotisation collecte journalière et
+            Deux produits distincts : la collecte journalière et
             l'épargne classique 12 mois.
           </p>
         </header>
@@ -164,7 +164,7 @@ export default function EpargneIndexPage() {
           <article className="rounded-md border border-blue-200 bg-blue-50/40 p-7">
             <div className="flex items-center gap-2">
               <span className="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-blue-700">
-                Cotisation
+                Collecte
               </span>
               <h2 className="font-editorial text-sm font-medium text-ink-600">
                 Collecte journalière
@@ -205,10 +205,10 @@ export default function EpargneIndexPage() {
         <section className="mt-8 grid gap-5 md:grid-cols-2">
           <article className="rounded-md border border-line-200 bg-paper p-6">
             <span className="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-blue-700">
-              Cotisation
+              Collecte
             </span>
             <h3 className="mt-3 font-editorial text-lg font-medium text-ink-900">
-              Verser ma cotisation
+              Verser ma collecte
             </h3>
             <p className="mt-2 text-sm text-ink-600">
               Collecte journalière. Minimum 1 000 XAF/jour, par multiples de 50.
@@ -222,7 +222,7 @@ export default function EpargneIndexPage() {
                 " mt-5"
               }
             >
-              Verser une cotisation
+              Verser une collecte
             </button>
           </article>
 
@@ -332,7 +332,7 @@ export default function EpargneIndexPage() {
                               : "bg-emerald/15 text-emerald")
                           }
                         >
-                          {isCollecte ? "Cotisation" : "Épargne"}
+                          {isCollecte ? "Collecte" : "Épargne"}
                         </span>
                         <p className="truncate font-medium text-ink-900">
                           {e.tx.type_display}

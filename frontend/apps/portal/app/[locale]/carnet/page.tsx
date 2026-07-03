@@ -74,7 +74,7 @@ export default function CarnetPage() {
             Carnet
           </p>
           <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900 sm:text-4xl">
-            Mon carnet de cotisations.
+            Mon carnet de collecte.
           </h1>
           <p className="mt-2 text-sm text-ink-600">
             Commande ton carnet, consulte le spécimen et le règlement intérieur

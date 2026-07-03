@@ -254,7 +254,7 @@ function Inner() {
             // SOURCE DE VERITE : 9 types Payment cote backend (Article 4 + frais
             // refonte 2026). Tout ajout cote backend doit etre repercute ici.
             { v: "", l: "Tous" },
-            { v: "epargne", l: "Cotisation" },
+            { v: "epargne", l: "Collecte" },
             { v: "epargne_classique", l: "Épargne classique" },
             { v: "remboursement", l: "Remboursement" },
             { v: "decaissement", l: "Décaissement" },

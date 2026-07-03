@@ -125,7 +125,7 @@ export default function SavingsHistoryPage() {
         {/* Sélecteur de produit — dissocie cotisation collecte / épargne classique */}
         <div className="mt-5 inline-flex rounded-md border border-line-200 bg-paper p-1">
           {([
-            { v: "collecte", l: "Cotisation collecte" },
+            { v: "collecte", l: "Collecte" },
             { v: "classique", l: "Épargne classique" },
           ] as { v: Product; l: string }[]).map((opt) => {
             const active = product === opt.v;
