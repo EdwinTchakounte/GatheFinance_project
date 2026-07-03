@@ -3442,7 +3442,7 @@ abstract class AppL10n {
   /// No description provided for @lreq_avaliste_subtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Membre senior+BRC qui garantit le crédit (§7.2).'**
+  /// **'Membre senior+BRC qui garantit le crédit.'**
   String get lreq_avaliste_subtitle;
 
   /// No description provided for @lreq_avaliste_search_hint.

@@ -1834,8 +1834,7 @@ class AppL10nEn extends AppL10n {
   String get lreq_avaliste_title => 'Designate a guarantor';
 
   @override
-  String get lreq_avaliste_subtitle =>
-      'Senior+BRC member who backs the loan.';
+  String get lreq_avaliste_subtitle => 'Senior+BRC member who backs the loan.';
 
   @override
   String get lreq_avaliste_search_hint => 'Search a member (number or name)';
