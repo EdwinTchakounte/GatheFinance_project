@@ -146,7 +146,7 @@ function Inner() {
     <div className="px-8 py-8 lg:px-12 lg:py-10">
       <header className="mb-8">
         <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-          Voie 2 . Epargne preteur
+          Épargne prêteur
         </p>
         <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
           Pool de tranches preteur

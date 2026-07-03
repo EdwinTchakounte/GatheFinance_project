@@ -130,9 +130,8 @@ function Inner() {
             Campagnes micro-crédit
           </h1>
           <p className="text-sm text-ink-500">
-            Voie 3 d&apos;éligibilité (refonte 2026 §8) — micro-crédits pour
-            non-adhérents par profil ciblé. Bénéficiaires créés en{" "}
-            <code>statut=TEMPORAIRE</code>.
+            Micro-crédits destinés aux non-adhérents, par profil ciblé. Les
+            bénéficiaires sont créés avec un statut temporaire.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">

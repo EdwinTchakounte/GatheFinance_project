@@ -72,16 +72,16 @@ export default function AppSettingsPage() {
     <div className="px-8 py-8 lg:px-12 lg:py-10">
       <header className="mb-6">
         <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-          Paramètres 2026
+          Configuration
         </p>
         <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-          Règles &amp; tunables
+          Règles &amp; paramètres
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-600">
-          Toutes les règles modifiables sans déploiement (refonte 2026) :
-          ancienneté, BRC, éligibilité 3 voies, saisie, escalade judiciaire,
-          micro-campagne, etc. Chaque modification est immédiate et tracée
-          dans le journal d&apos;audit.
+          Toutes les règles modifiables sans déploiement : ancienneté,
+          éligibilité au crédit, garanties, escalade judiciaire, campagnes,
+          etc. Chaque modification est immédiate et tracée dans le journal
+          d&apos;audit.
         </p>
       </header>
 

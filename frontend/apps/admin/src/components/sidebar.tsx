@@ -78,7 +78,7 @@ const NAV: NavItem[] = [
   { href: "/costs", label: "Coûts", icon: SlidersHorizontal },
   // P2 — Tunables règlement 2026 (BRC, ancienneté, collecte, épargne,
   // lender, funding, eligibility, seizure, judicial, campagne).
-  { href: "/app-settings", label: "Paramètres 2026", icon: Settings2 },
+  { href: "/app-settings", label: "Paramètres", icon: Settings2 },
   // Recette — éditer la cadence des cron + run-now (django-q schedules).
   { href: "/cron-schedules", label: "Planification (cron)", icon: Clock },
   // Documents officiels (règlement intérieur PDF joint au mail de bienvenue).
