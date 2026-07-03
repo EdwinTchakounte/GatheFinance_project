@@ -392,9 +392,42 @@ class WithdrawalRequest(TimestampedModel):
         WAVE = "WAVE", "Wave"
         AIRTEL = "AIRTEL", "Airtel Money"
 
+    class Source(models.TextChoices):
+        """Produit d'épargne d'où provient l'argent retiré.
+
+        • ``COLLECTE`` — compte de collecte journalière (``SavingsAccount``).
+          Comportement historique, débit sur ``account.solde``.
+        • ``CLASSIQUE_LIBRE`` — part **librement retirable** de l'épargne
+          classique (``ClassicSavingsAccount.solde_libre`` = solde total −
+          placements encore actifs). Le placement reste bloqué jusqu'à
+          maturité (il garantit les engagements crédit), donc un retrait
+          classique ne peut jamais entamer ``solde_placement_actif``.
+        """
+        COLLECTE = "collecte", "Collecte journalière"
+        CLASSIQUE_LIBRE = "classique_libre", "Épargne classique (part libre)"
+
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.COLLECTE,
+        db_index=True,
+        help_text="Produit d'épargne d'où provient le retrait.",
+    )
+    # COLLECTE → ``account`` renseigné ; CLASSIQUE_LIBRE → ``classic_account``
+    # renseigné. Les deux FK sont nullable : exactement une des deux est posée
+    # selon ``source`` (invariant garanti par le service ``request_withdrawal``).
     account = models.ForeignKey(
         SavingsAccount,
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="withdrawal_requests",
+    )
+    classic_account = models.ForeignKey(
+        "savings.ClassicSavingsAccount",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name="withdrawal_requests",
     )
     montant = money_field()
@@ -428,8 +461,17 @@ class WithdrawalRequest(TimestampedModel):
     motif_rejet = models.TextField(blank=True)
 
     # Transaction de débit créée à l'approbation (trace le mouvement de solde).
+    # COLLECTE → ``transaction`` (SavingsTransaction). CLASSIQUE_LIBRE →
+    # ``classic_transaction`` (ClassicSavingsTransaction).
     transaction = models.OneToOneField(
         "savings.SavingsTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="withdrawal_request",
+    )
+    classic_transaction = models.OneToOneField(
+        "savings.ClassicSavingsTransaction",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -470,8 +512,24 @@ class WithdrawalRequest(TimestampedModel):
         verbose_name_plural = "Demandes de retrait"
         indexes = [models.Index(fields=["statut", "-date_demande"])]
 
+    @property
+    def member(self) -> Member:
+        """Membre propriétaire du retrait, quelle que soit la source.
+
+        Résout depuis ``account`` (collecte) ou ``classic_account`` (classique)
+        selon ce qui est renseigné. Évite les ``wr.account.member`` qui
+        planteraient sur un retrait classique (``account`` null).
+        """
+        if self.account_id:
+            return self.account.member
+        return self.classic_account.member
+
     def __str__(self) -> str:
-        return f"Retrait {self.montant} · {self.account.member.numero_membre} · {self.statut}"
+        try:
+            numero = self.member.numero_membre
+        except (SavingsAccount.DoesNotExist, AttributeError):  # pragma: no cover
+            numero = "?"
+        return f"Retrait {self.montant} · {numero} · {self.source} · {self.statut}"
 
 
 # ---------------------------------------------------------------------------

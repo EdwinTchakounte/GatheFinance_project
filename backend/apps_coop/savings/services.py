@@ -43,25 +43,36 @@ def _add_months(d: date, months: int) -> date:
 
 @transaction.atomic
 def request_withdrawal(
-    account: SavingsAccount,
+    account: SavingsAccount | None = None,
     *,
     montant: Decimal,
     motif: str = "",
     mode_paiement: str = WithdrawalRequest.ModePaiement.PRESENTIEL,
     recipient_phone: str = "",
     network: str = "",
+    source: str = WithdrawalRequest.Source.COLLECTE,
+    classic_account: ClassicSavingsAccount | None = None,
 ) -> WithdrawalRequest:
     """Crée une `WithdrawalRequest(en_attente)`.
 
-    Le membre choisit son **canal** :
+    Le membre choisit son **produit source** (``source``) :
+      • ``COLLECTE`` — retrait sur le compte de collecte journalière
+        (``account`` requis). Solde disponible = ``account.solde``.
+      • ``CLASSIQUE_LIBRE`` — retrait sur la **part libre** de l'épargne
+        classique (``classic_account`` requis). Solde disponible =
+        ``classic_account.solde_libre`` (= solde total − placements encore
+        actifs). Le placement reste bloqué : un retrait classique ne peut
+        jamais l'entamer.
+
+    Puis son **canal de remise** (``mode_paiement``) :
       • ``MOMO`` — il fournit ``recipient_phone`` + ``network``.
       • ``PRESENTIEL`` — argent à retirer à l'agence.
 
     Règles :
       - montant strictement positif
-      - montant ≤ solde disponible (verrou ligne pour éviter une demande
-        au-dessus du solde en cas de mouvements concurrents)
-      - pas de demande déjà `en_attente` pour ce compte (un retrait à la fois)
+      - montant ≤ solde disponible du produit source (verrou ligne pour éviter
+        une demande au-dessus du solde en cas de mouvements concurrents)
+      - pas de demande déjà `en_attente` pour ce produit (un retrait à la fois)
       - mode MOMO ⇒ phone + réseau renseignés (réseau dans la whitelist)
     """
     montant = Decimal(montant)
@@ -88,16 +99,32 @@ def request_withdrawal(
         recipient_phone = ""
         network = ""
 
-    locked = SavingsAccount.objects.select_for_update().get(pk=account.pk)
-    if montant > Decimal(locked.solde):
+    source = source or WithdrawalRequest.Source.COLLECTE
+    if source == WithdrawalRequest.Source.CLASSIQUE_LIBRE:
+        if classic_account is None:
+            raise ValueError("Compte épargne classique requis pour un retrait classique.")
+        locked = ClassicSavingsAccount.objects.select_for_update().get(pk=classic_account.pk)
+        # Part librement retirable = solde total − placements encore actifs.
+        disponible = Decimal(locked.solde_libre)
+        account_kwargs = {"classic_account": locked}
+        pending_filter = {"classic_account": locked}
+    else:
+        if account is None:
+            raise ValueError("Compte de collecte requis pour un retrait collecte.")
+        locked = SavingsAccount.objects.select_for_update().get(pk=account.pk)
+        disponible = Decimal(locked.solde)
+        account_kwargs = {"account": locked}
+        pending_filter = {"account": locked}
+
+    if montant > disponible:
         raise ValueError(
             f"Montant demandé ({montant}) supérieur au solde disponible "
-            f"({locked.solde})."
+            f"({disponible})."
         )
 
     existing = (
         WithdrawalRequest.objects.select_for_update()
-        .filter(account=locked, statut=WithdrawalRequest.Statut.EN_ATTENTE)
+        .filter(statut=WithdrawalRequest.Statut.EN_ATTENTE, **pending_filter)
         .first()
     )
     if existing:
@@ -106,28 +133,30 @@ def request_withdrawal(
             "de l'administration avant d'en soumettre une nouvelle."
         )
 
+    member = locked.member
     wr = WithdrawalRequest.objects.create(
-        account=locked,
         montant=montant,
         motif=(motif or "").strip(),
         mode_paiement=mode,
         recipient_phone=recipient_phone,
         network=network,
+        source=source,
+        **account_kwargs,
     )
     record_audit(
         action="withdrawal.requested",
         entite_type="WithdrawalRequest",
         entite_id=wr.id,
-        user=locked.member.user,
+        user=member.user,
         details={
-            "member_id": locked.member_id,
+            "member_id": member.id,
             "montant": str(montant),
-            "solde": str(locked.solde),
+            "solde": str(disponible),
+            "source": source,
         },
     )
 
     # Accusé de réception au membre (best-effort — ne casse jamais le flow).
-    member = locked.member
     if getattr(member.user, "email", None):
         try:
             from django.conf import settings as dj_settings
@@ -205,35 +234,61 @@ def decide_withdrawal(
         return wr
 
     # --- Approbation : débit du solde, sous verrou (atomique court) ---
+    montant = Decimal(wr.montant)
     with transaction.atomic():
-        account = SavingsAccount.objects.select_for_update().get(pk=wr.account_id)
-        montant = Decimal(wr.montant)
-        if montant > Decimal(account.solde):
-            raise ValueError(
-                f"Solde insuffisant pour approuver : {account.solde} < {montant}."
+        if wr.source == WithdrawalRequest.Source.CLASSIQUE_LIBRE:
+            # Débit sur l'épargne classique — jamais au-delà de la part libre
+            # (le placement encore actif garantit les engagements crédit).
+            cacc = ClassicSavingsAccount.objects.select_for_update().get(
+                pk=wr.classic_account_id
             )
+            disponible = Decimal(cacc.solde_libre)
+            if montant > disponible:
+                raise ValueError(
+                    f"Solde libre insuffisant pour approuver : {disponible} < {montant}."
+                )
+            nouveau_solde = Decimal(cacc.solde) - montant
+            cacc.solde = nouveau_solde
+            cacc.save(update_fields=["solde", "updated_at"])
 
-        nouveau_solde = Decimal(account.solde) - montant
-        account.solde = nouveau_solde
-        account.save(update_fields=["solde", "updated_at"])
+            ctx = ClassicSavingsTransaction.objects.create(
+                account=cacc,
+                payment=None,  # mouvement interne, pas un Payment entrant
+                type_op=ClassicSavingsTransaction.TypeOp.RETRAIT,
+                montant=montant,
+                solde_apres=nouveau_solde,
+                date=now,
+            )
+            wr.classic_transaction = ctx
+            tx_field, tx_id = "classic_transaction", ctx.id
+        else:
+            account = SavingsAccount.objects.select_for_update().get(pk=wr.account_id)
+            if montant > Decimal(account.solde):
+                raise ValueError(
+                    f"Solde insuffisant pour approuver : {account.solde} < {montant}."
+                )
+            nouveau_solde = Decimal(account.solde) - montant
+            account.solde = nouveau_solde
+            account.save(update_fields=["solde", "updated_at"])
 
-        tx = SavingsTransaction.objects.create(
-            account=account,
-            payment=None,  # mouvement interne, pas un Payment entrant
-            type_op=SavingsTransaction.TypeOp.RETRAIT,
-            montant=montant,
-            solde_apres=nouveau_solde,
-            date=now,
-        )
+            tx = SavingsTransaction.objects.create(
+                account=account,
+                payment=None,  # mouvement interne, pas un Payment entrant
+                type_op=SavingsTransaction.TypeOp.RETRAIT,
+                montant=montant,
+                solde_apres=nouveau_solde,
+                date=now,
+            )
+            wr.transaction = tx
+            tx_field, tx_id = "transaction", tx.id
 
-        wr.transaction = tx
         wr.decide_par = decided_by
         wr.date_decision = now
         if wr.mode_paiement == WithdrawalRequest.ModePaiement.PRESENTIEL:
             wr.statut = WithdrawalRequest.Statut.APPROUVEE
             wr.save(
                 update_fields=[
-                    "statut", "transaction", "decide_par", "date_decision", "updated_at",
+                    "statut", tx_field, "decide_par", "date_decision", "updated_at",
                 ]
             )
         else:
@@ -241,7 +296,7 @@ def decide_withdrawal(
             wr.statut = WithdrawalRequest.Statut.EN_ATTENTE  # provisoire, sera écrasé
             wr.save(
                 update_fields=[
-                    "transaction", "decide_par", "date_decision", "updated_at",
+                    tx_field, "decide_par", "date_decision", "updated_at",
                 ]
             )
 
@@ -253,7 +308,8 @@ def decide_withdrawal(
         details={
             "montant": str(montant),
             "solde_apres": str(nouveau_solde),
-            "transaction_id": tx.id,
+            "transaction_id": tx_id,
+            "source": wr.source,
             "mode_paiement": wr.mode_paiement,
         },
     )
@@ -287,7 +343,7 @@ def _init_payout_for_withdrawal(wr: WithdrawalRequest, *, decided_by) -> None:
     # 1) Crée le Payment décaissement (atomique court)
     with transaction.atomic():
         payment = Payment.objects.create(
-            member=wr.account.member,
+            member=wr.member,
             montant=wr.montant,
             type=Payment.Type.DECAISSEMENT,
             source=Payment.Source.MOBILE_MONEY,
@@ -456,7 +512,7 @@ def _notify(wr: WithdrawalRequest, *, approved: bool, completed: bool = False) -
 
     from apps_coop.notifications.events import emit_event
 
-    member = wr.account.member
+    member = wr.member
     if not getattr(member.user, "email", None):
         return
     if completed:

@@ -79,10 +79,22 @@ class ClassicSavingsAccountReadSerializer(serializers.ModelSerializer):
 
     transactions_recentes = serializers.SerializerMethodField()
     config = serializers.SerializerMethodField()
+    # Part librement retirable (= solde − placements encore actifs) et montant
+    # bloqué en placement. Le portail/mobile s'en servent pour afficher le
+    # « disponible au retrait » et empêcher un retrait d'entamer le placement.
+    solde_libre = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True,
+    )
+    solde_placement_actif = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True,
+    )
 
     class Meta:
         model = ClassicSavingsAccount
-        fields = ("id", "solde", "date_ouverture", "config", "transactions_recentes")
+        fields = (
+            "id", "solde", "solde_libre", "solde_placement_actif",
+            "date_ouverture", "config", "transactions_recentes",
+        )
         read_only_fields = fields
 
     def get_transactions_recentes(self, obj: ClassicSavingsAccount):
@@ -103,6 +115,11 @@ class WithdrawalRequestCreateSerializer(serializers.Serializer):
 
     montant = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=1)
     motif = serializers.CharField(max_length=2000, required=False, allow_blank=True)
+    source = serializers.ChoiceField(
+        choices=WithdrawalRequest.Source.choices,
+        default=WithdrawalRequest.Source.COLLECTE,
+        help_text="Produit source : collecte journalière ou épargne classique (part libre).",
+    )
     mode_paiement = serializers.ChoiceField(
         choices=WithdrawalRequest.ModePaiement.choices,
         default=WithdrawalRequest.ModePaiement.PRESENTIEL,
@@ -138,12 +155,14 @@ class WithdrawalRequestReadSerializer(serializers.ModelSerializer):
     mode_paiement_display = serializers.CharField(
         source="get_mode_paiement_display", read_only=True,
     )
+    source_display = serializers.CharField(source="get_source_display", read_only=True)
     recipient_phone_masked = serializers.SerializerMethodField()
 
     class Meta:
         model = WithdrawalRequest
         fields = (
             "id", "montant", "motif",
+            "source", "source_display",
             "statut", "statut_display",
             "mode_paiement", "mode_paiement_display",
             "recipient_phone_masked", "network",

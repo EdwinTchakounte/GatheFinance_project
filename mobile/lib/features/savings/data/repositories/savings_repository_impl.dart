@@ -50,6 +50,7 @@ class SavingsRepositoryImpl implements SavingsRepository {
     required WithdrawalChannel channel,
     String recipientPhone = '',
     MomoNetwork? network,
+    WithdrawalSource source = WithdrawalSource.collecte,
   }) async {
     try {
       return await _remote.requestWithdrawal(
@@ -58,6 +59,7 @@ class SavingsRepositoryImpl implements SavingsRepository {
         channel: channel,
         recipientPhone: recipientPhone,
         network: network,
+        source: source,
       );
     } on NetworkException catch (e) {
       throw NetworkFailure(e.message);

@@ -37,6 +37,7 @@ from .microcampaign_public import public_active_campaigns, public_campaign_apply
 from .views import (
     admin_list_installments,
     admin_list_loan_requests,
+    admin_list_loan_renewals,
     admin_list_loans,
     admin_loan_detail,
     loan_disburse,
@@ -127,6 +128,8 @@ urlpatterns = [
         loan_request_field_visit,
         name="field-visit",
     ),
+    # Reconduction — admin : liste des demandes à décider + décision.
+    path("admin/renewals/", admin_list_loan_renewals, name="admin-list-renewals"),
     path("renewals/<int:pk>/decide/", loan_renewal_decide, name="decide-renewal"),
     path("<int:pk>/disburse/", loan_disburse, name="disburse"),
     path("admin/<int:pk>/notice/", loan_notice, name="admin-notice"),

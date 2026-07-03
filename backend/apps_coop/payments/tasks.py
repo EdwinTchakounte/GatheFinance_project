@@ -48,6 +48,15 @@ def reconcile_pending_payments(*, batch_size: int = 100) -> dict:
             source=Payment.Source.MOBILE_MONEY,
             gateway_initiated_at__lte=stale_threshold,
         )
+        # IMPORTANT : ne réconcilie QUE les encaissements (payins). Un payout
+        # (DECAISSEMENT — décaissement crédit / retrait MOMO) a un cycle de vie
+        # distinct : son statut ne se lit PAS via `/transactions/status`
+        # (endpoint collection), donc `check_status` renverrait toujours
+        # "en_attente" et le force-reject 24h ci-dessous flaggerait à tort le
+        # payout comme rejeté — alors que Tara a peut-être déjà envoyé l'argent
+        # ET que le solde membre est déjà débité. Les payouts se clôturent via
+        # leur webhook dédié + le retry admin.
+        .exclude(type=Payment.Type.DECAISSEMENT)
         .exclude(provider_code="")
         .order_by("gateway_initiated_at")[:batch_size]
     )

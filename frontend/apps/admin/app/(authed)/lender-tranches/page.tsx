@@ -5,6 +5,7 @@ import { Coins, Search, Filter, Layers } from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
 
+import { DataTable, type DataColumn } from "@/components/data-table";
 import {
   adminApi,
   type ApiError,
@@ -69,6 +70,77 @@ function Inner() {
       total: Number(summary.disponible.total),
     };
   }, [summary]);
+
+  const columns: DataColumn<LenderTranche>[] = [
+    {
+      key: "membre",
+      label: "Membre",
+      locked: true,
+      text: (t) => `${t.member.prenom} ${t.member.nom} ${t.member.numero_membre}`,
+      render: (t) => (
+        <div>
+          <p className="font-medium text-ink-900">
+            {t.member.prenom} {t.member.nom}
+          </p>
+          <p className="font-mono text-xs text-ink-600">{t.member.numero_membre}</p>
+        </div>
+      ),
+    },
+    {
+      key: "montant",
+      label: "Montant",
+      numeric: true,
+      align: "right",
+      text: (t) => t.montant,
+      render: (t) => (
+        <span className="font-mono font-semibold tabular-nums text-ink-900">
+          {formatXAF(t.montant)} XAF
+        </span>
+      ),
+    },
+    {
+      key: "statut",
+      label: "Statut",
+      text: (t) => t.statut_display,
+      render: (t) => {
+        const opt = STATUT_OPTIONS.find((o) => o.v === t.statut);
+        return (
+          <span
+            className={[
+              "inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.65rem] font-medium ring-1 ring-inset",
+              opt?.color || "",
+            ].join(" ")}
+          >
+            {t.statut_display}
+          </span>
+        );
+      },
+    },
+    {
+      key: "engage",
+      label: "Engagé dans",
+      text: (t) => t.engaged_in_loan_dossier || "",
+      render: (t) =>
+        t.engaged_in_loan_dossier ? (
+          <span className="font-mono text-sm text-ink-900">
+            {t.engaged_in_loan_dossier}
+          </span>
+        ) : (
+          <span className="text-xs text-ink-400">—</span>
+        ),
+    },
+    {
+      key: "date",
+      label: "Date dépôt",
+      defaultVisible: false,
+      text: (t) =>
+        new Date(t.created_at).toLocaleDateString("fr-FR", {
+          day: "2-digit",
+          month: "short",
+          year: "2-digit",
+        }),
+    },
+  ];
 
   return (
     <div className="px-8 py-8 lg:px-12 lg:py-10">
@@ -183,74 +255,16 @@ function Inner() {
 
       {loading ? (
         <p className="text-ink-600">Chargement...</p>
-      ) : items.length === 0 ? (
-        <p className="rounded-md border border-dashed border-line-200 bg-paper/70 p-12 text-center text-sm text-ink-600">
-          Aucune tranche pour ce filtre.
-        </p>
       ) : (
-        <div className="overflow-hidden rounded-md border border-line-200 bg-paper">
-          <table className="table-admin">
-            <thead>
-              <tr>
-                <th>Membre</th>
-                <th>Montant</th>
-                <th>Statut</th>
-                <th>Engage dans</th>
-                <th>Date depot</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((t) => {
-                const opt = STATUT_OPTIONS.find((o) => o.v === t.statut);
-                return (
-                  <tr key={t.id}>
-                    <td>
-                      <p className="font-medium text-ink-900">
-                        {t.member.prenom} {t.member.nom}
-                      </p>
-                      <p className="font-mono text-xs text-ink-600">{t.member.numero_membre}</p>
-                    </td>
-                    <td>
-                      <p className="font-mono font-semibold text-ink-900">
-                        {formatXAF(t.montant)} XAF
-                      </p>
-                    </td>
-                    <td>
-                      <span
-                        className={[
-                          "inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.65rem] font-medium ring-1 ring-inset",
-                          opt?.color || "",
-                        ].join(" ")}
-                      >
-                        {t.statut_display}
-                      </span>
-                    </td>
-                    <td>
-                      {t.engaged_in_loan_dossier ? (
-                        // Route /loans/{id} inexistante en admin : la fiche
-                        // crédit s'ouvre via la modale Funding sur /loans.
-                        // On affiche le numéro de dossier en mono comme
-                        // référence consultable, non cliquable.
-                        <span className="text-sm font-mono text-ink-900">
-                          {t.engaged_in_loan_dossier}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-ink-400">—</span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap text-sm text-ink-600">
-                      {new Date(t.created_at).toLocaleDateString("fr-FR", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "2-digit",
-                      })}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns}
+          rows={items}
+          rowKey={(t) => t.id}
+          emptyLabel="Aucune tranche pour ce filtre."
+          exportFilename="tranches-preteur"
+          exportTitle="Pool de tranches prêteur — Gathé Finance"
+          exportSubtitle={`Filtre : ${statut}`}
+        />
       )}
     </div>
   );

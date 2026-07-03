@@ -12,6 +12,7 @@ import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/withdrawal_request.dart';
 import '../../domain/usecases/request_withdrawal.dart';
+import '../state/classic_savings_notifier.dart';
 import '../state/savings_notifier.dart';
 
 enum _WithdrawStep { form, loading, success }
@@ -34,13 +35,22 @@ extension on _MomoNet {
       };
 }
 
-/// Modale de demande de retrait . solde débité atomiquement côté backend dès
-/// soumission, puis attente de validation admin.
+/// Modale de demande de retrait . crée une demande « en attente » ; le solde
+/// est débité côté backend à l'APPROBATION admin (pas à la soumission).
 class WithdrawSheet extends ConsumerStatefulWidget {
-  const WithdrawSheet({super.key, required this.soldeDisponible});
+  const WithdrawSheet({
+    super.key,
+    this.soldeCollecte = 0,
+    this.soldeClassiqueLibre = 0,
+  });
 
-  /// Solde actuel de la cotisation . affiché en hint pour borner la saisie.
-  final num soldeDisponible;
+  /// Solde retirable sur la collecte journalière.
+  final num soldeCollecte;
+
+  /// Part LIBRE de l'épargne classique (placement exclu — il garantit le
+  /// funding crédit et n'est jamais retirable). > 0 débloque le retrait
+  /// classique pour un membre dont l'argent est en épargne classique.
+  final num soldeClassiqueLibre;
 
   @override
   ConsumerState<WithdrawSheet> createState() => _WithdrawSheetState();
@@ -53,9 +63,30 @@ class _WithdrawSheetState extends ConsumerState<WithdrawSheet> {
   final _phoneCtrl = TextEditingController();
   WithdrawalChannel _channel = WithdrawalChannel.presentiel;
   _MomoNet _network = _MomoNet.mtn;
+  late WithdrawalSource _source;
   _WithdrawStep _step = _WithdrawStep.form;
   WithdrawalRequest? _result;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pré-sélectionne la source qui a de l'argent : par défaut la collecte,
+    // mais si elle est vide et que l'épargne classique est alimentée, on
+    // bascule dessus (cas d'un membre "tout en classique").
+    _source = widget.soldeCollecte >= 500 || widget.soldeClassiqueLibre < 500
+        ? WithdrawalSource.collecte
+        : WithdrawalSource.classiqueLibre;
+  }
+
+  /// Solde retirable de la source actuellement sélectionnée.
+  num get _soldeDisponible => _source == WithdrawalSource.classiqueLibre
+      ? widget.soldeClassiqueLibre
+      : widget.soldeCollecte;
+
+  /// Affiche le sélecteur de source seulement si l'épargne classique est
+  /// alimentée (sinon la collecte est la seule option, pas de choix à faire).
+  bool get _showSourcePicker => widget.soldeClassiqueLibre >= 500;
 
   @override
   void dispose() {
@@ -68,7 +99,7 @@ class _WithdrawSheetState extends ConsumerState<WithdrawSheet> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final amount = num.parse(_amountCtrl.text.replaceAll(' ', ''));
-    if (amount > widget.soldeDisponible) {
+    if (amount > _soldeDisponible) {
       setState(() => _error = AppL10n.of(context).wd_err_over_balance);
       return;
     }
@@ -83,6 +114,7 @@ class _WithdrawSheetState extends ConsumerState<WithdrawSheet> {
               amount: amount,
               motif: _motifCtrl.text,
               channel: _channel,
+              source: _source,
               recipientPhone:
                   _channel == WithdrawalChannel.momo ? _phoneCtrl.text : '',
               network: _channel == WithdrawalChannel.momo
@@ -91,8 +123,13 @@ class _WithdrawSheetState extends ConsumerState<WithdrawSheet> {
             ),
           );
       if (!mounted) return;
-      // Refresh solde + liste retraits . backend a déjà débité.
+      // La demande est créée en statut « en attente » : le solde n'est PAS
+      // débité à la soumission (il l'est à l'approbation admin). On rafraîchit
+      // quand même les deux produits + la liste des demandes pour un suivi à
+      // jour côté membre.
       ref.invalidate(savingsProvider);
+      ref.invalidate(classicSavingsProvider);
+      ref.invalidate(myWithdrawalsProvider);
       setState(() {
         _result = wr;
         _step = _WithdrawStep.success;
@@ -151,10 +188,41 @@ class _WithdrawSheetState extends ConsumerState<WithdrawSheet> {
               ),
               const SizedBox(height: 4),
               Text(
-                l.wd_subtitle(XAFFormatter.format(widget.soldeDisponible)),
+                l.wd_subtitle(XAFFormatter.format(_soldeDisponible)),
                 style: const TextStyle(color: PaColors.inkMuted, fontSize: 14),
               ),
               const SizedBox(height: 18),
+
+              // Source du retrait . collecte vs épargne classique (part libre).
+              // Affiché seulement si l'épargne classique est alimentée.
+              if (_showSourcePicker) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ChannelChip(
+                        label: 'Collecte',
+                        icon: Icons.savings_outlined,
+                        selected: _source == WithdrawalSource.collecte,
+                        onTap: () => setState(
+                          () => _source = WithdrawalSource.collecte,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _ChannelChip(
+                        label: 'Épargne classique',
+                        icon: Icons.account_balance_outlined,
+                        selected: _source == WithdrawalSource.classiqueLibre,
+                        onTap: () => setState(
+                          () => _source = WithdrawalSource.classiqueLibre,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+              ],
 
               // Canal . Présentiel vs MOMO
               Row(

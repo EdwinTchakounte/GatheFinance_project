@@ -8,10 +8,12 @@ import { Container, buttonClasses } from "@gathe/ui";
 import {
   portalApi,
   type ApiError,
+  type ClassicSavingsSnapshot,
   type SavingsSnapshot,
   type WithdrawalModePaiement,
   type WithdrawalNetwork,
   type WithdrawalRead,
+  type WithdrawalSource,
 } from "@/lib/api";
 
 
@@ -26,9 +28,15 @@ export default function WithdrawalRequestPage() {
   const router = useRouter();
 
   const [savings, setSavings] = useState<SavingsSnapshot | null>(null);
+  // Épargne classique : peut être absente (compte jamais ouvert) → null.
+  const [classic, setClassic] = useState<ClassicSavingsSnapshot | null>(null);
   const [mine, setMine] = useState<WithdrawalRead[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Produit source du retrait. Une membre dont l'argent est en épargne
+  // classique (cas Sinora) était bloquée tant que le retrait ne lisait que la
+  // collecte : on lui laisse désormais choisir explicitement la source.
+  const [source, setSource] = useState<WithdrawalSource>("collecte");
   const [mode, setMode] = useState<WithdrawalModePaiement>("momo");
   const [montant, setMontant] = useState("");
   const [motif, setMotif] = useState("");
@@ -44,16 +52,28 @@ export default function WithdrawalRequestPage() {
     setLoading(true);
     try {
       portalApi.primeCsrf().catch(() => undefined);
-      const [s, m] = await Promise.all([
+      // L'épargne classique peut ne pas exister → on tolère l'échec (null).
+      const [s, c, m] = await Promise.all([
         portalApi.savings(),
+        portalApi.classicSavings().catch(() => null),
         portalApi.withdrawals.listMine(),
       ]);
       setSavings(s);
+      setClassic(c);
       setMine(m.results);
     } finally {
       setLoading(false);
     }
   }
+
+  // Solde disponible pour la source sélectionnée (aligné backend) :
+  //   collecte         → savings.solde
+  //   classique libre  → classic.solde_libre (placement exclu, resté bloqué)
+  const availableForSource =
+    source === "classique_libre"
+      ? Number(classic?.solde_libre ?? 0)
+      : Number(savings?.solde ?? 0);
+  const hasClassic = classic !== null && Number(classic.solde) > 0;
 
   useEffect(() => {
     load();
@@ -70,6 +90,15 @@ export default function WithdrawalRequestPage() {
       setMessage({ tone: "err", text: "Le montant minimum est de 500 FCFA." });
       return;
     }
+    if (amount > availableForSource) {
+      setMessage({
+        tone: "err",
+        text: `Montant supérieur au disponible (${availableForSource.toLocaleString(
+          "fr-FR",
+        )} FCFA) sur ce produit.`,
+      });
+      return;
+    }
     if (mode === "momo" && !phone.trim()) {
       setMessage({ tone: "err", text: "Renseigne ton numéro Mobile Money." });
       return;
@@ -79,6 +108,7 @@ export default function WithdrawalRequestPage() {
       await portalApi.withdrawals.create({
         montant: amount,
         motif,
+        source,
         mode_paiement: mode,
         recipient_phone: mode === "momo" ? phone.trim() : undefined,
         network: mode === "momo" ? network : undefined,
@@ -127,13 +157,46 @@ export default function WithdrawalRequestPage() {
             Nouvelle demande
           </h2>
           <p className="mt-1 text-xs text-ink-600">
-            Solde disponible :{" "}
-            <strong>
-              {savings ? `${parseInt(savings.solde).toLocaleString("fr-FR")} FCFA` : "—"}
-            </strong>
+            Disponible ({source === "classique_libre" ? "épargne classique" : "collecte"}) :{" "}
+            <strong>{availableForSource.toLocaleString("fr-FR")} FCFA</strong>
           </p>
+          {source === "classique_libre" &&
+          classic &&
+          Number(classic.solde_placement_actif) > 0 ? (
+            <p className="mt-1 text-[11px] text-ink-500">
+              {Number(classic.solde_placement_actif).toLocaleString("fr-FR")} FCFA
+              sont bloqués en placement (financement crédit) et ne sont pas
+              retirables tant que le crédit financé n&apos;est pas clôturé.
+            </p>
+          ) : null}
 
           <form onSubmit={onSubmit} className="mt-5 space-y-4">
+            {/* Source du retrait — visible seulement si le membre a une épargne
+                classique alimentée (sinon la collecte est la seule option). */}
+            {hasClassic ? (
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium text-ink-700">
+                  D&apos;où veux-tu retirer ?
+                </legend>
+                <SourceOption
+                  value="collecte"
+                  current={source}
+                  onChange={setSource}
+                  disabled={submitting}
+                  title="Collecte journalière"
+                  subtitle={`Disponible : ${Number(savings?.solde ?? 0).toLocaleString("fr-FR")} FCFA`}
+                />
+                <SourceOption
+                  value="classique_libre"
+                  current={source}
+                  onChange={setSource}
+                  disabled={submitting}
+                  title="Épargne classique (part libre)"
+                  subtitle={`Disponible : ${Number(classic?.solde_libre ?? 0).toLocaleString("fr-FR")} FCFA`}
+                />
+              </fieldset>
+            ) : null}
+
             <div>
               <label className="block text-sm font-medium text-ink-700">
                 Montant (FCFA)
@@ -269,6 +332,46 @@ export default function WithdrawalRequestPage() {
 }
 
 
+function SourceOption({
+  value,
+  current,
+  onChange,
+  title,
+  subtitle,
+  disabled,
+}: {
+  value: WithdrawalSource;
+  current: WithdrawalSource;
+  onChange: (v: WithdrawalSource) => void;
+  title: string;
+  subtitle: string;
+  disabled?: boolean;
+}) {
+  const checked = value === current;
+  return (
+    <label
+      className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition ${
+        checked
+          ? "border-emerald bg-emerald-50/50"
+          : "border-line-200 bg-paper hover:border-emerald-300"
+      } ${disabled ? "opacity-60" : ""}`}
+    >
+      <input
+        type="radio"
+        checked={checked}
+        onChange={() => onChange(value)}
+        disabled={disabled}
+        className="mt-1"
+      />
+      <div>
+        <p className="text-sm font-medium text-ink-900">{title}</p>
+        <p className="text-xs text-ink-600">{subtitle}</p>
+      </div>
+    </label>
+  );
+}
+
+
 function ChannelOption({
   value,
   current,
@@ -327,6 +430,7 @@ function WithdrawalCard({ w }: { w: WithdrawalRead }) {
         <span className="text-xs">{w.statut_display}</span>
       </div>
       <p className="mt-1 text-xs">
+        {w.source_display ? `${w.source_display} · ` : ""}
         {w.mode_paiement_display}
         {w.network ? ` · ${w.network} ${w.recipient_phone_masked}` : ""}
       </p>

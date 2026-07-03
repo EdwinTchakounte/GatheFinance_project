@@ -4,9 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, Plus } from "lucide-react";
 
 import { CashInModal } from "@/components/cash-in-modal";
-import { ExportMenu } from "@/components/export-menu";
+import { DataTable, type DataColumn } from "@/components/data-table";
 import { Pagination } from "@/components/pagination";
-import type { ExportColumn } from "@/lib/export";
 import { adminApi, type ApiError, type PaymentRow } from "@/lib/api";
 
 
@@ -26,45 +25,8 @@ type TypeFilter =
   | "decaissement";
 
 
-const paymentsExportColumns: ExportColumn<PaymentRow>[] = [
-  { key: "id", label: "ID", value: (r) => r.id },
-  {
-    key: "membre",
-    label: "Membre",
-    value: (r) => `${r.member.prenom} ${r.member.nom}`,
-  },
-  {
-    key: "numero_membre",
-    label: "N° membre",
-    value: (r) => r.member.numero_membre,
-  },
-  { key: "type", label: "Type", value: (r) => r.type_display },
-  { key: "montant", label: "Montant", value: (r) => r.montant },
-  { key: "source", label: "Source", value: (r) => r.source },
-  { key: "statut", label: "Statut", value: (r) => r.statut_display },
-  { key: "ref", label: "Référence", value: (r) => r.reference_externe },
-  { key: "provider", label: "Provider", value: (r) => r.provider_code },
-  {
-    key: "nb_jours",
-    label: "Jours couverts",
-    value: (r) => r.nb_jours_couverts ?? "",
-  },
-  { key: "versement", label: "Versement", value: (r) => r.date_versement },
-  {
-    key: "validation",
-    label: "Validation",
-    value: (r) => r.date_validation ?? "",
-  },
-  { key: "motif_rejet", label: "Motif rejet", value: (r) => r.motif_rejet },
-];
-
-
 export default function PaymentsPage() {
-  return (
-    
-      <Inner />
-    
-  );
+  return <Inner />;
 }
 
 
@@ -116,6 +78,120 @@ function Inner() {
     [items],
   );
 
+  const columns: DataColumn<PaymentRow>[] = [
+    {
+      key: "date",
+      label: "Date",
+      text: (p) => p.date_versement,
+      render: (p) => (
+        <div className="whitespace-nowrap text-sm">
+          <p className="text-ink-900">
+            {new Date(p.date_versement).toLocaleDateString("fr-FR", {
+              day: "2-digit",
+              month: "short",
+              year: "2-digit",
+            })}
+          </p>
+          <p className="font-mono text-xs text-ink-500">
+            {new Date(p.date_versement).toLocaleTimeString("fr-FR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "membre",
+      label: "Membre",
+      locked: true,
+      text: (p) => `${p.member.prenom} ${p.member.nom} ${p.member.numero_membre}`,
+      render: (p) => (
+        <div>
+          <p className="font-medium text-ink-900">
+            {p.member.prenom} {p.member.nom}
+          </p>
+          <p className="font-mono text-xs text-ink-500">{p.member.numero_membre}</p>
+        </div>
+      ),
+    },
+    {
+      key: "type",
+      label: "Type",
+      text: (p) => p.type_display,
+      render: (p) => (
+        <span className="text-sm text-ink-700">
+          {p.type_display}
+          {p.type === "epargne" &&
+          typeof p.nb_jours_couverts === "number" &&
+          p.nb_jours_couverts > 1 ? (
+            <span className="ml-1 inline-flex rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+              × {p.nb_jours_couverts} j
+            </span>
+          ) : null}
+        </span>
+      ),
+    },
+    {
+      key: "montant",
+      label: "Montant",
+      numeric: true,
+      align: "right",
+      text: (p) => p.montant,
+      render: (p) => (
+        <span className="font-mono text-sm text-ink-900">
+          {Number(p.montant).toLocaleString("fr-FR")}
+          <span className="ml-1 text-xs text-ink-500">XAF</span>
+        </span>
+      ),
+    },
+    {
+      key: "source",
+      label: "Canal",
+      defaultVisible: false,
+      text: (p) => p.source,
+    },
+    {
+      key: "ref",
+      label: "Référence",
+      text: (p) => `${p.reference_externe} ${p.provider_code}`,
+      render: (p) => (
+        <div className="font-mono text-xs text-ink-600">
+          {p.reference_externe || <span className="text-ink-400">—</span>}
+          <p className="text-[10px] uppercase tracking-wide text-ink-400">
+            {p.provider_code}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "statut",
+      label: "Statut",
+      text: (p) => p.statut_display,
+      render: (p) => (
+        <div>
+          <span
+            className={
+              "pill " +
+              (p.statut === "valide"
+                ? "pill-success"
+                : p.statut === "en_attente"
+                  ? "pill-warning"
+                  : p.statut === "rejete"
+                    ? "pill-danger"
+                    : "pill-muted")
+            }
+          >
+            {p.statut_display}
+          </span>
+          {p.statut === "rejete" && p.motif_rejet ? (
+            <p className="mt-1 max-w-[14rem] text-xs text-terra-700">{p.motif_rejet}</p>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="px-8 py-8 lg:px-12 lg:py-10">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -139,19 +215,6 @@ function Inner() {
             {totalValide.toLocaleString("fr-FR")}
           </span>
           <span>XAF validés (vue actuelle)</span>
-          <ExportMenu
-            filenamePrefix="paiements"
-            title="Suivi des paiements — Gathé Finance"
-            subtitle={[
-              statut && `statut : ${statut}`,
-              typeFilter && `type : ${typeFilter}`,
-              q && `recherche : ${q}`,
-            ]
-              .filter(Boolean)
-              .join(" · ") || "tous"}
-            columns={paymentsExportColumns}
-            rows={items}
-          />
           <button
             type="button"
             onClick={() => setCashInOpen(true)}
@@ -237,101 +300,24 @@ function Inner() {
 
       {loading ? (
         <p className="text-ink-600">Chargement…</p>
-      ) : items.length === 0 ? (
-        <p className="rounded-md border border-dashed border-line-200 bg-paper/70 p-12 text-center text-sm text-ink-600">
-          Aucun paiement ne correspond à ces filtres.
-        </p>
       ) : (
-        <div className="overflow-hidden rounded-md border border-line-200 bg-paper">
-          <table className="table-admin">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Membre</th>
-                <th>Type</th>
-                <th className="text-right">Montant</th>
-                <th>Référence</th>
-                <th>Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((p) => (
-                <tr key={p.id}>
-                  <td className="whitespace-nowrap text-sm">
-                    <p className="text-ink-900">
-                      {new Date(p.date_versement).toLocaleDateString("fr-FR", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "2-digit",
-                      })}
-                    </p>
-                    <p className="font-mono text-xs text-ink-500">
-                      {new Date(p.date_versement).toLocaleTimeString("fr-FR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </td>
-                  <td>
-                    <p className="font-medium text-ink-900">
-                      {p.member.prenom} {p.member.nom}
-                    </p>
-                    <p className="font-mono text-xs text-ink-500">
-                      {p.member.numero_membre}
-                    </p>
-                  </td>
-                  <td className="text-sm text-ink-700">
-                    {p.type_display}
-                    {/* Refonte 2026 — multi-jours pré-payé sur la collecte. */}
-                    {p.type === "epargne" &&
-                    typeof p.nb_jours_couverts === "number" &&
-                    p.nb_jours_couverts > 1 ? (
-                      <span
-                        className="ml-1 inline-flex rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
-                        title={`Versement pour ${p.nb_jours_couverts} jours`}
-                      >
-                        × {p.nb_jours_couverts} j
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="text-right font-mono text-sm text-ink-900">
-                    {Number(p.montant).toLocaleString("fr-FR")}
-                    <span className="ml-1 text-xs text-ink-500">XAF</span>
-                  </td>
-                  <td className="font-mono text-xs text-ink-600">
-                    {p.reference_externe || (
-                      <span className="text-ink-400">—</span>
-                    )}
-                    <p className="text-[10px] uppercase tracking-wide text-ink-400">
-                      {p.provider_code}
-                    </p>
-                  </td>
-                  <td>
-                    <span
-                      className={
-                        "pill " +
-                        (p.statut === "valide"
-                          ? "pill-success"
-                          : p.statut === "en_attente"
-                            ? "pill-warning"
-                            : p.statut === "rejete"
-                              ? "pill-danger"
-                              : "pill-muted")
-                      }
-                    >
-                      {p.statut_display}
-                    </span>
-                    {p.statut === "rejete" && p.motif_rejet ? (
-                      <p className="mt-1 max-w-[14rem] text-xs text-terra-700">
-                        {p.motif_rejet}
-                      </p>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns}
+          rows={items}
+          rowKey={(p) => p.id}
+          emptyLabel="Aucun paiement ne correspond à ces filtres."
+          exportFilename="paiements"
+          exportTitle="Suivi des paiements — Gathé Finance"
+          exportSubtitle={
+            [
+              statut && `statut : ${statut}`,
+              typeFilter && `type : ${typeFilter}`,
+              q && `recherche : ${q}`,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "tous"
+          }
+        />
       )}
 
       {!loading && count > 0 ? (

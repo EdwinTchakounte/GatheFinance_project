@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 
+import { DataTable, type DataColumn } from "@/components/data-table";
 import { adminApi, type ApiError, type BookletOrderAdmin } from "@/lib/api";
 
 type Tab = "tous" | "payee" | "en_impression" | "delivree";
@@ -66,6 +67,63 @@ export default function BookletOrdersPage() {
     }
   }
 
+  const columns: DataColumn<BookletOrderAdmin>[] = [
+    {
+      key: "membre",
+      label: "Membre",
+      locked: true,
+      text: (r) => `${r.member_prenom} ${r.member_nom} ${r.member_numero}`,
+      render: (r) => (
+        <div>
+          <p className="font-medium text-ink-900">
+            {r.member_prenom} {r.member_nom}
+          </p>
+          <p className="font-mono text-xs text-ink-500">{r.member_numero}</p>
+        </div>
+      ),
+    },
+    {
+      key: "phone",
+      label: "Téléphone",
+      text: (r) => r.member_phone || "",
+      render: (r) => <span className="text-ink-700">{r.member_phone || "—"}</span>,
+    },
+    {
+      key: "paiement",
+      label: "Paiement",
+      text: (r) => String(r.payment_montant),
+      render: (r) => (
+        <span className="text-ink-700">
+          #{r.payment_id}
+          <span className="ml-2 text-xs text-ink-500">
+            {Number(r.payment_montant).toLocaleString("fr-FR")} XAF
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: "date",
+      label: "Créée le",
+      defaultVisible: false,
+      text: (r) => new Date(r.created_at).toLocaleDateString("fr-CM"),
+    },
+    {
+      key: "statut",
+      label: "Statut",
+      text: (r) => r.statut_display,
+      render: (r) => {
+        const tone = STATUT_TONE[r.statut] ?? "bg-ink-50 text-ink-700 ring-ink-200";
+        return (
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${tone}`}
+          >
+            {r.statut_display}
+          </span>
+        );
+      },
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <header>
@@ -112,80 +170,44 @@ export default function BookletOrdersPage() {
         </p>
       ) : null}
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-line-200 bg-paper shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="bg-cream/60 text-xs uppercase tracking-wide text-ink-600">
-            <tr>
-              <th className="px-4 py-3 text-left">Membre</th>
-              <th className="px-4 py-3 text-left">Téléphone</th>
-              <th className="px-4 py-3 text-left">Paiement</th>
-              <th className="px-4 py-3 text-left">Créée le</th>
-              <th className="px-4 py-3 text-left">Statut</th>
-              <th className="px-4 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line-200">
-            {loading ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-ink-500">Chargement…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-ink-500">
-                Aucune commande dans cet état.
-              </td></tr>
-            ) : rows.map((row) => {
-              const tone = STATUT_TONE[row.statut] ?? "bg-ink-50 text-ink-700 ring-ink-200";
-              return (
-                <tr key={row.id} className="hover:bg-cream/30">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-ink-900">
-                      {row.member_prenom} {row.member_nom}
-                    </p>
-                    <p className="font-mono text-xs text-ink-500">{row.member_numero}</p>
-                  </td>
-                  <td className="px-4 py-3 text-ink-700">{row.member_phone || "—"}</td>
-                  <td className="px-4 py-3 text-ink-700">
-                    #{row.payment_id}
-                    <span className="ml-2 text-xs text-ink-500">
-                      {Number(row.payment_montant).toLocaleString("fr-FR")} XAF
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-ink-700">
-                    {new Date(row.created_at).toLocaleDateString("fr-CM")}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${tone}`}>
-                      {row.statut_display}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {row.statut === "payee" ? (
-                      <button
-                        onClick={() => onMarkPrinting(row)}
-                        disabled={busyId === row.id}
-                        className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
-                      >
-                        Mettre en impression
-                      </button>
-                    ) : row.statut === "en_impression" ? (
-                      <button
-                        onClick={() => onMarkDelivered(row)}
-                        disabled={busyId === row.id}
-                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-                      >
-                        Marquer délivré
-                      </button>
-                    ) : (
-                      <span className="text-xs text-ink-500">
-                        {row.date_delivrance ? `Le ${new Date(row.date_delivrance).toLocaleDateString("fr-CM")}` : "—"}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {loading ? (
+        <p className="text-ink-600">Chargement…</p>
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(r) => r.id}
+          emptyLabel="Aucune commande dans cet état."
+          exportFilename="commandes-carnet"
+          exportTitle="Commandes de carnet — Gathé Finance"
+          exportSubtitle={`Filtre : ${tab}`}
+          actions={(row) =>
+            row.statut === "payee" ? (
+              <button
+                onClick={() => onMarkPrinting(row)}
+                disabled={busyId === row.id}
+                className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+              >
+                Mettre en impression
+              </button>
+            ) : row.statut === "en_impression" ? (
+              <button
+                onClick={() => onMarkDelivered(row)}
+                disabled={busyId === row.id}
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+              >
+                Marquer délivré
+              </button>
+            ) : (
+              <span className="text-xs text-ink-500">
+                {row.date_delivrance
+                  ? `Le ${new Date(row.date_delivrance).toLocaleDateString("fr-CM")}`
+                  : "—"}
+              </span>
+            )
+          }
+        />
+      )}
     </div>
   );
 }

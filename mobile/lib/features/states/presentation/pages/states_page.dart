@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
+import '../../../../core/di/providers.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
@@ -19,6 +20,7 @@ import '../../../auth/domain/entities/member.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
 import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
+import '../../../savings/domain/entities/withdrawal_request.dart';
 import '../../../savings/presentation/state/classic_savings_notifier.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
 import '../../../savings/presentation/widgets/withdraw_sheet.dart';
@@ -70,7 +72,13 @@ class StatesPage extends ConsumerWidget {
                       ),
                     ),
                     collecte.when(
-                      data: (d) => _WithdrawAction(soldeDisponible: d.solde),
+                      data: (d) => _WithdrawAction(
+                        soldeCollecte: d.solde,
+                        // Part libre de l'épargne classique (placement exclu)
+                        // si le snapshot est chargé, 0 sinon.
+                        soldeClassiqueLibre:
+                            epargne.valueOrNull?.soldeRetirable ?? 0,
+                      ),
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
@@ -229,6 +237,8 @@ class StatesPage extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 22),
+                      const _WithdrawalsSection(),
                       const SizedBox(height: 22),
                       PaButton(
                         label: l.states_download_pdf,
@@ -569,17 +579,25 @@ class _DetailCard extends StatelessWidget {
 }
 
 /// Bouton "Retirer" en header de Mes états . déclenche le sheet de demande
-/// de retrait sur le compte cotisation (la sheet récupère le solde via le
-/// même `savingsProvider` ; on le passe ici pour borner la saisie côté UI).
+/// de retrait. On lui passe le solde retirable des DEUX produits (collecte +
+/// part libre de l'épargne classique) : la sheet propose un sélecteur de
+/// source si l'épargne classique est alimentée. Débloque le retrait d'un
+/// membre dont l'argent est en épargne classique (auparavant coincé car seule
+/// la collecte était retirable).
 class _WithdrawAction extends StatelessWidget {
-  const _WithdrawAction({required this.soldeDisponible});
+  const _WithdrawAction({
+    required this.soldeCollecte,
+    this.soldeClassiqueLibre = 0,
+  });
 
-  final num soldeDisponible;
+  final num soldeCollecte;
+  final num soldeClassiqueLibre;
 
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final disabled = soldeDisponible < 500;
+    // Actif dès qu'une des deux sources dépasse le minimum de retrait.
+    final disabled = soldeCollecte < 500 && soldeClassiqueLibre < 500;
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: TextButton.icon(
@@ -614,7 +632,107 @@ class _WithdrawAction extends StatelessWidget {
           topRight: Radius.circular(28),
         ),
       ),
-      builder: (_) => WithdrawSheet(soldeDisponible: soldeDisponible),
+      builder: (_) => WithdrawSheet(
+        soldeCollecte: soldeCollecte,
+        soldeClassiqueLibre: soldeClassiqueLibre,
+      ),
+    );
+  }
+}
+
+
+/// Section « Mes demandes de retrait » . parité avec le portail web : le membre
+/// suit le statut de ses demandes après soumission (en attente → approuvée /
+/// payout / terminée / rejetée). Alimentée par [myWithdrawalsProvider].
+class _WithdrawalsSection extends ConsumerWidget {
+  const _WithdrawalsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(myWithdrawalsProvider);
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (list) {
+        if (list.isEmpty) return const SizedBox.shrink();
+        final recent = list.take(5).toList();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Mes demandes de retrait', style: PaText.label(size: 15)),
+            const SizedBox(height: 12),
+            PaCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (var i = 0; i < recent.length; i++) ...[
+                    if (i > 0)
+                      const Divider(height: 1, color: PaColors.line),
+                    _WithdrawalRow(w: recent[i]),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+
+class _WithdrawalRow extends StatelessWidget {
+  const _WithdrawalRow({required this.w});
+  final WithdrawalRequest w;
+
+  ({Color fg, Color bg}) get _tone => switch (w.statut) {
+        WithdrawalStatus.completee => (fg: PaColors.teal, bg: PaColors.tealSurface),
+        WithdrawalStatus.approuvee ||
+        WithdrawalStatus.enPayout =>
+          (fg: PaColors.blue, bg: PaColors.blue.withValues(alpha: 0.10)),
+        WithdrawalStatus.rejetee ||
+        WithdrawalStatus.payoutFailed =>
+          (fg: PaColors.danger, bg: PaColors.danger.withValues(alpha: 0.10)),
+        WithdrawalStatus.enAttente =>
+          (fg: PaColors.warning, bg: PaColors.warning.withValues(alpha: 0.12)),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _tone;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  XAFFormatter.format(w.montant),
+                  style: PaText.label(size: 14.5),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  w.modePaiementDisplay,
+                  style: PaText.body(size: 12, color: PaColors.inkMuted),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: tone.bg,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              w.statutDisplay,
+              style: PaText.body(size: 11.5, color: tone.fg),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -11,6 +11,15 @@ enum WithdrawalChannel {
 /// Réseau Mobile Money (uniquement pour le canal [WithdrawalChannel.momo]).
 enum MomoNetwork { mtn, orange, wave, airtel }
 
+/// Produit source du retrait.
+///
+/// - [collecte] : cotisation journalière (compte de collecte).
+/// - [classiqueLibre] : part LIBRE de l'épargne classique (le placement,
+///   qui garantit le funding crédit, n'est jamais retirable). Corrige le cas
+///   d'un membre dont l'argent est en épargne classique et qui était bloqué
+///   tant que le retrait ne lisait que la collecte.
+enum WithdrawalSource { collecte, classiqueLibre }
+
 /// Statut du cycle de vie d'une demande de retrait.
 ///
 /// Workflow :

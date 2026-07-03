@@ -748,6 +748,9 @@ export type WithdrawalRow = {
   member_nom: string;
   montant: string;
   motif: string;
+  // Produit débité : collecte journalière ou part libre de l'épargne classique.
+  source: "collecte" | "classique_libre";
+  source_display: string;
   statut: WithdrawalStatut;
   statut_display: string;
   mode_paiement: "momo" | "presentiel";
@@ -760,6 +763,25 @@ export type WithdrawalRow = {
   handed_over_at: string | null;
   can_mark_paid: boolean;
   can_retry_payout: boolean;
+};
+
+// Reconduction de crédit (Art.10/11) — file d'attente admin.
+export type LoanRenewalStatut = "demandee" | "approuvee" | "rejetee";
+export type LoanRenewalRow = {
+  id: number;
+  statut: LoanRenewalStatut;
+  statut_display: string;
+  loan_id: number;
+  numero_dossier: string;
+  numero_membre: string;
+  member_nom: string;
+  montant_credit: string;
+  solde_restant: string;
+  duree_actuelle_mois: number;
+  nouvelle_duree_mois: number;
+  interets_au_comptant: boolean;
+  date_demande: string | null;
+  date_decision: string | null;
 };
 
 // LOT 16 — Campagnes micro-crédit (voie 3).
@@ -1129,6 +1151,28 @@ export const adminApi = {
     retryPayout: (id: number) =>
       request<WithdrawalRow>(`/admin/withdrawals/${id}/retry-payout/`, {
         method: "POST",
+      }),
+  },
+
+  // Reconductions de crédit (Art.10/11) — le membre demande sur mobile/portail
+  // (POST /loans/{id}/renewal/), l'admin décide ici.
+  loanRenewals: {
+    list: (statut?: LoanRenewalStatut) =>
+      request<{ results: LoanRenewalRow[] }>(
+        `/loans/admin/renewals/${statut ? `?statut=${statut}` : ""}`,
+      ),
+    decide: (
+      id: number,
+      payload: {
+        decision: "approuvee" | "rejetee";
+        taux_annuel?: number;
+        date_premiere_echeance?: string;
+        motif_rejet?: string;
+      },
+    ) =>
+      request<Record<string, unknown>>(`/loans/renewals/${id}/decide/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
       }),
   },
 

@@ -33,6 +33,7 @@ abstract class SavingsRepository {
     required WithdrawalChannel channel,
     String recipientPhone = '',
     MomoNetwork? network,
+    WithdrawalSource source = WithdrawalSource.collecte,
   });
 
   /// Liste des demandes de retrait du membre (les plus récentes d'abord).

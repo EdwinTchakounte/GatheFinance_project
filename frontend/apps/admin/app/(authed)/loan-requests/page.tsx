@@ -6,6 +6,7 @@ import { Check, Coins, FileText, Send, X } from "lucide-react";
 import { buttonClasses } from "@gathe/ui";
 
 import { CashInModal, type CashInPrefill } from "@/components/cash-in-modal";
+import { DataTable, type DataColumn } from "@/components/data-table";
 import { Modal, ModalField, modalInputClass } from "@/components/modal";
 import { adminApi, type ApiError, type LoanRequest } from "@/lib/api";
 
@@ -25,11 +26,7 @@ function defaultFirstDueDate(): string {
 
 
 export default function LoanRequestsPage() {
-  return (
-    
-      <Inner />
-    
-  );
+  return <Inner />;
 }
 
 type LoanRequestFilter =
@@ -170,6 +167,129 @@ function Inner() {
     }
   }
 
+  const columns: DataColumn<LoanRequest>[] = [
+    {
+      key: "demande",
+      label: "Demande",
+      text: (r) => `#${r.id}`,
+      render: (r) => <span className="font-mono text-xs text-ink-600">#{r.id}</span>,
+    },
+    {
+      key: "membre",
+      label: "Membre",
+      locked: true,
+      text: (r) =>
+        r.member
+          ? `${r.member.prenom} ${r.member.nom} ${r.member.numero_membre} ${r.member.telephone ?? ""}`
+          : "",
+      render: (r) =>
+        r.member ? (
+          <div className="min-w-[10rem]">
+            <p className="text-sm font-medium text-ink-900">
+              {r.member.prenom} {r.member.nom}
+            </p>
+            <p className="font-mono text-[11px] text-ink-500">
+              {r.member.numero_membre}
+              {r.member.telephone ? ` · ${r.member.telephone}` : ""}
+            </p>
+          </div>
+        ) : (
+          <span className="text-xs text-ink-400">—</span>
+        ),
+    },
+    {
+      key: "montant",
+      label: "Montant",
+      numeric: true,
+      align: "right",
+      text: (r) => r.montant_demande,
+      render: (r) => (
+        <span className="font-mono font-medium tabular-nums">
+          {formatXAF(r.montant_demande)}
+        </span>
+      ),
+    },
+    {
+      key: "duree",
+      label: "Durée",
+      numeric: true,
+      text: (r) => String(r.duree_mois),
+      render: (r) => <span className="whitespace-nowrap">{r.duree_mois} mois</span>,
+    },
+    {
+      key: "objet",
+      label: "Objet",
+      text: (r) => r.motif,
+      render: (r) => (
+        <div className="max-w-md">
+          <p className="line-clamp-3 text-sm">{r.motif}</p>
+          <ProfilEmprunteurBadges r={r} />
+        </div>
+      ),
+    },
+    {
+      key: "date",
+      label: "Reçue le",
+      defaultVisible: false,
+      text: (r) =>
+        new Date(r.date_soumission).toLocaleDateString("fr-FR", {
+          day: "2-digit",
+          month: "short",
+          year: "2-digit",
+        }),
+    },
+    {
+      key: "statut",
+      label: "Statut",
+      text: (r) => r.statut_display,
+      render: (r) => (
+        <div>
+          <span
+            className={
+              "pill " +
+              (r.statut === "en_attente"
+                ? "pill-warning"
+                : r.statut === "en_instruction"
+                  ? "pill-info"
+                  : r.statut === "approuvee_provisoire"
+                    ? "pill-warning"
+                    : r.statut === "approuvee"
+                      ? "pill-success"
+                      : r.statut === "rejetee"
+                        ? "pill-danger"
+                        : "pill-muted")
+            }
+          >
+            {r.statut_display}
+          </span>
+          {r.field_visit_outcome ? (
+            <p className="mt-1 text-[11px] font-medium">
+              <span className="text-ink-500">Visite : </span>
+              <span
+                className={
+                  r.field_visit_outcome === "favorable"
+                    ? "text-emerald"
+                    : r.field_visit_outcome === "defavorable"
+                      ? "text-terra-700"
+                      : "text-ink-700"
+                }
+              >
+                {r.field_visit_outcome === "favorable"
+                  ? "favorable"
+                  : r.field_visit_outcome === "defavorable"
+                    ? "défavorable"
+                    : "à revoir"}
+              </span>
+            </p>
+          ) : null}
+          {r.motif_rejet ? (
+            <p className="mt-1 max-w-[14rem] text-xs text-terra-700">{r.motif_rejet}</p>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="px-8 py-8 lg:px-12 lg:py-10">
       <header className="mb-8 flex items-end justify-between gap-4">
@@ -222,224 +342,151 @@ function Inner() {
 
       {loading ? (
         <p className="text-ink-600">Chargement…</p>
-      ) : items.length === 0 ? (
-        <p className="rounded-md border border-dashed border-line-200 bg-paper/70 p-12 text-center text-sm text-ink-600">
-          Aucune demande dans ce filtre.
-        </p>
       ) : (
-        <div className="overflow-hidden rounded-md border border-line-200 bg-paper">
-          <table className="table-admin">
-            <thead>
-              <tr>
-                <th>Demande</th>
-                <th>Membre</th>
-                <th className="text-right">Montant</th>
-                <th>Durée</th>
-                <th>Objet</th>
-                <th>Reçue le</th>
-                <th>Statut</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((r) => (
-                <tr key={r.id}>
-                  <td className="font-mono text-xs text-ink-600">#{r.id}</td>
-                  <td>
-                    {r.member ? (
-                      <div className="min-w-[10rem]">
-                        <p className="text-sm font-medium text-ink-900">
-                          {r.member.prenom} {r.member.nom}
-                        </p>
-                        <p className="font-mono text-[11px] text-ink-500">
-                          {r.member.numero_membre}
-                          {r.member.telephone ? ` · ${r.member.telephone}` : ""}
-                        </p>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-ink-400">—</span>
-                    )}
-                  </td>
-                  <td className="text-right font-mono font-medium">{formatXAF(r.montant_demande)}</td>
-                  <td className="whitespace-nowrap">{r.duree_mois} mois</td>
-                  <td className="max-w-md">
-                    <p className="line-clamp-3 text-sm">{r.motif}</p>
-                    <ProfilEmprunteurBadges r={r} />
-                  </td>
-                  <td className="text-sm text-ink-600 whitespace-nowrap">
-                    {new Date(r.date_soumission).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "2-digit" })}
-                  </td>
-                  <td>
-                    <span className={
-                      "pill " +
-                      (r.statut === "en_attente" ? "pill-warning"
-                        : r.statut === "en_instruction" ? "pill-info"
-                        : r.statut === "approuvee_provisoire" ? "pill-warning"
-                        : r.statut === "approuvee" ? "pill-success"
-                        : r.statut === "rejetee" ? "pill-danger" : "pill-muted")
-                    }>{r.statut_display}</span>
-                    {r.field_visit_outcome ? (
-                      <p className="mt-1 text-[11px] font-medium">
-                        <span className="text-ink-500">Visite : </span>
-                        <span
-                          className={
-                            r.field_visit_outcome === "favorable"
-                              ? "text-emerald"
-                              : r.field_visit_outcome === "defavorable"
-                                ? "text-terra-700"
-                                : "text-ink-700"
-                          }
-                        >
-                          {r.field_visit_outcome === "favorable"
-                            ? "favorable"
-                            : r.field_visit_outcome === "defavorable"
-                              ? "défavorable"
-                              : "à revoir"}
-                        </span>
-                      </p>
+        <DataTable
+          columns={columns}
+          rows={items}
+          rowKey={(r) => r.id}
+          emptyLabel="Aucune demande dans ce filtre."
+          exportFilename="demandes-credit"
+          exportTitle="Demandes de crédit — Gathé Finance"
+          exportSubtitle={`Filtre : ${filter || "toutes"}`}
+          actions={(r) =>
+            r.statut === "en_attente" ? (
+              <div className="flex flex-col items-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCashInTarget(r)}
+                  disabled={actingId === r.id}
+                  className={buttonClasses({ variant: "primary", size: "sm" })}
+                  title="Encaisser les frais d'etude en agence (cash-in)"
+                >
+                  <Coins className="size-3.5" aria-hidden="true" />Encaisser frais
+                </button>
+                <p className="max-w-[14rem] text-right text-[11px] text-ink-500">
+                  La demande passera en instruction des reception des frais (Tara ou cash-in agence).
+                </p>
+                <a
+                  href={adminApi.loans.noteUrl(r.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
+                >
+                  <FileText className="size-3" />Note PDF
+                </a>
+              </div>
+            ) : r.statut === "en_instruction" ? (
+              <div className="flex flex-col items-end gap-1.5">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setProvisionalTarget(r)}
+                    disabled={actingId === r.id}
+                    className={buttonClasses({ variant: "success", size: "sm" })}
+                  >
+                    <Check className="size-3.5" aria-hidden="true" />Approbation provisoire
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRejectTarget(r)}
+                    disabled={actingId === r.id}
+                    className={buttonClasses({ variant: "ghost", size: "sm" })}
+                  >
+                    <X className="size-3.5" aria-hidden="true" />Rejeter
+                  </button>
+                </div>
+                <a
+                  href={adminApi.loans.noteUrl(r.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
+                >
+                  <FileText className="size-3" />Note PDF
+                </a>
+              </div>
+            ) : r.statut === "approuvee_provisoire" ? (
+              <div className="flex flex-col items-end gap-1.5">
+                {!r.field_visit_outcome ? (
+                  <button
+                    type="button"
+                    onClick={() => setFieldVisitTarget(r)}
+                    disabled={actingId === r.id}
+                    className={buttonClasses({ variant: "primary", size: "sm" })}
+                  >
+                    Visite terrain à effectuer
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    {r.field_visit_outcome === "favorable" ? (
+                      <button
+                        type="button"
+                        onClick={() => setApproveTarget(r)}
+                        disabled={actingId === r.id}
+                        className={buttonClasses({ variant: "success", size: "sm" })}
+                      >
+                        <Check className="size-3.5" aria-hidden="true" />Décision définitive
+                      </button>
                     ) : null}
-                    {r.motif_rejet ? <p className="mt-1 text-xs text-terra-700 max-w-[14rem]">{r.motif_rejet}</p> : null}
-                  </td>
-                  <td className="text-right">
-                    {r.statut === "en_attente" ? (
-                      <div className="flex flex-col items-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setCashInTarget(r)}
-                          disabled={actingId === r.id}
-                          className={buttonClasses({ variant: "primary", size: "sm" })}
-                          title="Encaisser les frais d'etude en agence (cash-in)"
-                        >
-                          <Coins className="size-3.5" aria-hidden="true" />Encaisser frais
-                        </button>
-                        <p className="text-[11px] text-ink-500 max-w-[14rem] text-right">
-                          La demande passera en instruction des reception des frais (Tara ou cash-in agence).
-                        </p>
-                        <a
-                          href={adminApi.loans.noteUrl(r.id)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
-                        >
-                          <FileText className="size-3" />Note PDF
-                        </a>
-                      </div>
-                    ) : r.statut === "en_instruction" ? (
-                      <div className="flex flex-col items-end gap-1.5">
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setProvisionalTarget(r)}
-                            disabled={actingId === r.id}
-                            className={buttonClasses({ variant: "success", size: "sm" })}
-                          >
-                            <Check className="size-3.5" aria-hidden="true" />Approbation provisoire
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRejectTarget(r)}
-                            disabled={actingId === r.id}
-                            className={buttonClasses({ variant: "ghost", size: "sm" })}
-                          >
-                            <X className="size-3.5" aria-hidden="true" />Rejeter
-                          </button>
-                        </div>
-                        <a
-                          href={adminApi.loans.noteUrl(r.id)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
-                        >
-                          <FileText className="size-3" />Note PDF
-                        </a>
-                      </div>
-                    ) : r.statut === "approuvee_provisoire" ? (
-                      <div className="flex flex-col items-end gap-1.5">
-                        {!r.field_visit_outcome ? (
-                          <button
-                            type="button"
-                            onClick={() => setFieldVisitTarget(r)}
-                            disabled={actingId === r.id}
-                            className={buttonClasses({ variant: "primary", size: "sm" })}
-                          >
-                            Visite terrain à effectuer
-                          </button>
-                        ) : (
-                          <div className="flex gap-2">
-                            {r.field_visit_outcome === "favorable" ? (
-                              <button
-                                type="button"
-                                onClick={() => setApproveTarget(r)}
-                                disabled={actingId === r.id}
-                                className={buttonClasses({ variant: "success", size: "sm" })}
-                              >
-                                <Check className="size-3.5" aria-hidden="true" />Décision définitive
-                              </button>
-                            ) : null}
-                            <button
-                              type="button"
-                              onClick={() => setRejectTarget(r)}
-                              disabled={actingId === r.id}
-                              className={buttonClasses({ variant: "ghost", size: "sm" })}
-                            >
-                              <X className="size-3.5" aria-hidden="true" />Rejeter
-                            </button>
-                          </div>
-                        )}
-                        <a
-                          href={adminApi.loans.noteUrl(r.id)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
-                        >
-                          <FileText className="size-3" />Note PDF
-                        </a>
-                      </div>
-                    ) : r.statut === "approuvee" && r.loan ? (
-                      <div className="flex flex-col items-end gap-1.5">
-                        <p className="font-mono text-xs text-ink-600">{r.loan.numero_dossier}</p>
-                        {r.loan.disbursed ? (
-                          <span className="pill pill-success">Décaissé</span>
-                        ) : r.loan.disbursement_pending ? (
-                          <span className="pill pill-warning">Payout en attente</span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setDisburseTarget(r)}
-                            disabled={actingId === r.id}
-                            className={buttonClasses({ variant: "primary", size: "sm" })}
-                          >
-                            <Send className="size-3.5" aria-hidden="true" />Décaisser via Tara
-                          </button>
-                        )}
-                        <a
-                          href={adminApi.loans.noteUrl(r.id)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
-                        >
-                          <FileText className="size-3" />Note PDF
-                        </a>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-end gap-1.5">
-                        <span className="text-xs text-ink-400">—</span>
-                        <a
-                          href={adminApi.loans.noteUrl(r.id)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
-                        >
-                          <FileText className="size-3" />Note PDF
-                        </a>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    <button
+                      type="button"
+                      onClick={() => setRejectTarget(r)}
+                      disabled={actingId === r.id}
+                      className={buttonClasses({ variant: "ghost", size: "sm" })}
+                    >
+                      <X className="size-3.5" aria-hidden="true" />Rejeter
+                    </button>
+                  </div>
+                )}
+                <a
+                  href={adminApi.loans.noteUrl(r.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
+                >
+                  <FileText className="size-3" />Note PDF
+                </a>
+              </div>
+            ) : r.statut === "approuvee" && r.loan ? (
+              <div className="flex flex-col items-end gap-1.5">
+                <p className="font-mono text-xs text-ink-600">{r.loan.numero_dossier}</p>
+                {r.loan.disbursed ? (
+                  <span className="pill pill-success">Décaissé</span>
+                ) : r.loan.disbursement_pending ? (
+                  <span className="pill pill-warning">Payout en attente</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setDisburseTarget(r)}
+                    disabled={actingId === r.id}
+                    className={buttonClasses({ variant: "primary", size: "sm" })}
+                  >
+                    <Send className="size-3.5" aria-hidden="true" />Décaisser via Tara
+                  </button>
+                )}
+                <a
+                  href={adminApi.loans.noteUrl(r.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
+                >
+                  <FileText className="size-3" />Note PDF
+                </a>
+              </div>
+            ) : (
+              <div className="flex flex-col items-end gap-1.5">
+                <span className="text-xs text-ink-400">—</span>
+                <a
+                  href={adminApi.loans.noteUrl(r.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
+                >
+                  <FileText className="size-3" />Note PDF
+                </a>
+              </div>
+            )
+          }
+        />
       )}
 
       <ApproveLoanModal

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { EyeOff, Eye, RotateCcw, Search } from "lucide-react";
 
+import { DataTable, type DataColumn } from "@/components/data-table";
 import { Modal, ModalField, modalInputClass, buttonClasses } from "@/components/modal";
 import { Pagination } from "@/components/pagination";
 import {
@@ -111,6 +112,86 @@ function Inner() {
     }
   }
 
+  const columns: DataColumn<SocialCommentRow>[] = [
+    {
+      key: "date",
+      label: "Date",
+      text: (row) => row.created_at,
+      render: (row) => (
+        <div className="whitespace-nowrap text-sm">
+          <p className="text-ink-900">
+            {new Date(row.created_at).toLocaleDateString("fr-FR", {
+              day: "2-digit",
+              month: "short",
+              year: "2-digit",
+            })}
+          </p>
+          <p className="font-mono text-xs text-ink-500">
+            {new Date(row.created_at).toLocaleTimeString("fr-FR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "auteur",
+      label: "Auteur",
+      locked: true,
+      text: (row) => `${row.author_name} ${row.author_email}`,
+      render: (row) => (
+        <div>
+          <p className="font-medium text-ink-900">{row.author_name}</p>
+          <p className="font-mono text-xs text-ink-500">{row.author_email}</p>
+        </div>
+      ),
+    },
+    {
+      key: "contenu",
+      label: "Contenu",
+      text: (row) => row.body,
+      render: (row) => (
+        <p className="line-clamp-2 max-w-md text-sm text-ink-700">
+          {row.body || <span className="italic text-ink-400">(vide)</span>}
+        </p>
+      ),
+    },
+    {
+      key: "sur",
+      label: "Sur",
+      text: (row) => `${labelForContentType(row.content_type_label)} ${row.object_id}`,
+      render: (row) => (
+        <span className="text-sm text-ink-700">
+          <span className="font-medium">
+            {labelForContentType(row.content_type_label)}
+          </span>
+          <span className="ml-1 font-mono text-xs text-ink-500">#{row.object_id}</span>
+        </span>
+      ),
+    },
+    {
+      key: "statut",
+      label: "Statut",
+      text: (row) => (row.hidden ? "Masqué" : "Visible"),
+      render: (row) =>
+        row.hidden ? (
+          <span
+            title={row.hidden_reason ? `Motif : ${row.hidden_reason}` : undefined}
+            className="inline-flex items-center gap-1 rounded bg-terra-500/15 px-2 py-0.5 text-xs font-medium text-terra-700"
+          >
+            <EyeOff className="size-3" aria-hidden="true" />
+            Masqué
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded bg-emerald/10 px-2 py-0.5 text-xs font-medium text-emerald">
+            <Eye className="size-3" aria-hidden="true" />
+            Visible
+          </span>
+        ),
+    },
+  ];
+
   return (
     <div className="px-8 py-8 lg:px-12 lg:py-10">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -201,125 +282,52 @@ function Inner() {
 
       {loading ? (
         <p className="text-ink-600">Chargement…</p>
-      ) : items.length === 0 ? (
-        <p className="rounded-md border border-dashed border-line-200 bg-paper/70 p-12 text-center text-sm text-ink-600">
-          Aucun commentaire ne correspond à ces filtres.
-        </p>
       ) : (
-        <div className="overflow-hidden rounded-md border border-line-200 bg-paper">
-          <table className="table-admin">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Auteur</th>
-                <th>Contenu</th>
-                <th>Sur</th>
-                <th>Statut</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((row) => (
-                <tr key={row.id}>
-                  <td className="whitespace-nowrap text-sm">
-                    <p className="text-ink-900">
-                      {new Date(row.created_at).toLocaleDateString("fr-FR", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "2-digit",
-                      })}
-                    </p>
-                    <p className="font-mono text-xs text-ink-500">
-                      {new Date(row.created_at).toLocaleTimeString("fr-FR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </td>
-                  <td>
-                    <p className="font-medium text-ink-900">
-                      {row.author_name}
-                    </p>
-                    <p className="font-mono text-xs text-ink-500">
-                      {row.author_email}
-                    </p>
-                  </td>
-                  <td className="max-w-md text-sm text-ink-700">
-                    <p className="line-clamp-2">
-                      {row.body || (
-                        <span className="italic text-ink-400">
-                          (vide)
-                        </span>
-                      )}
-                    </p>
-                  </td>
-                  <td className="text-sm text-ink-700">
-                    <span className="font-medium">
-                      {labelForContentType(row.content_type_label)}
-                    </span>
-                    <span className="ml-1 font-mono text-xs text-ink-500">
-                      #{row.object_id}
-                    </span>
-                  </td>
-                  <td>
-                    {row.hidden ? (
-                      <span
-                        title={
-                          row.hidden_reason
-                            ? `Motif : ${row.hidden_reason}`
-                            : undefined
-                        }
-                        className="inline-flex items-center gap-1 rounded bg-terra-500/15 px-2 py-0.5 text-xs font-medium text-terra-700"
-                      >
-                        <EyeOff className="size-3" aria-hidden="true" />
-                        Masqué
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded bg-emerald/10 px-2 py-0.5 text-xs font-medium text-emerald">
-                        <Eye className="size-3" aria-hidden="true" />
-                        Visible
-                      </span>
-                    )}
-                  </td>
-                  <td className="text-right">
-                    {row.hidden ? (
-                      <button
-                        type="button"
-                        onClick={() => unhide(row)}
-                        className="inline-flex items-center gap-1 rounded-md border border-line-200 bg-paper px-2 py-1 text-xs font-medium text-ink-700 hover:border-emerald hover:text-emerald"
-                      >
-                        Restaurer
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setHideTarget(row);
-                          setHideReason("");
-                          setHideError(null);
-                        }}
-                        className="inline-flex items-center gap-1 rounded-md border border-line-200 bg-paper px-2 py-1 text-xs font-medium text-ink-700 hover:border-terra-700 hover:text-terra-700"
-                      >
-                        Masquer
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <Pagination
-            count={count}
-            limit={limit}
-            offset={offset}
-            onChange={setOffset}
-            onLimitChange={(v) => {
-              setLimit(v);
-              setOffset(0);
-            }}
+        <>
+          <DataTable
+            columns={columns}
+            rows={items}
+            rowKey={(row) => row.id}
+            emptyLabel="Aucun commentaire ne correspond à ces filtres."
+            exportFilename="commentaires"
+            exportTitle="Commentaires — Gathé Finance"
+            actions={(row) =>
+              row.hidden ? (
+                <button
+                  type="button"
+                  onClick={() => unhide(row)}
+                  className="inline-flex items-center gap-1 rounded-md border border-line-200 bg-paper px-2 py-1 text-xs font-medium text-ink-700 hover:border-emerald hover:text-emerald"
+                >
+                  Restaurer
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHideTarget(row);
+                    setHideReason("");
+                    setHideError(null);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md border border-line-200 bg-paper px-2 py-1 text-xs font-medium text-ink-700 hover:border-terra-700 hover:text-terra-700"
+                >
+                  Masquer
+                </button>
+              )
+            }
           />
-        </div>
+          {count > 0 ? (
+            <Pagination
+              count={count}
+              limit={limit}
+              offset={offset}
+              onChange={setOffset}
+              onLimitChange={(v) => {
+                setLimit(v);
+                setOffset(0);
+              }}
+            />
+          ) : null}
+        </>
       )}
 
       <Modal

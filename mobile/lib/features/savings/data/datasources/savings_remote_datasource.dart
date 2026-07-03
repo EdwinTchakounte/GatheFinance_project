@@ -23,6 +23,7 @@ abstract class SavingsRemoteDataSource {
     required WithdrawalChannel channel,
     String recipientPhone = '',
     MomoNetwork? network,
+    WithdrawalSource source = WithdrawalSource.collecte,
   });
 
   /// Liste les demandes de retrait du membre courant (les plus récentes

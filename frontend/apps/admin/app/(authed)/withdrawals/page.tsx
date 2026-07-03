@@ -13,8 +13,7 @@ import {
 import { buttonClasses } from "@gathe/ui";
 
 import { Modal } from "@/components/modal";
-import { ExportMenu } from "@/components/export-menu";
-import type { ExportColumn } from "@/lib/export";
+import { DataTable, type DataColumn } from "@/components/data-table";
 import {
   adminApi,
   type ApiError,
@@ -44,7 +43,6 @@ function Inner() {
   const [actingId, setActingId] = useState<number | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
-  // Modale rejet (motif requis)
   const [rejectTarget, setRejectTarget] = useState<WithdrawalRow | null>(null);
 
   async function reload() {
@@ -137,40 +135,74 @@ function Inner() {
     }
   }
 
-  const exportColumns: ExportColumn<WithdrawalRow>[] = [
-    { key: "id", label: "ID", value: (r) => r.id },
-    { key: "numero", label: "N° membre", value: (r) => r.numero_membre },
-    { key: "membre", label: "Membre", value: (r) => r.member_nom },
-    { key: "montant", label: "Montant (FCFA)", value: (r) => r.montant },
-    { key: "motif", label: "Motif", value: (r) => r.motif },
-    { key: "canal", label: "Canal", value: (r) => r.mode_paiement_display },
-    { key: "phone", label: "Téléphone", value: (r) => r.recipient_phone_masked },
-    { key: "network", label: "Réseau", value: (r) => r.network },
-    { key: "statut", label: "Statut", value: (r) => r.statut_display },
-    { key: "motif_rejet", label: "Motif rejet", value: (r) => r.motif_rejet },
-    { key: "demande_at", label: "Demandée le", value: (r) => fmt(r.date_demande) },
-    { key: "decision_at", label: "Décidée le", value: (r) => fmt(r.date_decision) },
-    { key: "handed_over_at", label: "Remise le", value: (r) => fmt(r.handed_over_at) },
+  const columns: DataColumn<WithdrawalRow>[] = [
+    {
+      key: "membre",
+      label: "Membre",
+      locked: true,
+      text: (r) => `${r.member_nom} ${r.numero_membre} ${r.motif}`,
+      render: (r) => (
+        <div>
+          <div className="font-medium text-ink-900">{r.member_nom}</div>
+          <div className="text-xs text-ink-500">{r.numero_membre}</div>
+          {r.motif ? (
+            <div className="mt-1 text-xs italic text-ink-500">« {r.motif} »</div>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      key: "montant",
+      label: "Montant",
+      numeric: true,
+      align: "right",
+      text: (r) => r.montant,
+      render: (r) => (
+        <span className="font-semibold tabular-nums">{fmtMoney(r.montant)} FCFA</span>
+      ),
+    },
+    {
+      key: "source",
+      label: "Produit",
+      text: (r) => r.source_display,
+      render: (r) => <span className="text-xs text-ink-600">{r.source_display}</span>,
+    },
+    {
+      key: "canal",
+      label: "Canal",
+      text: (r) => `${r.mode_paiement_display} ${r.network} ${r.recipient_phone_masked}`,
+      render: (r) => <ChannelBadge row={r} />,
+    },
+    {
+      key: "statut",
+      label: "Statut",
+      text: (r) => r.statut_display,
+      render: (r) => (
+        <div>
+          <StatusBadge statut={r.statut} label={r.statut_display} />
+          {r.motif_rejet ? (
+            <div className="mt-1 max-w-xs text-xs italic text-red-600">{r.motif_rejet}</div>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      key: "date",
+      label: "Demandée le",
+      defaultVisible: false,
+      text: (r) => fmt(r.date_demande),
+    },
   ];
 
   return (
     <main className="space-y-6 p-8">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-ink-900">
-            Demandes de retrait
-          </h1>
-          <p className="text-sm text-ink-500">
-            Valide les demandes des membres. MOMO = payout Tara automatique. Présentiel = remise espèces à confirmer.
-          </p>
-        </div>
-        <ExportMenu
-          filenamePrefix="retraits-epargne"
-          title="Demandes de retrait — Gathé Finance"
-          subtitle={`Filtre : ${filter === "all" ? "tous" : filter}`}
-          columns={exportColumns}
-          rows={items}
-        />
+      <header>
+        <h1 className="font-editorial text-3xl font-medium tracking-tight text-ink-900">
+          Demandes de retrait
+        </h1>
+        <p className="text-sm text-ink-500">
+          Valide les demandes des membres. MOMO = payout Tara automatique. Présentiel = remise espèces à confirmer.
+        </p>
       </header>
 
       <FilterTabs value={filter} onChange={setFilter} />
@@ -187,76 +219,35 @@ function Inner() {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-line-200 bg-paper">
-        <table className="w-full text-sm">
-          <thead className="bg-cream text-left text-xs uppercase tracking-wide text-ink-500">
-            <tr>
-              <th className="px-4 py-2">Membre</th>
-              <th className="px-4 py-2">Montant</th>
-              <th className="px-4 py-2">Canal</th>
-              <th className="px-4 py-2">Statut</th>
-              <th className="px-4 py-2">Date</th>
-              <th className="px-4 py-2 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line-100">
-            {loading ? (
-              <tr>
-                <td colSpan={6} className="p-8 text-center text-ink-500">
-                  Chargement…
-                </td>
-              </tr>
-            ) : items.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="p-8 text-center text-ink-500">
-                  Aucune demande pour ce filtre.
-                </td>
-              </tr>
-            ) : (
-              items.map((r) => (
-                <tr key={r.id} className="text-ink-700">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{r.member_nom}</div>
-                    <div className="text-xs text-ink-500">{r.numero_membre}</div>
-                    {r.motif ? (
-                      <div className="mt-1 text-xs italic text-ink-500">
-                        « {r.motif} »
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 font-semibold">
-                    {fmtMoney(r.montant)} FCFA
-                  </td>
-                  <td className="px-4 py-3">
-                    <ChannelBadge row={r} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge statut={r.statut} label={r.statut_display} />
-                    {r.motif_rejet ? (
-                      <div className="mt-1 max-w-xs text-xs italic text-red-600">
-                        {r.motif_rejet}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-ink-500">
-                    {fmt(r.date_demande)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Actions
-                      row={r}
-                      disabled={actingId === r.id}
-                      onApprove={() => onApprove(r)}
-                      onReject={() => setRejectTarget(r)}
-                      onMarkPaid={() => onMarkPaid(r)}
-                      onRetry={() => onRetryPayout(r)}
-                    />
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {loading ? (
+        <p className="text-ink-600">Chargement…</p>
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={items}
+          rowKey={(r) => r.id}
+          emptyLabel="Aucune demande pour ce filtre."
+          leftMeta={
+            <>
+              <span className="font-mono font-medium text-ink-900">{items.length}</span>
+              <span>demande{items.length > 1 ? "s" : ""}</span>
+            </>
+          }
+          exportFilename="retraits-epargne"
+          exportTitle="Demandes de retrait — Gathé Finance"
+          exportSubtitle={`Filtre : ${filter === "all" ? "tous" : filter}`}
+          actions={(r) => (
+            <Actions
+              row={r}
+              disabled={actingId === r.id}
+              onApprove={() => onApprove(r)}
+              onReject={() => setRejectTarget(r)}
+              onMarkPaid={() => onMarkPaid(r)}
+              onRetry={() => onRetryPayout(r)}
+            />
+          )}
+        />
+      )}
 
       <Modal
         open={!!rejectTarget}
@@ -374,10 +365,7 @@ function Actions({
           type="button"
           onClick={onApprove}
           disabled={disabled}
-          className={buttonClasses({
-            variant: "primary",
-            size: "sm",
-          })}
+          className={buttonClasses({ variant: "primary", size: "sm" })}
         >
           <CheckCircle2 className="h-4 w-4" />
           Approuver
@@ -386,10 +374,7 @@ function Actions({
           type="button"
           onClick={onReject}
           disabled={disabled}
-          className={buttonClasses({
-            variant: "secondary",
-            size: "sm",
-          })}
+          className={buttonClasses({ variant: "secondary", size: "sm" })}
         >
           <XCircle className="h-4 w-4" />
           Rejeter
@@ -403,10 +388,7 @@ function Actions({
         type="button"
         onClick={onMarkPaid}
         disabled={disabled}
-        className={buttonClasses({
-          variant: "primary",
-          size: "sm",
-        })}
+        className={buttonClasses({ variant: "primary", size: "sm" })}
       >
         <Banknote className="h-4 w-4" />
         Confirmer remise espèces
@@ -419,10 +401,7 @@ function Actions({
         type="button"
         onClick={onRetry}
         disabled={disabled}
-        className={buttonClasses({
-          variant: "secondary",
-          size: "sm",
-        })}
+        className={buttonClasses({ variant: "secondary", size: "sm" })}
       >
         <RefreshCw className="h-4 w-4" />
         Réessayer payout

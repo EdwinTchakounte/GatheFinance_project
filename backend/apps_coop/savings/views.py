@@ -282,12 +282,31 @@ def request_withdrawal_view(request):
     )
     from .services import request_withdrawal
 
+    from .models import ClassicSavingsAccount, WithdrawalRequest
+
     s = WithdrawalRequestCreateSerializer(data=request.data)
     s.is_valid(raise_exception=True)
-    try:
-        account = request.user.member.savings_account
-    except SavingsAccount.DoesNotExist:
-        return Response({"detail": "Compte d'épargne introuvable."}, status=status.HTTP_404_NOT_FOUND)
+    member = request.user.member
+    source = s.validated_data.get("source", WithdrawalRequest.Source.COLLECTE)
+
+    account = None
+    classic_account = None
+    if source == WithdrawalRequest.Source.CLASSIQUE_LIBRE:
+        try:
+            classic_account = member.classic_savings_account
+        except ClassicSavingsAccount.DoesNotExist:
+            return Response(
+                {"detail": "Compte épargne classique introuvable."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+    else:
+        try:
+            account = member.savings_account
+        except SavingsAccount.DoesNotExist:
+            return Response(
+                {"detail": "Compte de collecte introuvable."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
     try:
         wr = request_withdrawal(
             account,
@@ -296,6 +315,8 @@ def request_withdrawal_view(request):
             mode_paiement=s.validated_data.get("mode_paiement"),
             recipient_phone=s.validated_data.get("recipient_phone", ""),
             network=s.validated_data.get("network", ""),
+            source=source,
+            classic_account=classic_account,
         )
     except ValueError as exc:
         return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -312,14 +333,19 @@ def request_withdrawal_view(request):
 @api_view(["GET"])
 @permission_classes([IsMember])
 def my_withdrawals(request):
+    from django.db.models import Q
+
     from .models import WithdrawalRequest
     from .serializers import WithdrawalRequestReadSerializer
 
-    try:
-        account = request.user.member.savings_account
-    except SavingsAccount.DoesNotExist:
-        return Response({"results": []})
-    qs = WithdrawalRequest.objects.filter(account=account).order_by("-date_demande")
+    member = request.user.member
+    # Retraits collecte (account) ET classique (classic_account), tous produits.
+    qs = (
+        WithdrawalRequest.objects.filter(
+            Q(account__member=member) | Q(classic_account__member=member)
+        )
+        .order_by("-date_demande")
+    )
     return Response({"results": WithdrawalRequestReadSerializer(qs, many=True).data})
 
 
@@ -333,17 +359,18 @@ def admin_list_withdrawals(request):
     from .models import WithdrawalRequest
     from .serializers import WithdrawalRequestReadSerializer
 
-    qs = WithdrawalRequest.objects.select_related("account", "account__member").order_by(
-        "-date_demande"
-    )
+    qs = WithdrawalRequest.objects.select_related(
+        "account", "account__member", "classic_account", "classic_account__member"
+    ).order_by("-date_demande")
     statut = request.query_params.get("statut")
     if statut:
         qs = qs.filter(statut=statut)
     data = []
     for wr in qs[:200]:
+        member = wr.member
         row = WithdrawalRequestReadSerializer(wr).data
-        row["numero_membre"] = wr.account.member.numero_membre
-        row["member_nom"] = f"{wr.account.member.prenom} {wr.account.member.nom}".strip()
+        row["numero_membre"] = member.numero_membre
+        row["member_nom"] = f"{member.prenom} {member.nom}".strip()
         # Hint UI for action buttons
         row["can_mark_paid"] = (
             wr.mode_paiement == WithdrawalRequest.ModePaiement.PRESENTIEL

@@ -104,11 +104,13 @@ class SavingsDioDataSource implements SavingsRemoteDataSource {
     required WithdrawalChannel channel,
     String recipientPhone = '',
     MomoNetwork? network,
+    WithdrawalSource source = WithdrawalSource.collecte,
   }) async {
     try {
       final body = <String, dynamic>{
         'montant': amount,
         'motif': motif,
+        'source': _sourceToApi(source),
         'mode_paiement': _channelToApi(channel),
       };
       if (channel == WithdrawalChannel.momo) {
@@ -144,6 +146,11 @@ class SavingsDioDataSource implements SavingsRemoteDataSource {
 String _channelToApi(WithdrawalChannel c) => switch (c) {
       WithdrawalChannel.momo => 'momo',
       WithdrawalChannel.presentiel => 'presentiel',
+    };
+
+String _sourceToApi(WithdrawalSource s) => switch (s) {
+      WithdrawalSource.collecte => 'collecte',
+      WithdrawalSource.classiqueLibre => 'classique_libre',
     };
 
 String _networkToApi(MomoNetwork n) => switch (n) {

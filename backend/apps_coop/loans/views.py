@@ -821,6 +821,51 @@ def admin_list_loans(request):
 
 @extend_schema(
     tags=["loans"],
+    summary="🔒 Admin — liste des demandes de reconduction",
+    description=(
+        "Liste les `LoanRenewal` pour l'espace admin (filtre `?statut=`). "
+        "Défaut : toutes. Sert la page admin qui décide les reconductions "
+        "demandées par les membres (mobile + portail)."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_list_loan_renewals(request):
+    from .models import LoanRenewal
+
+    qs = (
+        LoanRenewal.objects.select_related("loan", "loan__member", "loan__member__user")
+        .order_by("-date_demande")
+    )
+    statut = request.query_params.get("statut")
+    if statut:
+        qs = qs.filter(statut=statut)
+
+    results = []
+    for r in qs[:200]:
+        loan = r.loan
+        member = loan.member
+        results.append({
+            "id": r.id,
+            "statut": r.statut,
+            "statut_display": r.get_statut_display(),
+            "loan_id": loan.id,
+            "numero_dossier": loan.numero_dossier,
+            "numero_membre": member.numero_membre,
+            "member_nom": f"{member.prenom} {member.nom}".strip(),
+            "montant_credit": str(loan.montant),
+            "solde_restant": str(loan.solde_restant),
+            "duree_actuelle_mois": loan.duree_mois,
+            "nouvelle_duree_mois": r.nouvelle_duree_mois,
+            "interets_au_comptant": r.interets_au_comptant,
+            "date_demande": r.date_demande.isoformat() if r.date_demande else None,
+            "date_decision": r.date_decision.isoformat() if r.date_decision else None,
+        })
+    return Response({"results": results})
+
+
+@extend_schema(
+    tags=["loans"],
     summary="🔒 Comité — décide d'une demande de reconduction",
     description=(
         "Permission : `IsComite` (groupe `comite`) ou superuser. Deux issues possibles :\n\n"

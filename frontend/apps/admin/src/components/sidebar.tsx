@@ -52,6 +52,7 @@ const NAV: NavItem[] = [
   { href: "/membership-requests", label: "Adhésions", icon: UserPlus, queueKey: "adhesions_en_attente" },
   { href: "/loan-requests", label: "Demandes de crédit", icon: HandCoins, queueKey: "credits_en_instruction" },
   { href: "/loans", label: "Crédits", icon: Wallet },
+  { href: "/loan-renewals", label: "Reconductions", icon: RefreshCw },
   // LA-1 . Pool de tranches preteur (epargne placement) . admin pilote
   // manuellement le funding d'un credit.
   { href: "/lender-tranches", label: "Pool prêteurs", icon: Coins },

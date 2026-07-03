@@ -1,6 +1,14 @@
 """Production settings (VPS Contabo)."""
 from .base import *  # noqa: F401,F403
-from .base import ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, MIDDLEWARE, REST_FRAMEWORK, STORAGES, env
+from .base import (
+    ALLOWED_HOSTS,
+    CORS_ALLOWED_ORIGINS,
+    CSRF_TRUSTED_ORIGINS,
+    MIDDLEWARE,
+    REST_FRAMEWORK,
+    STORAGES,
+    env,
+)
 
 DEBUG = False
 SECRET_KEY = env("DJANGO_SECRET_KEY")  # required in production
@@ -31,6 +39,14 @@ for _host in _PUBLIC_HOSTS:
     _origin = f"https://{_host}"
     if _origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(_origin)
+    # Même dérivation pour CORS : le portail/admin (sous-domaines distincts de
+    # l'API) font des fetch credentialed cross-origin. Si l'origine n'est pas
+    # dans CORS_ALLOWED_ORIGINS, le navigateur JETTE le `Set-Cookie` de la
+    # réponse /auth/csrf/ → pas de cookie csrftoken → tout POST échoue en 403
+    # ("Session de sécurité expirée"). On l'auto-dérive pour ne jamais dépendre
+    # d'un oubli dans `.env.prod`.
+    if _origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(_origin)
 
 # --- Email : envoi RÉEL via l'API HTTP Brevo (django-anymail) en production --
 # base.py défaut = console (dev). En prod on bascule sur le backend Anymail-Brevo

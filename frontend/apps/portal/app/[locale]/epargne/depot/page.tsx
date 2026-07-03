@@ -15,13 +15,24 @@ import {
 
 type FormState = {
   montant: string;
-  network: PaymentInitInput["network"];
   phone: string;
 };
 
 // Montant par défaut = 1 000 FCFA — cotisation journalière suggérée (Article 4
 // du Règlement amendé). Le membre reste libre de modifier.
-const INITIAL: FormState = { montant: "1000", network: "MTN", phone: "" };
+const INITIAL: FormState = { montant: "1000", phone: "" };
+
+// Le sélecteur d'opérateur a été retiré (il n'aidait pas le membre) : on déduit
+// le réseau Mobile Money du préfixe du numéro camerounais. Tara route le STK
+// push vers le bon opérateur à partir de cette valeur.
+//   Orange CM : 69X, 655–659   ·   MTN CM : le reste (67, 650–654, 680–684…)
+function inferNetwork(phone: string): PaymentInitInput["network"] {
+  const digits = phone.replace(/\D/g, "");
+  // Normalise sur les 9 derniers chiffres (retire un éventuel indicatif 237).
+  const local = digits.slice(-9);
+  if (/^69/.test(local) || /^65[5-9]/.test(local)) return "ORANGE";
+  return "MTN";
+}
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -193,7 +204,8 @@ function DepositForm() {
         // plus de verrouillage : le membre peut verser davantage.
         montant: amount,
         phone: form.phone,
-        network: form.network,
+        // Réseau déduit du préfixe — plus de sélecteur manuel côté membre.
+        network: inferNetwork(form.phone),
         loan_id: isLoanRepayment ? loanId : null,
         is_placement: isEpargneClassique && placementMode === "placement",
         nb_jours_couverts: isMultiJour ? nbJours : undefined,
@@ -464,39 +476,24 @@ function DepositForm() {
             />
             <p className="mt-1 text-xs text-ink-600">{amountHelp}</p>
 
-            <div className="mt-5 grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-ink-900" htmlFor="network">
-                  Réseau Mobile Money
-                </label>
-                <select
-                  id="network"
-                  name="network"
-                  required
-                  value={form.network}
-                  onChange={(e) => setForm({ ...form, network: e.target.value as FormState["network"] })}
-                  className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
-                >
-                  <option value="MTN">MTN Mobile Money</option>
-                  <option value="ORANGE">Orange Money</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ink-900" htmlFor="phone">
-                  Numéro de téléphone
-                </label>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  required
-                  inputMode="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="6XX XX XX XX"
-                  className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
-                />
-              </div>
+            <div className="mt-5">
+              <label className="block text-sm font-medium text-ink-900" htmlFor="phone">
+                Numéro Mobile Money
+              </label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                required
+                inputMode="tel"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="6XX XX XX XX"
+                className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+              />
+              <p className="mt-1 text-xs text-ink-600">
+                MTN ou Orange — l&apos;opérateur est détecté automatiquement.
+              </p>
             </div>
 
             {error ? (

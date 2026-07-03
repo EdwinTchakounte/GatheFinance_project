@@ -13,6 +13,7 @@ class RequestWithdrawalParams {
     required this.channel,
     this.recipientPhone = '',
     this.network,
+    this.source = WithdrawalSource.collecte,
   });
 
   final num amount;
@@ -20,6 +21,7 @@ class RequestWithdrawalParams {
   final WithdrawalChannel channel;
   final String recipientPhone;
   final MomoNetwork? network;
+  final WithdrawalSource source;
 }
 
 class RequestWithdrawal
@@ -55,6 +57,7 @@ class RequestWithdrawal
       channel: params.channel,
       recipientPhone: params.recipientPhone.trim(),
       network: params.network,
+      source: params.source,
     );
   }
 }

@@ -114,16 +114,15 @@ async function request<T>(
 
   let response = await send();
 
-  // C1 . Si 403 CSRF, on re-prime puis on retry UNE fois. Couvre l'expiration
-  // de token entre primeCsrf() initial et le POST utilisateur.
+  // C1 . Sur TOUT 403 d'une requête mutante, on re-prime le CSRF puis on retry
+  // UNE fois. Élargi volontairement au-delà de la détection `_isCsrfFailure` :
+  // selon la couche (DRF vs middleware Django) le corps du 403 varie, et rater
+  // la détection ferait échouer le retry alors qu'un simple re-prime suffisait.
+  // Un vrai 403 de permission re-tombera en 403 au 2e essai (comportement
+  // inchangé pour l'utilisateur), donc le retry est sûr.
   if (!response.ok && response.status === 403 && isMutating) {
-    const firstError = await readError(response);
-    if (_isCsrfFailure(firstError)) {
-      await _primeCsrfInternal();
-      response = await send();
-    } else {
-      throw firstError;
-    }
+    await _primeCsrfInternal();
+    response = await send();
   }
 
   if (!response.ok) {
@@ -179,6 +178,10 @@ export type SavingsSnapshot = {
 export type ClassicSavingsSnapshot = {
   id: number;
   solde: string;
+  // Part librement retirable (= solde − placements encore actifs) et montant
+  // bloqué en placement (garantit le funding crédit). Sert au retrait classique.
+  solde_libre: string;
+  solde_placement_actif: string;
   date_ouverture: string;
   config: {
     taux_interet_annuel?: string;
@@ -373,6 +376,9 @@ export type PaymentInitResponse = {
 // Refonte 2026 — Retrait avec choix MOMO/présentiel
 export type WithdrawalModePaiement = "momo" | "presentiel";
 export type WithdrawalNetwork = "MTN" | "ORANGE" | "WAVE" | "AIRTEL";
+// Produit source du retrait : collecte journalière ou part LIBRE de l'épargne
+// classique (le placement reste bloqué car il garantit le funding crédit).
+export type WithdrawalSource = "collecte" | "classique_libre";
 
 // Notifications in-app — alimentées par les hooks métier + les annonces broadcast.
 export type PortalNotification = {
@@ -388,6 +394,8 @@ export type WithdrawalRead = {
   id: number;
   montant: string;
   motif: string;
+  source: WithdrawalSource;
+  source_display: string;
   statut:
     | "en_attente"
     | "approuvee"
@@ -506,6 +514,7 @@ export const portalApi = {
     create: (payload: {
       montant: number;
       motif?: string;
+      source?: WithdrawalSource;
       mode_paiement: WithdrawalModePaiement;
       recipient_phone?: string;
       network?: WithdrawalNetwork;

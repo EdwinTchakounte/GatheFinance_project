@@ -161,6 +161,49 @@ class TestApproveLoanRenewal:
             request_loan_renewal(nouveau)
 
 
+class TestAdminRenewalEndpoints:
+    """Parité mobile↔admin : le membre demande la reconduction (mobile/portail),
+    l'admin la voit dans la file et la décide via l'API admin."""
+
+    def test_admin_list_shows_pending_renewal(self, client, active_member, admin_user):
+        renewal = _seed_renewal(active_member)
+        client.force_login(admin_user)
+        r = client.get("/api/v1/loans/admin/renewals/?statut=demandee")
+        assert r.status_code == 200, r.content
+        rows = r.json()["results"]
+        row = next((x for x in rows if x["id"] == renewal.id), None)
+        assert row is not None
+        assert row["statut"] == "demandee"
+        assert row["numero_dossier"] == renewal.loan.numero_dossier
+        assert row["member_nom"]
+        assert row["solde_restant"] == "66000.00"
+
+    def test_admin_list_requires_staff(self, client, active_member):
+        _seed_renewal(active_member)
+        client.force_login(active_member.user)
+        r = client.get("/api/v1/loans/admin/renewals/")
+        assert r.status_code in (401, 403)
+
+    def test_admin_decide_approve_via_api(self, client, active_member, admin_user):
+        renewal = _seed_renewal(active_member)
+        client.force_login(admin_user)
+        r = client.post(
+            f"/api/v1/loans/renewals/{renewal.id}/decide/",
+            data={
+                "decision": "approuvee",
+                "taux_annuel": "0.10",
+                "date_premiere_echeance": (date.today() + timedelta(days=30)).isoformat(),
+            },
+            content_type="application/json",
+        )
+        assert r.status_code == 200, r.content
+        body = r.json()
+        assert body["decision"] == "approuvee"
+        assert body["nouveau_dossier"]
+        renewal.refresh_from_db()
+        assert renewal.statut == LoanRenewal.Statut.APPROUVEE
+
+
 class TestRejectLoanRenewal:
     def test_marks_renewal_rejected(self, active_member, admin_user):
         renewal = _seed_renewal(active_member)

@@ -15,9 +15,17 @@ import {
 
 
 type FormState = {
-  network: PaymentInitInput["network"];
   phone: string;
 };
+
+// Sélecteur d'opérateur retiré : on déduit le réseau du préfixe du numéro
+// camerounais (Orange : 69X / 655–659 · MTN : le reste). Tara route le STK
+// push vers le bon opérateur à partir de cette valeur.
+function inferNetwork(phone: string): PaymentInitInput["network"] {
+  const local = phone.replace(/\D/g, "").slice(-9);
+  if (/^69/.test(local) || /^65[5-9]/.test(local)) return "ORANGE";
+  return "MTN";
+}
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -69,7 +77,7 @@ type FeeRow = {
 
 export default function PortalActivationPage() {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>({ network: "MTN", phone: "" });
+  const [form, setForm] = useState<FormState>({ phone: "" });
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [feesByCode, setFeesByCode] = useState<Record<string, { montant: string }>>({});
   const [memberPayments, setMemberPayments] = useState<PaymentRead[]>([]);
@@ -196,7 +204,8 @@ export default function PortalActivationPage() {
         type: row.paymentType,
         montant: row.montant,
         phone: form.phone,
-        network: form.network,
+        // Réseau déduit du préfixe — plus de sélecteur manuel côté membre.
+        network: inferNetwork(form.phone),
       });
       setActivePayment(result.payment);
       // Marque le payment en attente côté local pour rendu immédiat
@@ -300,39 +309,23 @@ export default function PortalActivationPage() {
             <p className="font-display text-[0.72rem] font-medium uppercase tracking-[0.14em] text-ink-600">
               Tes coordonnées Mobile Money
             </p>
-            <div className="mt-3 grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-ink-900" htmlFor="network">
-                  Réseau
-                </label>
-                <select
-                  id="network"
-                  name="network"
-                  value={form.network}
-                  onChange={(e) =>
-                    setForm({ ...form, network: e.target.value as FormState["network"] })
-                  }
-                  className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
-                >
-                  <option value="MTN">MTN Mobile Money</option>
-                  <option value="ORANGE">Orange Money</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ink-900" htmlFor="phone">
-                  Numéro
-                </label>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  inputMode="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="6XX XX XX XX"
-                  className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
-                />
-              </div>
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-ink-900" htmlFor="phone">
+                Numéro Mobile Money
+              </label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                inputMode="tel"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="6XX XX XX XX"
+                className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+              />
+              <p className="mt-1 text-xs text-ink-600">
+                MTN ou Orange — l&apos;opérateur est détecté automatiquement.
+              </p>
             </div>
           </div>
         )}
