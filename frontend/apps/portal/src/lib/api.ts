@@ -390,6 +390,16 @@ export type PortalNotification = {
   created_at: string;
 };
 
+// Annonce broadcast (lecture membre) — corps complet + pièce jointe image.
+export type PortalAnnouncement = {
+  id: number;
+  titre: string;
+  corps: string;
+  lien: string | null;
+  image_url: string | null;
+  published_at: string | null;
+};
+
 export type WithdrawalRead = {
   id: number;
   montant: string;
@@ -712,6 +722,10 @@ export const portalApi = {
       request<{ marked: number }>("/notifications/read-all/", {
         method: "POST",
       }),
+    announcements: () =>
+      request<{ results: PortalAnnouncement[] }>(
+        "/notifications/announcements/",
+      ),
   },
 
   // Carnet : liste des commandes du membre (statut : payee / en_impression / delivree).

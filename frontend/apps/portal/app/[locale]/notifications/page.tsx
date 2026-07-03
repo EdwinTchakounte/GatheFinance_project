@@ -169,6 +169,13 @@ export default function PortalNotificationsPage() {
             <p className="text-sm text-ink-500">
               Activité de ton compte + annonces de la coopérative.
             </p>
+            <button
+              type="button"
+              onClick={() => router.push("/annonces")}
+              className="inline-flex items-center gap-1 text-sm font-medium text-terra-700 hover:underline"
+            >
+              Voir toutes les annonces →
+            </button>
           </div>
           {unreadCount > 0 ? (
             <button
