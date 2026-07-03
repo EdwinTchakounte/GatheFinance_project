@@ -10,6 +10,7 @@ import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/app_notification.dart';
 import '../state/notifications_notifier.dart';
+import 'announcements_page.dart';
 
 /// Page Notifications . style **Paysika**.
 ///
@@ -65,6 +66,15 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Annonces',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const AnnouncementsPage(),
+              ),
+            ),
+            icon: const Icon(Icons.campaign_rounded, color: PaColors.teal),
+          ),
           if (unread > 0)
             TextButton(
               onPressed: () =>

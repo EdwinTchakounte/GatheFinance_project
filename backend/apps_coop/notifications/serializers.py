@@ -13,6 +13,28 @@ class NotificationReadSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class AnnouncementMemberSerializer(serializers.ModelSerializer):
+    """Vue membre d'une annonce — titre, corps complet + pièce jointe image.
+
+    N'expose PAS les champs d'administration (audience ciblée, destinataires,
+    auteur) : le membre n'a besoin que du contenu à lire.
+    """
+
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        url = obj.image.url
+        return request.build_absolute_uri(url) if request else url
+
+    class Meta:
+        model = Announcement
+        fields = ("id", "titre", "corps", "lien", "image_url", "published_at")
+        read_only_fields = fields
+
+
 class AnnouncementReadSerializer(serializers.ModelSerializer):
     """Vue admin d'une annonce — listing + détail."""
 

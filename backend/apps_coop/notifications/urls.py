@@ -11,6 +11,7 @@ app_name = "coop_notifications"
 
 urlpatterns = [
     path("", views.list_notifications, name="list"),
+    path("announcements/", views.list_my_announcements, name="my-announcements"),
     path("read-all/", views.mark_all_read, name="read-all"),
     path("<int:pk>/read/", views.mark_read, name="read"),
     # Admin — gestion des annonces broadcast.

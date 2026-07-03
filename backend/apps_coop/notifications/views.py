@@ -8,14 +8,16 @@ Toutes réservées au membre connecté (chaque user ne voit que ses notifs).
 """
 from __future__ import annotations
 
+from django.db.models import Q
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Notification
-from .serializers import NotificationReadSerializer
+from .models import Announcement, Notification
+from .serializers import AnnouncementMemberSerializer, NotificationReadSerializer
 
 
 @extend_schema(
@@ -42,6 +44,47 @@ def list_notifications(request):
             "unread_count": unread_count,
         }
     )
+
+
+@extend_schema(
+    tags=["notifications"],
+    summary="Liste des annonces destinées au membre connecté",
+    description=(
+        "Renvoie les annonces broadcast ciblant le membre (audience + non "
+        "expirées), avec le corps complet et l'URL de la pièce jointe image. "
+        "Sert à l'onglet « Annonces » mobile/portail (lecture détaillée)."
+    ),
+    responses=AnnouncementMemberSerializer(many=True),
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def list_my_announcements(request):
+    member = getattr(request.user, "member", None)
+    now = timezone.now()
+
+    # Audience : l'annonce touche le membre si elle est « pour tous », ou pour
+    # son statut (actif/suspendu), ou s'il figure dans la sélection nominative.
+    audience_q = Q(audience=Announcement.Audience.ALL)
+    if member is not None:
+        statut = getattr(member, "statut", None)
+        if statut == member.Statut.ACTIF:
+            audience_q |= Q(audience=Announcement.Audience.ACTIFS)
+        elif statut == member.Statut.SUSPENDU:
+            audience_q |= Q(audience=Announcement.Audience.SUSPENDUS)
+        audience_q |= Q(
+            audience=Announcement.Audience.SELECTION,
+            audience_member_ids__contains=member.id,
+        )
+
+    qs = (
+        Announcement.objects.filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+        .filter(audience_q)
+        .order_by("-published_at", "-created_at")[:100]
+    )
+    data = AnnouncementMemberSerializer(
+        qs, many=True, context={"request": request}
+    ).data
+    return Response({"results": data})
 
 
 @extend_schema(
