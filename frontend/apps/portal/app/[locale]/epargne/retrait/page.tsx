@@ -169,6 +169,22 @@ export default function WithdrawalRequestPage() {
               retirables tant que le crédit financé n&apos;est pas clôturé.
             </p>
           ) : null}
+          {/* Réforme garantie 2026 : part gelée en garantie d'un crédit
+              (mandat avaliste / auto-garantie) et solde réellement retirable. */}
+          {source === "classique_libre" &&
+          classic &&
+          Number(classic.montant_gele_credit) > 0 ? (
+            <p className="mt-1 text-[11px] text-ink-500">
+              Gelé (garantie crédit) :{" "}
+              <strong>
+                {Number(classic.montant_gele_credit).toLocaleString("fr-FR")} FCFA
+              </strong>{" "}
+              · Disponible au retrait :{" "}
+              <strong>
+                {Number(classic.solde_disponible_retrait).toLocaleString("fr-FR")} FCFA
+              </strong>
+            </p>
+          ) : null}
 
           <form onSubmit={onSubmit} className="mt-5 space-y-4">
             {/* Source du retrait — visible seulement si le membre a une épargne

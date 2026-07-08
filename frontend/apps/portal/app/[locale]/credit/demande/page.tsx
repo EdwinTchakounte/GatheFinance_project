@@ -15,7 +15,7 @@ import {
 } from "@/components/form-renderer";
 
 
-type Voie = "senior_brc" | "avaliste" | "campaign";
+type Voie = "senior_brc" | "avaliste" | "campaign" | "garantie_materielle";
 
 type Canal = "tara_momo" | "tara_om" | "agence_especes";
 
@@ -31,6 +31,8 @@ type AvalisteCandidate = {
 
 type FormState = {
   voie: Voie;
+  // L5 — Numéro de CNI du demandeur (capture identité, obligatoire).
+  cni_demandeur: string;
   montant_demande: string;
   // CH-T1b : 3 modalites (journalier/hebdo/mensuel). Defaut mensuel
   // (Article 8 du Reglement). Le mobile fait pareil.
@@ -40,6 +42,9 @@ type FormState = {
   avaliste_nom: string;
   profil_cible: string;
   campaign_id: string;
+  // Réforme crédit L4 — voie garantie matérielle : le membre décrit le bien
+  // mis en garantie (le titre de propriété est uploadé après création).
+  garantie_description: string;
   // Voie SENIOR_BRC — auto-déclaration BRC (parité mobile). Le backend
   // (evaluate_routes) débloque la voie via cga_brc_member/cfp_brc_apprenant.
   cga_brc_member: boolean;
@@ -83,10 +88,12 @@ export default function PortalLoanRequestPage() {
   const [eligibility, setEligibility] = useState<{
     eligible: boolean;
     plafond_max: string;
+    plafond_sans_avaliste?: string;
     motifs_ineligibilite: string[];
   } | null>(null);
   const [form, setForm] = useState<FormState>({
     voie: "senior_brc",
+    cni_demandeur: "",
     montant_demande: "",
     modalite: "mensuel",
     motif: "",
@@ -94,6 +101,7 @@ export default function PortalLoanRequestPage() {
     avaliste_nom: "",
     profil_cible: "",
     campaign_id: "",
+    garantie_description: "",
     cga_brc_member: false,
     cfp_brc_apprenant: false,
     // CH-9 — Canal de réception par défaut : MTN MoMo (le plus courant
@@ -105,6 +113,9 @@ export default function PortalLoanRequestPage() {
   // Preuves BRC (optionnelles) — uploadées après création, parité mobile.
   const [cgaProof, setCgaProof] = useState<File | null>(null);
   const [cfpProof, setCfpProof] = useState<File | null>(null);
+  // Réforme crédit L4 — titre de propriété (voie garantie matérielle),
+  // uploadé après création via l'endpoint attachments (clé titre_propriete).
+  const [titreProprieteFile, setTitreProprieteFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorList, setErrorList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -245,6 +256,11 @@ export default function PortalLoanRequestPage() {
       setAvalisteSuggestions([]);
       setForm((f) => ({ ...f, avaliste_numero: "", avaliste_nom: "" }));
     }
+    // Reset des champs garantie matérielle quand on quitte cette voie.
+    if (form.voie !== "garantie_materielle") {
+      setTitreProprieteFile(null);
+      setForm((f) => ({ ...f, garantie_description: "" }));
+    }
   }, [form.voie]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -271,6 +287,12 @@ export default function PortalLoanRequestPage() {
       setExtraErrors({});
     }
 
+    // L5 — Numéro de CNI du demandeur obligatoire.
+    if (form.cni_demandeur.trim().length === 0) {
+      setError("Renseigne ton numéro de CNI.");
+      return;
+    }
+
     // Validation montant + duree derivee.
     const montantNum = Number(form.montant_demande);
     if (!Number.isFinite(montantNum) || montantNum < 5000) {
@@ -278,6 +300,25 @@ export default function PortalLoanRequestPage() {
       return;
     }
     const dureeMois = durationMonthsFor(montantNum);
+
+    // Task 2 — Bornes campagne (UX ; le serveur reste la source de vérité).
+    if (form.voie === "campaign" && form.campaign_id) {
+      const camp = campaigns.find((c) => String(c.id) === form.campaign_id);
+      if (camp) {
+        if (montantNum < Number(camp.montant_min)) {
+          setError(
+            `Le montant doit etre au moins ${Number(camp.montant_min).toLocaleString("fr-FR")} XAF pour cette campagne.`,
+          );
+          return;
+        }
+        if (montantNum > Number(camp.montant_max)) {
+          setError(
+            `Le montant ne peut pas depasser ${Number(camp.montant_max).toLocaleString("fr-FR")} XAF pour cette campagne.`,
+          );
+          return;
+        }
+      }
+    }
 
     // Motif aligne mobile : 10 chars minimum (au lieu de 20 cote portail
     // historique). 2000 max conserve.
@@ -293,6 +334,19 @@ export default function PortalLoanRequestPage() {
         "Selectionne un avaliste dans la liste (recherche par nom ou numero de membre).",
       );
       return;
+    }
+
+    // Réforme crédit L4 — voie garantie matérielle : description du bien
+    // (min 10 chars) + titre de propriété obligatoires.
+    if (form.voie === "garantie_materielle") {
+      if (form.garantie_description.trim().length < 10) {
+        setError("Décris le bien mis en garantie (au moins 10 caractères).");
+        return;
+      }
+      if (!titreProprieteFile) {
+        setError("Joins le titre de propriété du bien mis en garantie.");
+        return;
+      }
     }
 
     // CH-9 — Validation locale : téléphone requis pour les canaux Tara.
@@ -320,6 +374,8 @@ export default function PortalLoanRequestPage() {
         // Duree DERIVEE du montant (Article 7) ; le client ne la choisit pas.
         duree_mois: dureeMois,
         motif: form.motif.trim(),
+        // L5 — Numéro de CNI du demandeur.
+        cni_demandeur: form.cni_demandeur.trim(),
         // Modalite de paiement (3 valeurs : journalier / hebdomadaire / mensuel)
         // routee vers extra_payload via le compat layer backend.
         modalite_paiement: form.modalite,
@@ -346,6 +402,11 @@ export default function PortalLoanRequestPage() {
         if (form.profil_cible.trim()) {
           payload.profil_cible = form.profil_cible.trim();
         }
+      } else if (form.voie === "garantie_materielle") {
+        // Réforme crédit L4 — le backend route vers la voie garantie_materielle
+        // (statut en_attente) via ce flag + la description du bien.
+        payload.garantie_materielle = true;
+        payload.garantie_description = form.garantie_description.trim();
       }
 
       const result = await portalApi.loans.create(payload);
@@ -384,6 +445,24 @@ export default function PortalLoanRequestPage() {
         }
       }
 
+      // Réforme crédit L4 — titre de propriété (clé titre_propriete) uploadé
+      // après création via le même endpoint attachments que les autres preuves.
+      if (
+        form.voie === "garantie_materielle" &&
+        titreProprieteFile &&
+        result.loan_request?.id
+      ) {
+        try {
+          await portalApi.loans.uploadAttachment(
+            result.loan_request.id,
+            "titre_propriete",
+            titreProprieteFile,
+          );
+        } catch (uploadErr) {
+          console.warn("Upload du titre de propriété échoué.", uploadErr);
+        }
+      }
+
       if (result.route === "avaliste") {
         router.push(
           `/credit?msg=avaliste_pending&request=${result.loan_request.id}`,
@@ -393,6 +472,14 @@ export default function PortalLoanRequestPage() {
       if (result.route === "campaign") {
         router.push(
           `/credit?msg=campaign_pending&request=${result.loan_request.id}`,
+        );
+        return;
+      }
+      // Réforme crédit L4 — voie garantie matérielle : demande en attente de
+      // vérification du bien par la coopérative (pas de frais immédiats).
+      if (result.route === "garantie_materielle") {
+        router.push(
+          `/credit?msg=garantie_pending&request=${result.loan_request.id}`,
         );
         return;
       }
@@ -436,6 +523,29 @@ export default function PortalLoanRequestPage() {
 
   // Plafond — pertinent uniquement pour la voie SENIOR_BRC.
   const plafondSenior = eligibility ? Number(eligibility.plafond_max) : 0;
+  // Réforme garantie 2026 : montant empruntable SANS avaliste (= épargne
+  // classique disponible). INDICATIF pour toutes les voies — au-delà, le membre
+  // doit désigner un avaliste (le serveur reste seul juge). Fallback plafond_max.
+  const plafondSansAvaliste = eligibility
+    ? Number(eligibility.plafond_sans_avaliste ?? eligibility.plafond_max)
+    : 0;
+
+  // Task 2 — Bornes campagne validées côté client (UX ; le serveur fait foi).
+  // Erreur inline quand un montant est hors [montant_min ; montant_max] de la
+  // campagne sélectionnée.
+  const selectedCampaign =
+    form.voie === "campaign" && form.campaign_id
+      ? campaigns.find((c) => String(c.id) === form.campaign_id) ?? null
+      : null;
+  const montantNumLive = Number(form.montant_demande);
+  const campaignBoundsError =
+    selectedCampaign && Number.isFinite(montantNumLive) && montantNumLive > 0
+      ? montantNumLive < Number(selectedCampaign.montant_min)
+        ? `Le montant doit être au moins ${Number(selectedCampaign.montant_min).toLocaleString("fr-FR")} XAF pour cette campagne.`
+        : montantNumLive > Number(selectedCampaign.montant_max)
+          ? `Le montant ne peut pas dépasser ${Number(selectedCampaign.montant_max).toLocaleString("fr-FR")} XAF pour cette campagne.`
+          : null
+      : null;
   const universalBlock =
     eligibility?.motifs_ineligibilite?.find((m) =>
       /en cours|déjà|statut/i.test(m),
@@ -525,8 +635,8 @@ export default function PortalLoanRequestPage() {
             Demande de crédit
           </h1>
           <p className="mt-2 text-sm text-ink-600">
-            Trois voies sont possibles selon ton profil — sélectionne celle
-            qui s'applique.
+            Plusieurs voies sont possibles selon ton profil — sélectionne
+            celle qui s'applique.
           </p>
         </header>
 
@@ -562,6 +672,12 @@ export default function PortalLoanRequestPage() {
               onClick={() => set("voie", "campaign")}
               title="Campagne micro-crédit"
               hint="Pour les non-adhérents ou nouveaux membres ciblés (commerçants, agriculteurs…)."
+            />
+            <RadioCard
+              checked={form.voie === "garantie_materielle"}
+              onClick={() => set("voie", "garantie_materielle")}
+              title="Garantie matérielle (bien)"
+              hint="Tu mets un bien en garantie (véhicule, terrain, matériel…) avec son titre de propriété."
             />
           </fieldset>
 
@@ -631,9 +747,25 @@ export default function PortalLoanRequestPage() {
             className={inputCls}
             placeholder="Ex. 50000"
           />
-          {form.voie === "senior_brc" && (
+          {/* Réforme garantie 2026 : le montant est libre (min 5 000, pas de
+              plafond dur). L'épargne classique disponible n'est qu'un repère —
+              au-delà, on désigne un avaliste. La campagne impose ses bornes. */}
+          {selectedCampaign ? (
             <p className="mt-1 text-xs text-ink-600">
-              Min. 5 000 XAF · Max. {plafondSenior.toLocaleString("fr-FR")} XAF
+              Campagne « {selectedCampaign.nom} » : de{" "}
+              {Number(selectedCampaign.montant_min).toLocaleString("fr-FR")} à{" "}
+              {Number(selectedCampaign.montant_max).toLocaleString("fr-FR")} XAF.
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-ink-600">
+              Min. 5 000 XAF. Sans avaliste jusqu&apos;à{" "}
+              {plafondSansAvaliste.toLocaleString("fr-FR")} XAF (votre épargne).
+              Au-delà, désignez un avaliste.
+            </p>
+          )}
+          {campaignBoundsError && (
+            <p className="mt-1 text-xs font-medium text-terra-700">
+              {campaignBoundsError}
             </p>
           )}
 
@@ -688,6 +820,27 @@ export default function PortalLoanRequestPage() {
           />
           <p className="mt-1 text-[11px] text-ink-500">
             10 caracteres minimum.
+          </p>
+
+          {/* L5 — Numéro de CNI du demandeur (capture identité obligatoire). */}
+          <label
+            className="mt-5 block text-sm font-medium text-ink-900"
+            htmlFor="cni_demandeur"
+          >
+            Numéro de CNI
+          </label>
+          <input
+            id="cni_demandeur"
+            type="text"
+            required
+            value={form.cni_demandeur}
+            onChange={(e) => set("cni_demandeur", e.target.value)}
+            className={inputCls}
+            placeholder="Ex. 123456789"
+            autoComplete="off"
+          />
+          <p className="mt-1 text-[11px] text-ink-500">
+            Ton numéro de carte nationale d&apos;identité.
           </p>
 
           {/* Voie AVALISTE : typeahead backend (anti-fraude) - parite mobile.
@@ -866,6 +1019,64 @@ export default function PortalLoanRequestPage() {
             </div>
           )}
 
+          {/* Voie GARANTIE MATÉRIELLE — description du bien + titre de propriété.
+              Le bien est vérifié par la coopérative avant décaissement. */}
+          {form.voie === "garantie_materielle" && (
+            <div className="mt-6 space-y-3 rounded-md border border-line-200 bg-cream/40 p-4">
+              <h3 className="text-sm font-semibold text-ink-900">
+                Bien mis en garantie
+              </h3>
+              <p className="text-xs text-ink-600">
+                Décris le bien que tu mets en garantie et joins son titre de
+                propriété. La coopérative vérifie le bien avant d&apos;accorder
+                le crédit.
+              </p>
+
+              <div>
+                <label
+                  className="block text-xs font-medium text-ink-700"
+                  htmlFor="garantie_description"
+                >
+                  Description du bien
+                </label>
+                <textarea
+                  id="garantie_description"
+                  rows={3}
+                  minLength={10}
+                  maxLength={2000}
+                  value={form.garantie_description}
+                  onChange={(e) => set("garantie_description", e.target.value)}
+                  className={inputCls}
+                  placeholder="Ex. Véhicule Toyota Corolla 2015, immatriculation LT-234-AB, valeur estimée 3 000 000 XAF…"
+                />
+                <p className="mt-1 text-[11px] text-ink-500">
+                  10 caractères minimum.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  className="block text-xs font-medium text-ink-700"
+                  htmlFor="titre_propriete"
+                >
+                  Titre de propriété
+                </label>
+                <input
+                  id="titre_propriete"
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) =>
+                    setTitreProprieteFile(e.target.files?.[0] ?? null)
+                  }
+                  className="mt-1 block w-full text-xs text-ink-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald file:px-3 file:py-1.5 file:text-white"
+                />
+                <p className="mt-1 text-[11px] text-ink-500">
+                  Image ou PDF. Obligatoire pour cette voie.
+                </p>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div
               role="alert"
@@ -988,7 +1199,7 @@ export default function PortalLoanRequestPage() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || Boolean(campaignBoundsError)}
             className={
               buttonClasses({
                 variant: "success",
