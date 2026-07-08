@@ -410,6 +410,9 @@ LoanRequestEntity _parseRequest(Map<String, dynamic> json) {
       (json['route'] as String?) ??
           (json['eligibility_route'] as String?),
     ),
+    // L6 — Échéance indicative d'étude (soumission + ~1 mois). Nullable pour
+    // les demandes legacy sans date calculée côté backend.
+    dateLimiteEtude: _dateOrNull(json['date_limite_etude']),
   );
 }
 
@@ -521,6 +524,8 @@ LoanRoute? _loanRoute(String? raw) {
       return LoanRoute.avaliste;
     case 'campagne':
       return LoanRoute.campagne;
+    case 'garantie_materielle':
+      return LoanRoute.garantieMaterielle;
     default:
       return null;
   }
@@ -609,4 +614,13 @@ DateTime _date(dynamic value) {
     return DateTime.tryParse(value) ?? DateTime.now();
   }
   return DateTime.now();
+}
+
+/// Comme [_date] mais renvoie `null` au lieu d'un fallback `now()` quand la
+/// valeur est absente ou inexploitable (dates optionnelles type L6).
+DateTime? _dateOrNull(dynamic value) {
+  if (value is String && value.isNotEmpty) {
+    return DateTime.tryParse(value);
+  }
+  return null;
 }

@@ -29,9 +29,19 @@ class AvalisteNotifier extends AutoDisposeAsyncNotifier<AvalisteMandatList> {
     required int mandatId,
     required bool accept,
     String? motif,
+    String? cniAvaliste,
+    String? cniFichierPath,
+    String? cniFichierName,
   }) async {
     final updated = await _respond.call(
-      RespondAvalisteParams(mandatId: mandatId, accept: accept, motif: motif),
+      RespondAvalisteParams(
+        mandatId: mandatId,
+        accept: accept,
+        motif: motif,
+        cniAvaliste: cniAvaliste,
+        cniFichierPath: cniFichierPath,
+        cniFichierName: cniFichierName,
+      ),
     );
     // Recharge complet . la liste reflète l'éventuelle décrémentation
     // de `pendingCount` côté serveur.

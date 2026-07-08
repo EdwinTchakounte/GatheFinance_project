@@ -110,6 +110,16 @@ class MandatCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                // Refonte garantie 2026 : montant gelé sur l'épargne de
+                // l'avaliste au titre de cette caution (visible dès qu'il y a
+                // un gel côté backend, typiquement après acceptation).
+                if (mandat.montantGele > 0) ...[
+                  const SizedBox(height: 8),
+                  _Stat(
+                    label: 'Montant gelé',
+                    value: xaf_fmt.XAFFormatter.format(mandat.montantGele),
+                  ),
+                ],
                 if (lr.motif.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(

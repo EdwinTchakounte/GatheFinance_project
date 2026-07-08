@@ -25,12 +25,18 @@ class AvalisteRepositoryImpl implements AvalisteRepository {
     required int mandatId,
     required bool accept,
     String? motif,
+    String? cniAvaliste,
+    String? cniFichierPath,
+    String? cniFichierName,
   }) async {
     try {
       return await _remote.respond(
         mandatId: mandatId,
         accept: accept,
         motif: motif,
+        cniAvaliste: cniAvaliste,
+        cniFichierPath: cniFichierPath,
+        cniFichierName: cniFichierName,
       );
     } on NetworkException catch (e) {
       throw NetworkFailure(e.message);

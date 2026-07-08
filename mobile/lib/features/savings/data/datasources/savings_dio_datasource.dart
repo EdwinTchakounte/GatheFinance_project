@@ -210,6 +210,19 @@ SavingsAccount _parseAccount(Map<String, dynamic> json) {
   return SavingsAccount(
     id: (json['id'] as num?)?.toInt() ?? 0,
     solde: _num(json['solde']),
+    // Épargne classique (refonte garantie 2026) : ces clés sont absentes du
+    // snapshot collecte → on ne les matérialise que si présentes pour laisser
+    // [soldeRetirable] retomber sur le solde complet côté collecte.
+    soldeLibre: json.containsKey('solde_libre') ? _num(json['solde_libre']) : null,
+    soldePlacementActif: json.containsKey('solde_placement_actif')
+        ? _num(json['solde_placement_actif'])
+        : null,
+    soldeDisponibleRetrait: json.containsKey('solde_disponible_retrait')
+        ? _num(json['solde_disponible_retrait'])
+        : null,
+    montantGeleCredit: json.containsKey('montant_gele_credit')
+        ? _num(json['montant_gele_credit'])
+        : null,
     dateOuverture: _date(json['date_ouverture']),
     tauxInteret: _num(tauxRaw),
     transactions: txList

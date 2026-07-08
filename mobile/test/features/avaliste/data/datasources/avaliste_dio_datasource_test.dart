@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gathe_finance/core/network/api_client.dart';
@@ -97,7 +99,16 @@ void main() {
   });
 
   group('AvalisteDioDataSource — respond', () {
-    test('accept=true → body sans motif', () async {
+    test('accept=true → multipart avec CNI + fichier', () async {
+      // L5 identité . L'acceptation part en multipart : accept + numéro de CNI
+      // + le fichier justificatif. On fournit un vrai fichier temporaire pour
+      // que MultipartFile.fromFile puisse le lire.
+      final tmp = await File(
+        '${Directory.systemTemp.path}/cni_avaliste_test.png',
+      ).writeAsBytes(const [1, 2, 3, 4]);
+      addTearDown(() async {
+        if (tmp.existsSync()) await tmp.delete();
+      });
       final adapter = ScriptedAdapter()
         ..on('/auth/csrf/', method: 'GET', status: 200)
         ..on('/loans/me/avaliste-mandats/42/respond/',
@@ -106,13 +117,21 @@ void main() {
             body: _mandatPayload(id: 42, statut: 'accepted'),);
       final ds = AvalisteDioDataSource(_client(adapter));
 
-      final r = await ds.respond(mandatId: 42, accept: true);
+      final r = await ds.respond(
+        mandatId: 42,
+        accept: true,
+        cniAvaliste: 'CNI-12345',
+        cniFichierPath: tmp.path,
+        cniFichierName: 'cni.png',
+      );
       expect(r.statut, AvalisteStatut.accepted);
-      // Le body envoyé contient `accept:true` mais pas de motif.
+      // Le body multipart contient les champs accept + cni_avaliste + le fichier.
       final sent = adapter.recorded
           .firstWhere((req) => req.path.contains('respond'));
-      expect(sent.body, contains('"accept":true'));
-      expect(sent.body, isNot(contains('motif')));
+      expect(sent.body, contains('name="accept"'));
+      expect(sent.body, contains('name="cni_avaliste"'));
+      expect(sent.body, contains('CNI-12345'));
+      expect(sent.body, contains('name="cni_avaliste_fichier"'));
     });
 
     test('accept=false avec motif → motif transmis', () async {

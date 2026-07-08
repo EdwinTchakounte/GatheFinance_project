@@ -12,6 +12,8 @@ class SavingsAccount {
     required this.transactions,
     this.soldeLibre,
     this.soldePlacementActif,
+    this.soldeDisponibleRetrait,
+    this.montantGeleCredit,
     this.cachedAt,
   });
 
@@ -28,9 +30,17 @@ class SavingsAccount {
   final num? soldeLibre;
   final num? soldePlacementActif;
 
-  /// Plafond réellement retirable : la part libre si connue (épargne
-  /// classique), sinon le solde complet (collecte).
-  num get soldeRetirable => soldeLibre ?? solde;
+  /// Refonte garantie crédit 2026 (épargne classique) : part réellement
+  /// disponible au retrait (`solde_disponible_retrait`) une fois retiré le
+  /// montant gelé en garantie de crédit (`montant_gele_credit`). `null` pour
+  /// la collecte / snapshots plus anciens.
+  final num? soldeDisponibleRetrait;
+  final num? montantGeleCredit;
+
+  /// Plafond réellement retirable : la part explicitement disponible au retrait
+  /// si le backend la fournit (épargne classique, garantie crédit déduite),
+  /// sinon la part libre, sinon le solde complet (collecte).
+  num get soldeRetirable => soldeDisponibleRetrait ?? soldeLibre ?? solde;
 
   /// Quand on a chargé ce snapshot depuis le cache local (offline fallback).
   /// `null` quand la donnée vient d'un fetch réseau frais. L'UI affiche une
@@ -49,6 +59,8 @@ class SavingsAccount {
       solde: solde ?? this.solde,
       soldeLibre: soldeLibre,
       soldePlacementActif: soldePlacementActif,
+      soldeDisponibleRetrait: soldeDisponibleRetrait,
+      montantGeleCredit: montantGeleCredit,
       dateOuverture: dateOuverture,
       tauxInteret: tauxInteret,
       transactions: transactions ?? this.transactions,
@@ -62,6 +74,9 @@ class SavingsAccount {
         if (soldeLibre != null) 'solde_libre': soldeLibre,
         if (soldePlacementActif != null)
           'solde_placement_actif': soldePlacementActif,
+        if (soldeDisponibleRetrait != null)
+          'solde_disponible_retrait': soldeDisponibleRetrait,
+        if (montantGeleCredit != null) 'montant_gele_credit': montantGeleCredit,
         'date_ouverture': dateOuverture.toIso8601String(),
         'taux_interet': tauxInteret,
         'transactions': transactions.map((t) => t.toJson()).toList(),
@@ -74,6 +89,8 @@ class SavingsAccount {
       // Présents uniquement sur le snapshot épargne classique (null sinon).
       soldeLibre: json['solde_libre'] as num?,
       soldePlacementActif: json['solde_placement_actif'] as num?,
+      soldeDisponibleRetrait: json['solde_disponible_retrait'] as num?,
+      montantGeleCredit: json['montant_gele_credit'] as num?,
       dateOuverture:
           DateTime.tryParse((json['date_ouverture'] as String?) ?? '') ??
               DateTime.now(),

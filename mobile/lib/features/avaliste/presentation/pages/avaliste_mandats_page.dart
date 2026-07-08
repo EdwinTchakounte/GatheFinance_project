@@ -9,6 +9,7 @@ import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
 import '../../domain/entities/avaliste_mandat.dart';
 import '../state/avaliste_notifier.dart';
+import '../widgets/accept_cni_sheet.dart';
 import '../widgets/mandat_card.dart';
 import '../widgets/refuse_motif_sheet.dart';
 
@@ -26,33 +27,19 @@ class _AvalisteMandatsPageState extends ConsumerState<AvalisteMandatsPage> {
   final _busyIds = <int>{};
 
   Future<void> _accept(AvalisteMandat m) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Accepter ce mandat ?'),
-        content: Text(
-          'Tu deviens garant pour ${m.demandeur.fullName}. '
-          'Si elle/il ne rembourse pas, ton épargne sera engagée à hauteur '
-          'de la dette restante.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Accepter'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
+    // L5 identité . L'acceptation exige le numéro de CNI de l'avaliste + un
+    // justificatif (photo/scan). Le sheet bloque la validation tant que les
+    // deux ne sont pas fournis, puis renvoie les valeurs captées.
+    final result = await showAcceptCniSheet(context);
+    if (result == null || !mounted) return; // annulé
     setState(() => _busyIds.add(m.id));
     try {
       await ref.read(avalisteProvider.notifier).respond(
             mandatId: m.id,
             accept: true,
+            cniAvaliste: result.cniNumero,
+            cniFichierPath: result.filePath,
+            cniFichierName: result.fileName,
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

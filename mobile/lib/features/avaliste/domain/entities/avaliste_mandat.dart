@@ -71,6 +71,10 @@ class AvalisteMandat {
     required this.demandeur,
     required this.loanRequest,
     required this.couverture,
+    this.montantGele = 0,
+    this.cniDemandeur = '',
+    this.cniAvaliste = '',
+    this.cniAvalisteFichier = '',
   });
 
   final int id;
@@ -82,6 +86,18 @@ class AvalisteMandat {
   final AvalisteDemandeur demandeur;
   final AvalisteLoanRequest loanRequest;
   final AvalisteCouverture couverture;
+
+  /// Montant gelé sur l'épargne de l'avaliste au titre de cette garantie
+  /// (refonte garantie 2026). 0 tant que le mandat n'est pas accepté / que le
+  /// backend n'a rien gelé.
+  final num montantGele;
+
+  /// L5 identité . Numéros de CNI captés côté crédit (demandeur) et côté
+  /// acceptation (avaliste), + l'URL du justificatif uploadé par l'avaliste.
+  /// Vides tant que non renseignés côté backend.
+  final String cniDemandeur;
+  final String cniAvaliste;
+  final String cniAvalisteFichier;
 
   bool get isPending => statut == AvalisteStatut.pending;
   bool get isAccepted => statut == AvalisteStatut.accepted;

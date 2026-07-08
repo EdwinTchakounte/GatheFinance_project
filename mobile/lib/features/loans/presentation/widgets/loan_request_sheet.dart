@@ -50,9 +50,11 @@ const Set<String> _hardcodedLoanFields = {
   'recipient_phone',
 };
 
-/// Les 3 voies d'éligibilité présentées sur la page crédit. Permet d'ouvrir
-/// le sheet en présélectionnant la voie que le membre a touchée.
-enum LoanRequestVoie { brc, avaliste, campaign }
+/// Les voies d'éligibilité présentées sur la page crédit. Permet d'ouvrir
+/// le sheet en présélectionnant la voie que le membre a touchée. La voie
+/// « garantie matérielle » (L4) route vers EligibilityRoute.GARANTIE_MATERIELLE
+/// quand le membre n'a ni auto-couverture ni avaliste et propose un bien.
+enum LoanRequestVoie { brc, avaliste, campaign, garantieMaterielle }
 
 /// Modale demande de crédit . 2 étapes :
 /// 1. Eligibility check + formulaire (montant slider + durée slider + motif)
@@ -115,6 +117,9 @@ enum _Step { form, loading, success, payForm, payLoading, paySuccess }
 class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     with TickerProviderStateMixin {
   final _motifCtrl = TextEditingController();
+  // L5 identité . Numéro de CNI du demandeur, capté à la demande de crédit et
+  // envoyé au backend (champ `cni_demandeur` du LoanRequestSubmitSerializer).
+  final _cniCtrl = TextEditingController();
   // §7.2 BUSINESS_RULES_2026 . Désignation optionnelle d'un avaliste senior+BRC.
   // Si renseignés, le backend bascule la voie EligibilityRoute.AVALISTE.
   bool _withAvaliste = false;
@@ -126,6 +131,15 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   // [_withAvaliste] côté UI.
   bool _withCampaign = false;
   int? _selectedCampaignId;
+  // L4 (refonte crédit) . Voie garantie matérielle : quand le membre n'a ni
+  // auto-couverture (épargne) ni avaliste, il peut proposer un bien en garantie.
+  // Le backend route vers EligibilityRoute.GARANTIE_MATERIELLE si `garantie_
+  // materielle=true` et absence de couverture. Le titre de propriété est uploadé
+  // après création via le même mécanisme d'attachment (clé `titre_propriete`).
+  // Mutuellement exclusif avec [_withAvaliste] et [_withCampaign] côté UI.
+  bool _withGarantieMaterielle = false;
+  final _garantieDescCtrl = TextEditingController();
+  PickedFile? _titreProprieteFile;
   // CH-9 . Canal de réception choisi par le membre + numéro Mobile Money.
   final _phoneCtrl = TextEditingController();
   // CH-7 . Numéro Mobile Money pour régler les frais d'étude.
@@ -159,6 +173,11 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   bool _cfpBrcApprenant = false;
   PickedFile? _cfpBrcProof;
 
+  // Montant LIBRE (refonte crédit 2026) : plus de plafond côté UI. Le backend
+  // arbitre la garantie (épargne classique dispo sans avaliste, sinon avaliste
+  // requis) ; l'UI se contente d'un minimum réglementaire (kMinLoanAmount) et,
+  // en voie campagne, des bornes montant_min/montant_max de la campagne.
+  final _montantCtrl = TextEditingController(text: '200000');
   double _montant = 200000;
   // Ni la durée ni la cadence ne sont choisies par le membre : la PÉRIODE de
   // remboursement est entièrement dérivée du montant emprunté (paliers Art. 7),
@@ -168,14 +187,49 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
 
   /// Décomposition règlementaire live (taux 10 %, durée par palier, échéancier).
   /// Cadence figée à mensuel : n_échéances = durée_mois (fonction du montant).
-  LoanBreakdown get _bd =>
-      computeLoanBreakdown(_montant, modalite: PaymentModality.mensuel);
+  /// On borne au minimum réglementaire pour éviter une décomposition absurde
+  /// tant que le membre n'a pas saisi un montant valide (le récap est masqué
+  /// sous ce seuil, mais le getter reste appelé par le submit).
+  LoanBreakdown get _bd => computeLoanBreakdown(
+        _montant < kMinLoanAmount ? kMinLoanAmount.toDouble() : _montant,
+        modalite: PaymentModality.mensuel,
+      );
+
+  /// Campagne actuellement sélectionnée (voie campagne), retrouvée dans la
+  /// liste chargée par le picker. `null` hors voie campagne ou si la liste
+  /// n'est pas encore disponible.
+  CampaignFlyer? _findSelectedCampaign(List<CampaignFlyer>? campaigns) {
+    if (!_withCampaign || _selectedCampaignId == null || campaigns == null) {
+      return null;
+    }
+    for (final c in campaigns) {
+      if (c.id == _selectedCampaignId) return c;
+    }
+    return null;
+  }
+
+  /// Erreur de validation du montant (min réglementaire + bornes campagne).
+  /// `null` = montant valide. Utilisée à la fois pour l'affichage inline et
+  /// pour bloquer le submit.
+  String? _amountErrorFor(CampaignFlyer? camp) {
+    if (_montant < kMinLoanAmount) {
+      return 'Montant minimum : ${XAFFormatter.format(kMinLoanAmount)}.';
+    }
+    if (camp != null &&
+        (_montant < camp.montantMin || _montant > camp.montantMax)) {
+      return 'Cette campagne accepte de ${XAFFormatter.format(camp.montantMin)} '
+          'à ${XAFFormatter.format(camp.montantMax)}.';
+    }
+    return null;
+  }
 
   @override
   void initState() {
     super.initState();
-    final cap = widget.eligibility.plafondMax.toDouble();
-    _montant = (cap >= 200000 ? 200000 : cap).toDouble();
+    // Montant libre : on part sur une valeur par défaut lisible (200 000) sans
+    // la borner au plafond « sans avaliste » (qui n'est plus qu'indicatif).
+    _montant = 200000;
+    _montantCtrl.text = _montant.round().toString();
     _checkCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -193,6 +247,8 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
         _withAvaliste = true;
       case LoanRequestVoie.campaign:
         _withCampaign = true;
+      case LoanRequestVoie.garantieMaterielle:
+        _withGarantieMaterielle = true;
       case LoanRequestVoie.brc:
       case null:
         break;
@@ -202,11 +258,14 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   @override
   void dispose() {
     _motifCtrl.dispose();
+    _cniCtrl.dispose();
+    _montantCtrl.dispose();
     _phoneCtrl.dispose();
     _feePhoneCtrl.dispose();
     _feeAmountCtrl.dispose();
     _avalisteNumeroCtrl.dispose();
     _avalisteNomCtrl.dispose();
+    _garantieDescCtrl.dispose();
     _checkCtrl.dispose();
     super.dispose();
   }
@@ -215,6 +274,26 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     if (_motifCtrl.text.trim().length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppL10n.of(context).lreq_motive_short)),
+      );
+      return;
+    }
+    // L5 identité . Le numéro de CNI du demandeur est requis.
+    final cniDemandeur = _cniCtrl.text.trim();
+    if (cniDemandeur.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Numéro de CNI requis.')),
+      );
+      return;
+    }
+    // Montant libre : valide le minimum réglementaire + les bornes de la
+    // campagne sélectionnée le cas échéant (le backend re-vérifie côté serveur).
+    final camp = _findSelectedCampaign(
+      ref.read(_activeCampaignsForPickerProvider).valueOrNull,
+    );
+    final amountError = _amountErrorFor(camp);
+    if (amountError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(amountError)),
       );
       return;
     }
@@ -257,6 +336,27 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppL10n.of(context).lreq_campaign_required),
+        ),
+      );
+      return;
+    }
+    // L4 . Voie garantie matérielle : si activée, une description du bien
+    // (min 10 caractères) et le titre de propriété sont requis.
+    final garantieDesc = _garantieDescCtrl.text.trim();
+    if (_withGarantieMaterielle && garantieDesc.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Décris le bien proposé en garantie (au moins 10 caractères).',
+          ),
+        ),
+      );
+      return;
+    }
+    if (_withGarantieMaterielle && _titreProprieteFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Joins le titre de propriété du bien (ou décoche).'),
         ),
       );
       return;
@@ -311,6 +411,8 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
           scalarExtras[entry.key] = v;
         }
       }
+      // L5 identité . Numéro de CNI du demandeur (champ top-level du serializer).
+      scalarExtras['cni_demandeur'] = cniDemandeur;
       // §7.1 Voie BRC . envoie au backend les 2 flags + les fichiers.
       // Le backend recalcule is_brc_member = OR pour evaluer la Voie 1.
       scalarExtras['cga_brc_member'] = _cgaBrcMember ? 'oui' : 'non';
@@ -333,6 +435,17 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       // valide (le serveur vérifie que la campagne est active).
       if (_withCampaign && _selectedCampaignId != null) {
         scalarExtras['campaign_id'] = _selectedCampaignId;
+      }
+      // L4 . Voie garantie matérielle : le backend route sur
+      // EligibilityRoute.GARANTIE_MATERIELLE quand `garantie_materielle=true`
+      // et absence d'auto-couverture/avaliste. Le titre de propriété part en
+      // pièce jointe après création (même mécanisme que les preuves BRC).
+      if (_withGarantieMaterielle) {
+        scalarExtras['garantie_materielle'] = true;
+        scalarExtras['garantie_description'] = garantieDesc;
+        if (_titreProprieteFile != null) {
+          fileEntries.add(MapEntry('titre_propriete', _titreProprieteFile!));
+        }
       }
       final submission =
           await ref.read(loanRequestsProvider.notifier).submit(
@@ -474,8 +587,17 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
 
   Widget _formStep() {
     final l = AppL10n.of(context);
-    final cap = widget.eligibility.plafondMax.toDouble();
-    final maxSlider = cap > kMinLoanAmount ? cap : kMinLoanAmount.toDouble();
+    // Voie campagne : on surveille la liste des campagnes pour retrouver la
+    // sélection courante et valider ses bornes montant en direct.
+    final campaigns = _withCampaign
+        ? ref.watch(_activeCampaignsForPickerProvider).valueOrNull
+        : null;
+    final selectedCampaign = _findSelectedCampaign(campaigns);
+    final amountError = _amountErrorFor(selectedCampaign);
+    // Bloque le submit tant que le montant est invalide ou qu'une campagne est
+    // exigée mais non sélectionnée.
+    final submitBlocked =
+        amountError != null || (_withCampaign && _selectedCampaignId == null);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
       child: SingleChildScrollView(
@@ -497,37 +619,46 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
 
             const SizedBox(height: AppSpacing.xl),
 
-            // --- Montant ---
-            Row(
-              children: [
-                Text(l.lreq_amount, style: AppTypography.labelMedium),
-                const Spacer(),
-                Text(
-                  XAFFormatter.format(_montant),
-                  style: AppTypography.headingSmall.copyWith(
-                    color: PaColors.teal,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            SliderTheme(
-              data: SliderThemeData(
-                trackHeight: 6,
-                activeTrackColor: PaColors.teal,
-                inactiveTrackColor: PaColors.tealSurface,
-                thumbColor: PaColors.teal,
-                overlayColor: PaColors.teal.withValues(alpha: 0.12),
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 22),
+            // --- Montant (saisie libre) ---
+            //
+            // Refonte crédit 2026 : le montant n'est plus plafonné côté UI. Le
+            // membre saisit librement la somme voulue ; c'est le backend qui
+            // arbitre la garantie (épargne classique dispo, sinon avaliste).
+            Text(l.lreq_amount, style: AppTypography.labelMedium),
+            const SizedBox(height: AppSpacing.s),
+            TextFormField(
+              controller: _montantCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: AppTypography.headingSmall.copyWith(
+                color: PaColors.teal,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
-              child: Slider(
-                min: kMinLoanAmount.toDouble(),
-                max: maxSlider,
-                divisions: 40,
-                value: _montant.clamp(kMinLoanAmount.toDouble(), maxSlider),
-                onChanged: (v) => setState(() => _montant = (v / 1000).round() * 1000),
+              decoration: InputDecoration(
+                suffixText: 'XAF',
+                hintText: '0',
+                errorText: amountError,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+              onChanged: (v) {
+                final parsed = int.tryParse(v.trim()) ?? 0;
+                setState(() => _montant = parsed.toDouble());
+              },
+            ),
+            const SizedBox(height: 6),
+            // Plafond « sans avaliste » désormais purement indicatif.
+            Text(
+              'Sans avaliste jusqu\'à '
+              '${XAFFormatter.format(widget.eligibility.plafondMax)}. '
+              'Au-delà, désigne un avaliste.',
+              style: AppTypography.bodySmall.copyWith(
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.5),
+                fontSize: 12,
+                height: 1.4,
               ),
             ),
 
@@ -544,9 +675,13 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
             // (mode_retenue_interets = source). Chaque échéance contient
             // UNIQUEMENT du capital. On annonce aussi explicitement le
             // montant net que le membre recevra.
-            _RepaymentRecap(bd: _bd),
-
-            const SizedBox(height: AppSpacing.l),
+            //
+            // Masqué tant que le montant saisi est sous le minimum
+            // réglementaire (décomposition non pertinente).
+            if (_montant >= kMinLoanAmount) ...[
+              _RepaymentRecap(bd: _bd),
+              const SizedBox(height: AppSpacing.l),
+            ],
 
             // --- Motivation ---
             Text(l.lreq_motive, style: AppTypography.labelMedium),
@@ -560,6 +695,24 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 hintText: l.lreq_motive_hint,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.l),
+
+            // --- L5 identité . Numéro de CNI du demandeur ---
+            Text('Numéro de CNI', style: AppTypography.labelMedium),
+            const SizedBox(height: AppSpacing.s),
+            TextFormField(
+              controller: _cniCtrl,
+              keyboardType: TextInputType.text,
+              textCapitalization: TextCapitalization.characters,
+              style: AppTypography.bodyLarge,
+              decoration: const InputDecoration(
+                hintText: 'Ex : 123456789',
+                prefixIcon: Icon(Icons.badge_outlined, size: 20),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
             ),
 
@@ -673,10 +826,11 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
               value: _withAvaliste,
               onChanged: (v) => setState(() {
                 _withAvaliste = v;
-                // Mutuellement exclusif avec la voie campagne.
+                // Mutuellement exclusif avec les voies campagne et garantie.
                 if (v) {
                   _withCampaign = false;
                   _selectedCampaignId = null;
+                  _withGarantieMaterielle = false;
                 }
               }),
               title: Text(
@@ -749,7 +903,10 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
               value: _withCampaign,
               onChanged: (v) => setState(() {
                 _withCampaign = v;
-                if (v) _withAvaliste = false;
+                if (v) {
+                  _withAvaliste = false;
+                  _withGarantieMaterielle = false;
+                }
                 if (!v) _selectedCampaignId = null;
               }),
               title: Text(
@@ -815,6 +972,64 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                     ),
                   );
                 },
+              ),
+              const SizedBox(height: AppSpacing.m),
+            ],
+
+            // --- L4 . Voie garantie matérielle (bien proposé en garantie) ---
+            //
+            // Quand le membre n'a ni auto-couverture (épargne suffisante) ni
+            // avaliste, il peut proposer un bien matériel en garantie (ex.
+            // terrain titré). Le backend route alors sur
+            // EligibilityRoute.GARANTIE_MATERIELLE (garantie_materielle=true +
+            // absence de couverture). Le titre de propriété est uploadé après
+            // création via le même mécanisme d'attachment (clé titre_propriete).
+            // Mutuellement exclusif avec les toggles avaliste et campagne.
+            SwitchListTile.adaptive(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: _withGarantieMaterielle,
+              onChanged: (v) => setState(() {
+                _withGarantieMaterielle = v;
+                if (v) {
+                  _withAvaliste = false;
+                  _withCampaign = false;
+                  _selectedCampaignId = null;
+                }
+              }),
+              title: const Text(
+                'Garantie matérielle (bien)',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Propose un bien en garantie si tu n\'as ni épargne '
+                'suffisante ni avaliste.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+            if (_withGarantieMaterielle) ...[
+              const SizedBox(height: AppSpacing.s),
+              TextField(
+                controller: _garantieDescCtrl,
+                maxLines: 3,
+                maxLength: 300,
+                style: AppTypography.bodyLarge,
+                decoration: const InputDecoration(
+                  hintText:
+                      'Décris le bien proposé en garantie (ex. terrain titré à …)',
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.s),
+              _ProofPickerTile(
+                label: 'Titre de propriété',
+                picked: _titreProprieteFile,
+                onPick: () async {
+                  final f = await _pickFile();
+                  if (f != null) setState(() => _titreProprieteFile = f);
+                },
+                onClear: () => setState(() => _titreProprieteFile = null),
               ),
               const SizedBox(height: AppSpacing.m),
             ],
@@ -933,9 +1148,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
 
             PaButton(
               label: l.lreq_submit,
-              onPressed: (_withCampaign && _selectedCampaignId == null)
-                  ? null
-                  : _submit,
+              onPressed: submitBlocked ? null : _submit,
             ),
           ],
         ),

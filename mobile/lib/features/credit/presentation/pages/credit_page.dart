@@ -607,6 +607,27 @@ class _LoanCard extends StatelessWidget {
 // Card LoanRequest en cours (instruction / décision attendue)
 // ───────────────────────────────────────────────────────────────────────────
 
+/// L6 . Statuts « encore en cours d'étude » : la demande n'a pas encore reçu
+/// de décision définitive (ni approuvée, ni rejetée). C'est le seul cas où
+/// l'échéance indicative d'étude reste pertinente à afficher.
+bool _isUnderStudy(LoanRequestStatus statut) {
+  switch (statut) {
+    case LoanRequestStatus.enAttente:
+    case LoanRequestStatus.enInstruction:
+    case LoanRequestStatus.enAttenteAcceptationMembre:
+    case LoanRequestStatus.approuveeProvisoire:
+    case LoanRequestStatus.enAttenteAvaliste:
+    case LoanRequestStatus.enValidationCampagne:
+    case LoanRequestStatus.enAttenteFunding:
+      return true;
+    case LoanRequestStatus.approuvee:
+    case LoanRequestStatus.rejetee:
+    case LoanRequestStatus.rejeteeAvaliste:
+    case LoanRequestStatus.rejeteeCampagne:
+      return false;
+  }
+}
+
 class _RequestCard extends ConsumerWidget {
   const _RequestCard({required this.request});
   final LoanRequestEntity request;
@@ -670,6 +691,28 @@ class _RequestCard extends ConsumerWidget {
             l.credit_req_submitted_on(AppDateFormatter.long(request.dateSoumission)),
             style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
           ),
+          // L6 . Échéance indicative d'étude de la commission (soumission +
+          // ~1 mois). Affichée tant que la demande est encore en cours
+          // d'examen (statuts non terminaux) et si le backend a fourni la date.
+          if (request.dateLimiteEtude != null && _isUnderStudy(request.statut)) ...[
+            const SizedBox(height: 4),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.schedule_rounded,
+                    size: 14, color: PaColors.inkMuted,),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'Étude sous 1 semaine à 1 mois — échéance le '
+                    '${AppDateFormatter.long(request.dateLimiteEtude!)}',
+                    style: const TextStyle(
+                        color: PaColors.inkMuted, fontSize: 12,),
+                  ),
+                ),
+              ],
+            ),
+          ],
           // §6 . Badge de la voie empruntee (BRC / Avaliste / Campagne) si connu.
           if (request.route != null) ...[
             const SizedBox(height: 6),
@@ -1436,6 +1479,21 @@ class _LoanRoutesCarousel extends StatelessWidget {
                 onTap: ready ? () => onSelect!(LoanRequestVoie.campaign) : null,
               ),
             ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _LoanRouteCard(
+                icon: Icons.home_work_rounded,
+                iconColor: PaColors.blue,
+                iconBg: const Color(0xFFE8EEFC),
+                title: 'Garantie',
+                subtitle: 'Bien en garantie',
+                statusLabel: 'Disponible',
+                statusOk: true,
+                onTap: ready
+                    ? () => onSelect!(LoanRequestVoie.garantieMaterielle)
+                    : null,
+              ),
+            ),
           ],
         ),
       ),
@@ -1574,6 +1632,11 @@ class _RouteBadge extends StatelessWidget {
         'Voie Campagne',
         Icons.campaign_rounded,
         PaColors.warning,
+      ),
+      LoanRoute.garantieMaterielle => (
+        'Voie Garantie',
+        Icons.home_work_rounded,
+        PaColors.blue,
       ),
     };
     return Container(

@@ -27,6 +27,7 @@ enum LoanRoute {
   seniorBrc, // collecte ≥ ratio . capital propre coop
   avaliste, // caution senior+BRC
   campagne, // microcampagne avec prêteurs
+  garantieMaterielle, // L4 . bien matériel proposé en garantie
 }
 
 /// CH-9 — Canal de réception choisi par le membre à la soumission.
@@ -62,6 +63,7 @@ class LoanRequestEntity {
     this.recipientPhone,
     this.fieldVisitOutcome,
     this.route,
+    this.dateLimiteEtude,
   });
 
   final int id;
@@ -86,4 +88,8 @@ class LoanRequestEntity {
   // §6 — Voie empruntée (BRC / avaliste / campagne). Peut être null pour
   // les demandes legacy ou tant que le backend ne l'a pas decidee.
   final LoanRoute? route;
+
+  // L6 — Échéance indicative d'étude de la commission (soumission + ~1 mois).
+  // Peut être null pour les demandes legacy antérieures au calcul backend.
+  final DateTime? dateLimiteEtude;
 }
