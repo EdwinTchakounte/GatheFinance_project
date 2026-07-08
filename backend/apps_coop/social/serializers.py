@@ -26,21 +26,31 @@ def _author_display(user) -> str:
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    """Vue membre d'un commentaire — body masque si hidden=True."""
+    """Vue membre d'un commentaire — body masque si hidden=True.
+
+    Pour un commentaire racine (``parent`` NULL), ``replies`` contient le fil
+    de reponses (1 seul niveau, ordre chronologique). Pour une reponse,
+    ``replies`` est toujours vide.
+    """
 
     author_name = serializers.SerializerMethodField()
     body = serializers.SerializerMethodField()
     is_mine = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
+    reply_count = serializers.SerializerMethodField()
 
     class Meta:
         model = ContentComment
         fields = (
             "id",
+            "parent_id",
             "body",
             "author_name",
             "created_at",
             "hidden",
             "is_mine",
+            "replies",
+            "reply_count",
         )
         read_only_fields = fields
 
@@ -58,6 +68,28 @@ class CommentSerializer(serializers.ModelSerializer):
             return False
         return obj.user_id == request.user.id
 
+    def _visible_replies(self, obj) -> list:
+        # ``obj.replies`` est prefetch cote vue (prefetch_related). On filtre
+        # les reponses masquees pour les non-staff.
+        request = self.context.get("request")
+        is_staff = bool(request and request.user.is_authenticated and request.user.is_staff)
+        replies = sorted(obj.replies.all(), key=lambda r: r.created_at)
+        if not is_staff:
+            replies = [r for r in replies if not r.hidden]
+        return replies
+
+    def get_replies(self, obj) -> list:
+        if obj.parent_id is not None:
+            return []  # 1 niveau : une reponse n'a pas de sous-reponses.
+        return CommentSerializer(
+            self._visible_replies(obj), many=True, context=self.context
+        ).data
+
+    def get_reply_count(self, obj) -> int:
+        if obj.parent_id is not None:
+            return 0
+        return len(self._visible_replies(obj))
+
 
 class AdminCommentSerializer(serializers.ModelSerializer):
     """Vue staff complete — expose le vrai body + meta masquage + contexte."""
@@ -71,6 +103,7 @@ class AdminCommentSerializer(serializers.ModelSerializer):
         model = ContentComment
         fields = (
             "id",
+            "parent_id",
             "body",
             "author_name",
             "author_email",
@@ -98,13 +131,15 @@ class AdminCommentSerializer(serializers.ModelSerializer):
 
 
 class CommentCreateSerializer(serializers.Serializer):
-    """Validation du payload d'ecriture d'un commentaire."""
+    """Validation du payload d'ecriture d'un commentaire (ou d'une reponse)."""
 
     body = serializers.CharField(
         min_length=1,
         max_length=ContentComment.MAX_BODY_LEN,
         trim_whitespace=True,
     )
+    # Optionnel : id du commentaire racine auquel on repond (1 niveau).
+    parent_id = serializers.IntegerField(required=False, allow_null=True)
 
     def validate_body(self, value: str) -> str:
         v = value.strip()

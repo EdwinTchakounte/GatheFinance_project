@@ -300,26 +300,24 @@ def _broadcast_campaign_to_actives(campaign):
 
     members = Member.objects.filter(statut=Member.Statut.ACTIF).select_related("user")
     sent_inapp = sent_email = 0
-    titre = f"Nouvelle campagne : {campaign.nom}"
     corps = (
-        f"La cooperative ouvre une nouvelle campagne micro-credit ciblee "
-        f"{campaign.profil_cible}. Plafond : {campaign.montant_max} XAF. "
-        f"Du {campaign.date_debut} au {campaign.date_fin}."
+        f"Nouvelle campagne micro-credit : {campaign.nom} (cible {campaign.profil_cible}). "
+        f"Plafond {campaign.montant_max} XAF, du {campaign.date_debut} au {campaign.date_fin}."
     )
-    payload = {
-        "campaign_id": campaign.id,
-        "deeplink": f"/credit/campagnes/{campaign.id}",
-    }
+    lien = f"/credit/campagnes/{campaign.id}"
     for m in members:
-        # In-app . idempotent : on ne re-cree pas si deja diffusee
+        # In-app . idempotent : on ne re-cree pas si deja diffusee (user + lien).
+        if not m.user_id:
+            continue
         try:
-            Notification.objects.get_or_create(
-                member=m,
-                kind=getattr(Notification.Kind, "ANNOUNCEMENT", "announcement"),
-                titre=titre,
-                defaults={"corps": corps, "payload": payload},
+            _, created = Notification.objects.get_or_create(
+                user=m.user,
+                type="campaign.created",
+                lien=lien,
+                defaults={"message": corps},
             )
-            sent_inapp += 1
+            if created:
+                sent_inapp += 1
         except Exception:  # noqa: BLE001
             logger.warning("Notification in-app campagne #%s skipped for member #%s",
                            campaign.id, m.id, exc_info=True)

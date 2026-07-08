@@ -31,6 +31,8 @@ from apps_coop.audit.services import client_ip, record
 
 def _user_payload(user) -> dict:
     """Compact identity payload returned by /me and /login."""
+    from .access import effective_resources, has_full_access
+
     member = getattr(user, "member", None)
     return {
         "id": user.id,
@@ -40,6 +42,9 @@ def _user_payload(user) -> dict:
         "is_staff": user.is_staff,
         "is_superuser": user.is_superuser,
         "groups": list(user.groups.values_list("name", flat=True)),
+        # RBAC — ressources (onglets admin) accessibles + accès total ?
+        "resources": sorted(effective_resources(user)),
+        "full_access": has_full_access(user),
         "member": (
             {
                 "id": member.id,

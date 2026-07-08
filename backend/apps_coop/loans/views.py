@@ -15,7 +15,14 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from apps_coop.audit.services import client_ip, record as record_audit
-from apps_coop.members.permissions import IsActiveMember, IsAdmin, IsComite, IsMember, IsStaff
+from apps_coop.members.permissions import (
+    IsActiveMember,
+    IsAdmin,
+    IsComite,
+    IsMember,
+    IsStaff,
+    ResourceAccess,
+)
 from apps_coop.payments.models import FeeType, Payment
 
 from .models import Loan, LoanRequest
@@ -1204,7 +1211,7 @@ def loan_request_decide_provisional(request, pk: int):
     ),
 )
 @api_view(["POST"])
-@permission_classes([IsStaff])
+@permission_classes([ResourceAccess("loan-requests")])
 def loan_request_field_visit(request, pk: int):
     try:
         lr = LoanRequest.objects.get(pk=pk)
@@ -1273,7 +1280,7 @@ def loan_request_field_visit(request, pk: int):
     ),
 )
 @api_view(["POST"])
-@permission_classes([IsStaff])
+@permission_classes([ResourceAccess("loan-requests")])
 def loan_request_evaluate_guarantee(request, pk: int):
     from decimal import Decimal, InvalidOperation
 

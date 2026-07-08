@@ -98,3 +98,35 @@ class IsComite(BasePermission):
     def has_permission(self, request, view) -> bool:
         u = request.user
         return bool(u and u.is_authenticated and (u.is_superuser or _in_group(u, GROUP_COMITE)))
+
+
+def ResourceAccess(*keys: str):
+    """Fabrique une permission RBAC liée à une ou plusieurs *ressources* admin.
+
+    Exige d'être staff **et** d'avoir accès à au moins une des ``keys`` (voir
+    ``members.access.staff_has_resource``). Usage::
+
+        @permission_classes([ResourceAccess("booklet-orders")])
+
+    Un superuser / admin / staff-legacy sans rôle garde l'accès (rétro-compat).
+    """
+    from .access import staff_has_resource
+
+    class _ResourceAccess(BasePermission):
+        message = "Accès refusé : ressource non autorisée pour ce compte."
+
+        def has_permission(self, request, view) -> bool:
+            u = request.user
+            if not (u and u.is_authenticated):
+                return False
+            if not (
+                u.is_superuser
+                or u.groups.filter(
+                    name__in=[GROUP_ADMIN, GROUP_COMITE, GROUP_STAFF]
+                ).exists()
+            ):
+                return False
+            return staff_has_resource(u, *keys)
+
+    _ResourceAccess.__name__ = "ResourceAccess_" + "_".join(k.replace("-", "_") for k in keys)
+    return _ResourceAccess

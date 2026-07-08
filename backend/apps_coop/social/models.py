@@ -80,6 +80,18 @@ class ContentComment(TimestampedModel):
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey("content_type", "object_id")
 
+    # Fil de discussion — 1 seul niveau : une reponse pointe vers un
+    # commentaire racine (parent.parent doit toujours etre NULL). Un
+    # commentaire racine a parent=NULL. CASCADE : supprimer la racine
+    # supprime ses reponses.
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="replies",
+    )
+
     body = models.TextField(max_length=MAX_BODY_LEN)
 
     # Masquage (soft-hide par staff).
@@ -101,6 +113,7 @@ class ContentComment(TimestampedModel):
         indexes = [
             models.Index(fields=["content_type", "object_id", "-created_at"]),
             models.Index(fields=["hidden", "-created_at"]),
+            models.Index(fields=["parent", "created_at"]),
         ]
 
     def __str__(self) -> str:  # pragma: no cover — debug only

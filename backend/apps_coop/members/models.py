@@ -657,3 +657,28 @@ class PasswordSetupToken(TimestampedModel):
     @property
     def is_consumed(self) -> bool:
         return self.used_at is not None
+
+
+class StaffRole(TimestampedModel):
+    """Rôle réutilisable RBAC : un paquet de ressources (onglets admin).
+
+    Un utilisateur staff peut cumuler plusieurs rôles ; son accès effectif est
+    l'union des ``resources`` de ses rôles (voir ``members.access``). Les
+    clés de ``resources`` proviennent du registre ``members.resources``.
+    """
+
+    name = models.CharField(max_length=80, unique=True)
+    description = models.CharField(max_length=240, blank=True, default="")
+    # Liste de clés de ressources (ex. ["booklet-orders", "members"]).
+    resources = models.JSONField(default=list, blank=True)
+    users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="staff_roles",
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name

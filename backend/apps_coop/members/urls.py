@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import auth_views, views
+from . import auth_views, staff_views, views
 
 app_name = "coop_members"
 
@@ -96,4 +96,11 @@ urlpatterns = [
     # Pipeline adhesion . funnel KPIs + membres suspendus avec progression
     # paiement (1/3, 2/3, 3/3 des frais d'adhesion).
     path("admin/adhesions/pipeline/", views.admin_adhesion_pipeline, name="admin-adhesions-pipeline"),
+
+    # RBAC — Utilisateurs & accès (gestion staff + rôles/ressources).
+    path("admin/access/resources/", staff_views.access_resources, name="admin-access-resources"),
+    path("admin/access/roles/", staff_views.access_roles, name="admin-access-roles"),
+    path("admin/access/roles/<int:pk>/", staff_views.access_role_detail, name="admin-access-role-detail"),
+    path("admin/access/users/", staff_views.access_users, name="admin-access-users"),
+    path("admin/access/users/<int:pk>/", staff_views.access_user_detail, name="admin-access-user-detail"),
 ]

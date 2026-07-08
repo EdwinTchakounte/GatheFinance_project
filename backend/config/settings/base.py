@@ -137,6 +137,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # RBAC — enforcement des ressources admin (après auth, request.user résolu).
+    "apps_coop.members.rbac_middleware.RBACResourceMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "wagtail.contrib.redirects.middleware.RedirectMiddleware",
@@ -232,6 +234,12 @@ EMAIL_BACKEND = env(
 ANYMAIL = {
     "BREVO_API_KEY": env("BREVO_API_KEY", default=""),
 }
+# --- Push notifications (bases FCM/APNs) ------------------------------------
+# Tant qu'aucune de ces valeurs n'est fournie, l'envoi push est un no-op loggé
+# (voir apps_coop/notifications/push.py). À renseigner quand FCM sera branché.
+FCM_SERVER_KEY = env("FCM_SERVER_KEY", default="")
+FCM_CREDENTIALS_JSON = env("FCM_CREDENTIALS_JSON", default="")
+
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Gathé Finance <noreply@horus-lab.com>")
 # Inbox that receives contact messages / membership requests.
 CONTACT_NOTIFICATION_EMAIL = env(
