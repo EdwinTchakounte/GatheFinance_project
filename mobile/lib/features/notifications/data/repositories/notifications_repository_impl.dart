@@ -26,4 +26,12 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
 
   @override
   Future<void> markAllRead() => _run(_remote.markAllRead);
+
+  @override
+  Future<void> registerDevice(String token, {String platform = 'android'}) =>
+      _run(() => _remote.registerDevice(token, platform: platform));
+
+  @override
+  Future<void> unregisterDevice(String token) =>
+      _run(() => _remote.unregisterDevice(token));
 }

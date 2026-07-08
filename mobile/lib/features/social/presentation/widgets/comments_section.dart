@@ -30,6 +30,8 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
   bool _sending = false;
+  // Commentaire racine auquel on repond (null = nouveau commentaire racine).
+  SocialComment? _replyingTo;
 
   @override
   void dispose() {
@@ -38,14 +40,24 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
     super.dispose();
   }
 
+  void _startReply(SocialComment root) {
+    setState(() => _replyingTo = root);
+    _focus.requestFocus();
+  }
+
+  void _cancelReply() {
+    setState(() => _replyingTo = null);
+  }
+
   Future<void> _send() async {
     final raw = _controller.text.trim();
     if (raw.isEmpty || _sending) return;
     setState(() => _sending = true);
     final repo = ref.read(socialRepositoryProvider);
     try {
-      await repo.postComment(widget.target, raw);
+      await repo.postComment(widget.target, raw, parentId: _replyingTo?.id);
       _controller.clear();
+      setState(() => _replyingTo = null);
       await ref
           .read(socialCommentsProvider(widget.target).notifier)
           .refresh();
@@ -122,6 +134,8 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
           focus: _focus,
           sending: _sending,
           onSend: _send,
+          replyingToName: _replyingTo?.authorName,
+          onCancelReply: _cancelReply,
         ),
         const SizedBox(height: 18),
         asyncState.when(
@@ -138,11 +152,10 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
                     ),
                     child: _FadeIn(
                       delayMs: i * 60,
-                      child: _CommentBubble(
-                        comment: state.items[i],
-                        onDelete: state.items[i].isMine
-                            ? () => _delete(state.items[i])
-                            : null,
+                      child: _CommentThread(
+                        root: state.items[i],
+                        onDelete: _delete,
+                        onReply: _startReply,
                       ),
                     ),
                   ),
@@ -224,32 +237,74 @@ class _Composer extends StatelessWidget {
     required this.focus,
     required this.sending,
     required this.onSend,
+    this.replyingToName,
+    this.onCancelReply,
   });
 
   final TextEditingController controller;
   final FocusNode focus;
   final bool sending;
   final VoidCallback onSend;
+  final String? replyingToName;
+  final VoidCallback? onCancelReply;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: PaColors.paper,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: PaColors.line, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: PaColors.navy.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (replyingToName != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+            decoration: BoxDecoration(
+              color: PaColors.tealSurface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.reply_rounded, size: 15, color: PaColors.tealDark),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'En réponse à $replyingToName',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: PaColors.tealDark,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                InkResponse(
+                  onTap: onCancelReply,
+                  radius: 16,
+                  child: const Padding(
+                    padding: EdgeInsets.all(3),
+                    child: Icon(Icons.close_rounded, size: 16, color: PaColors.tealDark),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
+        Container(
+          decoration: BoxDecoration(
+            color: PaColors.paper,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: PaColors.line, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: PaColors.navy.withValues(alpha: 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
           Expanded(
             child: TextField(
               controller: controller,
@@ -277,10 +332,12 @@ class _Composer extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 4),
-          _SendButton(sending: sending, onSend: onSend),
-        ],
-      ),
+              const SizedBox(width: 4),
+              _SendButton(sending: sending, onSend: onSend),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -352,10 +409,17 @@ class _SendButtonState extends State<_SendButton> {
 /// Bulle commentaire . avatar gradient initiales + corps en card + temps
 /// relatif + bouton supprimer pour mes propres commentaires.
 class _CommentBubble extends StatelessWidget {
-  const _CommentBubble({required this.comment, this.onDelete});
+  const _CommentBubble({
+    required this.comment,
+    this.onDelete,
+    this.onReply,
+    this.avatarSize = 36,
+  });
 
   final SocialComment comment;
   final VoidCallback? onDelete;
+  final VoidCallback? onReply;
+  final double avatarSize;
 
   @override
   Widget build(BuildContext context) {
@@ -363,7 +427,7 @@ class _CommentBubble extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _GradientAvatar(name: comment.authorName, size: 36),
+        _GradientAvatar(name: comment.authorName, size: avatarSize),
         const SizedBox(width: 10),
         Expanded(
           child: Container(
@@ -439,10 +503,86 @@ class _CommentBubble extends StatelessWidget {
                         comment.hidden ? FontStyle.italic : FontStyle.normal,
                   ),
                 ),
+                if (onReply != null && !comment.hidden) ...[
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: onReply,
+                    borderRadius: BorderRadius.circular(8),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.reply_rounded, size: 14, color: PaColors.teal),
+                          SizedBox(width: 4),
+                          Text(
+                            'Répondre',
+                            style: TextStyle(
+                              color: PaColors.teal,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Fil complet : un commentaire racine + ses reponses indentees (1 niveau).
+class _CommentThread extends StatelessWidget {
+  const _CommentThread({
+    required this.root,
+    required this.onDelete,
+    required this.onReply,
+  });
+
+  final SocialComment root;
+  final void Function(SocialComment) onDelete;
+  final void Function(SocialComment) onReply;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _CommentBubble(
+          comment: root,
+          onDelete: root.isMine ? () => onDelete(root) : null,
+          onReply: () => onReply(root),
+        ),
+        if (root.replies.isNotEmpty)
+          Padding(
+            // Indentation sous l'avatar racine pour marquer la reponse.
+            padding: const EdgeInsets.only(left: 30, top: 8),
+            child: Column(
+              children: [
+                for (var j = 0; j < root.replies.length; j++)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      bottom: j == root.replies.length - 1 ? 0 : 8,
+                    ),
+                    child: _CommentBubble(
+                      comment: root.replies[j],
+                      avatarSize: 28,
+                      onDelete: root.replies[j].isMine
+                          ? () => onDelete(root.replies[j])
+                          : null,
+                      // Repondre a une reponse => rattache a la racine.
+                      onReply: () => onReply(root),
+                    ),
+                  ),
+              ],
+            ),
+          ),
       ],
     );
   }

@@ -48,6 +48,12 @@ class _ScriptedNotifsDs implements NotificationsRemoteDataSource {
             : n,)
         .toList();
   }
+
+  @override
+  Future<void> registerDevice(String token, {String platform = 'android'}) async {}
+
+  @override
+  Future<void> unregisterDevice(String token) async {}
 }
 
 void main() {

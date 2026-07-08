@@ -8,4 +8,10 @@ abstract class NotificationsRepository {
 
   /// Marque une notification précise comme lue.
   Future<void> markRead(int id);
+
+  /// Enregistre le jeton push de l'appareil (bases FCM/APNs).
+  Future<void> registerDevice(String token, {String platform});
+
+  /// Désenregistre un jeton push (logout / rotation).
+  Future<void> unregisterDevice(String token);
 }

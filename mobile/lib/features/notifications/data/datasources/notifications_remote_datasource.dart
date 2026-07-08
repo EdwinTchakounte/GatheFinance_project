@@ -4,4 +4,6 @@ abstract class NotificationsRemoteDataSource {
   Future<List<AppNotification>> list();
   Future<void> markAllRead();
   Future<void> markRead(int id);
+  Future<void> registerDevice(String token, {String platform});
+  Future<void> unregisterDevice(String token);
 }
