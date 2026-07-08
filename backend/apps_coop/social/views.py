@@ -14,7 +14,7 @@ Routes staff :
 """
 from __future__ import annotations
 
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
@@ -120,9 +120,17 @@ def comments_for_target(request, kind: str, object_id: int):
 
     if request.method == "GET":
         offset, limit = parse_pagination(request, default_limit=20, max_limit=100)
-        qs = ContentComment.objects.filter(
-            content_type=ct, object_id=object_id
-        ).select_related("user").order_by("-created_at")
+        # On ne pagine que les commentaires RACINE ; leurs reponses sont
+        # imbriquees (prefetch) et non paginees (1 niveau, volume faible).
+        replies_qs = ContentComment.objects.select_related("user").order_by("created_at")
+        qs = (
+            ContentComment.objects.filter(
+                content_type=ct, object_id=object_id, parent__isnull=True
+            )
+            .select_related("user")
+            .prefetch_related(Prefetch("replies", queryset=replies_qs))
+            .order_by("-created_at")
+        )
         # Membres normaux : on cache les commentaires masques. Le staff voit
         # tout (avec `hidden=True` dans la reponse), c'est utile pour la
         # moderation depuis le mobile en cas de besoin.
@@ -140,19 +148,72 @@ def comments_for_target(request, kind: str, object_id: int):
             }
         )
 
-    # POST
+    # POST — commentaire racine ou reponse (parent_id).
     ser = CommentCreateSerializer(data=request.data)
     ser.is_valid(raise_exception=True)
+    parent = None
+    parent_id = ser.validated_data.get("parent_id")
+    if parent_id:
+        try:
+            parent = ContentComment.objects.get(
+                pk=parent_id, content_type=ct, object_id=object_id
+            )
+        except ContentComment.DoesNotExist:
+            return Response(
+                {"detail": "Commentaire parent introuvable pour ce contenu."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # 1 seul niveau : on repond toujours a la racine.
+        if parent.parent_id is not None:
+            parent = parent.parent
+
     comment = ContentComment.objects.create(
         user=request.user,
         content_type=ct,
         object_id=object_id,
         body=ser.validated_data["body"],
+        parent=parent,
     )
+    if parent is not None:
+        _notify_reply(parent, comment, kind, object_id)
     return Response(
         CommentSerializer(comment, context={"request": request}).data,
         status=status.HTTP_201_CREATED,
     )
+
+
+def _content_deeplink(kind: str, object_id: int) -> str:
+    """Lien interne vers le contenu commente (pour la notification)."""
+    if kind == "campaign":
+        return f"/credit/campagnes/{object_id}"
+    if kind == "article":
+        return f"/blog/{object_id}"
+    return ""
+
+
+def _notify_reply(parent, reply, kind: str, object_id: int) -> None:
+    """Notifie l'auteur du commentaire parent qu'on lui a repondu.
+
+    Best-effort : ne bloque jamais la creation de la reponse.
+    """
+    if parent.user_id == reply.user_id:
+        return  # on ne se notifie pas soi-meme
+    try:
+        from apps_coop.notifications.services import create_notification
+        from apps_coop.social.serializers import _author_display
+
+        create_notification(
+            user=parent.user,
+            type="comment.reply",
+            message=f"{_author_display(reply.user)} a repondu a votre commentaire.",
+            lien=_content_deeplink(kind, object_id),
+        )
+    except Exception:  # noqa: BLE001 — la notif ne doit jamais casser le flux
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "comment reply notification failed for parent #%s", parent.id, exc_info=True
+        )
 
 
 # ---------------------------------------------------------------------------

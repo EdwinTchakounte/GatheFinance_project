@@ -42,6 +42,7 @@ class WithdrawSheet extends ConsumerStatefulWidget {
     super.key,
     this.soldeCollecte = 0,
     this.soldeClassiqueLibre = 0,
+    this.montantGeleClassique = 0,
   });
 
   /// Solde retirable sur la collecte journalière.
@@ -51,6 +52,11 @@ class WithdrawSheet extends ConsumerStatefulWidget {
   /// funding crédit et n'est jamais retirable). > 0 débloque le retrait
   /// classique pour un membre dont l'argent est en épargne classique.
   final num soldeClassiqueLibre;
+
+  /// Part de l'épargne classique gelée en garantie de crédit (refonte 2026).
+  /// Affichée à titre informatif : elle n'est pas retirable tant qu'un crédit
+  /// la mobilise.
+  final num montantGeleClassique;
 
   @override
   ConsumerState<WithdrawSheet> createState() => _WithdrawSheetState();
@@ -191,6 +197,26 @@ class _WithdrawSheetState extends ConsumerState<WithdrawSheet> {
                 l.wd_subtitle(XAFFormatter.format(_soldeDisponible)),
                 style: const TextStyle(color: PaColors.inkMuted, fontSize: 14),
               ),
+              // Refonte garantie 2026 : sur l'épargne classique, une part peut
+              // être gelée en garantie d'un crédit → non retirable. On l'affiche
+              // pour expliquer l'écart entre solde et disponible au retrait.
+              if (_source == WithdrawalSource.classiqueLibre &&
+                  widget.montantGeleClassique > 0) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.lock_outline_rounded,
+                        size: 14, color: PaColors.inkMuted,),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Gelé (garantie crédit) : '
+                      '${XAFFormatter.format(widget.montantGeleClassique)}',
+                      style: const TextStyle(
+                          color: PaColors.inkMuted, fontSize: 12,),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 18),
 
               // Source du retrait . collecte vs épargne classique (part libre).

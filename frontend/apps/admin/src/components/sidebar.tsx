@@ -27,6 +27,7 @@ import {
   Newspaper,
   GitBranch,
   Coins,
+  ShieldCheck,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
@@ -93,7 +94,23 @@ const NAV: NavItem[] = [
   { href: "/audit", label: "Journal d'audit", icon: ScrollText },
   // Modération des commentaires (articles + campagnes).
   { href: "/comments", label: "Commentaires", icon: MessageSquareText },
+  // RBAC — gestion des utilisateurs staff + rôles/accès par ressource.
+  { href: "/access", label: "Utilisateurs & accès", icon: ShieldCheck },
 ];
+
+
+// Clé de ressource RBAC d'un chemin admin : 1er segment sans le slash.
+// Ex. "/booklet-orders" → "booklet-orders", "/forms/12" → "forms".
+export function hrefResource(pathname: string): string {
+  return pathname.replace(/^\//, "").split("/")[0] || "dashboard";
+}
+
+// Un utilisateur voit-il cette ressource ? (accès total → tout ; sinon liste).
+export function canAccessResource(identity: Identity | null, key: string): boolean {
+  if (!identity) return false;
+  if (identity.full_access || !identity.resources) return true;
+  return identity.resources.includes(key);
+}
 
 
 export function Sidebar({
@@ -116,6 +133,11 @@ export function Sidebar({
     router.replace("/login");
   }
 
+  // RBAC — on ne montre que les onglets autorisés (accès total → tous).
+  const navItems = NAV.filter((item) =>
+    canAccessResource(identity, hrefResource(item.href)),
+  );
+
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-line-200 bg-paper">
       {/* Header */}
@@ -129,7 +151,7 @@ export function Sidebar({
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="space-y-0.5">
-          {NAV.map(({ href, label, icon: Icon, queueKey }) => {
+          {navItems.map(({ href, label, icon: Icon, queueKey }) => {
             // Match exact ou descendance par segment — évite que `/members`
             // s'active sur `/membership-requests` (cas où un href est préfixe
             // textuel d'un autre).

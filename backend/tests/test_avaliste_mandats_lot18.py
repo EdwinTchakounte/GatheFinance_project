@@ -13,6 +13,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
 from apps_coop.loans.avaliste_services import request_avaliste_consent
@@ -21,7 +22,26 @@ from apps_coop.savings.models import ClassicSavingsAccount, SavingsAccount
 from tests.factories import MemberFactory
 
 
+def _cni_file():
+    return SimpleUploadedFile("cni.jpg", b"\xff\xd8\xff", content_type="image/jpeg")
+
+
+def _accept_body(**extra):
+    """L5 — accepter un mandat exige n° CNI + scan CNI de l'avaliste (multipart)."""
+    body = {"accept": "true", "cni_avaliste": "CNI-AV-001", "cni_avaliste_fichier": _cni_file()}
+    body.update(extra)
+    return body
+
+
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def _tmp_media_root(settings, tmp_path):
+    """L5 — l'acceptation upload la CNI de l'avaliste. `media/` est root-owned
+    dans cet environnement ; on isole MEDIA_ROOT en tmp pour permettre l'écriture.
+    """
+    settings.MEDIA_ROOT = str(tmp_path)
 
 
 # ---------------------------------------------------------------------------
@@ -167,15 +187,18 @@ class TestRespond:
 
         r = _client(senior).post(
             f"/api/v1/loans/me/avaliste-mandats/{c.id}/respond/",
-            {"accept": True},
-            format="json",
+            _accept_body(),
+            format="multipart",
         )
         assert r.status_code == 200, r.content
         body = r.json()
         assert body["statut"] == "accepted"
+        assert body["cni_avaliste"] == "CNI-AV-001"
+        assert body["cni_avaliste_fichier"]  # url présente
         c.refresh_from_db()
         assert c.loan_request.statut == LoanRequest.Statut.EN_INSTRUCTION
         assert c.loan_request.avaliste_id == senior.id
+        assert c.cni_avaliste == "CNI-AV-001"
 
     def test_refuse_with_motif_marks_lr_rejetee_avaliste(self):
         borrower = _make_new(savings_collecte=Decimal("10000"))
@@ -203,8 +226,8 @@ class TestRespond:
         # Accept
         _client(senior).post(
             f"/api/v1/loans/me/avaliste-mandats/{c.id}/respond/",
-            {"accept": True},
-            format="json",
+            _accept_body(),
+            format="multipart",
         )
         # Refuse → 400
         r = _client(senior).post(
@@ -222,13 +245,13 @@ class TestRespond:
 
         r1 = _client(senior).post(
             f"/api/v1/loans/me/avaliste-mandats/{c.id}/respond/",
-            {"accept": True},
-            format="json",
+            _accept_body(),
+            format="multipart",
         )
         r2 = _client(senior).post(
             f"/api/v1/loans/me/avaliste-mandats/{c.id}/respond/",
-            {"accept": True},
-            format="json",
+            _accept_body(),
+            format="multipart",
         )
         assert r1.status_code == 200
         assert r2.status_code == 200
@@ -246,3 +269,49 @@ class TestRespond:
             format="json",
         )
         assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# L5 — CNI de l'avaliste requise à l'acceptation (matérialise l'acte signé)
+# ---------------------------------------------------------------------------
+
+
+class TestL5AvalisteCni:
+    def test_accept_without_cni_number_rejected(self):
+        borrower = _make_new(savings_collecte=Decimal("10000"))
+        senior = _make_senior(savings_classique=Decimal("100000"))
+        c = _pose_consent(borrower=borrower, senior=senior)
+        r = _client(senior).post(
+            f"/api/v1/loans/me/avaliste-mandats/{c.id}/respond/",
+            {"accept": "true", "cni_avaliste_fichier": _cni_file()},
+            format="multipart",
+        )
+        assert r.status_code == 400
+        assert "CNI" in r.json()["detail"]
+        c.refresh_from_db()
+        assert c.statut == AvalisteConsent.Statut.PENDING  # pas accepté
+
+    def test_accept_without_cni_file_rejected(self):
+        borrower = _make_new(savings_collecte=Decimal("10000"))
+        senior = _make_senior(savings_classique=Decimal("100000"))
+        c = _pose_consent(borrower=borrower, senior=senior)
+        r = _client(senior).post(
+            f"/api/v1/loans/me/avaliste-mandats/{c.id}/respond/",
+            {"accept": "true", "cni_avaliste": "CNI-AV-9"},
+            format="multipart",
+        )
+        assert r.status_code == 400
+        c.refresh_from_db()
+        assert c.statut == AvalisteConsent.Statut.PENDING
+
+    def test_refuse_needs_no_cni(self):
+        borrower = _make_new(savings_collecte=Decimal("10000"))
+        senior = _make_senior(savings_classique=Decimal("100000"))
+        c = _pose_consent(borrower=borrower, senior=senior)
+        r = _client(senior).post(
+            f"/api/v1/loans/me/avaliste-mandats/{c.id}/respond/",
+            {"accept": False, "motif": "Non"},
+            format="json",
+        )
+        assert r.status_code == 200
+        assert r.json()["statut"] == "refused"

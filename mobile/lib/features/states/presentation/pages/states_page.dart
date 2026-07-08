@@ -78,6 +78,8 @@ class StatesPage extends ConsumerWidget {
                         // si le snapshot est chargé, 0 sinon.
                         soldeClassiqueLibre:
                             epargne.valueOrNull?.soldeRetirable ?? 0,
+                        montantGeleClassique:
+                            epargne.valueOrNull?.montantGeleCredit ?? 0,
                       ),
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),
@@ -588,10 +590,15 @@ class _WithdrawAction extends StatelessWidget {
   const _WithdrawAction({
     required this.soldeCollecte,
     this.soldeClassiqueLibre = 0,
+    this.montantGeleClassique = 0,
   });
 
   final num soldeCollecte;
   final num soldeClassiqueLibre;
+
+  /// Part de l'épargne classique gelée en garantie de crédit (refonte 2026).
+  /// Affichée à titre informatif dans la feuille de retrait.
+  final num montantGeleClassique;
 
   @override
   Widget build(BuildContext context) {
@@ -635,6 +642,7 @@ class _WithdrawAction extends StatelessWidget {
       builder: (_) => WithdrawSheet(
         soldeCollecte: soldeCollecte,
         soldeClassiqueLibre: soldeClassiqueLibre,
+        montantGeleClassique: montantGeleClassique,
       ),
     );
   }

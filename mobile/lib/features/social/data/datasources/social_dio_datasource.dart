@@ -70,11 +70,18 @@ class SocialDioDataSource implements SocialRemoteDataSource {
   }
 
   @override
-  Future<SocialComment> postComment(SocialTarget target, String body) async {
+  Future<SocialComment> postComment(
+    SocialTarget target,
+    String body, {
+    int? parentId,
+  }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
         '${_base(target)}/comments/',
-        data: {'body': body},
+        data: {
+          'body': body,
+          if (parentId != null) 'parent_id': parentId,
+        },
       );
       return _parseComment(res.data ?? const {});
     } on DioException catch (e) {
@@ -100,6 +107,7 @@ SocialReaction _parseReaction(Map<String, dynamic> json) {
 }
 
 SocialComment _parseComment(Map<String, dynamic> json) {
+  final rawReplies = (json['replies'] as List<dynamic>?) ?? const [];
   return SocialComment(
     id: (json['id'] as num).toInt(),
     body: (json['body'] as String?) ?? '',
@@ -109,5 +117,10 @@ SocialComment _parseComment(Map<String, dynamic> json) {
             DateTime.now(),
     hidden: json['hidden'] == true,
     isMine: json['is_mine'] == true,
+    parentId: (json['parent_id'] as num?)?.toInt(),
+    replies: rawReplies
+        .map((r) => _parseComment(r as Map<String, dynamic>))
+        .toList(growable: false),
+    replyCount: (json['reply_count'] as num?)?.toInt() ?? rawReplies.length,
   );
 }

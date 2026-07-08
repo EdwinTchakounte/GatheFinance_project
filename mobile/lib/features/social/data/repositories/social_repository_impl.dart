@@ -36,8 +36,12 @@ class SocialRepositoryImpl implements SocialRepository {
       _run(() => _remote.listComments(target, offset: offset, limit: limit));
 
   @override
-  Future<SocialComment> postComment(SocialTarget target, String body) =>
-      _run(() => _remote.postComment(target, body));
+  Future<SocialComment> postComment(
+    SocialTarget target,
+    String body, {
+    int? parentId,
+  }) =>
+      _run(() => _remote.postComment(target, body, parentId: parentId));
 
   @override
   Future<void> deleteMyComment(int commentId) =>

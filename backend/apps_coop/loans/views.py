@@ -15,7 +15,14 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from apps_coop.audit.services import client_ip, record as record_audit
-from apps_coop.members.permissions import IsActiveMember, IsAdmin, IsComite, IsMember, IsStaff
+from apps_coop.members.permissions import (
+    IsActiveMember,
+    IsAdmin,
+    IsComite,
+    IsMember,
+    IsStaff,
+    ResourceAccess,
+)
 from apps_coop.payments.models import FeeType, Payment
 
 from .models import Loan, LoanRequest
@@ -51,9 +58,12 @@ from apps_coop.payments.providers.base import ProviderError
     tags=["loans"],
     summary="Éligibilité du membre à demander un crédit",
     description=(
-        "Retourne `{ eligible, plafond_max, motifs_ineligibilite, solde_epargne, "
-        "ratio_garantie }`. Plafond = solde épargne × 10. Bloquant si : statut "
-        "non actif, prêt actif/en_retard, demande déjà en cours, solde < 100 XAF."
+        "Retourne `{ eligible, plafond_max, plafond_sans_avaliste, "
+        "motifs_ineligibilite, solde_epargne, ratio_garantie }`. Réforme 2026 : "
+        "le montant est LIBRE. `plafond_sans_avaliste` = épargne classique "
+        "disponible (montant max empruntable en auto-couverture) ; au-delà, "
+        "désigner un avaliste. Bloquant seulement si : statut non actif, prêt "
+        "actif/en_retard, ou demande déjà en cours."
     ),
     responses={200: OpenApiResponse(description="Détail éligibilité")},
 )
@@ -65,7 +75,10 @@ def loan_eligibility(request):
     return Response(
         {
             "eligible": e.eligible,
+            # Rétro-compat : plafond_max == plafond sans avaliste (indicatif,
+            # plus un cap dur côté client depuis la réforme montant libre).
             "plafond_max": str(e.plafond_max),
+            "plafond_sans_avaliste": str(e.plafond_max),
             "motifs_ineligibilite": e.motifs,
             "solde_epargne": str(e.solde_epargne),
             "ratio_garantie": str(e.ratio_garantie),
@@ -194,6 +207,7 @@ def loan_request_create(request):
         avaliste_nom=data.get("avaliste_nom") or None,
         campaign_id=data.get("campaign_id"),
         profil_cible=data.get("profil_cible") or None,
+        garantie_materielle=bool(data.get("garantie_materielle")),
         extra_payload=data.get("extra_payload") or {},
     )
 
@@ -218,19 +232,10 @@ def loan_request_create(request):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    # 3) Voie-spécifique : plafond pour SENIOR_BRC uniquement.
-    if route_eval.route == EligibilityRoute.SENIOR_BRC:
-        eligibility = compute_eligibility(member)
-        if data["montant_demande"] > eligibility.plafond_max:
-            return Response(
-                {
-                    "detail": (
-                        f"Montant demandé ({data['montant_demande']} XAF) supérieur "
-                        f"au plafond éligible ({eligibility.plafond_max} XAF)."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+    # 3) Réforme garantie 2026 : plus de plafond ×10. Le montant est libre ;
+    # la voie retenue garantit déjà la couverture (auto-couverture : épargne
+    # dispo ≥ montant ; avaliste : épargne dem+aval ≥ montant ; campagne :
+    # bornes campagne). Rien à re-vérifier ici.
 
     # Lookup the current adhesion fee from FeeType — admin-editable.
     try:
@@ -263,6 +268,9 @@ def loan_request_create(request):
                 # Voies AVALISTE / CAMPAIGN — toujours en colonnes/relations.
                 "avaliste_numero", "avaliste_nom",
                 "campaign_id", "profil_cible",
+                # L4/L5 — garantie matérielle + n° CNI demandeur.
+                "garantie_materielle", "garantie_description",
+                "cni_demandeur",
             }
             _, extra_payload, schema_version = apply_form_schema(
                 "loan_request",
@@ -285,6 +293,24 @@ def loan_request_create(request):
             if val in ("oui", "non") and compat_key not in extra_payload:
                 extra_payload[compat_key] = val
 
+        # Auto-couverture : le demandeur gèle sa propre épargne (= montant).
+        # Voie avaliste : posé par request_avaliste_consent (le manque). Campagne : 0.
+        gel_demandeur_initial = (
+            data["montant_demande"]
+            if route_eval.route == EligibilityRoute.SENIOR_BRC
+            else 0
+        )
+
+        is_garantie_mat = route_eval.route == EligibilityRoute.GARANTIE_MATERIELLE
+
+        # L6 — Échéance indicative d'étude commission (soumission + délai max).
+        from datetime import timedelta as _timedelta
+
+        from apps_coop.audit.services import get_int_setting
+
+        _study_days = get_int_setting("loans.study.max_days", 30)
+        date_limite_etude = timezone.localdate() + _timedelta(days=_study_days)
+
         loan_request = LoanRequest.objects.create(
             member=member,
             montant_demande=data["montant_demande"],
@@ -292,6 +318,18 @@ def loan_request_create(request):
             motif=data["motif"],
             statut=initial_statut,
             microcampaign=campaign_fk,
+            montant_gele_demandeur=gel_demandeur_initial,
+            # L6 — échéance indicative d'étude commission.
+            date_limite_etude=date_limite_etude,
+            # L5 — n° CNI du demandeur (saisi à la soumission).
+            cni_demandeur=(data.get("cni_demandeur") or "").strip(),
+            # L4 — garantie matérielle (le titre est uploadé en attachment).
+            garantie_materielle=is_garantie_mat,
+            garantie_description=(
+                (data.get("garantie_description") or "").strip()
+                if is_garantie_mat
+                else ""
+            ),
             extra_payload=extra_payload,
             form_schema_version=schema_version,
             # CH-9 — Canal de réception choisi à la soumission.
@@ -1173,7 +1211,7 @@ def loan_request_decide_provisional(request, pk: int):
     ),
 )
 @api_view(["POST"])
-@permission_classes([IsStaff])
+@permission_classes([ResourceAccess("loan-requests")])
 def loan_request_field_visit(request, pk: int):
     try:
         lr = LoanRequest.objects.get(pk=pk)
@@ -1220,6 +1258,72 @@ def loan_request_field_visit(request, pk: int):
         entite_id=lr.id,
         user=request.user,
         details={"outcome": outcome, "note_length": len(note)},
+        ip=client_ip(request),
+    )
+
+    from .serializers import LoanRequestReadSerializer as _LRR
+    return Response(_LRR(lr).data)
+
+
+# ---------------------------------------------------------------------------
+# L4 — Évaluation de la garantie matérielle par la commission (admin).
+# ---------------------------------------------------------------------------
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Staff — enregistrer l'évaluation du bien (garantie matérielle)",
+    description=(
+        "Enregistre la valeur du bien évaluée par la commission des prêts sur "
+        "une demande en voie GARANTIE MATÉRIELLE. Champ requis : `valeur_estimee` "
+        "(≥ 0). `note` optionnelle (concaténée à la description). Purement "
+        "informatif : le système n'impose aucune règle de couverture — le "
+        "comité juge et approuve via /decide/. Permission : staff."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([ResourceAccess("loan-requests")])
+def loan_request_evaluate_guarantee(request, pk: int):
+    from decimal import Decimal, InvalidOperation
+
+    try:
+        lr = LoanRequest.objects.get(pk=pk)
+    except LoanRequest.DoesNotExist:
+        return Response({"detail": "Demande introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    if not lr.garantie_materielle:
+        return Response(
+            {"detail": "Cette demande n'est pas en voie garantie matérielle."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    raw = request.data.get("valeur_estimee")
+    try:
+        valeur = Decimal(str(raw))
+    except (InvalidOperation, TypeError):
+        return Response(
+            {"detail": "valeur_estimee invalide (nombre attendu)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if valeur < 0:
+        return Response(
+            {"detail": "valeur_estimee doit être ≥ 0."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    note = str(request.data.get("note", "")).strip()
+    fields = ["garantie_valeur_estimee", "updated_at"]
+    lr.garantie_valeur_estimee = valeur
+    if note:
+        prefix = (lr.garantie_description + "\n") if lr.garantie_description else ""
+        lr.garantie_description = f"{prefix}[Éval commission] {note}"
+        fields.insert(1, "garantie_description")
+    lr.save(update_fields=fields)
+
+    record_audit(
+        action="loan_request.guarantee_evaluated",
+        entite_type="LoanRequest",
+        entite_id=lr.id,
+        user=request.user,
+        details={"valeur_estimee": str(valeur)},
         ip=client_ip(request),
     )
 

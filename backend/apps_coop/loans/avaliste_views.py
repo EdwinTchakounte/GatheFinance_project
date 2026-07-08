@@ -65,6 +65,17 @@ def _row(c: AvalisteConsent) -> dict:
             "epargne_avaliste": str(c.epargne_avaliste_at_request),
             "ratio": str(c.couverture_ratio),
         },
+        # Réforme garantie 2026 : montant réellement gelé sur l'épargne de
+        # l'avaliste (= le manque). Bloqué au retrait jusqu'à la clôture du
+        # crédit. 0 tant que le mandat n'est pas ACCEPTED.
+        "montant_gele": str(c.montant_caution),
+        # L5 — Identité fournie par l'avaliste à l'acceptation (matérialise
+        # l'acte signé). n° CNI du DEMANDEUR sur la demande liée.
+        "cni_demandeur": lr.cni_demandeur or "",
+        "cni_avaliste": c.cni_avaliste or "",
+        "cni_avaliste_fichier": (
+            c.cni_avaliste_fichier.url if c.cni_avaliste_fichier else None
+        ),
     }
 
 
@@ -158,12 +169,35 @@ def avaliste_mandat_respond(request, pk: int):
     s.is_valid(raise_exception=True)
     data = s.validated_data
 
+    # L5 — À l'acceptation, l'avaliste fournit SON identité (n° CNI + scan).
+    # C'est ce qui matérialise l'acte de prêt signé (consentement + CNI des
+    # deux parties). Exigé uniquement sur accept ; un refus n'en a pas besoin.
+    cni_numero = (str(request.data.get("cni_avaliste", "")) or "").strip()
+    cni_fichier = request.FILES.get("cni_avaliste_fichier")
+    if data["accept"]:
+        if not cni_numero:
+            return Response(
+                {"detail": "Votre numéro de CNI est requis pour accepter le mandat."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if cni_fichier is None:
+            return Response(
+                {"detail": "Le scan/photo de votre CNI est requis pour accepter le mandat."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
     try:
         c = respond_to_avaliste_consent(
             c, accept=data["accept"], motif=data.get("motif", "")
         )
     except ValueError as exc:
         return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Persiste l'identité de l'avaliste après une acceptation validée.
+    if data["accept"]:
+        c.cni_avaliste = cni_numero
+        c.cni_avaliste_fichier = cni_fichier
+        c.save(update_fields=["cni_avaliste", "cni_avaliste_fichier", "updated_at"])
 
     c.refresh_from_db()
     return Response(_row(c))

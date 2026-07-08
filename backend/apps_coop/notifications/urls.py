@@ -14,6 +14,9 @@ urlpatterns = [
     path("announcements/", views.list_my_announcements, name="my-announcements"),
     path("read-all/", views.mark_all_read, name="read-all"),
     path("<int:pk>/read/", views.mark_read, name="read"),
+    # Push — enregistrement du jeton d'appareil (bases FCM/APNs).
+    path("devices/register/", views.register_device, name="device-register"),
+    path("devices/unregister/", views.unregister_device, name="device-unregister"),
     # Admin — gestion des annonces broadcast.
     path(
         "admin/announcements/",

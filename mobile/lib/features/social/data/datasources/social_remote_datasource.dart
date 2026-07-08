@@ -11,6 +11,10 @@ abstract class SocialRemoteDataSource {
     int offset = 0,
     int limit = 20,
   });
-  Future<SocialComment> postComment(SocialTarget target, String body);
+  Future<SocialComment> postComment(
+    SocialTarget target,
+    String body, {
+    int? parentId,
+  });
   Future<void> deleteMyComment(int commentId);
 }

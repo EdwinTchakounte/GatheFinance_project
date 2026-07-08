@@ -43,13 +43,36 @@ class AvalisteDioDataSource implements AvalisteRemoteDataSource {
     required int mandatId,
     required bool accept,
     String? motif,
+    String? cniAvaliste,
+    String? cniFichierPath,
+    String? cniFichierName,
   }) async {
     try {
-      final body = <String, dynamic>{'accept': accept};
-      if (motif != null && motif.trim().isNotEmpty) body['motif'] = motif.trim();
+      final Object data;
+      if (accept) {
+        // L5 identité . L'acceptation exige le numéro de CNI de l'avaliste + une
+        // pièce jointe (photo/scan). Le backend renvoie 400 sinon. Requête
+        // multipart pour transporter le fichier avec les scalaires.
+        data = FormData.fromMap({
+          'accept': 'true',
+          if (cniAvaliste != null) 'cni_avaliste': cniAvaliste.trim(),
+          if (cniFichierPath != null)
+            'cni_avaliste_fichier': await MultipartFile.fromFile(
+              cniFichierPath,
+              filename: cniFichierName,
+            ),
+        });
+      } else {
+        // Refus . inchangé : JSON {accept:false, motif?}.
+        final body = <String, dynamic>{'accept': false};
+        if (motif != null && motif.trim().isNotEmpty) {
+          body['motif'] = motif.trim();
+        }
+        data = body;
+      }
       final res = await _dio.post<Map<String, dynamic>>(
         '/loans/me/avaliste-mandats/$mandatId/respond/',
-        data: body,
+        data: data,
       );
       return _parseMandat(res.data ?? const {});
     } on DioException catch (e) {
@@ -117,6 +140,10 @@ AvalisteMandat _parseMandat(Map<String, dynamic> json) {
       epargneAvaliste: _num(couv['epargne_avaliste']),
       ratio: _num(couv['ratio']),
     ),
+    montantGele: _num(json['montant_gele']),
+    cniDemandeur: (json['cni_demandeur'] as String?) ?? '',
+    cniAvaliste: (json['cni_avaliste'] as String?) ?? '',
+    cniAvalisteFichier: (json['cni_avaliste_fichier'] as String?) ?? '',
   );
 }
 

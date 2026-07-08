@@ -402,6 +402,16 @@ class BookletOrder(TimestampedModel):
     date_delivrance = models.DateTimeField(null=True, blank=True)
     notes_agence = models.TextField(blank=True, help_text="Notes internes (lieu d'impression, retrait…).")
 
+    # L7 (réforme 2026) — Année de la commande. Un membre peut commander
+    # plusieurs carnets la même année (au fur et à mesure) ; les écritures
+    # d'épargne s'imputent au carnet le PLUS RÉCENT (cf. ``latest_for``).
+    annee = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Année de la commande (plusieurs carnets/an autorisés).",
+    )
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Commande de carnet"
@@ -409,6 +419,16 @@ class BookletOrder(TimestampedModel):
 
     def __str__(self) -> str:
         return f"Carnet {self.member.numero_membre} · {self.statut}"
+
+    @classmethod
+    def latest_for(cls, member) -> "BookletOrder | None":
+        """Carnet le plus récent du membre (par date de commande).
+
+        L7 : toute nouvelle écriture d'épargne s'y rattache. Retourne ``None``
+        si le membre n'a encore jamais commandé de carnet (l'écriture reste
+        alors non rattachée — c'est toléré).
+        """
+        return cls.objects.filter(member=member).order_by("-created_at", "-id").first()
 
 
 class BRCDocument(TimestampedModel):
@@ -637,3 +657,28 @@ class PasswordSetupToken(TimestampedModel):
     @property
     def is_consumed(self) -> bool:
         return self.used_at is not None
+
+
+class StaffRole(TimestampedModel):
+    """Rôle réutilisable RBAC : un paquet de ressources (onglets admin).
+
+    Un utilisateur staff peut cumuler plusieurs rôles ; son accès effectif est
+    l'union des ``resources`` de ses rôles (voir ``members.access``). Les
+    clés de ``resources`` proviennent du registre ``members.resources``.
+    """
+
+    name = models.CharField(max_length=80, unique=True)
+    description = models.CharField(max_length=240, blank=True, default="")
+    # Liste de clés de ressources (ex. ["booklet-orders", "members"]).
+    resources = models.JSONField(default=list, blank=True)
+    users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="staff_roles",
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name

@@ -53,13 +53,19 @@ def _make_senior(*, savings_collecte=Decimal("0"), savings_classique=Decimal("0"
     return m
 
 
-def _make_new_member(*, savings_collecte=Decimal("0")):
+def _make_new_member(*, savings_collecte=Decimal("0"), savings_classique=Decimal("0")):
     """Crée un membre récent (non senior)."""
     m = MemberFactory(date_adhesion=date.today() - timedelta(days=30))
     if savings_collecte > 0:
         sa = SavingsAccount.objects.get(member=m)
         sa.solde = savings_collecte
         sa.save(update_fields=["solde"])
+    if savings_classique > 0:
+        ClassicSavingsAccount.objects.create(
+            member=m,
+            solde=savings_classique,
+            date_ouverture=date.today(),
+        )
     return m
 
 
@@ -120,7 +126,8 @@ class TestFindAvaliste:
 
 class TestRequestAvalisteConsent:
     def test_creates_consent_and_changes_lr_statut(self):
-        borrower = _make_new_member(savings_collecte=Decimal("10000"))
+        # Réforme 2026 : la garantie est l'épargne CLASSIQUE (pas la collecte).
+        borrower = _make_new_member(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("50000"))
         lr = _make_loan_request(borrower, montant=Decimal("50000"))
 
@@ -131,14 +138,17 @@ class TestRequestAvalisteConsent:
         )
         assert consent.statut == AvalisteConsent.Statut.PENDING
         assert consent.avaliste_id == senior.id
-        # Snapshot des soldes : 10k borrower + 50k avaliste = 60k.
+        # Snapshot des épargnes DISPONIBLES : 10k borrower + 50k avaliste = 60k.
         assert consent.epargne_borrower_at_request == Decimal("10000")
         assert consent.epargne_avaliste_at_request == Decimal("50000")
         # Couverture = 60k / 50k = 1.2000.
         assert consent.couverture_ratio == Decimal("1.2000")
-        # LR a basculé.
+        # Gel : le demandeur gèle ses 10k, l'avaliste comble le manque (40k).
+        assert consent.montant_caution == Decimal("40000")
+        # LR a basculé + gel demandeur posé.
         lr.refresh_from_db()
         assert lr.statut == LoanRequest.Statut.EN_ATTENTE_AVALISTE
+        assert lr.montant_gele_demandeur == Decimal("10000")
         # Avaliste pas encore posé sur la LR — il faut l'acceptation.
         assert lr.avaliste_id is None
 

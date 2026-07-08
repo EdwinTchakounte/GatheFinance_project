@@ -28,7 +28,12 @@ abstract class SocialRepository {
     int limit = 20,
   });
 
-  Future<SocialComment> postComment(SocialTarget target, String body);
+  /// Poste un commentaire racine, ou une reponse si [parentId] est fourni.
+  Future<SocialComment> postComment(
+    SocialTarget target,
+    String body, {
+    int? parentId,
+  });
 
   Future<void> deleteMyComment(int commentId);
 }

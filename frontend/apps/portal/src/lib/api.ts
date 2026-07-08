@@ -182,6 +182,10 @@ export type ClassicSavingsSnapshot = {
   // bloqué en placement (garantit le funding crédit). Sert au retrait classique.
   solde_libre: string;
   solde_placement_actif: string;
+  // Réforme garantie 2026 : part gelée en garantie d'un crédit (mandat avaliste
+  // ou auto-garantie) et solde réellement retirable une fois ce gel déduit.
+  montant_gele_credit: string;
+  solde_disponible_retrait: string;
   date_ouverture: string;
   config: {
     taux_interet_annuel?: string;
@@ -242,6 +246,9 @@ export type LoanRequest = {
   duree_revisee: number | null;
   date_soumission: string;
   date_decision: string | null;
+  // Échéance indicative de l'étude par la commission (soumission + ~1 mois).
+  // Règlement : étude sous 1 semaine à 1 mois. Peut être null.
+  date_limite_etude?: string | null;
 };
 
 // Refonte 2026 LOT 19 — Espace prêteur (épargne-prêteur).
@@ -315,6 +322,14 @@ export type AvalisteMandat = {
     epargne_avaliste: string;
     ratio: string;
   };
+  // Réforme garantie 2026 : montant gelé sur l'épargne de l'avaliste pour ce
+  // mandat (string décimale). Absent tant que le mandat n'est pas accepté.
+  montant_gele?: string;
+  // L5 — Capture identité (CNI). `cni_demandeur` renseigné à la demande ;
+  // `cni_avaliste` + `cni_avaliste_fichier` (url) renseignés à l'acceptation.
+  cni_demandeur?: string;
+  cni_avaliste?: string;
+  cni_avaliste_fichier?: string | null;
 };
 
 export type LoanInstallment = {
@@ -565,6 +580,10 @@ export const portalApi = {
       request<{
         eligible: boolean;
         plafond_max: string;
+        // Réforme garantie 2026 : montant empruntable SANS avaliste (= épargne
+        // classique disponible du membre). Indicatif, pas un plafond dur —
+        // au-delà, le membre doit désigner un avaliste.
+        plafond_sans_avaliste: string;
         motifs_ineligibilite: string[];
         solde_epargne: string;
         ratio_garantie: string;
@@ -577,10 +596,15 @@ export const portalApi = {
       montant_demande: number;
       duree_mois: number;
       motif: string;
+      // L5 — Numéro de CNI du demandeur (capture identité à la demande).
+      cni_demandeur?: string;
       avaliste_numero?: string;
       avaliste_nom?: string;
       campaign_id?: number;
       profil_cible?: string;
+      // Réforme crédit L4 — voie garantie matérielle (bien mis en garantie).
+      garantie_materielle?: boolean;
+      garantie_description?: string;
       // CH-9 — Canal de réception choisi par le membre à la soumission.
       moyen_reception?: "tara_om" | "tara_momo" | "agence_especes";
       recipient_phone?: string;
@@ -590,7 +614,7 @@ export const portalApi = {
     }) =>
       request<{
         loan_request: LoanRequest;
-        route: "senior_brc" | "avaliste" | "campaign" | "none";
+        route: "senior_brc" | "avaliste" | "campaign" | "garantie_materielle" | "none";
         route_details: Record<string, unknown>;
         frais_a_payer: { code: string; libelle: string; montant: string };
       }>("/loans/requests/", { method: "POST", body: JSON.stringify(data) }),
@@ -659,11 +683,31 @@ export const portalApi = {
           pending: number;
           results: AvalisteMandat[];
         }>(`/loans/me/avaliste-mandats/${statut ? `?statut=${statut}` : ""}`),
-      respond: (id: number, payload: { accept: boolean; motif?: string }) =>
-        request<AvalisteMandat>(
-          `/loans/me/avaliste-mandats/${id}/respond/`,
-          { method: "POST", body: JSON.stringify(payload) },
-        ),
+      // L5 — Réponse au mandat. Contrat backend asymétrique :
+      //  · ACCEPTER → multipart/form-data OBLIGATOIRE avec accept=true +
+      //    cni_avaliste (n° CNI) + cni_avaliste_fichier (image/pdf). Manque
+      //    l'un des deux → 400.
+      //  · REFUSER → JSON inchangé { accept:false, motif }.
+      respond: (
+        id: number,
+        payload:
+          | { accept: true; cni_avaliste: string; cni_avaliste_fichier: File }
+          | { accept: false; motif?: string },
+      ) => {
+        const path = `/loans/me/avaliste-mandats/${id}/respond/`;
+        if (payload.accept) {
+          // Le wrapper request() pose le boundary + le CSRF pour un FormData.
+          const form = new FormData();
+          form.append("accept", "true");
+          form.append("cni_avaliste", payload.cni_avaliste);
+          form.append("cni_avaliste_fichier", payload.cni_avaliste_fichier);
+          return request<AvalisteMandat>(path, { method: "POST", body: form });
+        }
+        return request<AvalisteMandat>(path, {
+          method: "POST",
+          body: JSON.stringify({ accept: false, motif: payload.motif ?? "" }),
+        });
+      },
     },
     // Reconduction = +1 mois fixe, SANS frais (seul le taux est majoré).
     // Le corps est optionnel : la durée éventuelle est ignorée côté backend.

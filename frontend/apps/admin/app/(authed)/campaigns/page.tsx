@@ -523,14 +523,16 @@ function CreateModal({
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Taux d'intérêt" hint="0.10 = 10 %">
+          <Field label="Taux d'intérêt (%)" hint="Ex. 10 = 10 % sur la durée">
             <input
               type="number"
-              step="0.01"
+              step="0.5"
               min={0}
-              max={1}
-              value={form.taux_interet as number}
-              onChange={(e) => set("taux_interet", Number(e.target.value))}
+              max={100}
+              value={Math.round((form.taux_interet as number) * 10000) / 100}
+              onChange={(e) =>
+                set("taux_interet", Number(e.target.value) / 100)
+              }
               required
               className={inputCls}
             />

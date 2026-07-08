@@ -5,6 +5,7 @@ import { Mail, Phone, Search } from "lucide-react";
 
 import { ColumnsMenu } from "@/components/columns-menu";
 import { ExportMenu } from "@/components/export-menu";
+import { Modal } from "@/components/modal";
 import { Pagination } from "@/components/pagination";
 import type { ExportColumn } from "@/lib/export";
 import { adminApi, type ApiError, type Member } from "@/lib/api";
@@ -196,6 +197,124 @@ export default function MembersPage() {
 }
 
 
+// ── Carte recap financier d'un membre ──────────────────────────────────────
+// Consolide, en un coup d'œil : épargne (collecte + libre + placement),
+// crédit en cours, et le solde net (épargne totale − crédit).
+function MemberRecapModal({
+  member,
+  onClose,
+}: {
+  member: Member | null;
+  onClose: () => void;
+}) {
+  if (!member) return null;
+  const collecte = Number(member.epargne_collecte ?? 0);
+  const libre = Number(member.epargne_classique_libre ?? 0);
+  const placement = Number(member.epargne_placement ?? 0);
+  const epargneTotal = Number(member.epargne_total ?? 0);
+  const credit = Number(member.credit_encours ?? 0);
+  const net = epargneTotal - credit;
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`${member.prenom} ${member.nom}`}
+      description={`N° ${member.numero_membre} · ${member.statut_display}`}
+    >
+      <div className="space-y-4">
+        {/* Épargne détaillée */}
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-500">
+            Épargne
+          </p>
+          <div className="space-y-1.5 rounded-md border border-line-200 bg-paper-soft/40 px-4 py-3">
+            <RecapLine label="Collecte (journalière)" value={collecte} />
+            <RecapLine label="Classique libre" value={libre} />
+            <RecapLine label="Placement" value={placement} />
+            <div className="mt-1 border-t border-line-200 pt-1.5">
+              <RecapLine label="Épargne totale" value={epargneTotal} strong />
+            </div>
+          </div>
+        </div>
+
+        {/* Crédit */}
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-500">
+            Crédit
+          </p>
+          <div className="rounded-md border border-line-200 bg-paper-soft/40 px-4 py-3">
+            <RecapLine
+              label="Crédit en cours"
+              value={credit}
+              tone={credit > 0 ? "terra" : undefined}
+            />
+          </div>
+        </div>
+
+        {/* Solde net */}
+        <div
+          className={
+            "flex items-center justify-between rounded-md px-4 py-3 " +
+            (net >= 0 ? "bg-emerald/10" : "bg-terra-50")
+          }
+        >
+          <div>
+            <p className="text-sm font-semibold text-ink-900">Solde net</p>
+            <p className="text-xs text-ink-500">Épargne totale − crédit en cours</p>
+          </div>
+          <span
+            className={
+              "text-lg font-bold tabular-nums " +
+              (net >= 0 ? "text-emerald" : "text-terra-700")
+            }
+          >
+            {net.toLocaleString("fr-FR")} FCFA
+          </span>
+        </div>
+
+        {credit > 0 ? (
+          <p className="text-xs text-ink-500">
+            Note : une partie de l'épargne classique peut être gelée en garantie
+            tant qu'un crédit est actif (bloquée au retrait).
+          </p>
+        ) : null}
+      </div>
+    </Modal>
+  );
+}
+
+
+function RecapLine({
+  label,
+  value,
+  strong,
+  tone,
+}: {
+  label: string;
+  value: number;
+  strong?: boolean;
+  tone?: "terra";
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className={"text-sm " + (strong ? "font-semibold text-ink-900" : "text-ink-700")}>
+        {label}
+      </span>
+      <span
+        className={
+          "tabular-nums " +
+          (strong ? "font-semibold text-ink-900" : "text-ink-800") +
+          (tone === "terra" ? " text-terra-700" : "")
+        }
+      >
+        {value.toLocaleString("fr-FR")} FCFA
+      </span>
+    </div>
+  );
+}
+
+
 function Inner() {
   const [statut, setStatut] = useState<StatutFilter>("");
   const [q, setQ] = useState("");
@@ -205,6 +324,7 @@ function Inner() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Member | null>(null);
 
   // Colonnes visibles + filtres par colonne (appliqués à la page courante).
   const [visible, setVisible] = useState<Set<string>>(
@@ -409,7 +529,12 @@ function Inner() {
             </thead>
             <tbody>
               {filtered.map((m) => (
-                <tr key={m.id}>
+                <tr
+                  key={m.id}
+                  onClick={() => setSelected(m)}
+                  className="cursor-pointer transition-colors hover:bg-blue-50/50"
+                  title="Voir le recap financier"
+                >
                   {shownCols.map((c) => (
                     <td key={c.key} className={c.align === "right" ? "text-right" : ""}>
                       {c.render(m)}
@@ -455,6 +580,8 @@ function Inner() {
           </table>
         </div>
       )}
+
+      <MemberRecapModal member={selected} onClose={() => setSelected(null)} />
 
       {!loading && count > 0 ? (
         <Pagination

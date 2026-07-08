@@ -8,10 +8,14 @@ abstract class AvalisteRepository {
   Future<AvalisteMandatList> list({AvalisteStatut? statut});
 
   /// Répond à un mandat : accepte ou refuse (avec motif).
-  /// Renvoie le mandat à jour.
+  /// À l'acceptation (L5 identité), le numéro de CNI de l'avaliste + son
+  /// justificatif sont requis. Renvoie le mandat à jour.
   Future<AvalisteMandat> respond({
     required int mandatId,
     required bool accept,
     String? motif,
+    String? cniAvaliste,
+    String? cniFichierPath,
+    String? cniFichierName,
   });
 }

@@ -16,7 +16,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Announcement, Notification
+from .models import Announcement, DeviceToken, Notification
 from .serializers import AnnouncementMemberSerializer, NotificationReadSerializer
 
 
@@ -118,3 +118,54 @@ def mark_read(request, pk: int):
 def mark_all_read(request):
     updated = Notification.objects.filter(user=request.user, lue=False).update(lue=True)
     return Response({"marked": updated})
+
+
+# ---------------------------------------------------------------------------
+# Push — enregistrement / désenregistrement du jeton d'appareil (FCM/APNs).
+# ---------------------------------------------------------------------------
+
+
+@extend_schema(
+    tags=["notifications"],
+    summary="Enregistre le jeton push de l'appareil courant",
+    description=(
+        "Le mobile appelle cet endpoint après login (et à chaque rotation du "
+        "jeton FCM). Idempotent : si le jeton existe déjà il est réassocié à "
+        "l'utilisateur courant et réactivé."
+    ),
+    responses={200: None, 400: None},
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def register_device(request):
+    token = (request.data.get("token") or "").strip()
+    if not token:
+        return Response({"detail": "token requis."}, status=status.HTTP_400_BAD_REQUEST)
+    platform = (request.data.get("platform") or "android").strip().lower()
+    valid = {c[0] for c in DeviceToken.Platform.choices}
+    if platform not in valid:
+        platform = DeviceToken.Platform.ANDROID
+    DeviceToken.objects.update_or_create(
+        token=token,
+        defaults={
+            "user": request.user,
+            "platform": platform,
+            "active": True,
+            "last_seen_at": timezone.now(),
+        },
+    )
+    return Response({"registered": True})
+
+
+@extend_schema(
+    tags=["notifications"],
+    summary="Désenregistre un jeton push (logout / désinstall)",
+    responses={200: None},
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def unregister_device(request):
+    token = (request.data.get("token") or "").strip()
+    if token:
+        DeviceToken.objects.filter(user=request.user, token=token).update(active=False)
+    return Response({"unregistered": True})

@@ -88,14 +88,30 @@ class ClassicSavingsAccountReadSerializer(serializers.ModelSerializer):
     solde_placement_actif = serializers.DecimalField(
         max_digits=12, decimal_places=2, read_only=True,
     )
+    # Réforme garantie 2026 : part gelée par des engagements crédit (caution
+    # avaliste + collatéral demandeur) et disponible réel au retrait
+    # (= solde − max(placement, gel garantie)).
+    montant_gele_credit = serializers.SerializerMethodField()
+    solde_disponible_retrait = serializers.SerializerMethodField()
 
     class Meta:
         model = ClassicSavingsAccount
         fields = (
             "id", "solde", "solde_libre", "solde_placement_actif",
+            "montant_gele_credit", "solde_disponible_retrait",
             "date_ouverture", "config", "transactions_recentes",
         )
         read_only_fields = fields
+
+    def get_montant_gele_credit(self, obj: ClassicSavingsAccount):
+        from apps_coop.loans.avaliste_services import member_frozen_guarantee
+
+        return str(member_frozen_guarantee(obj.member))
+
+    def get_solde_disponible_retrait(self, obj: ClassicSavingsAccount):
+        from .services import classic_withdrawable
+
+        return str(classic_withdrawable(obj))
 
     def get_transactions_recentes(self, obj: ClassicSavingsAccount):
         recent = obj.transactions.order_by("-date", "-id")[:10]

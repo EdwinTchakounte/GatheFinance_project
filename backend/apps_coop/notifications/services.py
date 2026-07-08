@@ -298,14 +298,24 @@ def create_notification(*, user, type: str, message: str, lien: str = "") -> Not
     """Crée une notification in-app pour ``user``.
 
     Helper réutilisable directement par les hooks métier qui veulent notifier
-    sans forcément envoyer un email.
+    sans forcément envoyer un email. Tente aussi un envoi **push** (best-effort,
+    no-op tant que FCM n'est pas configuré — voir ``notifications.push``).
     """
-    return Notification.objects.create(
+    notif = Notification.objects.create(
         user=user,
         type=type,
         message=message,
         lien=lien,
     )
+    try:
+        from .push import send_push_to_user
+
+        send_push_to_user(
+            user, title="Gathé Finance", body=message, data={"type": type, "lien": lien}
+        )
+    except Exception:  # noqa: BLE001 — le push ne doit jamais casser le flux
+        pass
+    return notif
 
 
 def broadcast_announcement(announcement) -> int:

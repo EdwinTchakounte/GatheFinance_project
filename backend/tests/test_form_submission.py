@@ -9,6 +9,8 @@ Couvre :
 """
 from __future__ import annotations
 
+from decimal import Decimal
+
 import pytest
 from django.core.management import call_command
 from rest_framework.test import APIClient
@@ -257,7 +259,26 @@ class TestLoanRequestEndpointWiring:
     """
 
     def test_extra_field_lands_in_extra_payload(self, seeded, active_member):
+        from datetime import date
+
         from apps_coop.loans.models import LoanRequest
+        from apps_coop.payments.models import FeeType
+        from apps_coop.savings.models import ClassicSavingsAccount
+
+        # Réforme 2026 : rendre le membre éligible en auto-couverture (épargne
+        # classique ≥ montant demandé) pour que la soumission passe (201).
+        ClassicSavingsAccount.objects.update_or_create(
+            member=active_member,
+            defaults={"solde": Decimal("100000"), "date_ouverture": date.today()},
+        )
+        FeeType.objects.update_or_create(
+            code=FeeType.Code.DEMANDE_CREDIT,
+            defaults={
+                "libelle": "Frais de demande de crédit",
+                "montant": Decimal("1000"),
+                "actif": True,
+            },
+        )
 
         # Ajoute un champ libre `garantie_supplementaire` à la v2 du schéma
         # loan_request (en préservant les hardcoded de la v1).
@@ -282,6 +303,9 @@ class TestLoanRequestEndpointWiring:
                 "montant_demande": "100000",
                 "duree_mois": 6,
                 "motif": "Fonds de roulement",
+                # Champs requis par le schéma loan_request v1 seedé.
+                "ancien_apprenant": "non",
+                "cga_adherent": "non",
                 # Champ ajouté via FormSchema :
                 "garantie_supplementaire": "Stock de matières premières",
             },

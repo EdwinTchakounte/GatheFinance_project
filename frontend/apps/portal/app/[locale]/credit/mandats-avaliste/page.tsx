@@ -187,8 +187,18 @@ function MandatCard({
           label="Couverture"
           value={`${(parseFloat(mandat.couverture.ratio) * 100).toFixed(0)} %`}
         />
+        {mandat.montant_gele != null && Number(mandat.montant_gele) > 0 && (
+          <Info label="Montant gelé" value={formatXaf(mandat.montant_gele)} />
+        )}
         {mandat.responded_at && (
           <Info label="Répondu le" value={formatDate(mandat.responded_at)} />
+        )}
+        {/* L5 — CNI capturées (demandeur / avaliste) une fois renseignées. */}
+        {mandat.cni_demandeur && (
+          <Info label="CNI demandeur" value={mandat.cni_demandeur} />
+        )}
+        {mandat.cni_avaliste && (
+          <Info label="Ma CNI" value={mandat.cni_avaliste} />
         )}
       </dl>
 
@@ -253,21 +263,39 @@ function RespondModal({
 }) {
   const [action, setAction] = useState<"accept" | "refuse" | null>(null);
   const [motif, setMotif] = useState("");
+  // L5 — Capture identité de l'avaliste à l'acceptation (n° CNI + fichier).
+  const [cniAvaliste, setCniAvaliste] = useState("");
+  const [cniFichier, setCniFichier] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // L5 — Accepter n'est possible qu'avec le n° CNI ET le fichier CNI (le
+  // backend renvoie 400 sinon). On désactive le bouton tant qu'ils manquent.
+  const acceptReady = cniAvaliste.trim().length > 0 && cniFichier != null;
 
   async function onSubmit() {
     if (!action) return;
+    if (action === "accept" && !acceptReady) return;
     setSubmitting(true);
     try {
-      const payload = { accept: action === "accept", motif };
-      await portalApi.loans.avalisteMandats.respond(mandat.id, payload);
-      onDone(
-        action === "accept"
-          ? `Mandat accepté — la demande passe en instruction.`
-          : `Mandat refusé — le demandeur a été informé.`,
-      );
+      if (action === "accept") {
+        // L5 — Requête multipart/form-data obligatoire pour l'acceptation.
+        await portalApi.loans.avalisteMandats.respond(mandat.id, {
+          accept: true,
+          cni_avaliste: cniAvaliste.trim(),
+          cni_avaliste_fichier: cniFichier as File,
+        });
+        onDone(`Mandat accepté — la demande passe en instruction.`);
+      } else {
+        // Refus inchangé : JSON { accept:false, motif }.
+        await portalApi.loans.avalisteMandats.respond(mandat.id, {
+          accept: false,
+          motif,
+        });
+        onDone(`Mandat refusé — le demandeur a été informé.`);
+      }
     } catch (err) {
       const apiErr = err as ApiError;
+      // Surface le message du backend (ex. 400 « CNI requise ») tel quel.
       onError(apiErr.detail ?? "Impossible d'enregistrer ta réponse.");
     } finally {
       setSubmitting(false);
@@ -314,6 +342,32 @@ function RespondModal({
               est définitive</strong> et te lie tant que le crédit n'est pas
               entièrement remboursé.
             </div>
+
+            {/* L5 — Capture identité obligatoire pour accepter (n° + fichier CNI). */}
+            <label className="block text-xs font-medium text-ink-700">
+              Votre numéro de CNI
+              <input
+                type="text"
+                value={cniAvaliste}
+                onChange={(e) => setCniAvaliste(e.target.value)}
+                className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-sm text-ink-900 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                placeholder="Ex. 123456789"
+                autoComplete="off"
+              />
+            </label>
+            <label className="block text-xs font-medium text-ink-700">
+              Photo / scan de votre CNI
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) => setCniFichier(e.target.files?.[0] ?? null)}
+                className="mt-2 block w-full text-xs text-ink-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald file:px-3 file:py-1.5 file:text-white"
+              />
+              <span className="mt-1 block text-[11px] font-normal text-ink-500">
+                Image ou PDF. Obligatoire pour valider l&apos;engagement.
+              </span>
+            </label>
+
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setAction(null)}
@@ -323,7 +377,7 @@ function RespondModal({
               </button>
               <button
                 onClick={onSubmit}
-                disabled={submitting}
+                disabled={submitting || !acceptReady}
                 className={buttonClasses({ variant: "success", size: "sm" })}
               >
                 {submitting ? "Envoi…" : "Je confirme l'engagement"}

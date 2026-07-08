@@ -286,3 +286,39 @@ class Announcement(TimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.titre} ({self.audience})"
+
+
+class DeviceToken(TimestampedModel):
+    """Jeton d'appareil pour les notifications push (FCM / APNs).
+
+    Base posée pour le push : le mobile enregistre son jeton ici après login ;
+    l'envoi effectif (adaptateur FCM) est branché dans ``services.push`` et
+    reste inactif tant qu'aucune clé fournisseur n'est configurée.
+    """
+
+    class Platform(models.TextChoices):
+        ANDROID = "android", "Android"
+        IOS = "ios", "iOS"
+        WEB = "web", "Web"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="device_tokens",
+    )
+    token = models.CharField(max_length=512, unique=True)
+    platform = models.CharField(
+        max_length=16, choices=Platform.choices, default=Platform.ANDROID
+    )
+    # Désactivé si le fournisseur signale un jeton invalide/expiré.
+    active = models.BooleanField(default=True, db_index=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "active"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover — debug only
+        return f"DeviceToken({self.user_id}, {self.platform})"

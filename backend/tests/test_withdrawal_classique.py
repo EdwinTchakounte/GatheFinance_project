@@ -143,7 +143,7 @@ class TestDecideWithdrawalClassique:
         )
         # Le membre place 20k entre-temps → solde_libre tombe à 30k
         _place(active_member, "20000")
-        with pytest.raises(ValueError, match="(?i)solde libre insuffisant"):
+        with pytest.raises(ValueError, match="(?i)solde retirable insuffisant"):
             decide_withdrawal(wr, decided_by=admin_user, approve=True)
         cacc.refresh_from_db()
         assert cacc.solde == Decimal("50000")  # inchangé

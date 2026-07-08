@@ -331,6 +331,48 @@ class LoanRequest(TimestampedModel):
     statut = models.CharField(max_length=32, choices=Statut.choices, default=Statut.EN_ATTENTE, db_index=True)
     motif_rejet = models.TextField(blank=True)
 
+    # Refonte 2026 (réforme garantie) — part de l'épargne classique PROPRE du
+    # demandeur gelée comme collatéral de ce crédit (« grisée » : bloquée au
+    # retrait). Auto-couverture → = montant. Voie avaliste → = épargne dispo du
+    # demandeur (l'avaliste comble le manque). Campagne → 0 (la coop porte le
+    # risque). Libérée quand la demande est rejetée ou le Loan passe CLOTURE.
+    montant_gele_demandeur = money_field(
+        default=ZERO,
+        help_text=(
+            "Épargne classique propre du demandeur gelée en garantie de ce "
+            "crédit (bloquée au retrait jusqu'à clôture)."
+        ),
+    )
+
+    # L4 (réforme garantie) — Voie GARANTIE MATÉRIELLE (fallback sans avaliste).
+    # Le demandeur upload un titre de propriété (Document ACTE_GARANTIE lié à
+    # cette LoanRequest) ; l'admin/commission évalue la valeur du bien, qui doit
+    # couvrir le montant à l'approbation.
+    garantie_materielle = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Cette demande s'appuie sur une garantie matérielle (bien) au lieu d'un avaliste.",
+    )
+    garantie_description = models.TextField(
+        blank=True,
+        help_text="Description du bien proposé en garantie (saisie par le demandeur).",
+    )
+    garantie_valeur_estimee = money_field(
+        default=ZERO,
+        help_text=(
+            "Valeur estimée du bien par la commission (éval manuelle admin). "
+            "Doit être ≥ montant demandé pour approuver."
+        ),
+    )
+
+    # L5 (réforme garantie) — N° CNI du demandeur, saisi sur la demande
+    # (Règlement, condition 1 : la demande indique le n° CNI du demandeur).
+    cni_demandeur = models.CharField(
+        max_length=32,
+        blank=True,
+        help_text="Numéro de CNI du demandeur, saisi à la soumission de la demande.",
+    )
+
     # CH-4 — Champs additionnels FormSchema (loan_request).
     extra_payload = models.JSONField(
         default=dict, blank=True,
@@ -342,6 +384,16 @@ class LoanRequest(TimestampedModel):
     )
 
     date_soumission = models.DateTimeField(auto_now_add=True)
+
+    # L6 (réforme garantie) — Échéance indicative d'étude par la commission des
+    # prêts (Règlement condition 4 : étude sous 1 semaine à 1 mois). Posée à la
+    # soumission = date_soumission + ``loans.study.max_days`` (défaut 30).
+    # Purement informative (aucun effet système au dépassement).
+    date_limite_etude = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Échéance indicative d'étude par la commission (soumission + délai max).",
+    )
 
     # Step B — pre-instruction by the agent staff
     instruit_par = models.ForeignKey(
@@ -1351,6 +1403,34 @@ class AvalisteConsent(TimestampedModel):
             "calculé au moment de la demande. Doit être ≥ "
             "``loans.avaliste.min_coverage_ratio`` (défaut 1.0000)."
         ),
+    )
+    # Refonte 2026 (réforme garantie) — montant que l'avaliste engage
+    # réellement = le MANQUE (montant − épargne dispo du demandeur). C'est ce
+    # montant qui est « grisé » sur l'épargne classique de l'avaliste tant que
+    # le crédit n'est pas soldé. On se comporte comme si l'avaliste avait
+    # émis ce montant. Compté uniquement quand ``statut == ACCEPTED`` et que le
+    # Loan associé n'est pas CLOTURE.
+    montant_caution = money_field(
+        default=ZERO,
+        help_text=(
+            "Montant réellement engagé/gelé par l'avaliste (le manque = "
+            "montant − épargne dispo du demandeur)."
+        ),
+    )
+
+    # L5 (réforme garantie) — Identité de l'avaliste, fournie par LUI au moment
+    # où il accepte le mandat (condition 1 + matérialisation de l'acte signé :
+    # le consentement + la CNI de l'avaliste font foi de sa signature).
+    cni_avaliste = models.CharField(
+        max_length=32,
+        blank=True,
+        help_text="Numéro de CNI de l'avaliste, saisi par lui à l'acceptation.",
+    )
+    cni_avaliste_fichier = models.FileField(
+        upload_to="coop/avaliste/cni/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="Scan/photo de la CNI de l'avaliste, uploadé à l'acceptation.",
     )
 
     # Trace brute des champs saisis (anti-fraude / litige).

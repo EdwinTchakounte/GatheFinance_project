@@ -9,6 +9,9 @@ abstract class AvalisteRemoteDataSource {
     required int mandatId,
     required bool accept,
     String? motif,
+    String? cniAvaliste,
+    String? cniFichierPath,
+    String? cniFichierName,
   });
 
   /// Typeahead — recherche d'avalistes éligibles (membres actifs+seniors)

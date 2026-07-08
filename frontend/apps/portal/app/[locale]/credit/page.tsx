@@ -42,6 +42,15 @@ function formatDate(iso: string): string {
   }
 }
 
+// Statuts pour lesquels la demande est encore à l'étude par la commission :
+// on affiche l'échéance indicative d'étude (Règlement : 1 semaine à 1 mois).
+const STATUTS_SOUS_ETUDE = new Set<LoanRequest["statut"]>([
+  "en_attente",
+  "en_instruction",
+  "en_validation_campagne",
+  "en_attente_avaliste",
+]);
+
 function statutColor(s: LoanRequest["statut"]): string {
   switch (s) {
     case "en_attente":
@@ -406,6 +415,12 @@ export default function PortalCreditPage() {
                         {formatXAF(r.montant_demande)} sur {r.duree_mois} mois
                       </p>
                       <p className="mt-1 line-clamp-2 text-sm text-ink-600">{r.motif}</p>
+                    {STATUTS_SOUS_ETUDE.has(r.statut) && r.date_limite_etude ? (
+                      <p className="mt-1.5 text-xs text-ink-600">
+                        Étude sous 1 semaine à 1 mois — échéance le{" "}
+                        {formatDate(r.date_limite_etude)}
+                      </p>
+                    ) : null}
                     </div>
                     <span className={`font-medium ${statutColor(r.statut)}`}>
                       {r.statut_display}

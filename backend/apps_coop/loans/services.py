@@ -18,7 +18,6 @@ from apps_coop.audit.services import get_str_setting, record as record_audit
 from apps_coop.members.models import Member
 from apps_coop.payments.models import RateParam
 from apps_coop.payments.rates import get_rate
-from apps_coop.savings.models import SavingsAccount
 
 from .models import Loan, LoanInstallment, LoanRenewal, LoanRequest
 from .terms import (
@@ -38,29 +37,34 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Eligibility:
     eligible: bool
-    plafond_max: Decimal
+    plafond_max: Decimal  # montant max EMPRUNTABLE SANS AVALISTE (= épargne classique dispo)
     motifs: list[str]
     # Useful context for the UI to display the rules to the member.
-    solde_epargne: Decimal
+    solde_epargne: Decimal  # solde épargne classique total
     ratio_garantie: Decimal
 
 
-# Configurable thresholds — to move to ``AppSetting`` once we wire the admin tools.
-PLAFOND_PAR_RAPPORT_AU_SOLDE = Decimal("10.0")  # plafond = solde × 10
+# Réforme garantie 2026 : plus de multiplicateur. Sans avaliste, on emprunte
+# jusqu'à sa propre épargne classique disponible (ratio 1:1).
 ANCIENNETE_MIN_MOIS = 0  # MVP: no anciennity requirement
 
 
 def compute_eligibility(member: Member) -> Eligibility:
-    """Return whether a member can submit a new credit request, plus context.
+    """Peut-il soumettre une demande, et jusqu'à combien SANS avaliste ?
 
-    Rules (MVP) :
+    Réforme garantie 2026 :
       1. ``Member.statut == actif``
-      2. No `Loan` in statut `actif` / `en_retard` / `contentieux`
-      3. No `LoanRequest` already in `en_attente` / `en_instruction` /
-         `en_attente_acceptation_membre`
-      4. ``solde_epargne >= 100 XAF`` (minimum to allow a request at all)
-      5. ``plafond_max = solde_epargne × 10`` (capped by AppSetting later)
+      2. Pas de ``Loan`` actif / en_retard / contentieux
+      3. Pas de ``LoanRequest`` déjà en cours
+      4. ``plafond_max`` = épargne classique DISPONIBLE (= montant max
+         empruntable en auto-couverture, sans avaliste). Au-delà, le membre
+         doit désigner un avaliste — ce n'est PAS un blocage d'éligibilité.
+
+    Le seuil « solde ≥ 100 XAF » disparaît : un membre sans épargne classique
+    reste éligible (il passera par la voie avaliste ou campagne).
     """
+    from .avaliste_services import _member_available_savings, _member_total_savings
+
     motifs: list[str] = []
 
     # Rule 1
@@ -85,6 +89,9 @@ def compute_eligibility(member: Member) -> Eligibility:
             LoanRequest.Statut.EN_ATTENTE,
             LoanRequest.Statut.EN_INSTRUCTION,
             LoanRequest.Statut.EN_ATTENTE_ACCEPTATION_MEMBRE,
+            LoanRequest.Statut.EN_ATTENTE_AVALISTE,
+            LoanRequest.Statut.EN_VALIDATION_CAMPAGNE,
+            LoanRequest.Statut.APPROUVEE_PROVISOIRE,
         ],
     ).count()
     if pending_requests:
@@ -93,22 +100,16 @@ def compute_eligibility(member: Member) -> Eligibility:
             "Attends la décision avant d'en soumettre une nouvelle."
         )
 
-    # Rule 4 + plafond
-    try:
-        solde = member.savings_account.solde
-    except SavingsAccount.DoesNotExist:
-        solde = Decimal("0")
-    if solde < Decimal("100"):
-        motifs.append("Solde d'épargne insuffisant (minimum 100 XAF).")
-
-    plafond_max = (solde * PLAFOND_PAR_RAPPORT_AU_SOLDE).quantize(Decimal("1"))
+    # Plafond sans avaliste = épargne classique disponible (déduit le gel déjà pris).
+    solde_classique = _member_total_savings(member)
+    dispo = _member_available_savings(member)
 
     return Eligibility(
         eligible=len(motifs) == 0,
-        plafond_max=plafond_max,
+        plafond_max=dispo,
         motifs=motifs,
-        solde_epargne=solde,
-        ratio_garantie=PLAFOND_PAR_RAPPORT_AU_SOLDE,
+        solde_epargne=solde_classique,
+        ratio_garantie=Decimal("1"),
     )
 
 
@@ -329,6 +330,12 @@ def approve_loan_request(
         else get_rate(RateParam.Code.LOAN_INTEREST)
     )
     montant = Decimal(loan_request.montant_demande)
+
+    # L4 — Voie garantie matérielle : l'évaluation et la validation du bien
+    # relèvent du COMITÉ DES PRÊTS (jugement hors système). Le système
+    # n'impose donc AUCUNE règle de couverture ici ; il se contente de tracer
+    # la valeur éventuellement saisie par l'admin (cf. LoanGuarantee ci-dessous).
+
     duree = duration_months_for(montant)
     modalite = loan_request.modalite_paiement or PaymentModality.MENSUEL
 
@@ -389,6 +396,17 @@ def approve_loan_request(
         interest_share_rate_fige=share_rate_fige,
     )
     generate_installments_flat_interest(loan)
+
+    # L4 — Matérialise la garantie évaluée en LoanGuarantee (traçabilité).
+    if loan_request.garantie_materielle:
+        from .models import LoanGuarantee
+
+        LoanGuarantee.objects.create(
+            loan=loan,
+            type_garantie=LoanGuarantee.TypeGarantie.BIEN_IMMOBILIER,
+            description=loan_request.garantie_description or "",
+            valeur_estimee=Decimal(loan_request.garantie_valeur_estimee or 0),
+        )
 
     # CH-8 — Pose la date butoire formelle = date de la dernière échéance
     # générée. C'est cette date (et non les échéances individuelles) qui

@@ -94,7 +94,9 @@ export function Modal({
           </button>
         </header>
 
-        {children ? <div className="px-6 py-4">{children}</div> : null}
+        {children ? (
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
+        ) : null}
 
         {footer ? (
           <footer className="flex items-center justify-end gap-2 border-t border-line-200 bg-line-100/30 px-6 py-3">

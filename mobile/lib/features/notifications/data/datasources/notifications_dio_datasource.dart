@@ -46,6 +46,30 @@ class NotificationsDioDataSource implements NotificationsRemoteDataSource {
       throw mapDioError(e);
     }
   }
+
+  @override
+  Future<void> registerDevice(String token, {String platform = 'android'}) async {
+    try {
+      await _dio.post<void>(
+        '/notifications/devices/register/',
+        data: {'token': token, 'platform': platform},
+      );
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
+  Future<void> unregisterDevice(String token) async {
+    try {
+      await _dio.post<void>(
+        '/notifications/devices/unregister/',
+        data: {'token': token},
+      );
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
 }
 
 AppNotification _parseNotification(Map<String, dynamic> json) {

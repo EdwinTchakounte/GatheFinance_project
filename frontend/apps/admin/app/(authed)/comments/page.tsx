@@ -152,9 +152,16 @@ function Inner() {
       label: "Contenu",
       text: (row) => row.body,
       render: (row) => (
-        <p className="line-clamp-2 max-w-md text-sm text-ink-700">
-          {row.body || <span className="italic text-ink-400">(vide)</span>}
-        </p>
+        <div className="max-w-md">
+          {row.parent_id ? (
+            <span className="mb-1 inline-block rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700">
+              Réponse
+            </span>
+          ) : null}
+          <p className="line-clamp-2 text-sm text-ink-700">
+            {row.body || <span className="italic text-ink-400">(vide)</span>}
+          </p>
+        </div>
       ),
     },
     {
