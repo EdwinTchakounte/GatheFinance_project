@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Coins, FileText, Send, X } from "lucide-react";
+import { Check, Coins, FileText, Scale, Send, X } from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
 
@@ -15,6 +15,15 @@ function formatXAF(amount: string): string {
   const n = Number(amount);
   if (Number.isNaN(n)) return amount;
   return n.toLocaleString("fr-FR", { maximumFractionDigits: 0 }) + " XAF";
+}
+
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "2-digit",
+  });
 }
 
 
@@ -56,6 +65,8 @@ function Inner() {
   // Cash-in admin frais d'etude (CH-7) : encaisser les frais en agence quand
   // le membre paie en especes au lieu de Tara MoMo.
   const [cashInTarget, setCashInTarget] = useState<LoanRequest | null>(null);
+  // L4 — Évaluation du bien mis en garantie matérielle (informel, non bloquant).
+  const [guaranteeTarget, setGuaranteeTarget] = useState<LoanRequest | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -148,6 +159,28 @@ function Inner() {
     }
   }
 
+  async function submitGuaranteeEval(payload: { valeur_estimee: number; note: string }) {
+    if (!guaranteeTarget) return;
+    setActingId(guaranteeTarget.id);
+    try {
+      await adminApi.loanRequests.evaluateGuarantee(guaranteeTarget.id, {
+        valeur_estimee: payload.valeur_estimee,
+        note: payload.note || undefined,
+      });
+      setMessage({
+        tone: "ok",
+        text: `Évaluation du bien enregistrée pour la demande #${guaranteeTarget.id} (${formatXAF(String(payload.valeur_estimee))}).`,
+      });
+      setGuaranteeTarget(null);
+      await reload();
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setMessage({ tone: "err", text: apiErr.detail ?? "Évaluation impossible." });
+    } finally {
+      setActingId(null);
+    }
+  }
+
   async function submitDisburse(payload: { recipient_phone: string; network: "MTN" | "ORANGE" | "WAVE" | "AIRTEL" }) {
     if (!disburseTarget?.loan) return;
     setActingId(disburseTarget.id);
@@ -224,6 +257,7 @@ function Inner() {
         <div className="max-w-md">
           <p className="line-clamp-3 text-sm">{r.motif}</p>
           <ProfilEmprunteurBadges r={r} />
+          <GarantieMaterielleSection r={r} />
         </div>
       ),
     },
@@ -231,12 +265,17 @@ function Inner() {
       key: "date",
       label: "Reçue le",
       defaultVisible: false,
-      text: (r) =>
-        new Date(r.date_soumission).toLocaleDateString("fr-FR", {
-          day: "2-digit",
-          month: "short",
-          year: "2-digit",
-        }),
+      text: (r) => formatDate(r.date_soumission),
+      render: (r) => (
+        <div className="whitespace-nowrap">
+          <span>{formatDate(r.date_soumission)}</span>
+          {r.date_limite_etude ? (
+            <p className="mt-0.5 text-[11px] text-ink-500">
+              Étude avant le {formatDate(r.date_limite_etude)}
+            </p>
+          ) : null}
+        </div>
+      ),
     },
     {
       key: "statut",
@@ -395,6 +434,17 @@ function Inner() {
                     <X className="size-3.5" aria-hidden="true" />Rejeter
                   </button>
                 </div>
+                {r.garantie_materielle ? (
+                  <button
+                    type="button"
+                    onClick={() => setGuaranteeTarget(r)}
+                    disabled={actingId === r.id}
+                    className={buttonClasses({ variant: "ghost", size: "sm" })}
+                    title="Enregistrer la valeur estimée du bien mis en garantie (informel, n'affecte pas la décision)"
+                  >
+                    <Scale className="size-3.5" aria-hidden="true" />Évaluer le bien
+                  </button>
+                ) : null}
                 <a
                   href={adminApi.loans.noteUrl(r.id)}
                   target="_blank"
@@ -517,6 +567,12 @@ function Inner() {
         target={fieldVisitTarget}
         onClose={() => setFieldVisitTarget(null)}
         onSubmit={submitFieldVisit}
+        submitting={actingId !== null}
+      />
+      <GuaranteeEvalModal
+        target={guaranteeTarget}
+        onClose={() => setGuaranteeTarget(null)}
+        onSubmit={submitGuaranteeEval}
         submitting={actingId !== null}
       />
 
@@ -976,6 +1032,165 @@ function RejectLoanModal({
           autoFocus
         />
       </ModalField>
+    </Modal>
+  );
+}
+
+
+/**
+ * L4 — Section « Garantie matérielle » affichée sous le motif quand la
+ * demande emprunte la voie garantie_materielle. Présente la description du
+ * bien, un lien vers le titre de propriété uploadé (attachment
+ * `titre_propriete`) et la valeur estimée courante (dès qu'elle est > 0).
+ * Purement informatif : la commission approuve toujours via le flux decide.
+ */
+function GarantieMaterielleSection({ r }: { r: LoanRequest }) {
+  if (!r.garantie_materielle) return null;
+  const titre = (r.attachments ?? []).find(
+    (a) => a.schema_field_id === "titre_propriete",
+  );
+  const valeur = Number(r.garantie_valeur_estimee ?? "0");
+  const valeurEstimee = Number.isFinite(valeur) && valeur > 0;
+  const gele = Number(r.montant_gele_demandeur ?? "0");
+  return (
+    <div className="mt-2 rounded-md border border-blue-700/20 bg-blue-100/30 px-3 py-2">
+      <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-blue-900">
+        <Scale className="size-3" aria-hidden="true" />
+        Garantie matérielle
+      </p>
+      {r.garantie_description ? (
+        <p className="mt-1 text-xs text-ink-700">{r.garantie_description}</p>
+      ) : null}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+        {gele > 0 ? (
+          <span className="text-ink-600">
+            Montant gelé : <span className="font-medium tabular-nums">{formatXAF(r.montant_gele_demandeur!)}</span>
+          </span>
+        ) : null}
+        {valeurEstimee ? (
+          <span className="text-emerald">
+            Valeur estimée : <span className="font-medium tabular-nums">{formatXAF(r.garantie_valeur_estimee!)}</span>
+          </span>
+        ) : (
+          <span className="text-ink-500">Bien non encore évalué.</span>
+        )}
+        {titre?.url ? (
+          <a
+            href={titre.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 font-medium text-blue-700 hover:underline"
+            title={titre.nom_original}
+          >
+            <FileText className="size-3" aria-hidden="true" />Titre de propriété
+          </a>
+        ) : (
+          <span className="text-amber-700">Titre non uploadé — à demander.</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * L4 — Modal « Évaluer le bien ». Saisie de la valeur estimée (XAF) + note
+ * facultative. POST vers evaluate-guarantee/. Non bloquant : la décision
+ * d'octroi reste au flux decide (approbation provisoire / définitive).
+ */
+function GuaranteeEvalModal({
+  target,
+  onClose,
+  onSubmit,
+  submitting,
+}: {
+  target: LoanRequest | null;
+  onClose: () => void;
+  onSubmit: (payload: { valeur_estimee: number; note: string }) => void;
+  submitting: boolean;
+}) {
+  const [valeurStr, setValeurStr] = useState("");
+  const [note, setNote] = useState("");
+
+  useEffect(() => {
+    if (target) {
+      // Pré-remplit avec l'évaluation courante si déjà saisie une 1re fois.
+      const current = Number(target.garantie_valeur_estimee ?? "0");
+      setValeurStr(Number.isFinite(current) && current > 0 ? String(current) : "");
+      setNote("");
+    }
+  }, [target]);
+
+  if (!target) return null;
+  const valeur = Number(valeurStr);
+  const valeurValid = Number.isFinite(valeur) && valeur > 0;
+  const canSubmit = !submitting && valeurValid;
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Évaluer le bien mis en garantie"
+      description={`Demande #${target.id} · ${formatXAF(target.montant_demande)} demandés`}
+      tone="info"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className={buttonClasses({ variant: "ghost", size: "sm" })}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={() => canSubmit && onSubmit({ valeur_estimee: valeur, note: note.trim() })}
+            disabled={!canSubmit}
+            className={buttonClasses({ variant: "primary", size: "sm" })}
+          >
+            <Scale className="size-3.5" aria-hidden="true" />Enregistrer l'évaluation
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {target.garantie_description ? (
+          <div className="rounded-md border border-line-200 bg-line-100/40 px-3 py-2 text-xs text-ink-700">
+            <span className="font-semibold text-ink-900">Bien décrit : </span>
+            {target.garantie_description}
+          </div>
+        ) : null}
+        <ModalField
+          label="Valeur estimée du bien"
+          hint="Montant en XAF retenu par la commission après examen du titre."
+        >
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1000"
+            value={valeurStr}
+            onChange={(e) => setValeurStr(e.target.value)}
+            placeholder="Ex. : 2 500 000"
+            className={modalInputClass}
+            autoFocus
+          />
+        </ModalField>
+        <ModalField label="Note (facultatif)">
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            className={modalInputClass + " resize-y"}
+            placeholder="Base de l'estimation, réserves éventuelles…"
+          />
+        </ModalField>
+        <p className="rounded-md border border-blue-700/20 bg-blue-100/40 px-3 py-2 text-xs text-blue-900">
+          Cette évaluation est <strong>informative</strong> : elle n'octroie pas le
+          crédit. La commission décide via l'approbation (provisoire puis définitive).
+        </p>
+      </div>
     </Modal>
   );
 }

@@ -255,10 +255,20 @@ export type LoanRequest = {
   motif_rejet: string;
   date_soumission: string;
   date_decision: string | null;
+  // Échéance indicative de l'étude par la commission (soumission + ~1 mois).
+  // Règlement : étude sous 1 semaine à 1 mois. Peut être null.
+  date_limite_etude?: string | null;
   // CH-6 — Workflow double approbation : visite terrain entre provisoire et définitive.
   field_visit_outcome?: "" | "favorable" | "defavorable" | "a_revoir";
   field_visit_done_at?: string | null;
   field_visit_note?: string;
+  // L4 — Voie « garantie matérielle » : le membre gèle un bien (titre de
+  // propriété uploadé). La commission évalue le bien (informel, non bloquant)
+  // puis approuve via le flux decide normal.
+  garantie_materielle?: boolean;
+  garantie_description?: string;
+  garantie_valeur_estimee?: string;
+  montant_gele_demandeur?: string;
   loan: {
     id: number;
     numero_dossier: string;
@@ -1028,6 +1038,16 @@ export const adminApi = {
       },
     ) =>
       request<LoanRequest>(`/loans/requests/${id}/field-visit/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    // L4 — Évaluation du bien mis en garantie (staff, NON bloquant, purement
+    // informatif). La commission juge et approuve ensuite via decide().
+    evaluateGuarantee: (
+      id: number,
+      payload: { valeur_estimee: number; note?: string },
+    ) =>
+      request<LoanRequest>(`/loans/requests/${id}/evaluate-guarantee/`, {
         method: "POST",
         body: JSON.stringify(payload),
       }),
