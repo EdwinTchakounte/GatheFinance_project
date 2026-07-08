@@ -153,6 +153,35 @@ export type Identity = {
   is_superuser: boolean;
   groups: string[];
   member: unknown;
+  // RBAC — ressources (onglets) accessibles + accès total.
+  resources?: string[];
+  full_access?: boolean;
+};
+
+// -- RBAC : utilisateurs & accès -------------------------------------------
+export type AccessResource = { key: string; label: string };
+
+export type StaffRole = {
+  id: number;
+  name: string;
+  description: string;
+  resources: string[];
+  users_count: number;
+};
+
+export type StaffUser = {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  is_active: boolean;
+  is_superuser: boolean;
+  groups: string[];
+  role_ids: number[];
+  roles: string[];
+  resources: string[];
+  full_access: boolean;
+  temporary_password?: string;
 };
 
 export type DashboardKpis = {
@@ -712,6 +741,7 @@ export type AuditLogFilters = {
 // Interactions sociales — commentaires (like est suivi cote mobile uniquement).
 export type SocialCommentRow = {
   id: number;
+  parent_id: number | null;
   body: string;
   author_name: string;
   author_email: string;
@@ -1683,6 +1713,62 @@ export const adminApi = {
         `/loans/admin/${loanId}/funding-manual/`,
         { method: "POST", body: JSON.stringify(payload) },
       ),
+  },
+
+  // RBAC — Utilisateurs & accès (staff + rôles/ressources).
+  access: {
+    resources: () =>
+      request<{ results: AccessResource[] }>("/admin/access/resources/"),
+    listRoles: () => request<{ results: StaffRole[] }>("/admin/access/roles/"),
+    createRole: (payload: {
+      name: string;
+      description?: string;
+      resources: string[];
+    }) =>
+      request<StaffRole>("/admin/access/roles/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    updateRole: (
+      id: number,
+      payload: Partial<{ name: string; description: string; resources: string[] }>,
+    ) =>
+      request<StaffRole>(`/admin/access/roles/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    deleteRole: (id: number) =>
+      request<void>(`/admin/access/roles/${id}/`, { method: "DELETE" }),
+    listUsers: () => request<{ results: StaffUser[] }>("/admin/access/users/"),
+    createUser: (payload: {
+      email: string;
+      first_name?: string;
+      last_name?: string;
+      password?: string;
+      group?: string;
+      role_ids?: number[];
+    }) =>
+      request<StaffUser>("/admin/access/users/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    updateUser: (
+      id: number,
+      payload: Partial<{
+        first_name: string;
+        last_name: string;
+        is_active: boolean;
+        group: string;
+        role_ids: number[];
+        reset_password: boolean;
+      }>,
+    ) =>
+      request<StaffUser>(`/admin/access/users/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    deactivateUser: (id: number) =>
+      request<StaffUser>(`/admin/access/users/${id}/`, { method: "DELETE" }),
   },
 };
 

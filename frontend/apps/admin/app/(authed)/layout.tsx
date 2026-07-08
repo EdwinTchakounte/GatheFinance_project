@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 import { CommandPalette } from "@/components/command-palette";
-import { Sidebar } from "@/components/sidebar";
+import { Sidebar, canAccessResource, hrefResource } from "@/components/sidebar";
 import {
   adminApi,
   type ApiError,
@@ -85,6 +85,21 @@ export default function AuthedLayout({
     };
   }, [router]);
 
+  // 1bis) Garde RBAC — si la ressource de la route courante n'est pas
+  //       autorisée, on renvoie vers la première ressource accessible.
+  const currentAllowed = identity
+    ? canAccessResource(identity, hrefResource(pathname))
+    : true;
+  const firstAllowed = identity?.full_access
+    ? "dashboard"
+    : identity?.resources?.[0];
+  useEffect(() => {
+    if (!identity || currentAllowed) return;
+    if (firstAllowed && `/${firstAllowed}` !== pathname) {
+      router.replace(`/${firstAllowed}`);
+    }
+  }, [identity, currentAllowed, firstAllowed, pathname, router]);
+
   // 2) KPIs rechargés à chaque changement de route — gardent les badges
   //    à jour après une approbation/un rejet sans recharger toute la page.
   useEffect(() => {
@@ -136,7 +151,20 @@ export default function AuthedLayout({
           key={pathname}
           className="animate-[fadein_180ms_ease-out] motion-reduce:animate-none"
         >
-          {children}
+          {currentAllowed ? (
+            children
+          ) : (
+            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 px-8 text-center">
+              <p className="font-editorial text-xl font-medium text-ink-900">
+                Accès non autorisé
+              </p>
+              <p className="max-w-md text-sm text-ink-600">
+                {firstAllowed
+                  ? "Redirection vers une section autorisée…"
+                  : "Aucune ressource ne t'a été attribuée. Contacte un administrateur."}
+              </p>
+            </div>
+          )}
         </div>
       </main>
 
