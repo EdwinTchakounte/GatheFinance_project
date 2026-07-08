@@ -41,6 +41,32 @@ def _add_months(d: date, months: int) -> date:
     return d.replace(year=new_year, month=new_month, day=min(d.day, last_day))
 
 
+def classic_withdrawable(account: ClassicSavingsAccount) -> Decimal:
+    """Part réellement retirable de l'épargne classique (réforme garantie 2026).
+
+    = solde − max(placement encore actif, gel de garantie crédit).
+
+    Le placement est déjà bloqué (sous-canal CH-3). Le gel de garantie (caution
+    engagée comme avaliste + collatéral immobilisé comme demandeur) « grise »
+    en plus la part libre — mais uniquement au-delà du placement, puisque le
+    placement compte déjà dans la garantie et est déjà indisponible.
+    """
+    solde = Decimal(account.solde)
+    placement = Decimal(account.solde_placement_actif)
+    frozen = Decimal("0")
+    try:  # import local — évite un cycle savings <-> loans au chargement.
+        from apps_coop.loans.avaliste_services import member_frozen_guarantee
+
+        frozen = member_frozen_guarantee(account.member)
+    except Exception:  # noqa: BLE001 — best-effort, ne bloque jamais un retrait
+        logger.warning(
+            "member_frozen_guarantee a échoué pour le compte classique #%s",
+            account.pk,
+        )
+    dispo = solde - max(placement, frozen)
+    return dispo if dispo > 0 else Decimal("0")
+
+
 @transaction.atomic
 def request_withdrawal(
     account: SavingsAccount | None = None,
@@ -104,8 +130,8 @@ def request_withdrawal(
         if classic_account is None:
             raise ValueError("Compte épargne classique requis pour un retrait classique.")
         locked = ClassicSavingsAccount.objects.select_for_update().get(pk=classic_account.pk)
-        # Part librement retirable = solde total − placements encore actifs.
-        disponible = Decimal(locked.solde_libre)
+        # Part retirable = solde − max(placement actif, gel garantie crédit).
+        disponible = classic_withdrawable(locked)
         account_kwargs = {"classic_account": locked}
         pending_filter = {"classic_account": locked}
     else:
@@ -242,10 +268,11 @@ def decide_withdrawal(
             cacc = ClassicSavingsAccount.objects.select_for_update().get(
                 pk=wr.classic_account_id
             )
-            disponible = Decimal(cacc.solde_libre)
+            disponible = classic_withdrawable(cacc)
             if montant > disponible:
                 raise ValueError(
-                    f"Solde libre insuffisant pour approuver : {disponible} < {montant}."
+                    f"Solde retirable insuffisant pour approuver : {disponible} "
+                    f"< {montant} (placement bloqué + gel garantie crédit)."
                 )
             nouveau_solde = Decimal(cacc.solde) - montant
             cacc.solde = nouveau_solde

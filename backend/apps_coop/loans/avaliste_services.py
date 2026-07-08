@@ -57,79 +57,123 @@ def _min_coverage_ratio() -> Decimal:
     return max(Decimal("0"), ratio)
 
 
+# Statuts de LoanRequest où le gel du collatéral demandeur est LIBÉRÉ
+# (dossier mort). Tout autre statut = gel vivant tant que le Loan associé
+# n'est pas CLOTURE.
+_REQUEST_RELEASED_STATUSES = None  # calculé paresseusement (voir _released_request_statuses)
+
+
+def _released_request_statuses():
+    from .models import LoanRequest
+
+    return {
+        LoanRequest.Statut.REJETEE,
+        LoanRequest.Statut.REJETEE_AVALISTE,
+        LoanRequest.Statut.REJETEE_CAMPAGNE,
+    }
+
+
 def _member_total_savings(member: Member) -> Decimal:
-    """Somme des soldes collecte + classique du membre (refonte 2026).
+    """Solde-garantie du membre = **épargne classique** (libre + placement).
 
-    Renvoie 0 si aucun compte n'a encore été créé. Ne lève jamais — utilisée
-    en lecture pour la couverture avaliste, pas pour un débit.
+    Refonte 2026 (réforme garantie) : la collecte journalière est EXCLUE (elle
+    est reversée chaque fin de mois, donc non mobilisable en garantie). Seule
+    l'épargne classique — part libre + placement bloqué — sert de garantie
+    (crédit avaliste ou auto-couverture).
+
+    Renvoie 0 si aucun compte classique n'existe. Ne lève jamais — lecture
+    seule pour la couverture, pas pour un débit.
     """
-    total = Decimal("0")
     try:
-        # Collecte journalière (SavingsAccount).
-        from apps_coop.savings.models import SavingsAccount  # local
-
-        sa = SavingsAccount.objects.filter(member=member).first()
-        if sa is not None:
-            total += Decimal(sa.solde)
-    except Exception:  # noqa: BLE001 — tables not migrated / missing
-        pass
-    try:
-        # Épargne classique (inclut le placement bloqué — la note mémoire
-        # `avaliste-cap-solde` agrège tout : collecte + classique libre +
-        # placement).
         if hasattr(member, "classic_savings_account"):
-            total += Decimal(member.classic_savings_account.solde)
-    except Exception:  # noqa: BLE001
+            return Decimal(member.classic_savings_account.solde)
+    except Exception:  # noqa: BLE001 — table non migrée / compte absent
         pass
+    return Decimal("0")
+
+
+def _borrower_frozen_amount(member: Member) -> Decimal:
+    """Épargne classique propre gelée par ce membre comme DEMANDEUR.
+
+    Somme des ``LoanRequest.montant_gele_demandeur`` de ses demandes encore
+    vivantes (ni rejetées, ni adossées à un Loan CLOTURE). C'est le collatéral
+    que le demandeur immobilise sur ses propres crédits.
+    """
+    from .models import Loan, LoanRequest
+
+    total = Decimal("0")
+    released = _released_request_statuses()
+    reqs = (
+        LoanRequest.objects.filter(member=member)
+        .exclude(statut__in=released)
+        .select_related("loan")
+    )
+    for lr in reqs:
+        loan = getattr(lr, "loan", None)
+        if loan is not None and loan.statut == Loan.Statut.CLOTURE:
+            continue  # crédit soldé → collatéral libéré
+        total += Decimal(lr.montant_gele_demandeur or 0)
     return total
 
 
-def _member_committed_caution_amount(avaliste: Member) -> Decimal:
-    """Somme des cautions encore engagées par cet avaliste.
+def _avaliste_frozen_amount(avaliste: Member) -> Decimal:
+    """Épargne classique gelée par ce membre en tant qu'AVALISTE.
 
-    Note mémoire `avaliste-cap-solde` : un avaliste ne peut pas garantir des
-    crédits dont la somme dépasse son propre solde cumulé. On compte ici la
-    somme des `montant_demande` des `AvalisteConsent` que cet avaliste a
-    ACCEPTÉS et qui ne sont pas encore soldés. Une caution est libérée quand
-    le Loan associé passe en `CLOTURE` (remboursement intégral).
+    Somme des ``AvalisteConsent.montant_caution`` (le manque réellement
+    engagé) ACCEPTÉS dont le Loan n'est pas encore CLOTURE. Une caution est
+    libérée à la clôture du crédit garanti.
 
-    Cas particuliers :
-      - `AvalisteConsent.statut == PENDING` → pas encore engagé (compte zéro).
-      - `AvalisteConsent.statut == REFUSED` → caution refusée (compte zéro).
-      - `AvalisteConsent.statut == ACCEPTED` mais la LoanRequest n'a pas
-        encore généré de Loan (instruction comité en cours) → ON COMPTE,
-        car l'avaliste est juridiquement engagé.
-      - `AvalisteConsent.statut == ACCEPTED` + Loan.statut == CLOTURE → libéré.
+    Cas :
+      - PENDING → pas encore engagé (zéro).
+      - REFUSED → refusé (zéro).
+      - ACCEPTED sans Loan (instruction en cours) → compté (engagement pris).
+      - ACCEPTED + Loan CLOTURE → libéré.
     """
-    # Import local pour éviter le cycle d'imports loans <-> avaliste.
     from .models import AvalisteConsent, Loan
 
     total = Decimal("0")
-    consents = (
-        AvalisteConsent.objects.filter(
-            avaliste=avaliste,
-            statut=AvalisteConsent.Statut.ACCEPTED,
-        )
-        .select_related("loan_request")
-    )
+    consents = AvalisteConsent.objects.filter(
+        avaliste=avaliste,
+        statut=AvalisteConsent.Statut.ACCEPTED,
+    ).select_related("loan_request", "loan_request__loan")
     for c in consents:
         lr = c.loan_request
         loan = getattr(lr, "loan", None)
         if loan is not None and loan.statut == Loan.Statut.CLOTURE:
             continue  # caution libérée
-        total += Decimal(lr.montant_demande)
+        total += Decimal(c.montant_caution or 0)
     return total
+
+
+def member_frozen_guarantee(member: Member) -> Decimal:
+    """Total de l'épargne classique gelée par ce membre (demandeur + avaliste).
+
+    Utilisé par le retrait épargne classique pour « griser » cette part :
+    withdrawable = solde − max(placement_actif, ce gel).
+    """
+    return _borrower_frozen_amount(member) + _avaliste_frozen_amount(member)
+
+
+def _member_available_savings(member: Member) -> Decimal:
+    """Épargne classique DISPONIBLE = solde classique − gel garantie déjà pris.
+
+    Empêche le double-nantissement : une épargne déjà gelée sur un crédit
+    vivant ne peut pas re-servir de garantie à un nouveau crédit.
+    """
+    free = _member_total_savings(member) - member_frozen_guarantee(member)
+    return free if free > 0 else Decimal("0")
 
 
 def member_caution_capacity(avaliste: Member) -> tuple[Decimal, Decimal, Decimal]:
     """Triplet ``(solde_total, cautions_engagees, capacite_restante)``.
 
     Helper public — utilisé par l'endpoint `search-avaliste/` pour exposer
-    la dispo au mobile, et par `request_avaliste_consent` pour bloquer une
-    nouvelle caution qui ferait dépasser le solde.
+    la dispo au mobile, et par `request_avaliste_consent` pour borner une
+    nouvelle caution. ``capacite_restante`` = épargne classique DISPONIBLE
+    (déduit tout ce que le membre a déjà gelé, comme demandeur ET avaliste).
     """
     solde = _member_total_savings(avaliste)
-    engaged = _member_committed_caution_amount(avaliste)
+    engaged = member_frozen_guarantee(avaliste)
     free = solde - engaged
     if free < 0:
         free = Decimal("0")
@@ -212,8 +256,10 @@ def request_avaliste_consent(
     if avaliste.pk == borrower.pk:
         raise ValueError("Le demandeur ne peut pas être son propre avaliste.")
 
-    epargne_borrower = _member_total_savings(borrower)
-    epargne_avaliste = _member_total_savings(avaliste)
+    # Épargne DISPONIBLE (classique − ce qui est déjà gelé ailleurs) — évite le
+    # double-nantissement d'une même épargne sur deux crédits.
+    epargne_borrower = _member_available_savings(borrower)
+    epargne_avaliste = _member_available_savings(avaliste)
     total_savings = epargne_borrower + epargne_avaliste
     montant = Decimal(loan_request.montant_demande)
     if montant <= 0:
@@ -224,21 +270,24 @@ def request_avaliste_consent(
     if ratio_actuel < min_ratio:
         raise ValueError(
             f"Couverture insuffisante : {ratio_actuel} < {min_ratio} "
-            f"(épargnes cumulées {total_savings} XAF / montant {montant} XAF). "
-            f"Le demandeur ou l'avaliste doit augmenter son épargne."
+            f"(épargnes disponibles cumulées {total_savings} XAF / montant "
+            f"{montant} XAF). Le demandeur ou l'avaliste doit augmenter son "
+            f"épargne, ou baisser le montant demandé."
         )
 
-    # Memory note `avaliste-cap-solde` : un avaliste ne peut pas garantir
-    # plus que son propre solde cumulé (collecte + classique + placement).
-    # On bloque ici la création d'une nouvelle caution qui ferait dépasser.
-    _solde_av, engaged_before, _free = member_caution_capacity(avaliste)
-    if engaged_before + montant > epargne_avaliste:
+    # Réforme garantie : l'avaliste ne comble QUE le manque. Le demandeur gèle
+    # d'abord sa propre épargne dispo ; l'avaliste engage le reste.
+    gel_demandeur = min(montant, epargne_borrower)
+    gel_avaliste = montant - gel_demandeur  # ≤ epargne_avaliste (garanti par le ratio)
+
+    # Garde-fou : la caution engagée ne peut dépasser l'épargne dispo de
+    # l'avaliste (cohérent avec le ratio, mais on borne explicitement).
+    if gel_avaliste > epargne_avaliste:
         raise ValueError(
-            f"Plafond avaliste dépassé : cet avaliste a déjà engagé "
-            f"{engaged_before} XAF de cautions ; avec {montant} XAF "
-            f"supplémentaires le total ({engaged_before + montant} XAF) "
-            f"dépasserait son propre solde ({epargne_avaliste} XAF). "
-            f"Demande à un autre avaliste."
+            f"Plafond avaliste dépassé : l'avaliste devrait geler "
+            f"{gel_avaliste} XAF mais ne dispose que de {epargne_avaliste} XAF "
+            f"d'épargne classique libre. Demande à un autre avaliste ou baisse "
+            f"le montant."
         )
 
     consent = AvalisteConsent.objects.create(
@@ -248,12 +297,18 @@ def request_avaliste_consent(
         epargne_borrower_at_request=epargne_borrower,
         epargne_avaliste_at_request=epargne_avaliste,
         couverture_ratio=ratio_actuel,
+        montant_caution=gel_avaliste,
         identification_numero_saisi=numero_identification.strip(),
         identification_nom_saisi=nom.strip(),
     )
 
+    # Gèle la part propre du demandeur dès la soumission (collatéral engagé).
+    # La caution avaliste (montant_caution) n'est comptée qu'à l'acceptation.
+    loan_request.montant_gele_demandeur = gel_demandeur
     loan_request.statut = LoanRequest.Statut.EN_ATTENTE_AVALISTE
-    loan_request.save(update_fields=["statut", "updated_at"])
+    loan_request.save(
+        update_fields=["montant_gele_demandeur", "statut", "updated_at"]
+    )
 
     record_audit(
         action="loan_request.avaliste_consent_requested",

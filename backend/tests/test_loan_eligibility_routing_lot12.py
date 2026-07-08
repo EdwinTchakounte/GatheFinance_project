@@ -54,9 +54,19 @@ def _new_member(member: Member, *, months_ago=2) -> Member:
 
 
 def _add_savings(member: Member, amount: Decimal) -> None:
-    sa = member.savings_account
-    sa.solde = amount
-    sa.save(update_fields=["solde"])
+    """Alimente l'épargne CLASSIQUE du membre (= garantie, réforme 2026).
+
+    La collecte journalière ne compte plus comme garantie : seule l'épargne
+    classique (libre + placement) sert de couverture crédit.
+    """
+    from apps_coop.savings.models import ClassicSavingsAccount
+
+    acc, _ = ClassicSavingsAccount.objects.get_or_create(
+        member=member,
+        defaults={"solde": Decimal("0"), "date_ouverture": date.today()},
+    )
+    acc.solde = amount
+    acc.save(update_fields=["solde"])
 
 
 def _make_campaign(**kw) -> MicrocreditCampaign:
@@ -78,44 +88,50 @@ def _make_campaign(**kw) -> MicrocreditCampaign:
 
 
 # ---------------------------------------------------------------------------
-# Voie 1 — SENIOR_BRC
+# Voie 1 — AUTO-COUVERTURE (ex-SENIOR_BRC) — réforme garantie 2026
+# Matche dès que l'épargne classique disponible ≥ montant (sans avaliste).
+# Plus d'exigence d'ancienneté ni de lien BRC.
 # ---------------------------------------------------------------------------
 
 
 class TestVoieSeniorBrc:
-    def test_senior_with_brc_matches(self):
-        m = _ancient_brc(MemberFactory())
+    def test_self_coverage_matches(self):
+        # Nouvel adhérent (non senior) mais épargne classique ≥ montant :
+        # auto-couverture l'emporte → pas besoin d'avaliste.
+        m = _new_member(MemberFactory())
+        _add_savings(m, Decimal("100000"))
         result = evaluate_routes(m, montant=Decimal("100000"))
         assert result.route == EligibilityRoute.SENIOR_BRC
         assert result.eligible is True
-        assert result.details["is_senior"] is True
-        assert result.details["is_brc_member"] is True
+        assert result.details["auto_couverture"] is True
 
-    def test_senior_without_brc_skips_voie1(self):
-        m = _ancient_brc(MemberFactory(), brc=False)
-        # Pas d'avaliste/campagne fournis → on doit retomber sur NONE.
-        result = evaluate_routes(m, montant=Decimal("100000"))
-        assert result.route == EligibilityRoute.NONE
-        assert any("BRC" in motif for motif in result.motifs)
-
-    def test_not_senior_skips_voie1(self):
+    def test_insufficient_self_coverage_skips_voie1(self):
         m = _new_member(MemberFactory())
+        _add_savings(m, Decimal("10000"))
+        # Pas d'avaliste/campagne fournis → NONE.
         result = evaluate_routes(m, montant=Decimal("100000"))
         assert result.route == EligibilityRoute.NONE
-        assert any("Ancienneté" in motif for motif in result.motifs)
+        assert any("couvrir soi-même" in motif for motif in result.motifs)
+
+    def test_no_savings_skips_voie1(self):
+        m = _new_member(MemberFactory())  # aucune épargne classique
+        result = evaluate_routes(m, montant=Decimal("100000"))
+        assert result.route == EligibilityRoute.NONE
 
     def test_kill_switch_disables_voie1(self):
         _setting("loans.eligibility.allow_senior_brc", "false")
-        m = _ancient_brc(MemberFactory())
+        m = _new_member(MemberFactory())
+        _add_savings(m, Decimal("100000"))  # se couvrirait sinon
         result = evaluate_routes(m, montant=Decimal("100000"))
-        # Senior BRC est désactivé → on doit retomber sur NONE.
+        # Voie auto-couverture désactivée → NONE.
         assert result.route == EligibilityRoute.NONE
         assert any("désactivée" in motif for motif in result.motifs)
 
-    def test_require_brc_false_allows_senior_without_brc(self):
-        _setting("loans.eligibility.require_brc_for_senior", "false")
-        m = _ancient_brc(MemberFactory(), brc=False)
-        result = evaluate_routes(m, montant=Decimal("100000"))
+    def test_exact_coverage_matches(self):
+        # Épargne dispo == montant → couverture juste suffisante.
+        m = _new_member(MemberFactory())
+        _add_savings(m, Decimal("50000"))
+        result = evaluate_routes(m, montant=Decimal("50000"))
         assert result.route == EligibilityRoute.SENIOR_BRC
 
 
@@ -286,6 +302,7 @@ class TestRoutePriority:
     def test_default_order_senior_first(self):
         """Si plusieurs voies matchent, SENIOR_BRC gagne par défaut."""
         m = _ancient_brc(MemberFactory())
+        _add_savings(m, Decimal("25000"))  # auto-couverture OK
         c = _make_campaign()
         result = evaluate_routes(
             m,
@@ -324,6 +341,7 @@ class TestRoutePriority:
         """Priorité invalide → fallback ordre par défaut."""
         _setting("loans.eligibility.route_priority", "bogus,,xxx")
         m = _ancient_brc(MemberFactory())
+        _add_savings(m, Decimal("100000"))  # auto-couverture OK
         result = evaluate_routes(m, montant=Decimal("100000"))
         assert result.route == EligibilityRoute.SENIOR_BRC
 

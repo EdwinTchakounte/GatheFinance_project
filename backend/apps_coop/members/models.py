@@ -402,6 +402,16 @@ class BookletOrder(TimestampedModel):
     date_delivrance = models.DateTimeField(null=True, blank=True)
     notes_agence = models.TextField(blank=True, help_text="Notes internes (lieu d'impression, retrait…).")
 
+    # L7 (réforme 2026) — Année de la commande. Un membre peut commander
+    # plusieurs carnets la même année (au fur et à mesure) ; les écritures
+    # d'épargne s'imputent au carnet le PLUS RÉCENT (cf. ``latest_for``).
+    annee = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Année de la commande (plusieurs carnets/an autorisés).",
+    )
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Commande de carnet"
@@ -409,6 +419,16 @@ class BookletOrder(TimestampedModel):
 
     def __str__(self) -> str:
         return f"Carnet {self.member.numero_membre} · {self.statut}"
+
+    @classmethod
+    def latest_for(cls, member) -> "BookletOrder | None":
+        """Carnet le plus récent du membre (par date de commande).
+
+        L7 : toute nouvelle écriture d'épargne s'y rattache. Retourne ``None``
+        si le membre n'a encore jamais commandé de carnet (l'écriture reste
+        alors non rattachée — c'est toléré).
+        """
+        return cls.objects.filter(member=member).order_by("-created_at", "-id").first()
 
 
 class BRCDocument(TimestampedModel):

@@ -45,6 +45,7 @@ from .views import (
     loan_disbursement_status,
     loan_eligibility,
     loan_extend_deadline,
+    loan_request_evaluate_guarantee,
     loan_notice,
     loan_renewal_decide,
     loan_renewal_request,
@@ -127,6 +128,12 @@ urlpatterns = [
         "requests/<int:pk>/field-visit/",
         loan_request_field_visit,
         name="field-visit",
+    ),
+    # L4 — Évaluation garantie matérielle par la commission (staff).
+    path(
+        "requests/<int:pk>/evaluate-guarantee/",
+        loan_request_evaluate_guarantee,
+        name="evaluate-guarantee",
     ),
     # Reconduction — admin : liste des demandes à décider + décision.
     path("admin/renewals/", admin_list_loan_renewals, name="admin-list-renewals"),

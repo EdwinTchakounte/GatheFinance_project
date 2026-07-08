@@ -100,10 +100,11 @@ def _open_campaign(profil="commercants"):
 
 
 class TestVoieSeniorBrc:
-    def test_senior_brc_creates_lr_en_attente(self, active_member):
+    def test_self_coverage_creates_lr_en_attente(self, active_member):
+        # Réforme 2026 : épargne classique ≥ montant → auto-couverture directe.
         _seed_fee()
-        _ancient_brc(active_member)
-        _seed_savings(active_member, 50000)  # plafond legacy 50k×10 = 500k
+        _new_member(active_member)
+        _seed_classic(active_member, 100000)
         client = _api(active_member)
         r = client.post(
             "/api/v1/loans/requests/",
@@ -114,25 +115,32 @@ class TestVoieSeniorBrc:
         body = r.json()
         assert body["route"] == "senior_brc"
         assert body["loan_request"]["statut"] == "en_attente"
+        # L'épargne propre du demandeur est gelée en garantie (= montant).
+        lr = LoanRequest.objects.get(pk=body["loan_request"]["id"])
+        assert lr.montant_gele_demandeur == Decimal("100000")
 
-    def test_senior_brc_rejects_above_plafond(self, active_member):
+    def test_above_self_coverage_without_avaliste_rejects(self, active_member):
+        # Plus de plafond ×10 : mais sans avaliste on ne peut pas dépasser sa
+        # propre épargne → aucune voie applicable (403), pas une erreur 400.
         _seed_fee()
-        _ancient_brc(active_member)
-        _seed_savings(active_member, 10000)  # plafond = 100k
+        _new_member(active_member)
+        _seed_classic(active_member, 10000)
         client = _api(active_member)
         r = client.post(
             "/api/v1/loans/requests/",
             {"montant_demande": "500000", "duree_mois": 6, "motif": "Test"},
             format="json",
         )
-        assert r.status_code == 400
-        assert "plafond" in r.json()["detail"].lower()
+        assert r.status_code == 403
+        assert any("couvrir soi-même" in m for m in r.json()["motifs"])
 
-    def test_senior_without_brc_falls_through_to_none(self, active_member):
-        """Sans BRC + sans avaliste/campaign → aucune voie."""
+    def test_insufficient_coverage_no_avaliste_falls_through_to_none(
+        self, active_member
+    ):
+        """Épargne < montant + sans avaliste/campaign → aucune voie."""
         _seed_fee()
-        _ancient_brc(active_member, brc=False)
-        _seed_savings(active_member, 50000)
+        _new_member(active_member)
+        _seed_classic(active_member, 50000)
         client = _api(active_member)
         r = client.post(
             "/api/v1/loans/requests/",
@@ -142,7 +150,7 @@ class TestVoieSeniorBrc:
         assert r.status_code == 403
         body = r.json()
         assert "motifs" in body
-        assert any("BRC" in m for m in body["motifs"])
+        assert any("couvrir soi-même" in m for m in body["motifs"])
 
 
 # ---------------------------------------------------------------------------
@@ -156,10 +164,10 @@ class TestVoieAvaliste:
     ):
         _seed_fee()
         _new_member(active_member)
-        _seed_savings(active_member, 10000)
+        _seed_classic(active_member, 10000)
         avaliste = MemberFactory(nom="DUPONT")
         _ancient_brc(avaliste)
-        _seed_savings(avaliste, 200000)  # couverture suffisante
+        _seed_classic(avaliste, 200000)  # couverture suffisante
 
         client = _api(active_member)
         r = client.post(
@@ -181,6 +189,10 @@ class TestVoieAvaliste:
         lr = LoanRequest.objects.get(pk=body["loan_request"]["id"])
         assert hasattr(lr, "avaliste_consent")
         assert lr.avaliste_consent.statut == AvalisteConsent.Statut.PENDING
+        # Réforme garantie : le demandeur gèle sa propre épargne dispo (10k),
+        # l'avaliste comble le manque (100k − 10k = 90k).
+        assert lr.montant_gele_demandeur == Decimal("10000")
+        assert lr.avaliste_consent.montant_caution == Decimal("90000")
 
     def test_insufficient_coverage_rejects(self, active_member):
         _seed_fee()
@@ -371,7 +383,7 @@ class TestBackwardsCompat:
         `frais_a_payer` toujours présentes dans la réponse 201."""
         _seed_fee()
         _ancient_brc(active_member)
-        _seed_savings(active_member, 50000)
+        _seed_classic(active_member, 100000)  # auto-couverture directe
         client = _api(active_member)
         r = client.post(
             "/api/v1/loans/requests/",
@@ -383,3 +395,43 @@ class TestBackwardsCompat:
         assert "loan_request" in body
         assert "frais_a_payer" in body
         assert body["frais_a_payer"]["code"] == "DEMANDE_CREDIT"
+
+
+class TestL5CniDemandeur:
+    def test_cni_demandeur_stored_on_submit(self, active_member):
+        _seed_fee()
+        _new_member(active_member)
+        _seed_classic(active_member, 100000)
+        r = _api(active_member).post(
+            "/api/v1/loans/requests/",
+            {
+                "montant_demande": "100000",
+                "duree_mois": 6,
+                "motif": "Test",
+                "cni_demandeur": "CNI-DEM-123",
+            },
+            format="json",
+        )
+        assert r.status_code == 201, r.content
+        lr = LoanRequest.objects.get(pk=r.json()["loan_request"]["id"])
+        assert lr.cni_demandeur == "CNI-DEM-123"
+        assert r.json()["loan_request"]["cni_demandeur"] == "CNI-DEM-123"
+
+
+class TestL6StudyDeadline:
+    def test_study_deadline_set_on_submit(self, active_member):
+        from datetime import date as _date, timedelta as _td
+
+        _seed_fee()
+        _new_member(active_member)
+        _seed_classic(active_member, 100000)
+        r = _api(active_member).post(
+            "/api/v1/loans/requests/",
+            {"montant_demande": "100000", "duree_mois": 6, "motif": "Test"},
+            format="json",
+        )
+        assert r.status_code == 201, r.content
+        lr = LoanRequest.objects.get(pk=r.json()["loan_request"]["id"])
+        # Défaut 30 jours après la soumission.
+        assert lr.date_limite_etude == _date.today() + _td(days=30)
+        assert r.json()["loan_request"]["date_limite_etude"] is not None

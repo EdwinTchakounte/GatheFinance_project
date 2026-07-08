@@ -344,6 +344,7 @@ class BookletOrderReadSerializer(serializers.ModelSerializer):
         fields = (
             "id", "statut", "statut_display",
             "date_impression", "date_delivrance",
+            "annee",  # L7 — plusieurs carnets/an
             "created_at",
         )
         read_only_fields = fields
@@ -371,6 +372,7 @@ class BookletOrderAdminSerializer(serializers.ModelSerializer):
             "id", "statut", "statut_display",
             "date_impression", "date_delivrance",
             "notes_agence",
+            "annee",  # L7 — plusieurs carnets/an
             "member_id", "member_nom", "member_prenom",
             "member_numero", "member_phone",
             "payment_id", "payment_montant",

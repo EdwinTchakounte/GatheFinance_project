@@ -121,6 +121,17 @@ class SavingsTransaction(TimestampedModel):
             "Défaut 1 = versement journalier classique."
         ),
     )
+    # L7 (réforme 2026) — Carnet auquel cette écriture est imputée (le plus
+    # récent du membre au moment du versement). Null si aucun carnet commandé
+    # ou pour les écritures système (commission, restitution…).
+    booklet_order = models.ForeignKey(
+        "members.BookletOrder",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="collecte_transactions",
+        help_text="Carnet le plus récent auquel cette écriture est rattachée.",
+    )
 
     class Meta:
         ordering = ["-date", "-id"]
@@ -325,6 +336,18 @@ class ClassicSavingsTransaction(TimestampedModel):
     montant = money_field()
     solde_apres = money_field(help_text="Solde du compte juste après cette opération.")
     date = models.DateTimeField(db_index=True)
+
+    # L7 (réforme 2026) — Carnet auquel cette écriture est imputée (le plus
+    # récent du membre au moment du versement). Null si le membre n'a pas
+    # encore commandé de carnet, ou pour les écritures système.
+    booklet_order = models.ForeignKey(
+        "members.BookletOrder",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="classic_savings_transactions",
+        help_text="Carnet le plus récent auquel cette écriture est rattachée.",
+    )
 
     # CH-3 (refonte 2026) — Sous-canal placement.
     is_placement = models.BooleanField(

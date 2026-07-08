@@ -36,6 +36,12 @@ class LoanRequestSubmitSerializer(serializers.Serializer):
     )
     motif = serializers.CharField(max_length=2000, allow_blank=False)
 
+    # L5 — N° CNI du demandeur (Règlement condition 1). Optionnel au niveau API
+    # pour ne pas casser les intégrations ; le front le présente comme attendu.
+    cni_demandeur = serializers.CharField(
+        max_length=32, required=False, allow_blank=True
+    )
+
     # Voie AVALISTE — optionnel (§7.2 BUSINESS_RULES_2026).
     avaliste_numero = serializers.CharField(
         max_length=32, required=False, allow_blank=True
@@ -48,6 +54,14 @@ class LoanRequestSubmitSerializer(serializers.Serializer):
     campaign_id = serializers.IntegerField(required=False, allow_null=True)
     profil_cible = serializers.CharField(
         max_length=64, required=False, allow_blank=True
+    )
+
+    # Voie GARANTIE MATÉRIELLE (L4) — fallback sans avaliste. Le titre de
+    # propriété est uploadé séparément (attachment Document schema_field_id
+    # 'titre_propriete') ; la valeur est évaluée par l'admin.
+    garantie_materielle = serializers.BooleanField(required=False, default=False)
+    garantie_description = serializers.CharField(
+        max_length=2000, required=False, allow_blank=True
     )
 
     # CH-9 — Moyen de réception choisi à la soumission.
@@ -103,9 +117,19 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "duree_revisee",
             "date_soumission",
             "date_decision",
+            # L6 — échéance indicative d'étude commission
+            "date_limite_etude",
             "loan",
             "extra_payload",
             "attachments",
+            # L4 — garantie matérielle
+            "garantie_materielle",
+            "garantie_description",
+            "garantie_valeur_estimee",
+            # Réforme garantie — gel demandeur
+            "montant_gele_demandeur",
+            # L5 — n° CNI demandeur
+            "cni_demandeur",
         )
         read_only_fields = fields
 

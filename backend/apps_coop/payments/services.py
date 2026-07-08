@@ -437,6 +437,9 @@ def _hook_savings_deposit(payment: Payment, _raw: dict) -> None:
     valued_at = datetime.combine(value_date, time(17, 0)).replace(tzinfo=instant.tzinfo)
     deferred = value_date != instant.date()
 
+    # L7 — impute l'écriture au carnet le plus récent du membre (le cas échéant).
+    from apps_coop.members.models import BookletOrder
+
     transaction_row = SavingsTransaction.objects.create(
         account=account,
         payment=payment,
@@ -446,6 +449,7 @@ def _hook_savings_deposit(payment: Payment, _raw: dict) -> None:
         date=valued_at,
         # LOT 6 (refonte 2026) — propage le multi-jours pré-payé.
         nb_jours_couverts=payment.nb_jours_couverts,
+        booklet_order=BookletOrder.latest_for(payment.member),
     )
 
     record_audit(
@@ -513,6 +517,9 @@ def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
 
     date_op = payment.date_validation or timezone.now()
 
+    # L7 — impute l'écriture au carnet le plus récent du membre (le cas échéant).
+    from apps_coop.members.models import BookletOrder
+
     ClassicSavingsTransaction.objects.create(
         account=account,
         payment=payment,
@@ -521,6 +528,7 @@ def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
         solde_apres=nouveau_solde,
         date=date_op,
         is_placement=payment.is_placement,
+        booklet_order=BookletOrder.latest_for(payment.member),
         # `placement_unlock_date` reste null : le verrou vient de l'état de la
         # tranche prêteur (DISPONIBLE/ENGAGEE), pas d'une date fixe.
     )
@@ -773,15 +781,19 @@ def _hook_carnet_fees(payment: Payment, raw: dict) -> None:
 
     is_renewal = _is_carnet_renewal(payment, raw)
 
+    # L7 (réforme 2026) — Découplage carnet ↔ renouvellement : la ré-inscription
+    # annuelle est appliquée si applicable, MAIS un nouveau carnet est TOUJOURS
+    # créé (décision « chaque commande = nouveau carnet »). Plusieurs carnets
+    # par an sont donc possibles ; les écritures s'imputent au plus récent.
     if is_renewal:
         _apply_membership_renewal(payment)
-        return
 
     order, created = BookletOrder.objects.get_or_create(
         payment=payment,
         defaults={
             "member": payment.member,
             "statut": BookletOrder.Statut.PAYEE,
+            "annee": timezone.localdate().year,
         },
     )
     record_audit(
@@ -811,8 +823,10 @@ def _hook_carnet_fees(payment: Payment, raw: dict) -> None:
 
     # CH-2 — tentative d'activation : si c'est le 3e frais qui complète
     # le triplet (adhésion + inscription + carnet), le Member passe à ACTIF.
-    # Idempotent : si déjà actif (4e+ paiement), no-op.
-    _activate_member_if_fees_settled(payment.member, trigger_payment=payment)
+    # Idempotent : si déjà actif (4e+ paiement), no-op. Inutile en
+    # renouvellement (le membre a déjà été actif au moins une fois).
+    if not is_renewal:
+        _activate_member_if_fees_settled(payment.member, trigger_payment=payment)
 
 
 # ---------------------------------------------------------------------------

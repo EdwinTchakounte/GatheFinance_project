@@ -56,6 +56,7 @@ class EligibilityRoute:
 
     SENIOR_BRC = "senior_brc"
     AVALISTE = "avaliste"
+    GARANTIE_MATERIELLE = "garantie_materielle"
     CAMPAIGN = "campaign"
     NONE = "none"
 
@@ -98,13 +99,20 @@ def _route_priority() -> list[str]:
     kill-switches ``allow_*``.
     """
     raw = get_str_setting(
-        "loans.eligibility.route_priority", "senior_brc,avaliste,campaign"
+        "loans.eligibility.route_priority",
+        "senior_brc,avaliste,garantie_materielle,campaign",
     )
     parts = [p.strip().lower() for p in (raw or "").split(",") if p.strip()]
-    valid = {EligibilityRoute.SENIOR_BRC, EligibilityRoute.AVALISTE, EligibilityRoute.CAMPAIGN}
+    valid = {
+        EligibilityRoute.SENIOR_BRC,
+        EligibilityRoute.AVALISTE,
+        EligibilityRoute.GARANTIE_MATERIELLE,
+        EligibilityRoute.CAMPAIGN,
+    }
     return [p for p in parts if p in valid] or [
         EligibilityRoute.SENIOR_BRC,
         EligibilityRoute.AVALISTE,
+        EligibilityRoute.GARANTIE_MATERIELLE,
         EligibilityRoute.CAMPAIGN,
     ]
 
@@ -123,67 +131,59 @@ class _VoieResult:
 
 def _eval_senior_brc(
     member: Member,
+    montant: Decimal,
     *,
     extra_payload: Optional[dict] = None,
 ) -> _VoieResult:
-    """Voie 1 — SENIOR_BRC.
+    """Voie 1 — AUTO-COUVERTURE (ex-SENIOR_BRC).
 
-    Conditions cumulatives :
-      - anciennete >= seniority.threshold_months
-      - lien BRC : CGA BRC (membre actuel) OU CFP BRC (ancien apprenant)
+    Réforme garantie 2026 : l'avaliste n'est PAS nécessaire lorsque l'épargne
+    ordinaire (classique) DISPONIBLE du demandeur couvre le crédit demandé
+    (Règlement, condition 2). Cette voie directe matche donc dès que :
 
-    Le lien BRC peut venir :
-      1. du Member.is_brc_member (validation admin permanente), OU
-      2. de extra_payload['cga_brc_member'] == 'oui'  (avec preuve uploadee), OU
-      3. de extra_payload['cfp_brc_apprenant'] == 'oui' (avec preuve)
-    -> on prend OR des 3 sources pour faire is_brc_member.
-    L'admin pourra ensuite valider/invalider les preuves au comite credit.
+        épargne classique disponible du demandeur ≥ montant demandé
+
+    Plus de plafond ×10, plus d'exigence d'ancienneté ni de lien BRC : un
+    nouvel adhérent qui se couvre lui-même n'a pas besoin d'avaliste
+    (arbitrage « auto-couverture l'emporte »). Les déclarations BRC restent
+    stockées pour information admin mais ne conditionnent plus l'éligibilité.
     """
     if not _bool_setting("loans.eligibility.allow_senior_brc", True):
         return _VoieResult(
             matched=False,
-            motifs=["Voie SENIOR_BRC désactivée par l'admin."],
+            motifs=["Voie auto-couverture désactivée par l'admin."],
         )
 
-    motifs: list[str] = []
-    if not member.is_senior:
-        motifs.append(
-            f"Ancienneté insuffisante pour la voie directe ({member.seniority_months} "
-            f"mois — minimum requis dans 'seniority.threshold_months')."
+    from .avaliste_services import _member_available_savings
+
+    montant_d = Decimal(montant)
+    if montant_d <= 0:
+        return _VoieResult(
+            matched=False,
+            motifs=["Montant demandé invalide pour la voie auto-couverture."],
         )
 
-    # Lien BRC . OR sur 3 sources (Member.is_brc_member + 2 flags du payload)
-    payload = extra_payload or {}
-    cga_brc_declared = str(payload.get("cga_brc_member", "")).lower() == "oui"
-    cfp_brc_declared = str(payload.get("cfp_brc_apprenant", "")).lower() == "oui"
-    member_brc_validated = bool(getattr(member, "is_brc_member", False))
-    has_brc_link = member_brc_validated or cga_brc_declared or cfp_brc_declared
-
-    require_brc = _bool_setting(
-        "loans.eligibility.require_brc_for_senior", True
-    )
-    if require_brc and not has_brc_link:
-        motifs.append(
-            "Lien BRC requis . declare ton appartenance au CGA BRC ou ta formation "
-            "au CFP BRC (avec justificatif) sur le formulaire de demande."
+    epargne = _member_available_savings(member)
+    if epargne < montant_d:
+        return _VoieResult(
+            matched=False,
+            motifs=[
+                f"Épargne classique disponible insuffisante pour se couvrir "
+                f"soi-même : {epargne} XAF < {montant_d} XAF. Désigne un "
+                f"avaliste ancien pour compléter, ou baisse le montant."
+            ],
+            details={
+                "epargne_disponible": str(epargne),
+                "montant": str(montant_d),
+            },
         )
 
-    matched = len(motifs) == 0
     return _VoieResult(
-        matched=matched,
-        motifs=[] if matched else motifs,
+        matched=True,
         details={
-            "seniority_months": member.seniority_months,
-            "is_senior": member.is_senior,
-            # is_brc_member . valeur effective OR utilisee par le routeur
-            # (Member.is_brc_member OR cga_brc_declared OR cfp_brc_declared).
-            # Conserve pour compat tests existants (lot12).
-            "is_brc_member": has_brc_link,
-            "is_brc_member_validated": member_brc_validated,
-            "cga_brc_declared": cga_brc_declared,
-            "cfp_brc_declared": cfp_brc_declared,
-            "has_brc_link": has_brc_link,
-            "brc_required": require_brc,
+            "epargne_disponible": str(epargne),
+            "montant": str(montant_d),
+            "auto_couverture": True,
         },
     )
 
@@ -214,7 +214,7 @@ def _eval_avaliste(
         )
 
     from .avaliste_services import (
-        _member_total_savings,
+        _member_available_savings,
         _min_coverage_ratio,
         find_avaliste,
     )
@@ -239,8 +239,9 @@ def _eval_avaliste(
             motifs=["Montant demandé invalide pour évaluer la voie AVALISTE."],
         )
 
-    eb = _member_total_savings(member)
-    ea = _member_total_savings(avaliste)
+    # Épargnes DISPONIBLES (classique − gel déjà pris) — anti double-nantissement.
+    eb = _member_available_savings(member)
+    ea = _member_available_savings(avaliste)
     total = eb + ea
     ratio = (total / montant_d).quantize(Decimal("0.0001"))
     min_ratio = _min_coverage_ratio()
@@ -269,6 +270,43 @@ def _eval_avaliste(
             "couverture_ratio": str(ratio),
             "min_ratio": str(min_ratio),
         },
+    )
+
+
+def _eval_garantie_materielle(
+    member: Member,
+    montant: Decimal,
+    *,
+    garantie_materielle: bool,
+) -> _VoieResult:
+    """Voie GARANTIE MATÉRIELLE (L4) — fallback sans avaliste.
+
+    Matche dès que le demandeur déclare s'appuyer sur une garantie matérielle
+    (bien, ex. titre de propriété). La couverture réelle (valeur du bien ≥
+    montant) n'est PAS vérifiée ici : elle est **différée** à l'évaluation
+    manuelle de la commission puis contrôlée à l'approbation
+    (``approve_loan_request``). C'est un chemin d'instruction, comme la
+    campagne où la décision finale appartient à l'admin.
+    """
+    if not _bool_setting("loans.eligibility.allow_garantie_materielle", True):
+        return _VoieResult(
+            matched=False,
+            motifs=["Voie garantie matérielle désactivée par l'admin."],
+        )
+    if not garantie_materielle:
+        return _VoieResult(
+            matched=False,
+            motifs=["Voie GARANTIE MATÉRIELLE non sollicitée (pas de bien déclaré)."],
+        )
+    montant_d = Decimal(montant)
+    if montant_d <= 0:
+        return _VoieResult(
+            matched=False,
+            motifs=["Montant demandé invalide pour la voie garantie matérielle."],
+        )
+    return _VoieResult(
+        matched=True,
+        details={"garantie_materielle": True, "montant": str(montant_d)},
     )
 
 
@@ -386,6 +424,7 @@ def evaluate_routes(
     avaliste_nom: Optional[str] = None,
     campaign_id: Optional[int] = None,
     profil_cible: Optional[str] = None,
+    garantie_materielle: bool = False,
     extra_payload: Optional[dict] = None,
 ) -> RouteEvaluation:
     """Évalue dans l'ordre les 3 voies et renvoie la première qui matche.
@@ -402,13 +441,19 @@ def evaluate_routes(
 
     for voie in priority:
         if voie == EligibilityRoute.SENIOR_BRC:
-            r = _eval_senior_brc(member, extra_payload=extra_payload)
+            r = _eval_senior_brc(member, montant, extra_payload=extra_payload)
         elif voie == EligibilityRoute.AVALISTE:
             r = _eval_avaliste(
                 member,
                 montant,
                 avaliste_numero=avaliste_numero,
                 avaliste_nom=avaliste_nom,
+            )
+        elif voie == EligibilityRoute.GARANTIE_MATERIELLE:
+            r = _eval_garantie_materielle(
+                member,
+                montant,
+                garantie_materielle=garantie_materielle,
             )
         elif voie == EligibilityRoute.CAMPAIGN:
             r = _eval_campaign(
