@@ -3064,7 +3064,7 @@ abstract class AppL10n {
   /// No description provided for @mi_step3.
   ///
   /// In fr, this message translates to:
-  /// **'Ton compte est activé après l\'entretien d\'admission'**
+  /// **'Ton compte est activé après validation de ta demande'**
   String get mi_step3;
 
   /// No description provided for @mi_submit.
@@ -3118,7 +3118,7 @@ abstract class AppL10n {
   /// No description provided for @mf_intro.
   ///
   /// In fr, this message translates to:
-  /// **'Remplis ta demande. Tu seras ensuite convoqué à un entretien d\'admission.'**
+  /// **'Remplis ta demande. La coopérative l\'étudiera et te répondra.'**
   String get mf_intro;
 
   /// No description provided for @mf_section_identity.
@@ -3292,7 +3292,7 @@ abstract class AppL10n {
   /// No description provided for @mf_sent_body.
   ///
   /// In fr, this message translates to:
-  /// **'La coopérative va étudier ton dossier et te convoquer à un entretien d\'admission.'**
+  /// **'La coopérative va étudier ton dossier et te répondra rapidement.'**
   String get mf_sent_body;
 
   /// No description provided for @wd_action.

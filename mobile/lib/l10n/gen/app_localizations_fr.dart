@@ -1647,8 +1647,7 @@ class AppL10nFr extends AppL10n {
   String get mi_step2 => 'Règle les frais d\'adhésion (10 000 + 2 000 FCFA)';
 
   @override
-  String get mi_step3 =>
-      'Ton compte est activé après l\'entretien d\'admission';
+  String get mi_step3 => 'Ton compte est activé après validation de ta demande';
 
   @override
   String get mi_submit => 'Soumettre ma demande';
@@ -1676,7 +1675,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get mf_intro =>
-      'Remplis ta demande. Tu seras ensuite convoqué à un entretien d\'admission.';
+      'Remplis ta demande. La coopérative l\'étudiera et te répondra.';
 
   @override
   String get mf_section_identity => 'Identité';
@@ -1767,7 +1766,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get mf_sent_body =>
-      'La coopérative va étudier ton dossier et te convoquer à un entretien d\'admission.';
+      'La coopérative va étudier ton dossier et te répondra rapidement.';
 
   @override
   String get wd_action => 'Retirer';

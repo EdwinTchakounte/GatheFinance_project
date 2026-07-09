@@ -120,8 +120,6 @@ def test_welcome_email_uses_portal_domain(settings, monkeypatch):
         prenom="John",
         email="john.doe.pwd@example.com",
         phone="+237 690000000",
-        date_entretien=__import__("datetime").date.today(),
-        entretien_favorable=True,
     )
     approve_membership_request(req, instructed_by=admin)
 

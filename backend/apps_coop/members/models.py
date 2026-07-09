@@ -216,7 +216,7 @@ class MembershipRequest(TimestampedModel):
     d'identité. Les pièces sont obligatoires côté serializer mais nullable au
     niveau du modèle pour préserver l'historique des demandes legacy créées
     avant cette évolution. L'admin peut compléter / remplacer ces pièces
-    pendant l'entretien (Article 3) via le Django admin.
+    via le Django admin.
     """
 
     class StatutPro(models.TextChoices):
@@ -313,7 +313,10 @@ class MembershipRequest(TimestampedModel):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=400, blank=True)
 
-    # Entretien d'admission (Article 3) — obligatoire et conditionne l'acceptation.
+    # LEGACY — l'entretien d'admission a été retiré du flux d'adhésion (2026-07-09).
+    # Ces colonnes sont conservées dormantes (aucune UI, aucun guard, aucune
+    # sérialisation) pour préserver l'historique ; à supprimer via une migration
+    # dédiée si besoin.
     date_entretien = models.DateTimeField(
         null=True,
         blank=True,

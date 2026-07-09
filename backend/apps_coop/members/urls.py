@@ -50,7 +50,6 @@ urlpatterns = [
     path("admin/dashboard/", views.admin_dashboard_kpis, name="admin-dashboard"),
     path("admin/members/", views.admin_list_members, name="admin-members-list"),
     path("admin/membership-requests/", views.admin_list_membership_requests, name="admin-membership-list"),
-    path("admin/membership-requests/<int:pk>/interview/", views.admin_record_interview, name="admin-membership-interview"),
     path("admin/membership-requests/<int:pk>/approve/", views.admin_approve_membership_request, name="admin-membership-approve"),
     path("admin/membership-requests/<int:pk>/reject/", views.admin_reject_membership_request, name="admin-membership-reject"),
 

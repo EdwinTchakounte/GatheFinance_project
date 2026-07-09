@@ -1636,7 +1636,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get mi_step3 =>
-      'Your account is activated after the admission interview';
+      'Your account is activated once your request is approved';
 
   @override
   String get mi_submit => 'Submit my request';
@@ -1664,7 +1664,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get mf_intro =>
-      'Fill in your request. You\'ll then be invited to an admission interview.';
+      'Fill in your request. The cooperative will review it and get back to you.';
 
   @override
   String get mf_section_identity => 'Identity';
@@ -1754,7 +1754,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get mf_sent_body =>
-      'The cooperative will review your file and invite you to an admission interview.';
+      'The cooperative will review your file and get back to you shortly.';
 
   @override
   String get wd_action => 'Withdraw';

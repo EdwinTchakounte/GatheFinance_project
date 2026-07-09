@@ -1,10 +1,11 @@
-"""Tests entretien d'admission (Art. 3) + mise en demeure (Art. 13)."""
+"""Tests adhésion (approbation sans entretien) + mise en demeure (Art. 13)."""
 from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
 
 from apps_coop.loans.models import Loan, LoanRequest
+from apps_coop.members.models import MembershipRequest
 from apps_coop.members.services import approve_membership_request
 
 from tests.factories import MembershipRequestFactory
@@ -13,31 +14,29 @@ from tests.factories import MembershipRequestFactory
 pytestmark = pytest.mark.django_db
 
 
-class TestAdmissionInterview:
-    def test_approve_blocked_without_interview(self, admin_user):
-        req = MembershipRequestFactory(date_entretien=None, entretien_favorable=None)
-        with pytest.raises(ValueError, match="(?i)entretien"):
-            approve_membership_request(req, instructed_by=admin_user, nom="Kamga")
+class TestAdmissionApproval:
+    """L'entretien d'admission a été retiré du flux (2026-07-09) : l'approbation
+    ne dépend plus d'aucune étape préalable."""
 
-    def test_approve_ok_after_interview(self, admin_user):
-        req = MembershipRequestFactory(date_entretien=None)
-        # endpoint entretien
+    def test_approve_without_interview_succeeds(self, admin_user):
+        req = MembershipRequestFactory()
+        member = approve_membership_request(req, instructed_by=admin_user, nom="Kamga")
+        assert member is not None
+        req.refresh_from_db()
+        assert req.statut == MembershipRequest.Statut.APPROUVEE
+
+    def test_interview_endpoint_is_gone(self, admin_user):
+        req = MembershipRequestFactory()
         from django.test import Client
 
         c = Client()
         c.force_login(admin_user)
         r = c.post(
             f"/api/v1/admin/membership-requests/{req.id}/interview/",
-            data={"avis": "Sérieux, dossier complet", "favorable": True},
+            data={"avis": "x", "favorable": True},
             content_type="application/json",
         )
-        assert r.status_code == 200, r.content
-        req.refresh_from_db()
-        assert req.date_entretien is not None
-        assert req.entretien_favorable is True
-        # désormais l'approbation passe
-        member = approve_membership_request(req, instructed_by=admin_user, nom="Kamga")
-        assert member is not None
+        assert r.status_code == 404
 
 
 class TestLoanNotice:
