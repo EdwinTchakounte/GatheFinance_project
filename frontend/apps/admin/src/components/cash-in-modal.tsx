@@ -45,6 +45,8 @@ export type CashInPrefill = {
   type?: CashInType;
   montant?: string;
   note?: string;
+  // Pré-remplit le crédit ciblé (pour un `remboursement` depuis un crédit).
+  loanId?: string;
 };
 
 export function CashInModal({
@@ -120,6 +122,7 @@ export function CashInModal({
     if (prefill?.type) setPaymentType(prefill.type);
     if (prefill?.montant) setMontant(prefill.montant);
     if (prefill?.note) setNote(prefill.note);
+    if (prefill?.loanId) setLoanId(prefill.loanId);
   }, [open, prefill]);
 
   // Recherche membre . debounce simple 250ms.

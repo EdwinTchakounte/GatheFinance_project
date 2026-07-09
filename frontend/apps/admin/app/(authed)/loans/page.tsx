@@ -10,6 +10,7 @@ import {
   type ComposeFundingTarget,
 } from "@/components/compose-funding-modal";
 import { LoanDetailModal } from "@/components/loan-detail-modal";
+import { CashInModal } from "@/components/cash-in-modal";
 import { adminApi, type AdminLoanRow, type ApiError } from "@/lib/api";
 
 
@@ -41,6 +42,8 @@ function Inner() {
   const [fundingTarget, setFundingTarget] = useState<ComposeFundingTarget | null>(null);
   // A1 . cible du modal "Detail credit" (echeances + remboursements).
   const [detailLoanId, setDetailLoanId] = useState<number | null>(null);
+  // Cash-in remboursement : encaisser un versement crédit en agence.
+  const [cashInLoan, setCashInLoan] = useState<AdminLoanRow | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
 
   async function reload() {
@@ -316,6 +319,17 @@ function Inner() {
           actions={(l) => (
             <div className="flex items-center justify-end gap-2">
               <DisbursementCell row={l} onAction={reload} />
+              {l.statut === "actif" || l.statut === "en_retard" ? (
+                <button
+                  type="button"
+                  onClick={() => setCashInLoan(l)}
+                  title="Enregistrer un remboursement encaissé en agence (cash-in)"
+                  className="inline-flex items-center gap-1 rounded-md border border-line-200 bg-paper px-2 py-1 text-[0.7rem] font-medium text-ink-700 hover:border-emerald/40 hover:text-emerald"
+                >
+                  <Wallet className="size-3.5" aria-hidden="true" />
+                  Remboursement
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() =>
@@ -369,6 +383,33 @@ function Inner() {
       <LoanDetailModal
         loanId={detailLoanId}
         onClose={() => setDetailLoanId(null)}
+      />
+
+      <CashInModal
+        open={cashInLoan !== null}
+        onClose={() => setCashInLoan(null)}
+        onSuccess={(text) => {
+          setFlash(text);
+          setTimeout(() => setFlash(null), 4500);
+          setCashInLoan(null);
+          reload();
+        }}
+        prefill={
+          cashInLoan
+            ? {
+                member: {
+                  id: cashInLoan.member.id,
+                  numero_membre: cashInLoan.member.numero_membre,
+                  nom: cashInLoan.member.nom,
+                  prenom: cashInLoan.member.prenom,
+                },
+                type: "remboursement",
+                loanId: String(cashInLoan.id),
+                montant: cashInLoan.solde_restant,
+                note: `Remboursement crédit ${cashInLoan.numero_dossier}`,
+              }
+            : undefined
+        }
       />
     </div>
   );
