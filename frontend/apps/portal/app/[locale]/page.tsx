@@ -323,6 +323,13 @@ export default function PortalDashboardPage() {
             >
               Demander un retrait
             </button>
+            <button
+              type="button"
+              onClick={() => router.push("/actualites")}
+              className={buttonClasses({ variant: "ghost", size: "md", fullWidth: true }) + " mt-3"}
+            >
+              Actualités
+            </button>
             <p className="mt-3 text-xs text-ink-600">
               Déposer, demander un crédit, retirer ton épargne (Mobile Money ou en agence).
             </p>

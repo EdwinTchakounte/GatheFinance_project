@@ -18,6 +18,9 @@ const nextConfig = {
     return [
       { source: "/api/v1/:path+", destination: `${backend}/api/v1/:path+/` },
       { source: "/api/v1", destination: `${backend}/api/v1/` },
+      // Wagtail read API v2 (fil d'actualités membre).
+      { source: "/api/v2/:path+", destination: `${backend}/api/v2/:path+/` },
+      { source: "/api/v2", destination: `${backend}/api/v2/` },
     ];
   },
   async headers() {
