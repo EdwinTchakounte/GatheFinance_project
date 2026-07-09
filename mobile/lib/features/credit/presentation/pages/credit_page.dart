@@ -42,6 +42,9 @@ class CreditPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loansAsync = ref.watch(loansProvider);
     final requestsAsync = ref.watch(loanRequestsProvider);
+    // Garde les données affichées pendant les refresh du LivePoller (sinon la
+    // section « Mes demandes » disparaît/réapparaît à chaque tick = flicker).
+    final requests = requestsAsync.valueOrNull ?? const [];
     final l = AppL10n.of(context);
 
     // §6 / LOT 11 . La Home (carousel campagnes) pousse l'id d'une campagne
@@ -113,6 +116,9 @@ class CreditPage extends ConsumerWidget {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                   child: loansAsync.when(
+                    // Ne repasse PAS en squelette lors des refresh du poller.
+                    skipLoadingOnRefresh: true,
+                    skipLoadingOnReload: true,
                     data: (loans) {
                       if (loans.isEmpty) {
                         return const _EmptyState();
@@ -174,28 +180,24 @@ class CreditPage extends ConsumerWidget {
 
               // ── Demandes en cours ────────────────────────────────────
               SliverToBoxAdapter(
-                child: requestsAsync.maybeWhen(
-                  data: (requests) => requests.isEmpty
-                      ? const SizedBox.shrink()
-                      : Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-                          child: Text(
-                            l.credit_requests_title,
-                            style: const TextStyle(
-                              color: PaColors.inkPrimary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
+                child: requests.isEmpty
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                        child: Text(
+                          l.credit_requests_title,
+                          style: const TextStyle(
+                            color: PaColors.inkPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                  orElse: () => const SizedBox.shrink(),
-                ),
+                      ),
               ),
               SliverToBoxAdapter(
-                child: requestsAsync.maybeWhen(
-                  data: (requests) => requests.isEmpty
-                      ? const SizedBox.shrink()
-                      : Padding(
+                child: requests.isEmpty
+                    ? const SizedBox.shrink()
+                    : Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                           child: Column(
                             children: [
@@ -206,8 +208,6 @@ class CreditPage extends ConsumerWidget {
                             ],
                           ),
                         ),
-                  orElse: () => const SizedBox.shrink(),
-                ),
               ),
 
               // ── Espace bas pour le FAB ───────────────────────────────
@@ -827,10 +827,13 @@ class _CreditFlowTimeline extends StatelessWidget {
 
   // Index de l'étape courante (0..4).
   int get _reached => switch (status) {
-        LoanRequestStatus.enAttente ||
+        // Frais d'étude à payer → l'étape « Frais d'étude » est la courante.
+        LoanRequestStatus.enAttente => 1,
+        // Voies avaliste / campagne : pré-étape non finie → encore à « Soumise »
+        // (elles n'ont pas atteint la porte des frais d'étude).
         LoanRequestStatus.enAttenteAvaliste ||
         LoanRequestStatus.enValidationCampagne =>
-          1,
+          0,
         LoanRequestStatus.enInstruction => 2,
         LoanRequestStatus.enAttenteAcceptationMembre ||
         LoanRequestStatus.approuveeProvisoire ||
