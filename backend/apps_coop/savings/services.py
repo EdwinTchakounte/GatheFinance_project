@@ -311,7 +311,15 @@ def decide_withdrawal(
 
         wr.decide_par = decided_by
         wr.date_decision = now
-        if wr.mode_paiement == WithdrawalRequest.ModePaiement.PRESENTIEL:
+        # Payout Tara désactivé (défaut) → MOMO est traité comme le présentiel :
+        # l'admin fait le virement sur Tara puis marque « payé » (mark-paid).
+        from apps_coop.loans.services import tara_payout_enabled
+
+        _auto_tara = (
+            wr.mode_paiement == WithdrawalRequest.ModePaiement.MOMO
+            and tara_payout_enabled()
+        )
+        if not _auto_tara:
             wr.statut = WithdrawalRequest.Statut.APPROUVEE
             wr.save(
                 update_fields=[
@@ -341,8 +349,8 @@ def decide_withdrawal(
         },
     )
 
-    # --- MOMO : init payout Tara hors transaction ---
-    if wr.mode_paiement == WithdrawalRequest.ModePaiement.MOMO:
+    # --- MOMO : init payout Tara hors transaction (uniquement si activé) ---
+    if _auto_tara:
         _init_payout_for_withdrawal(wr, decided_by=decided_by)
         wr.refresh_from_db()
 
@@ -469,10 +477,9 @@ def mark_withdrawal_paid(
     if wr.statut == WithdrawalRequest.Statut.COMPLETEE:
         return wr  # idempotent
 
-    if wr.mode_paiement != WithdrawalRequest.ModePaiement.PRESENTIEL:
-        raise ValueError(
-            "Le marquage espèces ne s'applique qu'aux retraits en présentiel."
-        )
+    # Marquage « payé » : présentiel (espèces) OU MOMO réglé à la main sur Tara
+    # (payout plateforme désactivé). Un MOMO auto-payé passe en EN_PAYOUT, pas
+    # APPROUVEE → il reste couvert par la garde de statut ci-dessous.
     if wr.statut != WithdrawalRequest.Statut.APPROUVEE:
         raise ValueError(
             f"Statut {wr.statut!r} — seul un retrait approuvé peut être marqué remis."

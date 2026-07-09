@@ -92,7 +92,7 @@ def test_on_idempotent_si_relance(member_client, active_member, init_payload):
 
 
 @override_settings(PAYMENTS_TEST_AUTO_VALIDATE=True)
-def test_retrait_momo_auto_complete(active_member, admin_user):
+def test_retrait_momo_auto_complete(active_member, admin_user, tara_payout_on):
     """admin approve + flag ON → WR passe direct EN_PAYOUT puis COMPLETEE
     via le webhook DECAISSEMENT joué automatiquement."""
     from apps_coop.savings.services import decide_withdrawal, request_withdrawal
@@ -115,7 +115,7 @@ def test_retrait_momo_auto_complete(active_member, admin_user):
 
 
 @override_settings(PAYMENTS_TEST_AUTO_VALIDATE=False)
-def test_retrait_momo_off_reste_en_payout(active_member, admin_user):
+def test_retrait_momo_off_reste_en_payout(active_member, admin_user, tara_payout_on):
     """Sans flag, WR reste EN_PAYOUT (attente webhook Tara)."""
     from apps_coop.savings.services import decide_withdrawal, request_withdrawal
     from apps_coop.savings.models import WithdrawalRequest

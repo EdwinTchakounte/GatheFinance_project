@@ -550,7 +550,10 @@ def admin_loan_request_campaign_decide(request, pk: int):
     data = s.validated_data
 
     if data["decision"] == "valide":
-        lr.statut = LoanRequest.Statut.EN_INSTRUCTION
+        from .services import status_after_prevoie
+
+        # Validation activité OK → porte « frais d'étude » (en_attente) si dus.
+        lr.statut = status_after_prevoie(lr)
         lr.save(update_fields=["statut", "updated_at"])
         record_audit(
             action="microcampaign.lr_validated",

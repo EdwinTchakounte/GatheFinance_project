@@ -54,6 +54,7 @@ from .views import (
     loan_request_decide_provisional,
     loan_request_field_visit,
     loan_request_list,
+    loan_request_record_study_fee,
     loan_request_note,
     loan_request_upload_attachment,
     loans_me_active,
@@ -128,6 +129,11 @@ urlpatterns = [
         "requests/<int:pk>/field-visit/",
         loan_request_field_visit,
         name="field-visit",
+    ),
+    path(
+        "requests/<int:pk>/study-fee/",
+        loan_request_record_study_fee,
+        name="record-study-fee",
     ),
     # L4 — Évaluation garantie matérielle par la commission (staff).
     path(

@@ -63,3 +63,17 @@ def active_member(db):
 def suspended_member(db):
     """Un membre `suspendu` qui n'a pas encore payé sa 1re cotisation."""
     return SuspendedMemberFactory()
+
+
+@pytest.fixture
+def tara_payout_on(db):
+    """Active le payout Tara initié par la plateforme (désactivé par défaut
+    depuis le passage au « payout manuel » : décaissement/retrait faits sur
+    Tara par l'admin puis marqués « payé »)."""
+    from apps_coop.audit.models import AppSetting
+
+    AppSetting.objects.update_or_create(
+        cle="payments.tara_payout.enabled",
+        defaults={"valeur": "true", "description": ""},
+    )
+    return True

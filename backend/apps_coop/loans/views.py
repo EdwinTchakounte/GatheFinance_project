@@ -540,6 +540,13 @@ def loan_disburse(request, pk: int):
     mode = data.get("mode", "manuel")
 
     if mode == "tara":
+        from .services import tara_payout_enabled
+
+        if not tara_payout_enabled():
+            return Response(
+                {"detail": "Payout Tara désactivé. Effectuez le virement sur Tara puis enregistrez le décaissement en mode « manuel » (avec la référence)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             payment = disburse_loan_via_tara(
                 loan,
@@ -1203,6 +1210,57 @@ def loan_request_decide_provisional(request, pk: int):
 
 @extend_schema(
     tags=["loans"],
+    summary="🔒 Admin — enregistrer/valider les frais d'étude (encaissés hors app)",
+    description=(
+        "Enregistre un règlement des frais d'étude perçu hors application "
+        "(ex. espèces à l'agence) pour une demande `en_attente`. Crée un "
+        "Payment `frais_demande_credit` MANUEL validé et fait basculer la "
+        "demande en `en_instruction` (même effet qu'un paiement Tara). "
+        "Body optionnel : `reference`. Permission : loan-requests."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([ResourceAccess("loan-requests")])
+def loan_request_record_study_fee(request, pk: int):
+    import uuid
+
+    from .services import study_fee_for
+
+    try:
+        lr = LoanRequest.objects.get(pk=pk)
+    except LoanRequest.DoesNotExist:
+        return Response({"detail": "Demande introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    if lr.statut != LoanRequest.Statut.EN_ATTENTE:
+        return Response(
+            {"detail": "Les frais d'étude ne se règlent que sur une demande « en attente (frais à payer) »."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    montant = study_fee_for(getattr(lr, "microcampaign", None))
+    payment = Payment.objects.create(
+        member=lr.member,
+        montant=montant,
+        type=Payment.Type.FRAIS_DEMANDE_CREDIT,
+        source=Payment.Source.MANUEL,
+        statut=Payment.Statut.VALIDE,
+        provider_code="",
+        reference_externe=str(request.data.get("reference", "")).strip(),
+        validated_by=request.user,
+        date_versement=timezone.now(),
+        date_validation=timezone.now(),
+        idempotency_key=uuid.uuid4(),
+    )
+    # Même effet métier que le webhook Tara : en_attente → en_instruction.
+    from apps_coop.payments.services import _hook_loan_request_fees
+
+    _hook_loan_request_fees(payment, {})
+    lr.refresh_from_db()
+    return Response(LoanRequestReadSerializer(lr).data)
+
+
+@extend_schema(
+    tags=["loans"],
     summary="🔒 Staff — enregistrer le rapport de visite terrain",
     description=(
         "Enregistre la visite terrain d'une demande APPROUVEE_PROVISOIRE. "
@@ -1550,6 +1608,13 @@ def loan_disburse_now(request, pk: int):
         )
 
     if moyen in _MOYEN_TO_NETWORK:
+        from .services import tara_payout_enabled
+
+        if not tara_payout_enabled():
+            return Response(
+                {"detail": "Payout Tara désactivé. Effectuez le virement sur Tara puis enregistrez le décaissement via /disburse/ en mode « manuel » (avec la référence)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         phone = (lr.recipient_phone or "").strip()
         if not phone:
             return Response(

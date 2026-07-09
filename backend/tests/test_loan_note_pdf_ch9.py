@@ -168,6 +168,10 @@ class TestNoteEndpoint:
 # 3. Endpoint POST /admin/<pk>/disburse-now/ — auto-fill.
 # ---------------------------------------------------------------------------
 class TestDisburseNowAutoFill:
+    @pytest.fixture(autouse=True)
+    def _tara(self, tara_payout_on):
+        pass
+
     def test_tara_momo_auto_fills_mtn(self, active_member, admin_user, settings):
         settings.PAYMENTS_TEST_AUTO_VALIDATE = False
         _, loan = _build_lr(
@@ -266,6 +270,10 @@ class TestDisburseNowAutoFill:
 # 4. Endpoint GET /admin/<pk>/disbursement-status/
 # ---------------------------------------------------------------------------
 class TestDisbursementStatus:
+    @pytest.fixture(autouse=True)
+    def _tara(self, tara_payout_on):
+        pass
+
     def test_has_payment_false_when_no_payment(self, active_member, admin_user):
         _, loan = _build_lr(active_member, with_loan=True)
         client = APIClient()
