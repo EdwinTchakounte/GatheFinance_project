@@ -297,7 +297,7 @@ function Inner() {
             rowKey={(row) => row.id}
             emptyLabel="Aucun commentaire ne correspond à ces filtres."
             exportFilename="commentaires"
-            exportTitle="Commentaires — Gathé Finance"
+            exportTitle="Commentaires — GATHE Finance"
             actions={(row) =>
               row.hidden ? (
                 <button

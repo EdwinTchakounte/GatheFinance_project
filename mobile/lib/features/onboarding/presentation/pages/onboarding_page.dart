@@ -21,7 +21,7 @@ class _Slide {
     required this.body,
   });
 
-  /// Chemin de l'asset SVG (illustration vectorielle aux couleurs Gathe).
+  /// Chemin de l'asset SVG (illustration vectorielle aux couleurs GATHE).
   final String illustration;
   final String title;
   final String body;
@@ -48,7 +48,7 @@ List<_Slide> _buildSlides(AppL10n l) => <_Slide>[
 /// Onboarding refonte 2026-06-24 . illustrations SVG bundlees (offline).
 ///
 /// - Hero gradient bleu pleine largeur, coins bas arrondis (vague).
-/// - Illustration SVG centree (~160x160) aux couleurs Gathe (bleu + vert).
+/// - Illustration SVG centree (~160x160) aux couleurs GATHE (bleu + vert).
 /// - Titre Sora blanc XL.
 /// - Zone creme doodle dessous : 1 phrase body + dots + CTA.
 class OnboardingPage extends ConsumerStatefulWidget {

@@ -97,7 +97,7 @@ export default async function BlogIndexPage({ params }: Params) {
                   </p>
                   <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">
                     <span className="font-medium text-ink-700">
-                      {featured.authorName ?? "Gathe"}
+                      {featured.authorName ?? "GATHE"}
                     </span>
                     <span aria-hidden="true" className="text-line-200">·</span>
                     <span>{formatDate(featured.date, locale)}</span>

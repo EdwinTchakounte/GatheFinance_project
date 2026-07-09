@@ -33,10 +33,10 @@ class Command(BaseCommand):
         home = HomePage.objects.first()
         if home is None:
             home = HomePage(
-                title="Gathe Finance",
+                title="GATHE Finance",
                 slug="accueil",
                 locale=fr,
-                seo_title="Gathe Finance — Coopérative d'épargne et de crédit au Cameroun",
+                seo_title="GATHE Finance — Coopérative d'épargne et de crédit au Cameroun",
                 search_description=(
                     "Coopérative d'épargne et de crédit des entrepreneurs camerounais : crédit, "
                     "épargne, transferts, investissement communautaire et éducation financière."
@@ -63,7 +63,7 @@ class Command(BaseCommand):
                 old_root.delete()
                 self.stdout.write("Removed the default placeholder page")
         elif not site:
-            Site.objects.create(hostname="localhost", port=80, root_page=home, is_default_site=True, site_name="Gathe Finance")
+            Site.objects.create(hostname="localhost", port=80, root_page=home, is_default_site=True, site_name="GATHE Finance")
             self.stdout.write("Created default Site → HomePage")
 
         # Child pages: blog index + legal pages.

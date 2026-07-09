@@ -299,7 +299,7 @@ function ArticleCard({
         <p className="font-mono text-[0.65rem] uppercase tracking-wide text-ink-500">
           {fmtDate(article.date)}
           {" · "}
-          {article.author_name || "Gathé"}
+          {article.author_name || "GATHE"}
         </p>
         <h2 className="font-editorial text-base font-medium leading-tight text-ink-900">
           {article.title}

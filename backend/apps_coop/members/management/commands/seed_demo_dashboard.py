@@ -675,9 +675,9 @@ class Command(BaseCommand):
             small = ImageFont.load_default()
             tag = ImageFont.load_default()
 
-        # Bandeau "Gathé Finance" en haut
+        # Bandeau "GATHE Finance" en haut
         draw.rectangle([(0, 0), (W, 90)], fill=(20, 20, 30))
-        draw.text((40, 28), "GATHÉ FINANCE", fill=(255, 255, 255), font=big)
+        draw.text((40, 28), "GATHE FINANCE", fill=(255, 255, 255), font=big)
         draw.text((W - 200, 38), "Coopérative", fill=(255, 255, 255, 200), font=small)
 
         # Hero — accroche

@@ -1,4 +1,4 @@
-# L'application mobile Gathe Finance
+# L'application mobile GATHE Finance
 
 <div class="toc">
 
@@ -24,13 +24,13 @@
 ### À qui s'adresse ce guide ?
 
 Ce guide accompagne **les membres de la coopérative** dans la prise en
-main de l'application mobile Gathe Finance — installation, premier
+main de l'application mobile GATHE Finance — installation, premier
 lancement, gestion courante de l'épargne et du crédit, jusqu'aux
 fonctions plus avancées comme les mandats d'avaliste.
 
 <blockquote>
 
-**Le principe de Gathe Finance.** L'application mobile est ton
+**Le principe de GATHE Finance.** L'application mobile est ton
 **guichet personnel** de coopérative : tu peux verser ton épargne par
 Mobile Money, suivre tes crédits, commander ton carnet et recevoir les
 annonces — **24h/24** depuis ton téléphone, ou en passant par
@@ -46,7 +46,7 @@ l'agence pendant les heures d'ouverture.
     <img src="captures/mobile/01-splash.png" alt="Écran d'accueil" />
     <div class="step-card">
       <div class="step-card-head"><span class="step-badge">✦</span>Un démarrage de quelques secondes</div>
-      <p>Au moment où tu ouvres l'application, le logo <strong>Gathe Finance</strong>
+      <p>Au moment où tu ouvres l'application, le logo <strong>GATHE Finance</strong>
       s'affiche quelques instants pendant que ton espace personnel se prépare.</p>
       <ul>
         <li><strong>Première utilisation</strong> → tu verras la <em>découverte</em> (4 écrans).</li>
@@ -294,7 +294,7 @@ l'agence pendant les heures d'ouverture.
 
 ### Coordonnées &amp; support
 
-**Agence Gathe Finance** — Akwa Bercy, Douala · Lundi à vendredi · 08h00 — 17h00
+**Agence GATHE Finance** — Akwa Bercy, Douala · Lundi à vendredi · 08h00 — 17h00
 
 Le **numéro de téléphone** et l'**email** de la coopérative sont
 affichés depuis :tab[Profil] → :tab[Aide &amp; contact]. Tu peux aussi

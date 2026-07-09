@@ -9,8 +9,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "sw
 const lora = Lora({ subsets: ["latin"], variable: "--font-lora", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Gathe Finance · Administration",
-  description: "Dashboard administrateur de la coopérative Gathe Finance.",
+  title: "GATHE Finance · Administration",
+  description: "Dashboard administrateur de la coopérative GATHE Finance.",
   robots: { index: false, follow: false },
 };
 

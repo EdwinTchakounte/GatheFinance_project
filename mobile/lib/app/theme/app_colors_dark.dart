@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Palette **sombre** Gathe Finance — miroir de [AppColors], avec les
+/// Palette **sombre** GATHE Finance — miroir de [AppColors], avec les
 /// mêmes noms d'usage (paper, cream, ink*) mais des valeurs adaptées à
 /// un fond profond cobalt-noirci.
 ///

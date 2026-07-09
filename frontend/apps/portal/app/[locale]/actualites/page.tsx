@@ -60,7 +60,7 @@ export default function ActualitesPage() {
             Actualités
           </h1>
           <p className="mt-1 text-sm text-ink-600">
-            Les articles et conseils de Gathé Finance. Réagissez et commentez.
+            Les articles et conseils de GATHE Finance. Réagissez et commentez.
           </p>
         </header>
 

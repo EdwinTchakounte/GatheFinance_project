@@ -1,4 +1,4 @@
-"""Genere docs/PLAN_TESTS_DASHBOARD.pdf avec filigrane Gathe Finance.
+"""Genere docs/PLAN_TESTS_DASHBOARD.pdf avec filigrane GATHE Finance.
 
 Lance : python scripts/build_plan_tests_pdf.py
 Output : docs/PLAN_TESTS_DASHBOARD.pdf
@@ -26,7 +26,7 @@ LOGO = ROOT / "docs" / "assets" / "logo.png"  # alpha pleine, on baisse l'opacit
 LOGO_FALLBACK = ROOT / "livre_projet" / "assets" / "logo_watermark.png"
 OUTPUT = ROOT / "docs" / "PLAN_TESTS_DASHBOARD.pdf"
 
-# Palette Gathe
+# Palette GATHE
 INK = colors.HexColor("#0F172A")
 SUBTLE = colors.HexColor("#475569")
 BLUE = colors.HexColor("#1E3A8A")
@@ -50,7 +50,7 @@ def _watermark_image() -> Path | None:
     if out.exists() and out.stat().st_mtime > src.stat().st_mtime:
         return out
     img = Image.open(src).convert("RGBA")
-    # Aplatir tout vers le bleu Gathe (#1E3A8A) avec opacite tres basse
+    # Aplatir tout vers le bleu GATHE (#1E3A8A) avec opacite tres basse
     # pour que le filigrane reste discret derriere le texte tout en etant
     # perceptible a 100%.
     pixels = img.load()
@@ -65,7 +65,7 @@ def _watermark_image() -> Path | None:
 
 
 def _draw_background(canv: canvas.Canvas, doc) -> None:
-    """Dessine le filigrane Gathe + footer page."""
+    """Dessine le filigrane GATHE + footer page."""
     canv.saveState()
     page_w, page_h = A4
     # Filigrane centre
@@ -84,7 +84,7 @@ def _draw_background(canv: canvas.Canvas, doc) -> None:
     # Footer
     canv.setFont("Helvetica", 8)
     canv.setFillColor(SUBTLE)
-    canv.drawString(20 * mm, 12 * mm, "Gathe Finance . Plan de tests dashboard admin")
+    canv.drawString(20 * mm, 12 * mm, "GATHE Finance . Plan de tests dashboard admin")
     canv.drawRightString(
         page_w - 20 * mm, 12 * mm, f"Page {doc.page}"
     )
@@ -225,7 +225,7 @@ def build():
         rightMargin=20 * mm,
         topMargin=22 * mm,
         bottomMargin=22 * mm,
-        title="Plan de tests dashboard . Gathe Finance",
+        title="Plan de tests dashboard . GATHE Finance",
         author="Edwin Tchakounte",
     )
     frame = Frame(
@@ -239,7 +239,7 @@ def build():
     story: list = []
 
     # --- Cover bloc ---
-    story.append(Paragraph("Gathe Finance", s["small"]))
+    story.append(Paragraph("GATHE Finance", s["small"]))
     story.append(Paragraph("Plan de tests . Dashboard admin", s["h1"]))
     story.append(Spacer(1, 2))
     story.append(Paragraph(
@@ -289,7 +289,7 @@ def build():
         etapes=[
             "Ouvrir <b>/admin/membership-requests</b> puis cliquer <i>Detail</i> sur la demande. Verifier que les 4 documents s'affichent en preview inline.",
             "Cliquer <b>Entretien</b>, choisir Favorable, saisir un avis et enregistrer. L'email <i>Ton entretien d'admission</i> est expedie via Brevo (template <code>membership.interview_scheduled</code>). La chip <b>Entretien favorable</b> doit apparaitre sur la ligne.",
-            "Cliquer <b>Approuver</b>. Le Member est cree en statut SUSPENDU, l'email <i>Bienvenue chez Gathe Finance</i> est envoye avec le PDF reglement en piece jointe.",
+            "Cliquer <b>Approuver</b>. Le Member est cree en statut SUSPENDU, l'email <i>Bienvenue chez GATHE Finance</i> est envoye avec le PDF reglement en piece jointe.",
             "Cote portail ou mobile, le membre se connecte et regle les trois frais : adhesion (10 000), inscription (2 000), carnet (1 000) soit 13 000 XAF au total.",
             "Verifier sur <b>/admin/members?statut=actif</b> que le membre est passe en ACTIF des le troisieme paiement (hook CH-2). Email <i>Compte active</i> recu.",
         ],

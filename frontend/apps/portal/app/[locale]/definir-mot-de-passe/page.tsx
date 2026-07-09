@@ -100,7 +100,7 @@ function SetupPasswordInner() {
       <section className="relative z-10 mx-auto mt-10 max-w-md px-5 sm:px-8">
         <header className="mb-7 text-center">
           <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-            Bienvenue chez Gathe Finance
+            Bienvenue chez GATHE Finance
           </p>
           <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
             {phase === "form"

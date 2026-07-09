@@ -1,4 +1,4 @@
-# Rapport d'audit de déploiement — Gathe Finance
+# Rapport d'audit de déploiement — GATHE Finance
 
 > **Coopérative d'épargne et de crédit — Cameroun**
 > Audit post mise-en-ligne sur VPS Contabo
@@ -42,7 +42,7 @@
 ### 1.1 Contexte de l'audit
 
 Le **Groupe Horus-lab**, agissant en qualité d'auditeur post-déploiement,
-a procédé le **23 juin 2026** au contrôle complet de la stack **Gathe Finance**
+a procédé le **23 juin 2026** au contrôle complet de la stack **GATHE Finance**
 fraîchement mise en production sur le VPS Contabo `81.0.246.144`.
 
 L'objectif était de **valider l'opérationnabilité réelle des cinq plateformes
@@ -219,7 +219,7 @@ Chaque plateforme a été notée sur 4 dimensions :
 | Paramètre | Valeur observée |
 |---|---|
 | Code HTTP | `200 OK` |
-| Titre HTML | `Gathe Finance — Coopérative d'épargne et de crédit au Cameroun` |
+| Titre HTML | `GATHE Finance — Coopérative d'épargne et de crédit au Cameroun` |
 | Poids HTML | 197 942 octets |
 | Temps de réponse | 1,73 s (cold) |
 | Server header | `nginx/1.29.8` |
@@ -246,7 +246,7 @@ Chaque plateforme a été notée sur 4 dimensions :
 | Code HTTP `/fr` | `200 OK` |
 | Code HTTP `/login` | **`404 Not Found`** |
 | Code HTTP `/dashboard` | **`404 Not Found`** |
-| Titre HTML | `Gathe Finance · Espace membre` |
+| Titre HTML | `GATHE Finance · Espace membre` |
 | Server header | `nginx/1.29.8` |
 
 **Constats**
@@ -281,12 +281,12 @@ ouverture grand public — voir [F-02](#7-tableau-des-findings-classés-par-sév
 | Code HTTP `/dashboard` | `200 OK` mais **contenu = "Chargement…" infini** |
 | Code HTTP `/login` | `200 OK` — formulaire complet rendu |
 | Code HTTP `/fr` | `404` (pas d'i18n côté admin) |
-| Titre HTML | `Gathe Finance · Administration` |
+| Titre HTML | `GATHE Finance · Administration` |
 
 **Constats détaillés**
 
 - 🟢 **La page `/login` rend correctement** :
-  - Titre "Gathe Finance · Administration"
+  - Titre "GATHE Finance · Administration"
   - Sous-titre "Réservé au personnel de la coopérative"
   - Champs "Adresse e-mail", "Mot de passe"
   - Bouton "Se connecter"
@@ -425,7 +425,7 @@ Le conteneur `backend-nginx-1` (image `nginx:alpine`) sert simultanément
 | afrikamode | `backend.afrikamode.horus-lab.com` | 🟢 OK |
 | ~~assistant-direction-api~~ | ~~`api-assistant-ia.horus-lab.com`~~ | 🟡 **Bloc retiré** durant l'audit (cf. §6.3) |
 | edlearning | `edlearning.horus-lab.com` | 🟢 OK |
-| **Gathe Finance** | 5 sous-domaines listés en §3.1 | 🟢 OK |
+| **GATHE Finance** | 5 sous-domaines listés en §3.1 | 🟢 OK |
 
 L'orchestration s'appuie sur le compose override `docker-compose.nginx-external.yml`
 qui pose les alias DNS internes `gathe-backend`, `gathe-db`, `gathe-site`,
@@ -569,12 +569,12 @@ exclusivement liées à l'UX et à des actions d'exploitation à finaliser.
 
 | URL | Méthode | Code | Taille | Titre |
 |---|---|---|---|---|
-| `gathe-finance.horus-lab.com/` | GET | 200 | 197 942 | Gathe Finance — Coopérative… |
-| `portail.gathe-finance.horus-lab.com/` | GET | 200 | 10 373 | Gathe Finance · Espace membre |
-| `portail.gathe-finance.horus-lab.com/fr` | GET | 200 | 10 373 | Gathe Finance · Espace membre |
+| `gathe-finance.horus-lab.com/` | GET | 200 | 197 942 | GATHE Finance — Coopérative… |
+| `portail.gathe-finance.horus-lab.com/` | GET | 200 | 10 373 | GATHE Finance · Espace membre |
+| `portail.gathe-finance.horus-lab.com/fr` | GET | 200 | 10 373 | GATHE Finance · Espace membre |
 | `portail.gathe-finance.horus-lab.com/login` | GET | 404 | 7 383 | (notFound) |
-| `admin.gathe-finance.horus-lab.com/` | GET | 200 | 8 797 | Gathe Finance · Administration |
-| `admin.gathe-finance.horus-lab.com/login` | GET | 200 | 9 022 | Gathe Finance · Administration |
+| `admin.gathe-finance.horus-lab.com/` | GET | 200 | 8 797 | GATHE Finance · Administration |
+| `admin.gathe-finance.horus-lab.com/login` | GET | 200 | 9 022 | GATHE Finance · Administration |
 | `admin.gathe-finance.horus-lab.com/dashboard` | GET | 200 | 8 797 | (Chargement…) |
 | `admin.gathe-finance.horus-lab.com/fr` | GET | 404 | 7 100 | (notFound) |
 | `api.gathe-finance.horus-lab.com/healthz/` | GET | 200 | 16 | (OK) |

@@ -69,7 +69,7 @@ ADHESION_SCHEMA = {
             "id": "motivation",
             "title": "Motivation",
             "fields": [
-                {"id": "message", "type": "textarea", "label": "Pourquoi rejoindre Gathe Finance ?", "required": False, "placeholder": "Quelques mots…", "is_locked": True},
+                {"id": "message", "type": "textarea", "label": "Pourquoi rejoindre GATHE Finance ?", "required": False, "placeholder": "Quelques mots…", "is_locked": True},
             ],
         },
     ],

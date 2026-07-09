@@ -8,7 +8,7 @@ import 'app_radii.dart';
 import 'app_typography.dart';
 
 /// Thème Material 3 customisé : ColorScheme dérivée du cobalt, surfaces cream,
-/// tous les composants par défaut alignés sur le design system Gathe.
+/// tous les composants par défaut alignés sur le design system GATHE.
 ///
 /// Deux variantes :
 ///  - [light] (mode clair) — surfaces cream/paper, ink sombre

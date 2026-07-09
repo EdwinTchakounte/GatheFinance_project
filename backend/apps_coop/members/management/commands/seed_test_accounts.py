@@ -55,7 +55,7 @@ class Command(BaseCommand):
             "admin@gathe.test",
             password="test1234",
             first_name="Admin",
-            last_name="Gathe",
+            last_name="GATHE",
             is_staff=True,
             is_superuser=True,
         )

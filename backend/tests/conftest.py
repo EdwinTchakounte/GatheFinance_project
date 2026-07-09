@@ -1,4 +1,4 @@
-"""Shared fixtures for the Gathe Finance test-suite.
+"""Shared fixtures for the GATHE Finance test-suite.
 
 Tous les tests qui touchent la DB doivent demander la fixture pytest-django
 ``db`` (ou ``transactional_db`` si on a besoin d'un vrai commit, par ex. pour

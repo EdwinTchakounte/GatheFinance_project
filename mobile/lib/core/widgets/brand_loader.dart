@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
 
-/// Loader signature Gathe Finance . deux arcs concentriques qui tournent en
+/// Loader signature GATHE Finance . deux arcs concentriques qui tournent en
 /// sens inverse, reprenant le cobalt et l'emerald du logo. Doux, élégant,
 /// reconnaissable. Trois tailles canoniques.
 enum BrandLoaderSize { small, medium, large }

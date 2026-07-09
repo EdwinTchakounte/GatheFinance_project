@@ -37,7 +37,7 @@ export async function ArticleCard({ post, locale }: { post: BlogListItem; locale
         ) : null}
       </div>
       <div className="flex grow flex-col gap-2 pt-4">
-        <span className="caption">{t("byline", { author: post.authorName ?? "Gathe", date })}</span>
+        <span className="caption">{t("byline", { author: post.authorName ?? "GATHE", date })}</span>
         <h3 className="font-editorial text-lg font-medium leading-snug text-ink-900 transition-colors group-hover:text-blue-700">
           {post.title}
         </h3>

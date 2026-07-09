@@ -2,7 +2,7 @@
 
 Layers of abuse protection: a server-issued signed math captcha, a honeypot
 field, and per-IP rate limiting (DRF ScopedRateThrottle, scope "form-submit").
-On success a notification e-mail is sent to the Gathe Finance inbox and an
+On success a notification e-mail is sent to the GATHE Finance inbox and an
 acknowledgement to the visitor (Brevo SMTP).
 """
 from rest_framework import status

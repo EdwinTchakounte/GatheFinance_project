@@ -2,7 +2,7 @@ import type { ImgHTMLAttributes } from "react";
 import { cn } from "./cn";
 
 /**
- * Gathe Finance wordmark — transparent PNG (`/images/logo.png`, derived from
+ * GATHE Finance wordmark — transparent PNG (`/images/logo.png`, derived from
  * the official JPG with the white background made transparent so the mark
  * blends with any surface). Height is set by the parent via className.
  *
@@ -20,7 +20,7 @@ const LOGO_SRC = "/images/logo.png";
 
 export function Logo({
   variant: _variant,
-  title = "Gathe Finance",
+  title = "GATHE Finance",
   className,
   ...rest
 }: LogoProps) {

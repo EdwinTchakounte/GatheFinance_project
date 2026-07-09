@@ -21,7 +21,7 @@
 
 Ce rapport documente l'execution **reelle**, sur la production
 `gathe-finance.horus-lab.com`, d'un cycle complet de tests bout-en-bout
-des principales briques de la cooperative Gathe Finance. Il s'adresse a
+des principales briques de la cooperative GATHE Finance. Il s'adresse a
 la direction technique, au comite credit et au client final qui valide
 la mise en service.
 
@@ -385,7 +385,7 @@ en connexion avec un compte non-staff : le comportement est conforme.
 
 ## Conclusion
 
-La plateforme Gathe Finance est **operationnelle en production** sur les
+La plateforme GATHE Finance est **operationnelle en production** sur les
 cinq fronts publics, avec un moteur metier reactif, des permissions
 proprement segmentees, des integrations Tara et Brevo branchees, et un
 ordonnanceur de taches automatiques actif.

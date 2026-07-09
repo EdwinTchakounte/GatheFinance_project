@@ -17,11 +17,11 @@
 
 ## À qui s'adresse ce document
 
-Ce manuel est destiné à la **direction technique**, au **comité crédit** et à l'**équipe d'exploitation** de la coopérative Gathe Finance. Il documente l'état réel de la mise en production du **23 juin 2026** sur le VPS Contabo, présente les workflows critiques **bout en bout** et accompagne la phase de **recette utilisateur** avec le client.
+Ce manuel est destiné à la **direction technique**, au **comité crédit** et à l'**équipe d'exploitation** de la coopérative GATHE Finance. Il documente l'état réel de la mise en production du **23 juin 2026** sur le VPS Contabo, présente les workflows critiques **bout en bout** et accompagne la phase de **recette utilisateur** avec le client.
 
 Tous les services principaux sont en production. Les intégrations **Tara Money** (paiement mobile money) et **Brevo** (e-mail transactionnel) sont câblées. Le client peut dérouler les scénarios métier sur l'environnement réel.
 
-> **Le principe de cette mise en production.** La stack vit derrière un reverse-proxy nginx mutualisé qui sert également d'autres projets sur le même VPS. Les conteneurs Gathe rejoignent le réseau Docker partagé via des alias DNS internes, ce qui évite toute collision de noms. Les images Docker sont publiées sur **GitHub Container Registry** et déployées via le pipeline **CI/CD automatique**.
+> **Le principe de cette mise en production.** La stack vit derrière un reverse-proxy nginx mutualisé qui sert également d'autres projets sur le même VPS. Les conteneurs GATHE rejoignent le réseau Docker partagé via des alias DNS internes, ce qui évite toute collision de noms. Les images Docker sont publiées sur **GitHub Container Registry** et déployées via le pipeline **CI/CD automatique**.
 
 ## Glossaire des composants
 

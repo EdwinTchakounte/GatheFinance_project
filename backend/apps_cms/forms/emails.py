@@ -39,7 +39,7 @@ def notify_team(kind: str, data: dict) -> None:
         "contact": _("Nouveau message de contact"),
         "membership": _("Nouvelle demande d'adhésion"),
     }.get(kind, _("Nouvelle soumission"))
-    subject = f"[Gathe Finance] {label}"
+    subject = f"[GATHE Finance] {label}"
 
     text_body = "\n".join([
         f"{label}",
@@ -94,11 +94,11 @@ def acknowledge(kind: str, data: dict) -> None:
 
     with override(lang):
         if kind == "membership":
-            subject = _("Votre demande d'adhésion à Gathe Finance a bien été reçue")
+            subject = _("Votre demande d'adhésion à GATHE Finance a bien été reçue")
             heading = _("Demande d'adhésion reçue")
             body_lead = _(
                 "Nous avons bien reçu votre demande pour devenir membre de "
-                "Gathe Finance. Notre comité va examiner votre dossier sous "
+                "GATHE Finance. Notre comité va examiner votre dossier sous "
                 "7 jours ouvrés."
             )
             next_steps = _(
@@ -110,7 +110,7 @@ def acknowledge(kind: str, data: dict) -> None:
             text_body = (
                 f"Bonjour {name},\n\n"
                 f"{body_lead}\n\n{next_steps}\n\n"
-                "Cordialement,\nL'équipe Gathe Finance"
+                "Cordialement,\nL'équipe GATHE Finance"
             )
         else:
             subject = _("Nous avons bien reçu votre message")
@@ -126,7 +126,7 @@ def acknowledge(kind: str, data: dict) -> None:
             text_body = (
                 f"Bonjour {name},\n\n"
                 f"{body_lead}\n\n{next_steps}\n\n"
-                "Cordialement,\nL'équipe Gathe Finance"
+                "Cordialement,\nL'équipe GATHE Finance"
             )
 
     inner = "".join([

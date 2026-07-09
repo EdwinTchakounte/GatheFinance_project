@@ -1,4 +1,4 @@
-# Guide de test — Gathé Finance
+# Guide de test — GATHE Finance
 
 > Document de référence pour les sessions de test manuelles (web + mobile).
 > Tous les comptes ci-dessous sont **uniquement valables en environnement local

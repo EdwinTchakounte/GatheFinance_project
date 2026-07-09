@@ -231,7 +231,7 @@ def alert_stuck_payments() -> dict:
     )
     try:
         msg = EmailMessage(
-            subject=f"[Gathe] {stuck.count()} paiement(s) bloque(s) Tara",
+            subject=f"[GATHE] {stuck.count()} paiement(s) bloque(s) Tara",
             body=body,
             from_email=getattr(dj_settings, "DEFAULT_FROM_EMAIL", "noreply@horus-lab.com"),
             to=recipients,

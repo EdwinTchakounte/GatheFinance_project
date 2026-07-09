@@ -43,7 +43,7 @@ TEMPLATES = [
     # ────────────────────────────────────────────────────────────────────
     {
         "code": "member.welcome",
-        "objet": "Bienvenue chez Gathe Finance, {prenom} !",
+        "objet": "Bienvenue chez GATHE Finance, {prenom} !",
         "corps_html": _join(
             hi("{prenom} {nom}"),
             title("Ta demande d'adhésion est approuvée"),
@@ -74,7 +74,7 @@ TEMPLATES = [
     },
     {
         "code": "member.activated",
-        "objet": "Ton compte Gathe Finance est actif",
+        "objet": "Ton compte GATHE Finance est actif",
         "corps_html": _join(
             hi("{prenom}"),
             title("Ton compte est désormais actif"),
@@ -95,7 +95,7 @@ TEMPLATES = [
     },
     {
         "code": "member.rejected",
-        "objet": "Ta demande d'adhésion à Gathe Finance",
+        "objet": "Ta demande d'adhésion à GATHE Finance",
         "corps_html": _join(
             hi("{prenom} {nom}"),
             title("Ta demande n'a pas été retenue"),
@@ -116,7 +116,7 @@ TEMPLATES = [
     },
     {
         "code": "membership.interview_scheduled",
-        "objet": "Ton entretien d'admission à Gathe Finance",
+        "objet": "Ton entretien d'admission à GATHE Finance",
         "corps_html": _join(
             hi("{prenom} {nom}"),
             title("Ton entretien d'admission a été enregistré"),
@@ -156,7 +156,7 @@ TEMPLATES = [
                 tone="info",
             ),
             p(
-                "Ouvre l'application Gathe Finance et rends-toi dans l'écran "
+                "Ouvre l'application GATHE Finance et rends-toi dans l'écran "
                 "Crédit pour postuler tant que la campagne reste ouverte."
             ),
             closing(),
@@ -840,7 +840,7 @@ TEMPLATES = [
             hi("{prenom}"),
             title("Réinscription annuelle approche"),
             lead(
-                "Ton anniversaire d'adhésion à Gathe Finance approche. Pour "
+                "Ton anniversaire d'adhésion à GATHE Finance approche. Pour "
                 "rester à jour, pense à confirmer ta réinscription auprès de "
                 "l'agence ou via ton espace."
             ),
@@ -878,7 +878,7 @@ TEMPLATES = [
     },
     {
         "code": "auth.password_reset_otp",
-        "objet": "Ton code de réinitialisation Gathe Finance",
+        "objet": "Ton code de réinitialisation GATHE Finance",
         "corps_html": _join(
             hi("{prenom}"),
             title("Réinitialisation de ton mot de passe"),

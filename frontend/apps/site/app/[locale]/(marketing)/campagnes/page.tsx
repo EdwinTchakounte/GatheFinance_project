@@ -11,7 +11,7 @@ type Params = { params: Promise<{ locale: string }> };
 export const metadata: Metadata = {
   title: "Campagnes micro-crédit",
   description:
-    "Obtiens un micro-crédit via une campagne Gathé Finance — même sans être membre. Postule en ligne, sans frais d'adhésion.",
+    "Obtiens un micro-crédit via une campagne GATHE Finance — même sans être membre. Postule en ligne, sans frais d'adhésion.",
 };
 
 export default async function CampagnesPage({ params }: Params) {

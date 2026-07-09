@@ -41,7 +41,7 @@ export default async function PortalLocaleLayout({
           <Container className="flex h-14 items-center justify-between">
             <Link
               href="/"
-              aria-label="Gathe Finance · Espace membre"
+              aria-label="GATHE Finance · Espace membre"
               className="inline-flex items-center gap-3"
             >
               <Logo className="h-7 w-auto" />
@@ -62,7 +62,7 @@ export default async function PortalLocaleLayout({
 
         <footer className="border-t border-line-200 bg-paper py-4 text-center text-xs text-ink-600">
           <Container>
-            © {new Date().getFullYear()} Gathe Finance — Espace membre
+            © {new Date().getFullYear()} GATHE Finance — Espace membre
           </Container>
         </footer>
       </div>

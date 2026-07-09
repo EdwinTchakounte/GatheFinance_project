@@ -179,7 +179,7 @@ export default function BookletOrdersPage() {
           rowKey={(r) => r.id}
           emptyLabel="Aucune commande dans cet état."
           exportFilename="commandes-carnet"
-          exportTitle="Commandes de carnet — Gathé Finance"
+          exportTitle="Commandes de carnet — GATHE Finance"
           exportSubtitle={`Filtre : ${tab}`}
           actions={(row) =>
             row.statut === "payee" ? (

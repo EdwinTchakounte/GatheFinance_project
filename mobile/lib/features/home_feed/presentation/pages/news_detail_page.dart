@@ -333,7 +333,7 @@ class _CoverPlaceholder extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
-                  'GATHÉ',
+                  'GATHE',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 9.5,

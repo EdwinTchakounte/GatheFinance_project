@@ -652,7 +652,7 @@ class _PlaceholderArticle extends StatelessWidget {
             child: Opacity(
               opacity: 0.32,
               child: Text(
-                'GATHÉ',
+                'GATHE',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 8.5,

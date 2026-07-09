@@ -143,7 +143,7 @@ export function Sidebar({
       {/* Header */}
       <div className="border-b border-line-200 px-5 py-4">
         <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-          Gathe Finance
+          GATHE Finance
         </p>
         <p className="mt-1 font-editorial text-lg font-medium text-ink-900">Administration</p>
       </div>

@@ -307,7 +307,7 @@ function Inner() {
           rowKey={(p) => p.id}
           emptyLabel="Aucun paiement ne correspond à ces filtres."
           exportFilename="paiements"
-          exportTitle="Suivi des paiements — Gathé Finance"
+          exportTitle="Suivi des paiements — GATHE Finance"
           exportSubtitle={
             [
               statut && `statut : ${statut}`,

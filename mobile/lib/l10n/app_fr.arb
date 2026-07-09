@@ -1,7 +1,7 @@
 {
   "@@locale": "fr",
 
-  "appTitle": "Gathe Finance",
+  "appTitle": "GATHE Finance",
   "@appTitle": { "description": "Application title" },
 
   "common_continue": "Continuer",
@@ -139,7 +139,7 @@
 
   "onb_slide4_eyebrow": "Membre",
   "onb_slide4_title": "Pas un client.\nUn copropriétaire.",
-  "onb_slide4_body": "Chez Gathe, tu ne déposes pas chez un tiers : tu participes à la coopérative, tu votes en assemblée et tu profites des bénéfices redistribués.",
+  "onb_slide4_body": "Chez GATHE, tu ne déposes pas chez un tiers : tu participes à la coopérative, tu votes en assemblée et tu profites des bénéfices redistribués.",
 
   "credit_eyebrow": "Crédit",
   "credit_title": "Mes crédits",
@@ -497,9 +497,9 @@
   "pin_reveal_title": "Affiche ton solde",
   "pin_reveal_sub": "Saisis ton code secret pour afficher le montant.",
 
-  "biometric_reason_unlock": "Empreinte pour ouvrir ton espace Gathe Finance",
+  "biometric_reason_unlock": "Empreinte pour ouvrir ton espace GATHE Finance",
   "biometric_reason_enable": "Pose ton empreinte pour activer l'ouverture rapide",
-  "biometric_signin_title": "Gathe Finance",
+  "biometric_signin_title": "GATHE Finance",
   "biometric_hint": "Touche le capteur pour ouvrir ton espace",
   "biometric_cancel_button": "Utiliser le code PIN",
 
@@ -517,7 +517,7 @@
   "releve_pdf_col_date": "Date",
   "releve_pdf_col_label": "Libellé",
   "releve_pdf_col_amount": "Montant",
-  "releve_pdf_footer": "Document généré par l'application Gathé Finance . à titre informatif.",
+  "releve_pdf_footer": "Document généré par l'application GATHE Finance . à titre informatif.",
   "releve_pdf_filename": "releve_gathe",
 
   "common_back": "Retour",
@@ -658,7 +658,7 @@
   "bko_done_title": "Commande enregistrée",
 
   "mi_eyebrow": "Coopérative",
-  "mi_intro": "Chez Gathe Finance, tu n'es pas un simple client : tu deviens **copropriétaire** d'une coopérative d'épargne et de crédit. Tes décisions comptent, et les bénéfices reviennent aux membres.",
+  "mi_intro": "Chez GATHE Finance, tu n'es pas un simple client : tu deviens **copropriétaire** d'une coopérative d'épargne et de crédit. Tes décisions comptent, et les bénéfices reviennent aux membres.",
   "mi_card1_title": "Épargne sécurisée",
   "mi_card1_body": "Ton argent est protégé par la coopérative et rémunéré à 1 %/mois sur ton compte d'épargne.",
   "mi_card2_title": "Crédit accessible",

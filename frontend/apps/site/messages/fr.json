@@ -1,7 +1,7 @@
 {
   "meta": {
-    "siteName": "Gathe Finance",
-    "homeTitle": "Gathe Finance — Coopérative d'épargne et de crédit au Cameroun",
+    "siteName": "GATHE Finance",
+    "homeTitle": "GATHE Finance — Coopérative d'épargne et de crédit au Cameroun",
     "homeDescription": "Coopérative d'épargne et de crédit des entrepreneurs camerounais : crédit, épargne, transferts, investissement communautaire et éducation financière."
   },
   "cookies": {
@@ -50,7 +50,7 @@
     "home": "Accueil"
   },
   "footer": {
-    "whyTitle": "Pourquoi Gathe Finance ?",
+    "whyTitle": "Pourquoi GATHE Finance ?",
     "whyMission": "Mission",
     "whyTeam": "L'équipe",
     "whyAgencies": "Nos agences",
@@ -118,9 +118,9 @@
     },
     "about": {
       "eyebrow": "Qui sommes-nous",
-      "title": "Gathe finance, la coopérative d'épargne et de crédit des entrepreneurs",
+      "title": "GATHE finance, la coopérative d'épargne et de crédit des entrepreneurs",
       "text": "Nous croyons en la capacité de chaque entrepreneur camerounais à transformer ses idées en réalité. Que vous soyez un artisan, commerçant, agriculteur, ou start-up en plein développement, nous sommes là pour vous offrir des solutions financières adaptées à vos besoins. Ensemble, bâtissons un avenir où chaque entrepreneur a les moyens de réussir.",
-      "cta": "En savoir plus sur Gathe Finance"
+      "cta": "En savoir plus sur GATHE Finance"
     },
     "values": {
       "eyebrow": "Notre engagement",
@@ -128,13 +128,13 @@
       "items": {
         "accessibility": { "title": "Accessibilité pour Tous", "text": "Nos services sont conçus pour être accessibles à tous les entrepreneurs, quelle que soit la taille de votre projet ou votre secteur d'activité." },
         "transparency": { "title": "Conditions Souples et Transparentes", "text": "Nous proposons des solutions de crédit et d'épargne avec des conditions claires, sans frais cachés, et des options de remboursement flexibles." },
-        "community": { "title": "Communauté Solidaire", "text": "En rejoignant Gathe Finance, vous intégrez une communauté d'entrepreneurs solidaires qui s'entraident pour réussir. Ensemble, nous créons une dynamique positive pour soutenir la croissance des entreprises locales." },
+        "community": { "title": "Communauté Solidaire", "text": "En rejoignant GATHE Finance, vous intégrez une communauté d'entrepreneurs solidaires qui s'entraident pour réussir. Ensemble, nous créons une dynamique positive pour soutenir la croissance des entreprises locales." },
         "local": { "title": "Engagement Local", "text": "En tant que coopérative locale, nous comprenons les défis spécifiques auxquels font face les entrepreneurs camerounais. Nos services sont adaptés à ces réalités." }
       }
     },
     "cta": {
       "title": "Rejoindre notre coopérative de crédit et d'épargne",
-      "text": "Ne laissez plus le manque de financement freiner vos ambitions. Gathe Finance crois en vous et en vos projets. Ensemble, nous pouvons faire de vos rêves d'entrepreneur une réalité. Inscrivez-vous dès maintenant pour bénéficier de nos services de prêts, d'épargne et d'accompagnement personnalisé.",
+      "text": "Ne laissez plus le manque de financement freiner vos ambitions. GATHE Finance crois en vous et en vos projets. Ensemble, nous pouvons faire de vos rêves d'entrepreneur une réalité. Inscrivez-vous dès maintenant pour bénéficier de nos services de prêts, d'épargne et d'accompagnement personnalisé.",
       "button": "Rejoignez la Coopérative"
     },
     "blog": {
@@ -146,10 +146,10 @@
   },
   "about": {
     "eyebrow": "À propos",
-    "title": "À propos de Gathe Finance",
-    "lead": "Gathe Finance c'est de l'auto financement solidaire mis en place pour les personnes fiables de l'écosystème entrepreneurial camerounais.",
+    "title": "À propos de GATHE Finance",
+    "lead": "GATHE Finance c'est de l'auto financement solidaire mis en place pour les personnes fiables de l'écosystème entrepreneurial camerounais.",
     "missionTitle": "Notre raison d'être",
-    "intro": "<strong>Gathe Finance</strong> a été créée dans l'optique de permettre aux <strong>personnes fiables de l'écosystème entrepreneurial</strong> camerounais de :",
+    "intro": "<strong>GATHE Finance</strong> a été créée dans l'optique de permettre aux <strong>personnes fiables de l'écosystème entrepreneurial</strong> camerounais de :",
     "objectives": [
       "Auto financer solidairement leur projet d'entreprise",
       "Professionnaliser la plus petite activité faite par chacun afin d'assurer la croissance de celle-ci mois après mois",
@@ -157,7 +157,7 @@
       "Acquérir du matériel pour leur activité",
       "Être financièrement forts et solidaires entre eux pour le développement de l'écosystème entrepreneurial camerounais par delà de l'économie qui repose à 80 % au moins aujourd'hui sur les TPE/PME/PMI"
     ],
-    "callout": "<strong>Gathe Finance</strong> c'est de l'auto financement solidaire qui a été mis en place pour pallier aux problèmes tels que la <strong>non éligibilité au crédit bancaire</strong> ou l'insuffisance de subventions destinées à soutenir les TPE/PME/PMI camerounaises.",
+    "callout": "<strong>GATHE Finance</strong> c'est de l'auto financement solidaire qui a été mis en place pour pallier aux problèmes tels que la <strong>non éligibilité au crédit bancaire</strong> ou l'insuffisance de subventions destinées à soutenir les TPE/PME/PMI camerounaises.",
     "teamTitle": "Une équipe à votre écoute",
     "teamText": "Notre équipe accompagne chaque membre de la coopérative, du premier contact au suivi de son projet. Contactez-nous pour échanger sur le vôtre.",
     "agenciesTitle": "Nous trouver",
@@ -169,9 +169,9 @@
   },
   "services": {
     "eyebrow": "Services financiers",
-    "title": "Services financiers de Gathe Finance",
+    "title": "Services financiers de GATHE Finance",
     "lead": "Forts de notre expérience et de notre ancrage local, nous avons à cœur de vous offrir des services financiers adaptés à vos besoins et accessibles à tous. Notre mission est de permettre à chaque Camerounais, qu'il soit entrepreneur, salarié, ou membre de la communauté rurale, d'accéder aux solutions financières qui lui permettront de réussir.",
-    "intro2": "Dans un environnement économique en constante évolution, la solidité financière et l'accès aux ressources adéquates sont des facteurs essentiels pour atteindre vos objectifs. Que vous ayez besoin de crédits, de services d'épargne, de solutions d'investissement, ou de conseils financiers, <strong>Gathe Finance</strong> est là pour vous accompagner à chaque étape de votre parcours financier.",
+    "intro2": "Dans un environnement économique en constante évolution, la solidité financière et l'accès aux ressources adéquates sont des facteurs essentiels pour atteindre vos objectifs. Que vous ayez besoin de crédits, de services d'épargne, de solutions d'investissement, ou de conseils financiers, <strong>GATHE Finance</strong> est là pour vous accompagner à chaque étape de votre parcours financier.",
     "anchors": {
       "credit": "Crédit",
       "transfers": "Dépôt & transferts",
@@ -232,7 +232,7 @@
       },
       "investment": {
         "title": "Investissement : Faites Travailler Votre Argent pour Vous",
-        "intro": "<strong>Gathe Finance</strong> vous aide à faire fructifier vos économies à travers des solutions d'investissement accessibles, même avec de petits montants. Nous croyons que chacun, indépendamment de ses moyens, peut investir pour faire croître son capital.",
+        "intro": "<strong>GATHE Finance</strong> vous aide à faire fructifier vos économies à travers des solutions d'investissement accessibles, même avec de petits montants. Nous croyons que chacun, indépendamment de ses moyens, peut investir pour faire croître son capital.",
         "items": {
           "community": {
             "title": "Investissement Communautaire",
@@ -262,7 +262,7 @@
   },
   "download": {
     "eyebrow": "Application mobile",
-    "title": "Télécharger l'app Gathe Finance",
+    "title": "Télécharger l'app GATHE Finance",
     "lead": "Accède à ton espace membre depuis ton smartphone : cotisation, épargne, crédit, carnet et notifications, le tout dans une seule application.",
     "androidEyebrow": "Android",
     "androidTitle": "Installation Android (APK direct)",
@@ -275,12 +275,12 @@
     "installStep1": "Télécharge le fichier en cliquant sur le bouton ci-dessus.",
     "installStep2": "Ouvre le fichier depuis le dossier Téléchargements de ton téléphone.",
     "installStep3": "Si Android te le demande, autorise l'installation depuis cette source (Paramètres › Sécurité).",
-    "installStep4": "Suis les étapes à l'écran, puis lance Gathe Finance.",
+    "installStep4": "Suis les étapes à l'écran, puis lance GATHE Finance.",
     "iosTitle": "iOS — bientôt disponible",
     "iosDesc": "La version iPhone est en cours de finalisation. En attendant, tu peux utiliser ton espace membre depuis ce site web sans rien installer.",
     "qrEyebrow": "Téléphone portable",
     "qrTitle": "Scanne pour télécharger",
-    "qrAlt": "QR code de téléchargement de l'application Gathe Finance pour Android",
+    "qrAlt": "QR code de téléchargement de l'application GATHE Finance pour Android",
     "qrHelp": "Ouvre l'appareil photo de ton téléphone et pointe le vers le QR code pour lancer le téléchargement."
   },
   "contact": {
@@ -293,8 +293,8 @@
   },
   "membership": {
     "eyebrow": "Adhésion",
-    "title": "Devenir membre de Gathe Finance",
-    "lead": "Ne laissez plus le manque de financement freiner vos ambitions. Gathe Finance crois en vous et en vos projets. Inscrivez-vous dès maintenant pour bénéficier de nos services de prêts, d'épargne et d'accompagnement personnalisé.",
+    "title": "Devenir membre de GATHE Finance",
+    "lead": "Ne laissez plus le manque de financement freiner vos ambitions. GATHE Finance crois en vous et en vos projets. Inscrivez-vous dès maintenant pour bénéficier de nos services de prêts, d'épargne et d'accompagnement personnalisé.",
     "whyTitle": "Pourquoi nous rejoindre",
     "formTitle": "Demander à devenir membre",
     "afterNote": "En attendant l'ouverture de l'espace membre en ligne, votre demande est transmise directement à notre équipe, qui vous recontactera."

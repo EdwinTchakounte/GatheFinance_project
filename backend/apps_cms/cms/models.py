@@ -1,4 +1,4 @@
-"""Wagtail page models for the Gathe Finance site.
+"""Wagtail page models for the GATHE Finance site.
 
 Editorial pages are composed with the StreamField blocks in ``blocks.py`` so the
 Next.js front-end can render each block as a React component. All pages are
@@ -147,7 +147,7 @@ class HomePage(BasePage):
     # --- Bloc « Qui sommes-nous » (présentation courte sur l'accueil) ---
     intro_title = models.CharField(
         "Titre du bloc présentation", max_length=200, blank=True,
-        default="Gathe finance, la coopérative d'épargne et de crédit des entrepreneurs",
+        default="GATHE finance, la coopérative d'épargne et de crédit des entrepreneurs",
     )
     intro_text = RichTextField("Texte du bloc présentation", blank=True)
 

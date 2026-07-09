@@ -281,7 +281,7 @@ function Inner() {
           rowKey={(t) => t.id}
           emptyLabel="Aucune tranche pour ce filtre."
           exportFilename="tranches-preteur"
-          exportTitle="Pool de tranches prêteur — Gathé Finance"
+          exportTitle="Pool de tranches prêteur — GATHE Finance"
           exportSubtitle={`Filtre : ${statut}`}
         />
       )}

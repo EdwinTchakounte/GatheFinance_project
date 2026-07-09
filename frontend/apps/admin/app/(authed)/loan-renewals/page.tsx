@@ -203,7 +203,7 @@ function Inner() {
             </>
           }
           exportFilename="reconductions-credit"
-          exportTitle="Reconductions de crédit — Gathé Finance"
+          exportTitle="Reconductions de crédit — GATHE Finance"
           exportSubtitle={`Filtre : ${filter === "all" ? "tous" : filter}`}
           actions={(r) =>
             r.statut === "demandee" ? (

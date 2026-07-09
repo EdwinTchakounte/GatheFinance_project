@@ -139,7 +139,7 @@ class Command(BaseCommand):
             return
 
         author, _ = Author.objects.get_or_create(
-            locale=fr, name="Gathe", defaults={"role": "Équipe Gathe Finance"}
+            locale=fr, name="GATHE", defaults={"role": "Équipe GATHE Finance"}
         )
         category, _ = Category.objects.get_or_create(locale=fr, slug="conseils", defaults={"name": "Conseils"})
 

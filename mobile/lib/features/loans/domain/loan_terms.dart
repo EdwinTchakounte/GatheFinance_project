@@ -1,6 +1,6 @@
 /// Règles métier du crédit — miroir mobile du backend `apps_coop/loans/terms.py`.
 ///
-/// Source de vérité : Règlement Intérieur Gathe Finance 2025.
+/// Source de vérité : Règlement Intérieur GATHE Finance 2025.
 /// Toute divergence avec le backend est un bug. Permet à l'app de calculer
 /// localement (mock + affichage) une durée / un échéancier conformes.
 library;

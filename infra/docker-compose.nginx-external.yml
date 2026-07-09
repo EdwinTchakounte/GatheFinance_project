@@ -1,7 +1,7 @@
 # Override prod — déploiement DERRIÈRE TON nginx conteneurisé (pas Traefik).
 # ===========================================================================
 # Cas d'usage : le VPS héberge déjà d'autres stacks derrière un nginx en
-# conteneur (réseau Docker partagé). On rattache les services Gathé à CE réseau
+# conteneur (réseau Docker partagé). On rattache les services GATHE à CE réseau
 # et on évite les collisions de noms (`db`, `backend`) avec les autres projets.
 #
 # Lancer SANS Traefik :
@@ -17,7 +17,7 @@
 # (un `nginx -s reload` ne suffit pas toujours).
 
 services:
-  # Postgres Gathé — alias unique pour ne pas être confondu avec un autre `db`.
+  # Postgres GATHE — alias unique pour ne pas être confondu avec un autre `db`.
   db:
     networks:
       internal:

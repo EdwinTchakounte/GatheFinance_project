@@ -105,13 +105,13 @@ def build_loan_request_note(loan_request) -> bytes:
     c.setTitle(
         f"Note de demande crédit — {member.numero_membre} — #{loan_request.id}"
     )
-    c.setAuthor("Gathé Finance")
+    c.setAuthor("GATHE Finance")
 
     # --- En-tête de marque -------------------------------------------------
     top = height - margin
     c.setFillColor(BRAND_BLUE)
     c.setFont("Helvetica-Bold", 22)
-    c.drawString(margin, top, "GATHÉ FINANCE")
+    c.drawString(margin, top, "GATHE FINANCE")
     c.setFillColor(MUTED)
     c.setFont("Helvetica", 10.5)
     c.drawString(margin, top - 16, "Coopérative d'Épargne et de Crédit")
@@ -320,7 +320,7 @@ def build_loan_request_note(loan_request) -> bytes:
     c.setFont("Helvetica", 8)
     c.drawCentredString(
         width / 2, margin + 6 * mm,
-        "Gathé Finance — Akwa, Douala · Document généré automatiquement.",
+        "GATHE Finance — Akwa, Douala · Document généré automatiquement.",
     )
 
     c.showPage()

@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
                 (
                     "legal_name",
                     models.CharField(
-                        default="Gathe Finance",
+                        default="GATHE Finance",
                         max_length=255,
                         verbose_name="Raison sociale",
                     ),
@@ -152,7 +152,7 @@ class Migration(migrations.Migration):
                     "copyright_text",
                     models.CharField(
                         blank=True,
-                        default="Gathe Finance – Coopérative d'épargne et de crédit au Cameroun",
+                        default="GATHE Finance – Coopérative d'épargne et de crédit au Cameroun",
                         max_length=255,
                         verbose_name="Mention de copyright",
                     ),
@@ -178,7 +178,7 @@ class Migration(migrations.Migration):
                     "default_title",
                     models.CharField(
                         blank=True,
-                        default="Gathe Finance — Coopérative d'épargne et de crédit",
+                        default="GATHE Finance — Coopérative d'épargne et de crédit",
                         max_length=255,
                         verbose_name="Titre par défaut",
                     ),

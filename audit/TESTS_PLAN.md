@@ -1,4 +1,4 @@
-# Plan de tests Gathe Finance
+# Plan de tests GATHE Finance
 
 > Auteur : Tchamba Tchakounte Edwin
 > Date : 2026-06-20

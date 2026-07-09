@@ -2,7 +2,7 @@
   "name": "@gathe/config",
   "version": "0.1.0",
   "private": true,
-  "description": "Tokens de design partagés (Tailwind v4) et config TypeScript pour Gathe Finance",
+  "description": "Tokens de design partagés (Tailwind v4) et config TypeScript pour GATHE Finance",
   "type": "module",
   "exports": {
     "./theme.css": "./theme.css",

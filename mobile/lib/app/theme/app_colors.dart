@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Palette officielle Gathe Finance — alignée sur le design system web.
+/// Palette officielle GATHE Finance — alignée sur le design system web.
 ///
 /// Règle absolue : **pas de noir pur**. L'encre la plus sombre est `inkDark`
 /// (#0b1320), un cobalt très désaturé. Le marron `terra` remplace le noir

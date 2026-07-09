@@ -1,4 +1,4 @@
-# Le dashboard administrateur Gathe Finance
+# Le dashboard administrateur GATHE Finance
 
 <div class="toc">
 
@@ -660,7 +660,7 @@ décision inhabituelle.
 
 ### Agence
 
-**Gathe Finance — Akwa Bercy, Douala**
+**GATHE Finance — Akwa Bercy, Douala**
 Lundi à vendredi · 08h00 — 17h00
 
 ### Support technique interne

@@ -6,7 +6,7 @@
  * `SiteSettings` singleton (see src/lib/wagtail.ts → getSiteSettings()).
  */
 export const siteConfig = {
-  name: "Gathe Finance",
+  name: "GATHE Finance",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   contact: {
     address: "Rue Mermoz, Akwa, Douala, Cameroun",
@@ -106,8 +106,8 @@ export const serviceAnchors = [
 /** Homepage "services" overview — the 5 pillars of the existing site with their photo. */
 export const servicePillars = [
   { key: "credit", labelKey: "servicesCredit", anchor: "credit", image: images.fcfaBills, alt: "Billets de FCFA", items: ["consumption", "micro", "realEstate", "personal"] },
-  { key: "transfers", labelKey: "servicesTransfers", anchor: "transferts", image: images.onlineSupport, alt: "Support en ligne Gathe Finance", items: ["sendReceive", "deposit"] },
+  { key: "transfers", labelKey: "servicesTransfers", anchor: "transferts", image: images.onlineSupport, alt: "Support en ligne GATHE Finance", items: ["sendReceive", "deposit"] },
   { key: "savings", labelKey: "servicesSavings", anchor: "epargne", image: images.fatherDaughterSaving, alt: "Père et sa fille qui épargnent", items: ["accounts", "plans"] },
   { key: "investment", labelKey: "servicesInvestment", anchor: "investissement", image: images.cooperativeInvestment, alt: "Investissement en coopérative", items: ["community", "secured"] },
-  { key: "education", labelKey: "servicesEducation", anchor: "education", image: images.trainingWorkshop, alt: "Atelier de formation de Gathe Finance", items: ["workshops", "advice"] },
+  { key: "education", labelKey: "servicesEducation", anchor: "education", image: images.trainingWorkshop, alt: "Atelier de formation de GATHE Finance", items: ["workshops", "advice"] },
 ] as const;

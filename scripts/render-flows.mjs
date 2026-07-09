@@ -162,7 +162,7 @@ function htmlTemplate(mermaidSource, title) {
 </head>
 <body>
   <h1>${title}</h1>
-  <div class="subtitle">Gathé Finance — Référentiel métier 2026</div>
+  <div class="subtitle">GATHE Finance — Référentiel métier 2026</div>
   <div id="diagram" class="mermaid">${mermaidSource}</div>
   <div class="footer">Généré automatiquement (scripts/render-flows.mjs)</div>
 <script>

@@ -17,13 +17,13 @@ import '../widgets/member_info_sheet.dart';
 /// (2026-06-18 itération 3, ref user) :
 ///
 /// - **Hero bleu gradient** pleine largeur + coins bas arrondis (vague).
-/// - Cercle blanc contenant le logo Gathe, centré dans le hero.
+/// - Cercle blanc contenant le logo GATHE, centré dans le hero.
 /// - Titre + baseline en blanc.
 /// - **Zone crème doodle** dessous avec : titre "Connexion à votre espace"
 ///   + sub + card blanche aérée (labels w600 + inputs).
 /// - **CTA bleu gradient** avec icône flèche et "Se connecter".
 /// - 2 pills sous le CTA : "Mot de passe oublié" + "Devenir membre".
-/// - Footer faint "Gathe Finance · coopérative".
+/// - Footer faint "GATHE Finance · coopérative".
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -396,7 +396,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   // ── Footer faint ───────────────────────────────────────
                   Center(
                     child: Text(
-                      'Gathe Finance · coopérative',
+                      'GATHE Finance · coopérative',
                       style: PaText.body(
                         size: 11.5,
                         color: PaColors.inkMuted,

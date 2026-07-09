@@ -2,7 +2,7 @@
   "name": "gathe-frontend",
   "private": true,
   "version": "0.1.0",
-  "description": "Site vitrine Gathe Finance (Next.js) + design system partagé",
+  "description": "Site vitrine GATHE Finance (Next.js) + design system partagé",
   "workspaces": [
     "apps/*",
     "packages/*"
