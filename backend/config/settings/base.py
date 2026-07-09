@@ -43,6 +43,14 @@ PUBLIC_BASE_URL = env("PUBLIC_BASE_URL", default="http://localhost:8200")
 # Secret shared with the front-end to authenticate the on-demand revalidation webhook.
 REVALIDATE_SECRET = env("REVALIDATE_SECRET", default="dev-revalidate-secret")
 
+# URL du webhook de revalidation ISR de la vitrine. Vide → dérivée de
+# FRONTEND_BASE_URL. En prod, on la pointe sur l'URL INTERNE du service Next.js
+# (ex. http://site:3000/api/revalidate) : appeler le domaine public HTTPS depuis
+# le conteneur backend échoue souvent (hairpin NAT / TLS interne) → la
+# revalidation était silencieusement perdue et la vitrine gardait l'ancienne
+# image jusqu'à expiration du cache ISR (CMS_REVALIDATE_SECONDS).
+REVALIDATE_URL = env("REVALIDATE_URL", default="")
+
 # --- Payment providers ------------------------------------------------------
 # Each provider reads its own env vars; leave them blank in dev/CI so any
 # accidental call fails loud (`ProviderError: credentials not configured`).

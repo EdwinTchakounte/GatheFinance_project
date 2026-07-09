@@ -13,13 +13,26 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
+def _revalidate_url() -> str:
+    """URL du webhook de revalidation.
+
+    Priorité à ``REVALIDATE_URL`` (URL interne du service Next.js en prod, pour
+    éviter le hairpin NAT / TLS quand le backend appelle le domaine public).
+    À défaut, on la dérive de ``FRONTEND_BASE_URL``.
+    """
+    explicit = (getattr(settings, "REVALIDATE_URL", "") or "").strip()
+    if explicit:
+        return explicit
+    base = (settings.FRONTEND_BASE_URL or "").rstrip("/")
+    return f"{base}/api/revalidate" if base else ""
+
+
 def _post_revalidate(paths: list[str]) -> None:
     if not paths:
         return
-    base = (settings.FRONTEND_BASE_URL or "").rstrip("/")
-    if not base:
+    url = _revalidate_url()
+    if not url:
         return
-    url = f"{base}/api/revalidate"
     body = json.dumps({"paths": paths}).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -31,9 +44,21 @@ def _post_revalidate(paths: list[str]) -> None:
         },
     )
     try:
-        urllib.request.urlopen(req, timeout=3)  # noqa: S310 - fixed, trusted URL
+        with urllib.request.urlopen(req, timeout=3) as resp:  # noqa: S310 - fixed, trusted URL
+            status = getattr(resp, "status", None) or resp.getcode()
+        if status != 200:
+            # Non-200 = revalidation refusée (mauvais secret, route KO…) : la
+            # vitrine ne sera PAS rafraîchie. On le trace explicitement.
+            logger.warning(
+                "Revalidation webhook returned HTTP %s for %s (url=%s)",
+                status, paths, url,
+            )
+        else:
+            logger.info("Revalidation webhook OK for %s", paths)
     except Exception as exc:  # noqa: BLE001 - best effort; must never break publishing
-        logger.warning("Revalidation webhook failed for %s: %s", paths, exc)
+        logger.warning(
+            "Revalidation webhook failed for %s (url=%s): %s", paths, url, exc
+        )
 
 
 def _page_paths(page) -> list[str]:
