@@ -87,10 +87,12 @@ class Command(BaseCommand):
         SiteSettings.load(request_or_site=site)
         SeoSettings.load(request_or_site=site)
 
-        # Headless : aligne Site.hostname/port sur la vitrine Next.js publique
-        # pour que `page.full_url` (utilisé par "Voir sur le site") pointe sur
-        # le frontend et non sur Wagtail lui-même.
-        public = getattr(settings, "FRONTEND_PUBLIC_URL", None) or settings.FRONTEND_BASE_URL
+        # Headless : aligne Site.hostname/port sur la VITRINE Next.js publique
+        # (pas le portail !) pour que `page.full_url` (le "Voir" du dashboard /
+        # "Voir sur le site" de l'admin) pointe sur la vitrine, seule à avoir
+        # la route /blog/<slug>. SITE_PUBLIC_URL, pas FRONTEND_PUBLIC_URL
+        # (= portail membre) sinon les liens blog 404.
+        public = getattr(settings, "SITE_PUBLIC_URL", None) or settings.FRONTEND_BASE_URL
         parsed = urlparse(public)
         if parsed.hostname:
             site = Site.objects.filter(is_default_site=True).first()

@@ -29,11 +29,19 @@ WAGTAILADMIN_BASE_URL = env("WAGTAILADMIN_BASE_URL", default="http://localhost:8
 # webhook depuis le backend Docker → frontend Docker, par DNS interne).
 FRONTEND_BASE_URL = env("FRONTEND_BASE_URL", default="http://localhost:3000")
 
-# Public base URL of the Next.js front-end (vue du navigateur de l'utilisateur :
-# liens "Voir sur le site" depuis l'admin Wagtail, redirections serve(), etc.).
-# En dev local sans Docker, c'est la même que FRONTEND_BASE_URL ; avec Docker
-# où le backend voit le frontend en `http://frontend:3000`, il faut overrider.
+# URL publique du PORTAIL membre (liens transactionnels vus par l'utilisateur :
+# /definir-mot-de-passe, /connexion, notifications membre…). En prod = domaine
+# du portail, DIFFÉRENT de la vitrine marketing.
+# ⚠️ Ne PAS l'utiliser pour les URL de pages CMS publiques (blog, pages) : le
+# portail n'a pas de route /blog/<slug> → 404. Pour ça, voir SITE_PUBLIC_URL.
 FRONTEND_PUBLIC_URL = env("FRONTEND_PUBLIC_URL", default=FRONTEND_BASE_URL)
+
+# URL publique de la VITRINE marketing (Next.js `site`) où sont rendues les
+# pages CMS Wagtail : lien "Voir sur le site" de l'admin, redirections serve()/
+# preview, hostname du Site Wagtail (→ page.full_url = le "Voir" du dashboard).
+# Défaut = FRONTEND_BASE_URL (en prod = domaine de la vitrine). À NE PAS
+# confondre avec FRONTEND_PUBLIC_URL (portail membre).
+SITE_PUBLIC_URL = env("SITE_PUBLIC_URL", default=FRONTEND_BASE_URL)
 
 # Public base URL of THIS backend (used to construct the webHookUrl we hand
 # to payment providers). Must be reachable from Tara — in dev with Docker we

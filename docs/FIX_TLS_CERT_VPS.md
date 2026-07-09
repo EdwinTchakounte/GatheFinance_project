@@ -8,6 +8,26 @@ d'afrikamode (`backend-nginx-1`) a été recréé**. La conf GATHE avait été
 Sans les blocs `server` GATHE, nginx retombe sur son `default_server`
 (afrikamode) et sert **son** cert pour tous les domaines gathe → l'app rejette.
 
+> ⚠️ **Piège 502 après restauration de la conf** : `nginx.gathe-finance.container.conf`
+> route vers les upstreams **`gathe-site` / `gathe-portal` / `gathe-admin` /
+> `gathe-backend`**. Ces alias UNIQUES viennent de `docker-compose.nginx-external.yml`.
+> Si un conteneur front a été recréé sans l'override (ou avec une version qui ne
+> déclare pas l'alias), nginx ne résout que `gathe-backend` → **API OK mais
+> vitrine/portail/admin en 502**. Vérifier :
+> ```bash
+> for h in gathe-site gathe-portal gathe-admin gathe-backend; do
+>   docker exec backend-nginx-1 getent hosts "$h" >/dev/null 2>&1 && echo "$h OK" || echo "$h ECHEC"
+> done
+> ```
+> Rétablir un alias manquant (immédiat) :
+> ```bash
+> docker network disconnect backend_default gathe-finance-prod-site-1
+> docker network connect --alias gathe-site backend_default gathe-finance-prod-site-1
+> # idem portal→gathe-portal, admin→gathe-admin. Puis: docker exec backend-nginx-1 nginx -s reload
+> ```
+> Durable : les alias sont dans `docker-compose.nginx-external.yml` → un
+> `up -d site portal admin` avec l'override les repose.
+
 ### Réparation immédiate (≈ 30 s)
 
 ```bash
