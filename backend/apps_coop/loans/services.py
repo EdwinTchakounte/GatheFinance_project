@@ -641,6 +641,14 @@ def disburse_loan_manual(loan: Loan, *, agent, reference_externe: str, note: str
         idempotency_key=uuid.uuid4(),
         motif_rejet="",  # not relevant for valid
     )
+    # Le décaissement MANUEL doit produire les MÊMES effets métier que le payout
+    # Tara : Loan actif + date_decaissement + distribution de la part d'intérêts
+    # aux prêteurs (mode source, tranches de placement engagées). Sans ça, en
+    # payout 100 % manuel, les prêteurs n'étaient jamais crédités.
+    from apps_coop.payments.services import _hook_decaissement
+
+    _hook_decaissement(payment, {})
+
     record_audit(
         action="loan.disbursed",
         entite_type="Loan",
@@ -659,6 +667,50 @@ def disburse_loan_manual(loan: Loan, *, agent, reference_externe: str, note: str
         },
     )
     return payment
+
+
+def tara_payout_enabled() -> bool:
+    """La plateforme initie-t-elle des payouts Tara (money OUT) ?
+
+    Défaut **FALSE** : en prod l'admin fait le virement sur Tara lui-même puis
+    vient marquer « payé » (décaissement / retrait manuel). Réactivable via
+    l'AppSetting ``payments.tara_payout.enabled`` si l'autorisation Tara arrive.
+    """
+    from apps_coop.audit.services import get_str_setting
+
+    return (get_str_setting("payments.tara_payout.enabled", "false") or "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def study_fee_for(campaign=None) -> Decimal:
+    """Frais d'étude applicables : override campagne si défini, sinon FeeType.
+    DEMANDE_CREDIT. 0 = étude gratuite."""
+    if campaign is not None and getattr(campaign, "frais_etude_montant", None) is not None:
+        return Decimal(campaign.frais_etude_montant)
+    from apps_coop.payments.models import FeeType
+
+    fee = (
+        FeeType.objects.filter(code=FeeType.Code.DEMANDE_CREDIT, actif=True)
+        .values_list("montant", flat=True)
+        .first()
+    )
+    return Decimal(fee) if fee is not None else Decimal("0")
+
+
+def status_after_prevoie(loan_request) -> str:
+    """Statut d'une demande APRÈS la pré-étape d'une voie (avaliste accepté /
+    campagne validée). On passe par la porte « frais d'étude » (EN_ATTENTE) si
+    des frais sont dus, sinon directement en instruction. Ainsi TOUTES les voies
+    réclament les frais d'étude au même endroit (statut en_attente = à payer)."""
+    return (
+        LoanRequest.Statut.EN_ATTENTE
+        if study_fee_for(getattr(loan_request, "microcampaign", None)) > 0
+        else LoanRequest.Statut.EN_INSTRUCTION
+    )
 
 
 @transaction.atomic

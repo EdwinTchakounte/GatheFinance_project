@@ -188,6 +188,10 @@ class TestDecideWithdrawalMomo:
     init côté provider. Le webhook sera testé séparément.
     """
 
+    @pytest.fixture(autouse=True)
+    def _tara(self, tara_payout_on):
+        pass
+
     def test_approve_momo_creates_payment_and_moves_to_en_payout(
         self, active_member, admin_user
     ):
@@ -306,7 +310,9 @@ class TestMarkWithdrawalPaid:
         assert wr.handed_over_by_id == admin_user.id
         assert wr.handed_over_at is not None
 
-    def test_mark_paid_rejects_momo_request(self, active_member, admin_user):
+    def test_mark_paid_works_for_momo_when_tara_off(self, active_member, admin_user):
+        # Payout Tara désactivé (défaut) → un retrait MOMO approuvé reste
+        # APPROUVEE (l'admin fait le virement sur Tara), puis on le marque payé.
         acc = _fund(active_member, "50000")
         wr = request_withdrawal(
             acc,
@@ -317,9 +323,9 @@ class TestMarkWithdrawalPaid:
         )
         decide_withdrawal(wr, decided_by=admin_user, approve=True)
         wr.refresh_from_db()
-        # Le retrait est en EN_PAYOUT, pas APPROUVEE — mark_paid doit refuser.
-        with pytest.raises(ValueError, match="(?i)présentiel"):
-            mark_withdrawal_paid(wr, agent=admin_user)
+        assert wr.statut == WithdrawalRequest.Statut.APPROUVEE
+        wr = mark_withdrawal_paid(wr, agent=admin_user, note="Viré sur Tara")
+        assert wr.statut == WithdrawalRequest.Statut.COMPLETEE
 
     def test_mark_paid_idempotent(self, active_member, admin_user):
         acc = _fund(active_member, "50000")
@@ -341,6 +347,10 @@ class TestMarkWithdrawalPaid:
 
 class TestRetryWithdrawalPayout:
     """Réessai d'un payout MOMO échoué."""
+
+    @pytest.fixture(autouse=True)
+    def _tara(self, tara_payout_on):
+        pass
 
     def test_retry_recreates_payment_and_moves_to_en_payout(
         self, active_member, admin_user, monkeypatch

@@ -375,8 +375,12 @@ def respond_to_avaliste_consent(
     if accept:
         consent.statut = AvalisteConsent.Statut.ACCEPTED
         consent.save(update_fields=["statut", "responded_at", "updated_at"])
+        from .services import status_after_prevoie
+
         lr.avaliste = consent.avaliste
-        lr.statut = LoanRequest.Statut.EN_INSTRUCTION
+        # Après acceptation de l'avaliste, on passe par la porte « frais d'étude »
+        # (en_attente) si des frais sont dus, sinon direct en instruction.
+        lr.statut = status_after_prevoie(lr)
         lr.save(update_fields=["avaliste", "statut", "updated_at"])
         record_audit(
             action="loan_request.avaliste_accepted",

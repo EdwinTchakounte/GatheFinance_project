@@ -333,15 +333,23 @@ def accept_campaign_application(application, *, decided_by):
         defaults={"solde": 0, "date_ouverture": date.today(), "taux_interet_applique": 0},
     )
 
-    # LoanRequest directement en instruction standard : l'acceptation de la
-    # candidature FAIT office de validation campagne (pas de 2e porte).
+    # L'acceptation de la candidature FAIT office de validation campagne
+    # (pas de 2e porte). Restent les frais d'étude : porte « en_attente » si des
+    # frais (propres à la campagne) sont dus, sinon directement en instruction.
+    from .services import study_fee_for
+
+    _lr_status = (
+        LoanRequest.Statut.EN_ATTENTE
+        if study_fee_for(campaign) > 0
+        else LoanRequest.Statut.EN_INSTRUCTION
+    )
     lr = LoanRequest.objects.create(
         member=member,
         montant_demande=montant,
         duree_mois=duration_months_for(montant),
         motif=application.motif or f"Candidature campagne {campaign.nom}",
         microcampaign=campaign,
-        statut=LoanRequest.Statut.EN_INSTRUCTION,
+        statut=_lr_status,
     )
 
     application.statut = CampaignApplication.Statut.ACCEPTEE
