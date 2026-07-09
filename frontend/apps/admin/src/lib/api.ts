@@ -283,6 +283,9 @@ export type LoanRequest = {
   // Échéance indicative de l'étude par la commission (soumission + ~1 mois).
   // Règlement : étude sous 1 semaine à 1 mois. Peut être null.
   date_limite_etude?: string | null;
+  // Frais d'étude applicables (piloté admin / campagne) — pour préremplir le
+  // montant du cash-in « Encaisser frais ». Null si non configuré.
+  frais_etude_montant?: string | null;
   // CH-6 — Workflow double approbation : visite terrain entre provisoire et définitive.
   field_visit_outcome?: "" | "favorable" | "defavorable" | "a_revoir";
   field_visit_done_at?: string | null;
