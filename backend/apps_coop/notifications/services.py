@@ -100,13 +100,13 @@ _EMAIL_LAYOUT = """\
         <!-- Footer -->
         <tr>
           <td style="padding:22px 32px 28px 32px;border-top:1px solid #E5E7EB;background:#FAFAF8;text-align:center;">
-            <p style="margin:0 0 6px 0;color:#374151;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;">Gathe Finance</p>
+            <p style="margin:0 0 6px 0;color:#374151;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;">GATHE Finance</p>
             <p style="margin:0;color:#6B7280;font-size:12px;line-height:1.7;">
               Akwa Bercy, Douala — Cameroun<br>
               <a href="mailto:contact@gathe-finance.com" style="color:#1E3A8A;text-decoration:none;">contact@gathe-finance.com</a> · <a href="https://gathe-finance.horus-lab.com" style="color:#1E3A8A;text-decoration:none;">gathe-finance.com</a>
             </p>
             <p style="margin:14px 0 0 0;color:#9CA3AF;font-size:11px;">
-              © 2026 Gathe Finance — Tous droits réservés.<br>
+              © 2026 GATHE Finance — Tous droits réservés.<br>
               Cet email vous est envoyé suite à une action sur votre compte.
             </p>
           </td>
@@ -144,15 +144,15 @@ def _wrap_layout(subject: str, inner_html: str, *, eyebrow: str = "") -> str:
 
     Si ``settings.EMAIL_LOGO_URL`` est défini (URL publique HTTPS d'une
     image servie depuis la vitrine ou un CDN), on l'affiche dans le
-    header. Sinon, on retombe sur un wordmark texte stylé "Gathe Finance"
+    header. Sinon, on retombe sur un wordmark texte stylé "GATHE Finance"
     en serif blanc — propre et compatible toutes inboxes sans dépendre
     d'un fichier hébergé.
     """
-    safe_subject = re.sub(r"[<>&\"]", " ", subject or "Gathe Finance").strip()
+    safe_subject = re.sub(r"[<>&\"]", " ", subject or "GATHE Finance").strip()
     logo_url = getattr(settings, "EMAIL_LOGO_URL", "") or ""
     if logo_url:
         logo_or_wordmark = (
-            f'<img src="{logo_url}" alt="Gathe Finance" width="160" height="auto" '
+            f'<img src="{logo_url}" alt="GATHE Finance" width="160" height="auto" '
             'style="display:block;margin:0 auto;max-width:60%;height:auto;'
             'filter:drop-shadow(0 4px 12px rgba(0,0,0,0.25));">'
         )
@@ -160,7 +160,7 @@ def _wrap_layout(subject: str, inner_html: str, *, eyebrow: str = "") -> str:
         logo_or_wordmark = (
             '<div style="color:#FFFFFF;font-family:Georgia,\'Times New Roman\',serif;'
             'font-size:30px;font-weight:600;letter-spacing:0.6px;line-height:1.15;">'
-            'Gathe Finance</div>'
+            'GATHE Finance</div>'
         )
     return _EMAIL_LAYOUT.format(
         subject=safe_subject,
@@ -311,7 +311,7 @@ def create_notification(*, user, type: str, message: str, lien: str = "") -> Not
         from .push import send_push_to_user
 
         send_push_to_user(
-            user, title="Gathé Finance", body=message, data={"type": type, "lien": lien}
+            user, title="GATHE Finance", body=message, data={"type": type, "lien": lien}
         )
     except Exception:  # noqa: BLE001 — le push ne doit jamais casser le flux
         pass

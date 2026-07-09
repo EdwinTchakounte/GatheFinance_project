@@ -5,7 +5,7 @@ Chaque helper retourne un fragment HTML prêt à concaténer dans le
 (``{prenom}``, ``{montant}``…) sont injectés tels quels par
 ``send_template`` via ``str.format(**context)``.
 
-Design system aligné avec la vitrine Gathe Finance :
+Design system aligné avec la vitrine GATHE Finance :
 - Typographie sans-serif système + serif Georgia pour les titres
 - Palette navy #1E3A8A, teal #00B894, bleu accent #0EA5E9
 - Cards info à fond bleu pâle, CTA pill bleu navy
@@ -197,5 +197,5 @@ def closing() -> str:
         f'<a href="mailto:contact@gathe-finance.com" style="color:{NAVY};text-decoration:none;'
         f'font-weight:500;">contact@gathe-finance.com</a>.</p>'
         f'<p style="margin:6px 0 0 0;color:{INK};font-size:14px;font-weight:600;">'
-        f'- L\'équipe Gathe Finance</p>'
+        f'- L\'équipe GATHE Finance</p>'
     )

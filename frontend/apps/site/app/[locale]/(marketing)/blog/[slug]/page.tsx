@@ -61,7 +61,7 @@ export default async function BlogArticlePage({ params }: Params) {
             title: post.title,
             description: post.excerpt,
             datePublished: post.date,
-            author: post.authorName ?? "Gathe Finance",
+            author: post.authorName ?? "GATHE Finance",
             image: post.coverImage?.url ?? null,
           }),
           breadcrumbJsonLd(SITE_URL, [
@@ -100,7 +100,7 @@ export default async function BlogArticlePage({ params }: Params) {
           <div className="mt-6 flex items-center gap-3 text-sm">
             <div className="size-9 shrink-0 rounded-full bg-gradient-to-br from-blue-200 to-green-200" aria-hidden="true" />
             <div>
-              <p className="font-semibold text-ink-900">{post.authorName ?? "Gathe Finance"}</p>
+              <p className="font-semibold text-ink-900">{post.authorName ?? "GATHE Finance"}</p>
               <p className="text-xs text-ink-500">{date}</p>
             </div>
           </div>

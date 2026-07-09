@@ -179,12 +179,12 @@ export function printPDF<T>({
   <header>
     <h1>${escHtml(title)}</h1>
     ${subtitle ? `<p class="meta">${escHtml(subtitle)}</p>` : ""}
-    <p class="meta">${rows.length} ligne(s) · Édité le ${escHtml(today)} · Gathé Finance</p>
+    <p class="meta">${rows.length} ligne(s) · Édité le ${escHtml(today)} · GATHE Finance</p>
   </header>
   <table>
     <thead><tr>${head}</tr></thead>
     <tbody>${body}</tbody>
-    <tfoot><tr><td colspan="${columns.length}">Document généré par le dashboard admin Gathé Finance.</td></tr></tfoot>
+    <tfoot><tr><td colspan="${columns.length}">Document généré par le dashboard admin GATHE Finance.</td></tr></tfoot>
   </table>
 <script>
   window.addEventListener("load", function () {

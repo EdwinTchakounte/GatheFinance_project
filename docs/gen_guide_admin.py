@@ -49,7 +49,7 @@ def on_page(canvas, doc):
     canvas.setStrokeColor(LINE); canvas.setLineWidth(0.6)
     canvas.line(20*mm, h-16*mm, w-20*mm, h-16*mm)
     canvas.setFont("Helvetica", 7.5); canvas.setFillColor(MUTED)
-    canvas.drawString(20*mm, h-14*mm, "Gathé Finance — Guide d'administration")
+    canvas.drawString(20*mm, h-14*mm, "GATHE Finance — Guide d'administration")
     canvas.drawRightString(w-20*mm, h-14*mm, "Espace d'administration")
     # pied
     canvas.line(20*mm, 15*mm, w-20*mm, 15*mm)
@@ -67,7 +67,7 @@ def on_cover(canvas, doc):
     canvas.setFillColor(GREEN)
     canvas.rect(0, h-8*mm, w, 2*mm, fill=1, stroke=0)
     canvas.setFillColor(MUTED); canvas.setFont("Helvetica", 8)
-    canvas.drawCentredString(w/2, 15*mm, "Document interne — Gathé Finance")
+    canvas.drawCentredString(w/2, 15*mm, "Document interne — GATHE Finance")
     canvas.restoreState()
 
 
@@ -198,7 +198,7 @@ PARAMS = [
     "compte ne soit archivé."),
    ("Heure limite de dépôt (Douala)", "17 h",
     "Un dépôt effectué après cette heure est comptabilisé au jour ouvré suivant."),
-   ("Lieu de collecte (libellé)", "Gathé Finance — Akwa, Douala (Bercy)",
+   ("Lieu de collecte (libellé)", "GATHE Finance — Akwa, Douala (Bercy)",
     "Adresse affichée au membre lorsqu'il choisit de se présenter à l'agence pour verser."),
  ]),
  ("Réinscription des membres", [
@@ -318,7 +318,7 @@ def build(path):
     S.append(Spacer(1, 4*mm))
     S.append(Paragraph("Planificateurs automatiques &amp; Paramètres de configuration", COVER_S))
     S.append(Spacer(1, 3*mm))
-    S.append(Paragraph("Espace d'administration — Gathé Finance", COVER_M))
+    S.append(Paragraph("Espace d'administration — GATHE Finance", COVER_M))
     S.append(Spacer(1, 40*mm))
     S.append(Paragraph("Rédacteur", COVER_M))
     S.append(Paragraph("<b>TCHAMBA TCHAKOUNTE Edwin</b>", COVER_S))
@@ -329,7 +329,7 @@ def build(path):
     S.append(Paragraph("Objet du document", H1))
     S.append(Paragraph(
         "Ce document décrit, en langage clair, deux ensembles d'outils disponibles dans "
-        "l'espace d'administration de Gathé Finance : d'une part les <b>planificateurs "
+        "l'espace d'administration de GATHE Finance : d'une part les <b>planificateurs "
         "automatiques</b>, qui exécutent seuls, à intervalles réguliers, les tâches "
         "récurrentes de la coopérative ; d'autre part les <b>paramètres de configuration</b>, "
         "qui permettent d'ajuster les règles de fonctionnement sans intervention technique. "

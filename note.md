@@ -25,7 +25,7 @@ nom du projet compose). Si besoin de viser un container directement :
 
 ```bash
 $COMPOSE ps                              # liste les services up
-docker ps --filter name=gathe-finance    # tous les conteneurs Gathe
+docker ps --filter name=gathe-finance    # tous les conteneurs GATHE
 ```
 
 ---

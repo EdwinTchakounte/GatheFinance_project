@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Gathe Finance — Coopérative d'épargne et de crédit",
-    short_name: "Gathe Finance",
+    name: "GATHE Finance — Coopérative d'épargne et de crédit",
+    short_name: "GATHE Finance",
     description:
       "Coopérative d'épargne et de crédit des entrepreneurs camerounais : crédit, épargne, transferts, investissement communautaire et éducation financière.",
     start_url: "/?source=pwa",

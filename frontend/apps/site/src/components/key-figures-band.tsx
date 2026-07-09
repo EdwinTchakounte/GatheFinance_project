@@ -2,7 +2,7 @@ import { Container } from "@gathe/ui";
 
 /**
  * Bandeau "Chiffres-clés" — 4 valeurs tirées exclusivement du Règlement
- * Intérieur Gathe Finance 2025 (déjà câblées dans `apps_coop/loans/terms.py`
+ * Intérieur GATHE Finance 2025 (déjà câblées dans `apps_coop/loans/terms.py`
  * et `apps_coop/savings/...`). Aucun chiffre n'est inventé.
  *
  * Style éditorial press : eyebrow numéroté terra, grande valeur Syne,

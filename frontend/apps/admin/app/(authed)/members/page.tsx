@@ -418,7 +418,7 @@ function Inner() {
           />
           <ExportMenu
             filenamePrefix="membres"
-            title="Annuaire des membres — Gathé Finance"
+            title="Annuaire des membres — GATHE Finance"
             subtitle={`Filtre : ${statut || "tous"}${q ? ` · recherche : ${q}` : ""}`}
             columns={exportColumns}
             rows={filtered}

@@ -116,7 +116,7 @@ function Inner() {
         </div>
         <ExportMenu
           filenamePrefix="escalades-judiciaires"
-          title="Escalades judiciaires — Gathé Finance"
+          title="Escalades judiciaires — GATHE Finance"
           subtitle={`Filtre : ${filter}`}
           columns={escalationsExportColumns}
           rows={items}

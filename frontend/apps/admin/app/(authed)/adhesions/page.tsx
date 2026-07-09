@@ -219,8 +219,8 @@ export default function AdhesionsPipelinePage() {
                       <td className="px-4 py-3 text-right">
                         {m.email ? (
                           <a
-                            href={`mailto:${m.email}?subject=${encodeURIComponent("Rappel des frais d'adhésion - Gathé Finance")}&body=${encodeURIComponent(
-                              `Bonjour ${m.prenom} ${m.nom},\n\nNous notons que vous n'avez pas encore complété le paiement de vos frais d'adhésion (${Number(m.amount_remaining).toLocaleString("fr-FR")} XAF restants).\n\nVotre compte deviendra actif dès que les 3 frais (adhésion + inscription + carnet) seront réglés via l'app mobile ou le portail.\n\nL'équipe Gathé Finance`,
+                            href={`mailto:${m.email}?subject=${encodeURIComponent("Rappel des frais d'adhésion - GATHE Finance")}&body=${encodeURIComponent(
+                              `Bonjour ${m.prenom} ${m.nom},\n\nNous notons que vous n'avez pas encore complété le paiement de vos frais d'adhésion (${Number(m.amount_remaining).toLocaleString("fr-FR")} XAF restants).\n\nVotre compte deviendra actif dès que les 3 frais (adhésion + inscription + carnet) seront réglés via l'app mobile ou le portail.\n\nL'équipe GATHE Finance`,
                             )}`}
                             className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800"
                           >

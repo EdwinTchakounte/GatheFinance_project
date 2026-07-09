@@ -20,7 +20,7 @@ const TARGETS = [
     title: "L'application mobile",
     subtitle: "Gérer son épargne, ses crédits et son carnet — depuis son téléphone.",
     eyebrow: "GUIDE D'UTILISATION",
-    appName: "Gathe Finance",
+    appName: "GATHE Finance",
     appVersion: "1.0.0",
     author: "TCHAMBA TCHAKOUNTE Edwin",
     landscape: false,
@@ -32,7 +32,7 @@ const TARGETS = [
     title: "Le dashboard administrateur",
     subtitle: "L'outil de gestion quotidien de la coopérative.",
     eyebrow: "MANUEL D'ADMINISTRATION",
-    appName: "Gathe Finance",
+    appName: "GATHE Finance",
     appVersion: "1.0.0",
     author: "TCHAMBA TCHAKOUNTE Edwin",
     landscape: true,
@@ -44,7 +44,7 @@ const TARGETS = [
     title: "Mise en production et recette",
     subtitle: "État réel de la prod, workflows complets et plan de recette utilisateur.",
     eyebrow: "MANUEL DE RECETTE",
-    appName: "Gathe Finance",
+    appName: "GATHE Finance",
     appVersion: "1.0.0",
     author: "TCHAMBA TCHAKOUNTE Edwin",
     landscape: false,
@@ -56,7 +56,7 @@ const TARGETS = [
     title: "Rapport de recette en production",
     subtitle: "Tests bout-en-bout exécutés sur la prod réelle, données conservées pour la présentation.",
     eyebrow: "RAPPORT DE RECETTE",
-    appName: "Gathe Finance",
+    appName: "GATHE Finance",
     appVersion: "1.0.0",
     author: "TCHAMBA TCHAKOUNTE Edwin",
     landscape: false,
@@ -68,7 +68,7 @@ const CSS = `
 @page {
   margin: 18mm 16mm 16mm 16mm;
   @bottom-left {
-    content: "Gathe Finance · Guide d'utilisation";
+    content: "GATHE Finance · Guide d'utilisation";
     font-family: "DM Sans", sans-serif;
     font-size: 8pt;
     color: #94a3b8;
@@ -541,7 +541,7 @@ const COVER_HTML = (t) => `
 <section class="cover">
   <div class="cover-inner">
     <div class="cover-top">
-      <img class="cover-logo" src="assets/logo.png" alt="Gathe Finance" />
+      <img class="cover-logo" src="assets/logo.png" alt="GATHE Finance" />
       <div class="cover-accent-bar"></div>
       <div class="cover-eyebrow">${t.eyebrow}</div>
       <h1 class="title">${t.title}</h1>
@@ -628,7 +628,7 @@ async function buildPdf(t) {
 }
 
 async function main() {
-  console.log("Construction des PDFs Gathe Finance...\n");
+  console.log("Construction des PDFs GATHE Finance...\n");
   for (const t of TARGETS) {
     console.log(`▶ ${t.src} → ${t.out}`);
     await buildPdf(t);

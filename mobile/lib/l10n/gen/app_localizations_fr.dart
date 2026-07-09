@@ -9,7 +9,7 @@ class AppL10nFr extends AppL10n {
   AppL10nFr([String locale = 'fr']) : super(locale);
 
   @override
-  String get appTitle => 'Gathe Finance';
+  String get appTitle => 'GATHE Finance';
 
   @override
   String get common_continue => 'Continuer';
@@ -368,7 +368,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get onb_slide4_body =>
-      'Chez Gathe, tu ne déposes pas chez un tiers : tu participes à la coopérative, tu votes en assemblée et tu profites des bénéfices redistribués.';
+      'Chez GATHE, tu ne déposes pas chez un tiers : tu participes à la coopérative, tu votes en assemblée et tu profites des bénéfices redistribués.';
 
   @override
   String get credit_eyebrow => 'Crédit';
@@ -1179,14 +1179,14 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get biometric_reason_unlock =>
-      'Empreinte pour ouvrir ton espace Gathe Finance';
+      'Empreinte pour ouvrir ton espace GATHE Finance';
 
   @override
   String get biometric_reason_enable =>
       'Pose ton empreinte pour activer l\'ouverture rapide';
 
   @override
-  String get biometric_signin_title => 'Gathe Finance';
+  String get biometric_signin_title => 'GATHE Finance';
 
   @override
   String get biometric_hint => 'Touche le capteur pour ouvrir ton espace';
@@ -1231,7 +1231,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get releve_pdf_footer =>
-      'Document généré par l\'application Gathé Finance . à titre informatif.';
+      'Document généré par l\'application GATHE Finance . à titre informatif.';
 
   @override
   String get releve_pdf_filename => 'releve_gathe';
@@ -1613,7 +1613,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get mi_intro =>
-      'Chez Gathe Finance, tu n\'es pas un simple client : tu deviens **copropriétaire** d\'une coopérative d\'épargne et de crédit. Tes décisions comptent, et les bénéfices reviennent aux membres.';
+      'Chez GATHE Finance, tu n\'es pas un simple client : tu deviens **copropriétaire** d\'une coopérative d\'épargne et de crédit. Tes décisions comptent, et les bénéfices reviennent aux membres.';
 
   @override
   String get mi_card1_title => 'Épargne sécurisée';

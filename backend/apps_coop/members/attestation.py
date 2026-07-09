@@ -46,13 +46,13 @@ def build_attestation_pdf(member) -> bytes:
     margin = 22 * mm
 
     c.setTitle(f"Attestation d'adhésion — {member.numero_membre}")
-    c.setAuthor("Gathé Finance")
+    c.setAuthor("GATHE Finance")
 
     # --- En-tête de marque -------------------------------------------------
     top = height - margin
     c.setFillColor(BRAND_BLUE)
     c.setFont("Helvetica-Bold", 22)
-    c.drawString(margin, top, "GATHÉ FINANCE")
+    c.drawString(margin, top, "GATHE FINANCE")
     c.setFillColor(MUTED)
     c.setFont("Helvetica", 10.5)
     c.drawString(margin, top - 16, "Coopérative d'Épargne et de Crédit")
@@ -77,7 +77,7 @@ def build_attestation_pdf(member) -> bytes:
     adhesion = _fr_date(member.date_adhesion or date.today())
 
     lines = [
-        ("La direction de la coopérative Gathé Finance atteste que :", False),
+        ("La direction de la coopérative GATHE Finance atteste que :", False),
         ("", False),
         (nom_complet, "name"),
         ("", False),
@@ -163,7 +163,7 @@ def build_attestation_pdf(member) -> bytes:
     c.setFont("Helvetica", 8)
     c.drawCentredString(
         width / 2, margin + 6 * mm,
-        "Gathé Finance — Akwa, Douala · Document généré automatiquement.",
+        "GATHE Finance — Akwa, Douala · Document généré automatiquement.",
     )
 
     c.showPage()

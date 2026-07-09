@@ -68,7 +68,7 @@ export default function PortalLoginPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/logo.jpg"
-              alt="Gathé Finance"
+              alt="GATHE Finance"
               className="h-12 w-auto rounded-xl ring-1 ring-ink-900/5"
             />
             <p className="mt-3 font-display text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-ink-500">
@@ -163,7 +163,7 @@ export default function PortalLoginPage() {
 
           {/* Footer discret. */}
           <p className="mt-6 text-center text-[0.7rem] text-ink-500">
-            © {new Date().getFullYear()} Gathé Finance · Coopérative d'épargne et de crédit
+            © {new Date().getFullYear()} GATHE Finance · Coopérative d'épargne et de crédit
           </p>
         </div>
       </div>

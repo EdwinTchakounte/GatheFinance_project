@@ -311,7 +311,7 @@ function Inner() {
           actionsLabel="Mise à dispo."
           emptyLabel="Aucun crédit ne correspond à ces filtres."
           exportFilename="credits"
-          exportTitle="Portefeuille des crédits — Gathé Finance"
+          exportTitle="Portefeuille des crédits — GATHE Finance"
           exportSubtitle={`Filtre : ${statut || "tous"}${q ? ` · recherche : ${q}` : ""}`}
           actions={(l) => (
             <div className="flex items-center justify-end gap-2">

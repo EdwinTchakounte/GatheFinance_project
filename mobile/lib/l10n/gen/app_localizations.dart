@@ -100,7 +100,7 @@ abstract class AppL10n {
   /// Application title
   ///
   /// In fr, this message translates to:
-  /// **'Gathe Finance'**
+  /// **'GATHE Finance'**
   String get appTitle;
 
   /// No description provided for @common_continue.
@@ -784,7 +784,7 @@ abstract class AppL10n {
   /// No description provided for @onb_slide4_body.
   ///
   /// In fr, this message translates to:
-  /// **'Chez Gathe, tu ne déposes pas chez un tiers : tu participes à la coopérative, tu votes en assemblée et tu profites des bénéfices redistribués.'**
+  /// **'Chez GATHE, tu ne déposes pas chez un tiers : tu participes à la coopérative, tu votes en assemblée et tu profites des bénéfices redistribués.'**
   String get onb_slide4_body;
 
   /// No description provided for @credit_eyebrow.
@@ -2236,7 +2236,7 @@ abstract class AppL10n {
   /// No description provided for @biometric_reason_unlock.
   ///
   /// In fr, this message translates to:
-  /// **'Empreinte pour ouvrir ton espace Gathe Finance'**
+  /// **'Empreinte pour ouvrir ton espace GATHE Finance'**
   String get biometric_reason_unlock;
 
   /// No description provided for @biometric_reason_enable.
@@ -2248,7 +2248,7 @@ abstract class AppL10n {
   /// No description provided for @biometric_signin_title.
   ///
   /// In fr, this message translates to:
-  /// **'Gathe Finance'**
+  /// **'GATHE Finance'**
   String get biometric_signin_title;
 
   /// No description provided for @biometric_hint.
@@ -2332,7 +2332,7 @@ abstract class AppL10n {
   /// No description provided for @releve_pdf_footer.
   ///
   /// In fr, this message translates to:
-  /// **'Document généré par l\'application Gathé Finance . à titre informatif.'**
+  /// **'Document généré par l\'application GATHE Finance . à titre informatif.'**
   String get releve_pdf_footer;
 
   /// No description provided for @releve_pdf_filename.
@@ -3004,7 +3004,7 @@ abstract class AppL10n {
   /// No description provided for @mi_intro.
   ///
   /// In fr, this message translates to:
-  /// **'Chez Gathe Finance, tu n\'es pas un simple client : tu deviens **copropriétaire** d\'une coopérative d\'épargne et de crédit. Tes décisions comptent, et les bénéfices reviennent aux membres.'**
+  /// **'Chez GATHE Finance, tu n\'es pas un simple client : tu deviens **copropriétaire** d\'une coopérative d\'épargne et de crédit. Tes décisions comptent, et les bénéfices reviennent aux membres.'**
   String get mi_intro;
 
   /// No description provided for @mi_card1_title.

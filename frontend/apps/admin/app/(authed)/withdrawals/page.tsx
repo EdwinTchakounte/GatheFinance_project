@@ -234,7 +234,7 @@ function Inner() {
             </>
           }
           exportFilename="retraits-epargne"
-          exportTitle="Demandes de retrait — Gathé Finance"
+          exportTitle="Demandes de retrait — GATHE Finance"
           exportSubtitle={`Filtre : ${filter === "all" ? "tous" : filter}`}
           actions={(r) => (
             <Actions

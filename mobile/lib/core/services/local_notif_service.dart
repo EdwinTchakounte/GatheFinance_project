@@ -35,7 +35,7 @@ class LocalNotifService {
   /// Canal Android pour les notifs business (transactions, demandes...).
   static const _channelBiz = AndroidNotificationChannel(
     'gathe_biz',
-    'Gathé Finance . Activité',
+    'GATHE Finance . Activité',
     description: 'Notifications instantanées : versement, crédit, annonce...',
     importance: Importance.high,
   );
@@ -43,7 +43,7 @@ class LocalNotifService {
   /// Canal Android pour les rappels planifies (consultation, cotisation).
   static const _channelReminders = AndroidNotificationChannel(
     'gathe_reminders',
-    'Gathé Finance . Rappels',
+    'GATHE Finance . Rappels',
     description: 'Rappels périodiques : consultation app, collecte journalière.',
     importance: Importance.defaultImportance,
   );
@@ -143,7 +143,7 @@ class LocalNotifService {
     );
   }
 
-  /// Rappel "Consulte ton app Gathé" toutes les 6 heures.
+  /// Rappel "Consulte ton app GATHE" toutes les 6 heures.
   /// Re-programmable : annule l'instance precedente avant de creer la nouvelle.
   Future<void> scheduleAppReminderEvery6h() async {
     if (!_initialized) await init();
@@ -151,7 +151,7 @@ class LocalNotifService {
     try {
       await _plugin.periodicallyShow(
         _idReminderAppEvery6h,
-        'Gathé Finance',
+        'GATHE Finance',
         'Jette un œil sur ton compte et tes dernières activités.',
         RepeatInterval.everyMinute, // override below for 6h
         NotificationDetails(
@@ -190,7 +190,7 @@ class LocalNotifService {
       }
       await _plugin.zonedSchedule(
         _idReminderAppEvery6h,
-        'Gathé Finance',
+        'GATHE Finance',
         'Jette un œil sur ton compte et tes dernières activités.',
         next,
         NotificationDetails(

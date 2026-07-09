@@ -114,7 +114,7 @@ class _GatheAppState extends ConsumerState<GatheApp>
     final locale = ref.watch(localeProvider).valueOrNull ?? const Locale('fr');
 
     return MaterialApp.router(
-      title: 'Gathe Finance',
+      title: 'GATHE Finance',
       debugShowCheckedModeBanner: false,
       // Identité premium pensée en clair uniquement (crème + doodle) :
       // pas de thème sombre proposé.

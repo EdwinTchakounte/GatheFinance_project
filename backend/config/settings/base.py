@@ -248,7 +248,7 @@ ANYMAIL = {
 FCM_SERVER_KEY = env("FCM_SERVER_KEY", default="")
 FCM_CREDENTIALS_JSON = env("FCM_CREDENTIALS_JSON", default="")
 
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Gathé Finance <noreply@horus-lab.com>")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="GATHE Finance <noreply@horus-lab.com>")
 # Inbox that receives contact messages / membership requests.
 CONTACT_NOTIFICATION_EMAIL = env(
     "CONTACT_NOTIFICATION_EMAIL", default="contact@gathe-finance.com"
@@ -311,9 +311,9 @@ Q_CLUSTER = {
 # --- OpenAPI / Swagger ------------------------------------------------------
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Gathe Finance — API coopérative",
+    "TITLE": "GATHE Finance — API coopérative",
     "DESCRIPTION": (
-        "API REST de la plateforme Gathe Finance.\n\n"
+        "API REST de la plateforme GATHE Finance.\n\n"
         "**Surfaces** :\n"
         "- `/api/v1/auth/*` — authentification session (cookies HttpOnly + CSRF)\n"
         "- `/api/v1/members/*` — membre connecté\n"
@@ -368,7 +368,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 # --- Wagtail ----------------------------------------------------------------
 
-WAGTAIL_SITE_NAME = "Gathe Finance"
+WAGTAIL_SITE_NAME = "GATHE Finance"
 WAGTAILDOCS_EXTENSIONS = ["csv", "docx", "key", "odt", "pdf", "pptx", "rtf", "txt", "xlsx", "zip"]
 # Headless API: allow larger result pages (the front-end fetches blog lists at build time).
 WAGTAILAPI_LIMIT_MAX = 100

@@ -388,7 +388,7 @@ function Inner() {
           rowKey={(r) => r.id}
           emptyLabel="Aucune demande dans ce filtre."
           exportFilename="demandes-credit"
-          exportTitle="Demandes de crédit — Gathé Finance"
+          exportTitle="Demandes de crédit — GATHE Finance"
           exportSubtitle={`Filtre : ${filter || "toutes"}`}
           actions={(r) =>
             r.statut === "en_attente" ? (

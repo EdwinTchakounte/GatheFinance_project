@@ -294,7 +294,7 @@ class Migration(migrations.Migration):
                     "intro_title",
                     models.CharField(
                         blank=True,
-                        default="Gathe finance, la coopérative d'épargne et de crédit des entrepreneurs",
+                        default="GATHE finance, la coopérative d'épargne et de crédit des entrepreneurs",
                         max_length=200,
                         verbose_name="Titre du bloc présentation",
                     ),

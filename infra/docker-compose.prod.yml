@@ -1,4 +1,4 @@
-# Production stack — Gathe Finance
+# Production stack — GATHE Finance
 # -----------------------------------------------------------------------------
 # Lancement :  cd infra && docker compose -f docker-compose.prod.yml up -d --build
 #

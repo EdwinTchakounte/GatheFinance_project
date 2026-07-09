@@ -127,7 +127,7 @@ class PaBrandHero extends StatelessWidget {
 
 
 /// Logo "pont" qui chevauche la frontière hero/cream. Cercle blanc avec
-/// logo Gathe à l'intérieur, ombre douce. Placer dans un
+/// logo GATHE à l'intérieur, ombre douce. Placer dans un
 /// `Stack(clipBehavior: Clip.none, alignment: Alignment.bottomCenter)` avec
 /// `Positioned(bottom: -size/2, child: PaBrandHeroBridgeLogo(size: size))`.
 class PaBrandHeroBridgeLogo extends StatelessWidget {

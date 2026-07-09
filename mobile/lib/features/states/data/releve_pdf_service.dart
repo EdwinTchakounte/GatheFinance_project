@@ -59,7 +59,7 @@ const _muted = PdfColor.fromInt(0xFF6B7280);
 const _line = PdfColor.fromInt(0xFFE5E7EB);
 
 /// Construit le relevé PDF (épuré) et renvoie les octets — réutilisé par la
-/// preview ET le partage. Le **logo Gathé est joint** en en-tête.
+/// preview ET le partage. Le **logo GATHE est joint** en en-tête.
 Future<Uint8List> buildRelevePdf(RelevePdfData d) async {
   // Police bundlée (offline) — pas de fetch réseau (PdfGoogleFonts est proscrit).
   final interData = await rootBundle.load('assets/fonts/Inter.ttf');

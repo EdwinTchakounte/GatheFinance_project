@@ -1,7 +1,7 @@
 {
   "meta": {
-    "siteName": "Gathe Finance",
-    "homeTitle": "Gathe Finance — Savings and credit cooperative in Cameroon",
+    "siteName": "GATHE Finance",
+    "homeTitle": "GATHE Finance — Savings and credit cooperative in Cameroon",
     "homeDescription": "The savings and credit cooperative of Cameroonian entrepreneurs: credit, savings, transfers, community investment and financial education."
   },
   "cookies": {
@@ -50,7 +50,7 @@
     "home": "Home"
   },
   "footer": {
-    "whyTitle": "Why Gathe Finance?",
+    "whyTitle": "Why GATHE Finance?",
     "whyMission": "Mission",
     "whyTeam": "The team",
     "whyAgencies": "Our branches",
@@ -118,9 +118,9 @@
     },
     "about": {
       "eyebrow": "Who we are",
-      "title": "Gathe Finance, the savings and credit cooperative for entrepreneurs",
+      "title": "GATHE Finance, the savings and credit cooperative for entrepreneurs",
       "text": "We believe in the ability of every Cameroonian entrepreneur to turn their ideas into reality. Whether you are a craftsperson, trader, farmer or a fast-growing start-up, we are here to offer financial solutions suited to your needs. Together, let's build a future where every entrepreneur has the means to succeed.",
-      "cta": "Learn more about Gathe Finance"
+      "cta": "Learn more about GATHE Finance"
     },
     "values": {
       "eyebrow": "Our commitment",
@@ -128,13 +128,13 @@
       "items": {
         "accessibility": { "title": "Accessible to all", "text": "Our services are designed to be accessible to all entrepreneurs, whatever the size of your project or your sector of activity." },
         "transparency": { "title": "Flexible, transparent terms", "text": "We offer credit and savings solutions with clear terms, no hidden fees, and flexible repayment options." },
-        "community": { "title": "A community that stands together", "text": "By joining Gathe Finance, you become part of a community of entrepreneurs who support one another to succeed. Together, we create a positive dynamic that fuels the growth of local businesses." },
+        "community": { "title": "A community that stands together", "text": "By joining GATHE Finance, you become part of a community of entrepreneurs who support one another to succeed. Together, we create a positive dynamic that fuels the growth of local businesses." },
         "local": { "title": "Local commitment", "text": "As a local cooperative, we understand the specific challenges Cameroonian entrepreneurs face. Our services are adapted to those realities." }
       }
     },
     "cta": {
       "title": "Join our savings and credit cooperative",
-      "text": "Don't let a lack of financing hold back your ambitions any longer. Gathe Finance believes in you and your projects. Together, we can turn your entrepreneurial dreams into reality. Sign up now to benefit from our loan, savings and personalised support services.",
+      "text": "Don't let a lack of financing hold back your ambitions any longer. GATHE Finance believes in you and your projects. Together, we can turn your entrepreneurial dreams into reality. Sign up now to benefit from our loan, savings and personalised support services.",
       "button": "Join the Cooperative"
     },
     "blog": {
@@ -146,10 +146,10 @@
   },
   "about": {
     "eyebrow": "About",
-    "title": "About Gathe Finance",
-    "lead": "Gathe Finance is solidarity-based self-financing set up for the trusted players of the Cameroonian entrepreneurial ecosystem.",
+    "title": "About GATHE Finance",
+    "lead": "GATHE Finance is solidarity-based self-financing set up for the trusted players of the Cameroonian entrepreneurial ecosystem.",
     "missionTitle": "Our reason for being",
-    "intro": "<strong>Gathe Finance</strong> was created to enable the <strong>trusted players of the entrepreneurial ecosystem</strong> in Cameroon to:",
+    "intro": "<strong>GATHE Finance</strong> was created to enable the <strong>trusted players of the entrepreneurial ecosystem</strong> in Cameroon to:",
     "objectives": [
       "Collectively self-finance their business projects",
       "Professionalise even the smallest activity carried out by each member so as to ensure its growth month after month",
@@ -157,7 +157,7 @@
       "Acquire equipment for their activity",
       "Be financially strong and stand together for the development of the Cameroonian entrepreneurial ecosystem, beyond an economy that today rests on micro, small and medium enterprises for at least 80%"
     ],
-    "callout": "<strong>Gathe Finance</strong> is solidarity-based self-financing set up to address problems such as <strong>not being eligible for bank credit</strong> or the lack of subsidies meant to support Cameroonian micro, small and medium enterprises.",
+    "callout": "<strong>GATHE Finance</strong> is solidarity-based self-financing set up to address problems such as <strong>not being eligible for bank credit</strong> or the lack of subsidies meant to support Cameroonian micro, small and medium enterprises.",
     "teamTitle": "A team at your side",
     "teamText": "Our team supports every member of the cooperative, from the first contact to following up on their project. Get in touch to talk about yours.",
     "agenciesTitle": "Find us",
@@ -169,9 +169,9 @@
   },
   "services": {
     "eyebrow": "Financial services",
-    "title": "Gathe Finance's financial services",
+    "title": "GATHE Finance's financial services",
     "lead": "Drawing on our experience and local roots, we are committed to offering you financial services tailored to your needs and accessible to all. Our mission is to enable every Cameroonian — whether an entrepreneur, an employee or a member of a rural community — to access the financial solutions that will help them succeed.",
-    "intro2": "In a constantly changing economic environment, financial soundness and access to the right resources are essential to reaching your goals. Whether you need credit, savings services, investment solutions or financial advice, <strong>Gathe Finance</strong> is here to support you at every stage of your financial journey.",
+    "intro2": "In a constantly changing economic environment, financial soundness and access to the right resources are essential to reaching your goals. Whether you need credit, savings services, investment solutions or financial advice, <strong>GATHE Finance</strong> is here to support you at every stage of your financial journey.",
     "anchors": {
       "credit": "Credit",
       "transfers": "Deposit & transfers",
@@ -232,7 +232,7 @@
       },
       "investment": {
         "title": "Investment: put your money to work for you",
-        "intro": "<strong>Gathe Finance</strong> helps you grow your savings through accessible investment solutions, even with small amounts. We believe that everyone, regardless of their means, can invest to grow their capital.",
+        "intro": "<strong>GATHE Finance</strong> helps you grow your savings through accessible investment solutions, even with small amounts. We believe that everyone, regardless of their means, can invest to grow their capital.",
         "items": {
           "community": {
             "title": "Community investment",
@@ -262,7 +262,7 @@
   },
   "download": {
     "eyebrow": "Mobile app",
-    "title": "Download the Gathe Finance app",
+    "title": "Download the GATHE Finance app",
     "lead": "Access your member space from your smartphone: contribution, savings, credit, passbook and notifications, all in a single app.",
     "androidEyebrow": "Android",
     "androidTitle": "Android install (direct APK)",
@@ -275,12 +275,12 @@
     "installStep1": "Download the file by clicking the button above.",
     "installStep2": "Open the file from your phone's Downloads folder.",
     "installStep3": "If Android asks, allow installation from this source (Settings › Security).",
-    "installStep4": "Follow the on-screen steps, then launch Gathe Finance.",
+    "installStep4": "Follow the on-screen steps, then launch GATHE Finance.",
     "iosTitle": "iOS — coming soon",
     "iosDesc": "The iPhone version is being finalised. In the meantime, you can use your member space from this website without installing anything.",
     "qrEyebrow": "Mobile phone",
     "qrTitle": "Scan to download",
-    "qrAlt": "QR code to download the Gathe Finance app for Android",
+    "qrAlt": "QR code to download the GATHE Finance app for Android",
     "qrHelp": "Open your phone's camera and point it at the QR code to start the download."
   },
   "contact": {
@@ -293,8 +293,8 @@
   },
   "membership": {
     "eyebrow": "Membership",
-    "title": "Become a member of Gathe Finance",
-    "lead": "Don't let a lack of financing hold back your ambitions any longer. Gathe Finance believes in you and your projects. Sign up now to benefit from our loan, savings and personalised support services.",
+    "title": "Become a member of GATHE Finance",
+    "lead": "Don't let a lack of financing hold back your ambitions any longer. GATHE Finance believes in you and your projects. Sign up now to benefit from our loan, savings and personalised support services.",
     "whyTitle": "Why join us",
     "formTitle": "Request to become a member",
     "afterNote": "Until the online member area opens, your request is sent directly to our team, who will get back to you."

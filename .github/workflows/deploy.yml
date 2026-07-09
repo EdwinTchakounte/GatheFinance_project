@@ -171,7 +171,7 @@ jobs:
             done
 
             # Reload du nginx mutualise pour qu'il re-resolve les
-            # nouveaux containers Gathe sur le reseau Docker partage.
+            # nouveaux containers GATHE sur le reseau Docker partage.
             echo ">>> Reloading external nginx..."
             docker restart "$EXTERNAL_NGINX" || true
 

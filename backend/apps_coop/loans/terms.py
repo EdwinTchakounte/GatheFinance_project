@@ -1,4 +1,4 @@
-"""Règles métier du crédit (Règlement Intérieur Gathe Finance 2025).
+"""Règles métier du crédit (Règlement Intérieur GATHE Finance 2025).
 
 Source de vérité côté code pour :
   - les paliers de durée en fonction du montant (Article 7) ;

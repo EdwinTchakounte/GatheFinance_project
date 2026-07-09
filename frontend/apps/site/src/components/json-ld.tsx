@@ -17,7 +17,7 @@ export function organizationJsonLd(siteUrl: string) {
     "@context": "https://schema.org",
     "@type": "FinancialService",
     name: siteConfig.name,
-    alternateName: "Gathe Finance — Coopérative d'épargne et de crédit",
+    alternateName: "GATHE Finance — Coopérative d'épargne et de crédit",
     url: siteUrl,
     logo: `${siteUrl}/icon.svg`,
     image: `${siteUrl}/opengraph-image`,
@@ -69,7 +69,7 @@ export function articleJsonLd(opts: {
     headline: opts.title,
     description: opts.description,
     datePublished: opts.datePublished,
-    author: { "@type": "Organization", name: opts.author || "Gathe Finance" },
+    author: { "@type": "Organization", name: opts.author || "GATHE Finance" },
     publisher: {
       "@type": "Organization",
       name: siteConfig.name,

@@ -1,6 +1,6 @@
-# Réalisé — Application mobile Gathé Finance
+# Réalisé — Application mobile GATHE Finance
 
-> **Espace sociétaire mobile** de la coopérative d'épargne et de crédit Gathé Finance.
+> **Espace sociétaire mobile** de la coopérative d'épargne et de crédit GATHE Finance.
 > `gathe_finance` · Flutter · version `0.1.0+1`
 > Document arrêté au **24 mai 2026**.
 
@@ -11,7 +11,7 @@
 L'application mobile est l'**espace membre** (sociétaire). Elle couvre l'ensemble du
 parcours d'un sociétaire : adhésion, épargne, cotisations, crédit, reconduction,
 suivi et notifications. Toutes les règles financières sont alignées sur le
-**Règlement Intérieur Gathé Finance 2025** (source de vérité).
+**Règlement Intérieur GATHE Finance 2025** (source de vérité).
 
 ### Modules fonctionnels (16 features)
 

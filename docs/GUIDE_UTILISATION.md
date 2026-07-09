@@ -1,4 +1,4 @@
-# Guide d'utilisation — Gathé Finance
+# Guide d'utilisation — GATHE Finance
 
 > Document de référence pour la prise en main complète de la plateforme :
 > vitrine publique, portail membre, administration coopérative, application
@@ -28,7 +28,7 @@
 
 ## 1. Vue d'ensemble du système
 
-Gathé Finance est une plateforme coopérative complète articulée autour
+GATHE Finance est une plateforme coopérative complète articulée autour
 de **cinq surfaces** :
 
 | # | Surface | Public | Stack | Port dev |
@@ -346,7 +346,7 @@ immédiatement dans le portail membre + l'app mobile.
 |---|---|
 | ![Splash](captures/mobile/01-splash.png) | ![Splash loading](captures/mobile/02-splash-loading.png) |
 
-Le splash brandé Gathé Finance s'efface une fois les providers (auth,
+Le splash brandé GATHE Finance s'efface une fois les providers (auth,
 PIN, onboarding) résolus.
 
 **Onboarding 4 slides** (séquence présentée au 1er lancement) :

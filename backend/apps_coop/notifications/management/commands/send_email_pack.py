@@ -114,7 +114,7 @@ class Command(BaseCommand):
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:Inter,Arial,sans-serif;color:#0f172a;max-width:760px;margin:auto;padding:24px;">
-  <h1 style="font-size:24px;color:#1e3a8a;margin-bottom:6px;">Pack templates email . Gathe Finance</h1>
+  <h1 style="font-size:24px;color:#1e3a8a;margin-bottom:6px;">Pack templates email . GATHE Finance</h1>
   <p style="color:#64748b;margin-top:0;">Bonjour Edwin,</p>
   <p>Voici la compilation des <strong>{len(templates)} templates email</strong> actuellement
   seedes dans la base de production. Chaque template est joint en piece
@@ -149,7 +149,7 @@ class Command(BaseCommand):
 """
 
         msg = EmailMessage(
-            subject=f"[Gathe] Pack {len(templates)} templates email + scenarios",
+            subject=f"[GATHE] Pack {len(templates)} templates email + scenarios",
             body=body_html,
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@horus-lab.com"),
             to=[to_email],

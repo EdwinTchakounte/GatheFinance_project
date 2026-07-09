@@ -16,7 +16,7 @@ class SiteSettings(BaseGenericSetting):
 
     # --- Coordonnées (siège) ---
     legal_name = models.CharField(
-        "Raison sociale", max_length=255, default="Gathe Finance"
+        "Raison sociale", max_length=255, default="GATHE Finance"
     )
     baseline = models.CharField(
         "Baseline", max_length=255, blank=True,
@@ -56,7 +56,7 @@ class SiteSettings(BaseGenericSetting):
     # --- Pied de page ---
     copyright_text = models.CharField(
         "Mention de copyright", max_length=255, blank=True,
-        default="Gathe Finance – Coopérative d'épargne et de crédit au Cameroun",
+        default="GATHE Finance – Coopérative d'épargne et de crédit au Cameroun",
     )
 
     panels = [
@@ -103,7 +103,7 @@ class SeoSettings(BaseGenericSetting):
 
     default_title = models.CharField(
         "Titre par défaut", max_length=255, blank=True,
-        default="Gathe Finance — Coopérative d'épargne et de crédit",
+        default="GATHE Finance — Coopérative d'épargne et de crédit",
     )
     default_description = models.CharField(
         "Description par défaut", max_length=300, blank=True,

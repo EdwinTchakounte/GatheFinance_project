@@ -5,7 +5,7 @@ import '../../app/theme/app_radii.dart';
 
 enum LogoSize { tiny, small, medium, large, hero }
 
-/// Affichage du wordmark officiel Gathe Finance.
+/// Affichage du wordmark officiel GATHE Finance.
 ///
 /// Utilise `logo_clean.png` (version détourée, fond blanc retiré) pour que le
 /// logo **flotte** sur le fond de l'écran sans rectangle blanc visible . bien
@@ -34,7 +34,7 @@ class LogoMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: semanticsLabel ?? 'Gathe Finance',
+      label: semanticsLabel ?? 'GATHE Finance',
       image: true,
       child: Image.asset(
         'assets/images/logo_clean.png',

@@ -112,7 +112,7 @@ class TaraProvider(PaymentProviderBase):
         payload["network"] = ""
         # productDescription + returnUrl optionnels : utiles pour la page
         # de checkout hostee (libelle marchand + URL de retour apres paiement).
-        payload["productDescription"] = f"Paiement {product_name} — Gathé Finance"
+        payload["productDescription"] = f"Paiement {product_name} — GATHE Finance"
         payload["returnUrl"] = self._return_url()
         data = self._post("/api/tara/mobilepay", payload)
         # Log explicite de la reponse Tara pour debug en prod : on veut
@@ -228,7 +228,7 @@ class TaraProvider(PaymentProviderBase):
 
         return WebhookEvent(
             # `productId` est notre UUID idempotency_key envoye a l'init . c'est
-            # la cle de matching cote Gathe. `collectionId` est l'ID INTERNE
+            # la cle de matching cote GATHE. `collectionId` est l'ID INTERNE
             # Tara (numerique) qu'on garde en provider_reference, jamais comme
             # cle de matching. Confirme sur prod 2026-06-26 : Tara renvoie
             # bien notre productId UUID dans le webhook, le fallback

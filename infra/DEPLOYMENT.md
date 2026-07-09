@@ -1,6 +1,6 @@
-# Déploiement Gathe Finance, guide pas à pas
+# Déploiement GATHE Finance, guide pas à pas
 
-Document de référence pour déployer la stack Gathe Finance sur le VPS Contabo
+Document de référence pour déployer la stack GATHE Finance sur le VPS Contabo
 en utilisant les images Docker publiées sur GitHub Container Registry (GHCR).
 
 Cible : un collaborateur qui n'a jamais déployé ce projet, avec un accès SSH
@@ -159,7 +159,7 @@ Sur `https://github.com` :
 3. **Personal access tokens** puis **Tokens (classic)**.
 4. Bouton **Generate new token** puis **Generate new token (classic)**.
 5. Remplir :
-   - **Note** : `Gathe Finance VPS deploy`
+   - **Note** : `GATHE Finance VPS deploy`
    - **Expiration** : `90 days` (ou *No expiration* pour un VPS de prod stable)
    - **Select scopes** : cocher uniquement `read:packages` (sous la section *write:packages*)
 6. Bouton vert **Generate token** en bas.
@@ -279,7 +279,7 @@ POSTGRES_PASSWORD=__valeur_fournie_par_edwin__
 
 # Brevo (email transactionnel)
 BREVO_API_KEY=__cle_brevo_fournie__
-DEFAULT_FROM_EMAIL="Gathe Finance <noreply@horus-lab.com>"
+DEFAULT_FROM_EMAIL="GATHE Finance <noreply@horus-lab.com>"
 CONTACT_NOTIFICATION_EMAIL=contact@gathe-finance.com
 
 # Tara MoMo : laisser vide pour le 1er deploy (mode mock)

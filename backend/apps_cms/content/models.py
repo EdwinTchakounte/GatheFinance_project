@@ -42,7 +42,7 @@ class Category(TranslatableMixin, index.Indexed, models.Model):
 
 @register_snippet
 class Author(TranslatableMixin, index.Indexed, models.Model):
-    """Auteur d'article (ex. « Gathe »)."""
+    """Auteur d'article (ex. « GATHE »)."""
 
     name = models.CharField("Nom", max_length=160)
     role = models.CharField("Fonction / rôle", max_length=160, blank=True)

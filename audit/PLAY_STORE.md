@@ -92,12 +92,12 @@ L'absence de `READ_EXTERNAL_STORAGE`, `READ_CONTACTS`, `RECORD_AUDIO`, `CAMERA`,
 
 ### 7.1 FR (langue par défaut)
 
-* **Titre** (30 caractères max) : « Gathe Finance Espace Membre »
-* **Description courte** (80 caractères max) : « Gérez votre épargne, vos cotisations et vos crédits Gathe Finance »
+* **Titre** (30 caractères max) : « GATHE Finance Espace Membre »
+* **Description courte** (80 caractères max) : « Gérez votre épargne, vos cotisations et vos crédits GATHE Finance »
 * **Description longue** (4000 caractères max) :
 
 ```
-Gathe Finance est une coopérative d'épargne et de crédit dédiée aux entrepreneurs et aux travailleurs camerounais. Cette application est l'espace membre officiel : elle vous permet de suivre votre compte au jour le jour, sans vous déplacer en agence.
+GATHE Finance est une coopérative d'épargne et de crédit dédiée aux entrepreneurs et aux travailleurs camerounais. Cette application est l'espace membre officiel : elle vous permet de suivre votre compte au jour le jour, sans vous déplacer en agence.
 
 CE QUE VOUS POUVEZ FAIRE
 - Consulter votre solde d'épargne en temps réel, masqué et déverrouillable par empreinte ou code PIN
@@ -134,8 +134,8 @@ CONTACT
 
 ### 7.2 EN
 
-* **Title** : « Gathe Finance Member App »
-* **Short description** : « Manage your savings, contributions and loans at Gathe Finance »
+* **Title** : « GATHE Finance Member App »
+* **Short description** : « Manage your savings, contributions and loans at GATHE Finance »
 * **Long description** : version traduite du français ci-dessus.
 
 ---
@@ -176,7 +176,7 @@ Tous P0 doivent être verts (cf. `audit/TESTS_PLAN.md` §10) :
 * [ ] Privacy policy publiée et accessible
 * [ ] AAB v1.0.0+1 signé (FAIT)
 * [ ] Compte Play Console créé (25 USD frais unique)
-* [ ] Compte développeur vérifié (identité légale Gathe Finance)
+* [ ] Compte développeur vérifié (identité légale GATHE Finance)
 * [ ] Bénéficiaire COBAC ou agrément coopératif joint
 * [ ] Screenshots propres (cf. §8)
 * [ ] Test interne 7 jours minimum passé

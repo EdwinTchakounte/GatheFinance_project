@@ -35,11 +35,11 @@ export async function generateMetadata(props: { params: Promise<{ locale: string
     metadataBase: new URL(SITE_URL),
     title: { default: t("homeTitle"), template: `%s — ${t("siteName")}` },
     description: t("homeDescription"),
-    applicationName: "Gathe Finance",
+    applicationName: "GATHE Finance",
     alternates: { canonical: locale === "fr" ? "/" : "/en", languages: { fr: "/", en: "/en", "x-default": "/" } },
     openGraph: {
       type: "website",
-      siteName: "Gathe Finance",
+      siteName: "GATHE Finance",
       title: t("homeTitle"),
       description: t("homeDescription"),
       locale: locale === "fr" ? "fr_FR" : "en_US",
@@ -47,7 +47,7 @@ export async function generateMetadata(props: { params: Promise<{ locale: string
     },
     twitter: { card: "summary_large_image", title: t("homeTitle"), description: t("homeDescription") },
     robots: { index: true, follow: true },
-    appleWebApp: { capable: true, statusBarStyle: "default", title: "Gathe Finance" },
+    appleWebApp: { capable: true, statusBarStyle: "default", title: "GATHE Finance" },
   };
 }
 
