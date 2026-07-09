@@ -21,7 +21,12 @@ const nextConfig = {
       { protocol: "http", hostname: "backend", port: "8200" },
       { protocol: "https", hostname: "cms.gathe-finance.com" },
       { protocol: "https", hostname: "media.gathe-finance.com" },
-      // Production prod actuelle . Contabo VPS sur horus-lab.com
+      // Production prod actuelle . Contabo VPS sur horus-lab.com.
+      // Wildcard : couvre cms/media/api.* (les covers d'articles sont servies
+      // depuis cms.gathe-finance.horus-lab.com = WAGTAILADMIN_BASE_URL) — sans
+      // ça, next/image bloque l'image téléversée (seul le fallback Unsplash
+      // passait) → « lecture » cassée sur la vitrine.
+      { protocol: "https", hostname: "**.gathe-finance.horus-lab.com" },
       { protocol: "https", hostname: "api.gathe-finance.horus-lab.com" },
       { protocol: "https", hostname: "gathe-finance.horus-lab.com" },
       { protocol: "https", hostname: "*.backblazeb2.com" },
