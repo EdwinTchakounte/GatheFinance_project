@@ -599,6 +599,9 @@ function Inner() {
                   phone: cashInTarget.member.telephone,
                 },
                 type: "frais_demande_credit",
+                // Montant prérempli depuis le tarif autoritaire (FeeType /
+                // campagne) exposé sur la demande — l'admin n'a rien à saisir.
+                montant: cashInTarget.frais_etude_montant ?? undefined,
                 note: `Frais d'etude demande #${cashInTarget.id}`,
               } satisfies CashInPrefill)
             : undefined
