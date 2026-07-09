@@ -66,3 +66,90 @@ def blog_set_cover_image(request, page_id: int):
     page.refresh_from_db()
 
     return Response({"ok": True, "cover_image_data": page.cover_image_data})
+
+
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def blog_list(request):
+    """Liste admin des articles — publiés ET dépubliés, paginée, avec le statut
+    `live` et le nombre de commentaires.
+
+    L'API Wagtail v2 publique ne renvoie que les pages `live` : impossible d'y
+    voir/activer un brouillon. Cet endpoint staff sert la vue complète.
+    """
+    from django.contrib.contenttypes.models import ContentType
+    from django.db.models import Count
+
+    from apps_coop.social.models import ContentComment
+
+    locale = (request.query_params.get("locale") or "").strip()
+    q = (request.query_params.get("q") or "").strip()
+    try:
+        limit = min(max(int(request.query_params.get("limit", 20)), 1), 100)
+    except (TypeError, ValueError):
+        limit = 20
+    try:
+        offset = max(int(request.query_params.get("offset", 0)), 0)
+    except (TypeError, ValueError):
+        offset = 0
+
+    qs = BlogPostPage.objects.all()
+    if locale in ("fr", "en"):
+        qs = qs.filter(locale__language_code=locale)
+    if q:
+        qs = qs.filter(title__icontains=q)
+    qs = qs.order_by("-date", "-first_published_at", "-id")
+
+    total = qs.count()
+    page_items = list(qs[offset : offset + limit])
+
+    # Comptage des commentaires en une seule requête groupée.
+    ct = ContentType.objects.get_for_model(BlogPostPage)
+    ids = [p.id for p in page_items]
+    counts = {}
+    if ids:
+        rows = (
+            ContentComment.objects.filter(content_type=ct, object_id__in=ids)
+            .values("object_id")
+            .annotate(n=Count("id"))
+        )
+        counts = {r["object_id"]: r["n"] for r in rows}
+
+    results = [
+        {
+            "id": p.id,
+            "title": p.title,
+            "slug": p.slug,
+            "date": p.date.isoformat() if p.date else None,
+            "live": p.live,
+            "has_unpublished_changes": p.has_unpublished_changes,
+            "html_url": p.full_url,
+            "cover_image_data": p.cover_image_data,
+            "comment_count": counts.get(p.id, 0),
+            "author_name": p.author_name,
+        }
+        for p in page_items
+    ]
+    return Response(
+        {"count": total, "limit": limit, "offset": offset, "results": results}
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def blog_set_live(request, page_id: int):
+    """Active (publie) ou désactive (dépublie) un article. Body: `{live: bool}`.
+
+    Publier/dépublier déclenche `page_published`/`page_unpublished` → la vitrine
+    est revalidée (ajout/retrait de l'article) automatiquement.
+    """
+    page = get_object_or_404(BlogPostPage, pk=page_id)
+    want_live = bool(request.data.get("live"))
+
+    if want_live and not page.live:
+        page.save_revision().publish()
+    elif not want_live and page.live:
+        page.unpublish()
+
+    page.refresh_from_db()
+    return Response({"id": page.id, "live": page.live})

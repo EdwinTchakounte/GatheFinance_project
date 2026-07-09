@@ -1,46 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ImagePlus, Loader2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  ImagePlus,
+  Loader2,
+  MessageSquare,
+  Power,
+} from "lucide-react";
 
-import { adminApi } from "@/lib/api";
+import { Modal } from "@/components/modal";
+import {
+  adminApi,
+  type AdminBlogArticle,
+  type ArticleCommentRow,
+} from "@/lib/api";
 
-type WagtailArticle = {
-  id: number;
-  title: string;
-  meta: {
-    locale: string;
-    slug: string;
-    first_published_at: string | null;
-    html_url: string;
-  };
-  date?: string;
-  excerpt?: string;
-  cover_image_data?: { url: string } | null;
-  author_name?: string;
-};
+const PAGE_SIZE = 12;
 
-// L'admin Next.js parle au backend via /api/v1 (settings.ts adminApi). Pour
-// l'API Wagtail v2 publique (lecture), on tape directement sur
-// /api/v2/pages/... sans passer par /api/v1.
-function wagtailBase(): string {
-  if (typeof window === "undefined") return "/api/v2";
-  const host = window.location.hostname;
-  if (host.endsWith(".gathe-finance.horus-lab.com")) {
-    return "https://api.gathe-finance.horus-lab.com/api/v2";
-  }
-  return "/api/v2";
-}
-
-// Ajoute un paramètre anti-cache à une URL d'image fraîchement changée pour
-// forcer le navigateur à la recharger, même si l'URL de rendition est
-// identique à la précédente.
-function bust(url: string): string {
-  const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}v=${Date.now()}`;
-}
-
-// Le panneau d'edition vit dans le Wagtail admin (Django).
+// Le panneau d'édition complet vit dans le Wagtail admin (Django).
 function wagtailAdminBase(): string {
   if (typeof window === "undefined") return "/admin";
   const host = window.location.hostname;
@@ -50,16 +30,53 @@ function wagtailAdminBase(): string {
   return "/admin";
 }
 
+// Anti-cache sur une image fraîchement changée pour forcer le rechargement.
+function bust(url: string): string {
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}v=${Date.now()}`;
+}
+
+function fmtDate(d: string | null): string {
+  if (!d) return "Brouillon";
+  return new Date(d).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "2-digit",
+  });
+}
 
 export default function BlogAdminPage() {
   const [locale, setLocale] = useState<"fr" | "en">("fr");
-  const [items, setItems] = useState<WagtailArticle[]>([]);
+  const [items, setItems] = useState<AdminBlogArticle[]>([]);
+  const [count, setCount] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [commentsFor, setCommentsFor] = useState<AdminBlogArticle | null>(null);
 
-  // Applique immédiatement la nouvelle image renvoyée par le backend (réponse
-  // autoritaire de l'upload) au bon article, sans dépendre d'une relecture de
-  // l'API Wagtail v2 (qui peut être cachée / pas encore propagée).
+  const reload = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    adminApi.cmsBlog
+      .list({ locale, limit: PAGE_SIZE, offset })
+      .then((data) => {
+        setItems(data.results);
+        setCount(data.count);
+      })
+      .catch(() => setError("Échec du chargement des articles."))
+      .finally(() => setLoading(false));
+  }, [locale, offset]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  // Reset de la pagination quand on change de langue.
+  useEffect(() => {
+    setOffset(0);
+  }, [locale]);
+
+  // Applique localement la nouvelle image renvoyée par l'upload (autoritaire).
   const patchCover = useCallback(
     (id: number, cover: { url: string } | null) => {
       setItems((prev) =>
@@ -69,25 +86,12 @@ export default function BlogAdminPage() {
     [],
   );
 
-  const reload = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    // Cache-buster pour forcer une lecture fraîche de l'API Wagtail après un
-    // changement d'image (évite un cache HTTP intermédiaire).
-    const url =
-      `${wagtailBase()}/pages/?type=cms.BlogPostPage` +
-      `&fields=date,excerpt,cover_image_data,author_name` +
-      `&order=-date&limit=50&locale=${locale}&_=${Date.now()}`;
-    fetch(url, { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.statusText)))
-      .then((data) => setItems((data?.items as WagtailArticle[]) ?? []))
-      .catch((e) => setError(typeof e === "string" ? e : "Echec du chargement"))
-      .finally(() => setLoading(false));
-  }, [locale]);
+  const patchLive = useCallback((id: number, live: boolean) => {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, live } : it)));
+  }, []);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
   return (
     <div className="space-y-6">
@@ -99,13 +103,12 @@ export default function BlogAdminPage() {
           Articles du blog
         </h1>
         <p className="mt-1 text-sm text-ink-600">
-          Liste des <code>BlogPostPage</code> publiés sur la vitrine. L'édition,
-          la publication et la traduction se font dans Wagtail.
+          Active/désactive un article, change son image, et prévisualise ses
+          commentaires. L'édition complète du contenu se fait dans Wagtail.
         </p>
       </header>
 
       <div className="flex flex-wrap items-center gap-3">
-        {/* Sélecteur locale */}
         <div className="inline-flex rounded-full bg-paper p-1 ring-1 ring-line-200">
           {(["fr", "en"] as const).map((l) => (
             <button
@@ -122,7 +125,7 @@ export default function BlogAdminPage() {
         </div>
 
         <span className="text-xs text-ink-500">
-          {items.length} article{items.length > 1 ? "s" : ""} publié{items.length > 1 ? "s" : ""}
+          {count} article{count > 1 ? "s" : ""}
         </span>
 
         <a
@@ -137,23 +140,18 @@ export default function BlogAdminPage() {
 
       {error ? (
         <p className="rounded-lg border border-terra-400/40 bg-terra-50/60 p-3 text-sm text-terra-700">
-          {error}. Si tu n'es pas connecté à Wagtail, ouvre d'abord
-          {" "}
-          <a href={wagtailAdminBase()} target="_blank" rel="noopener noreferrer" className="underline">
-            le panneau Wagtail
-          </a>.
+          {error}
         </p>
       ) : null}
 
-      {/* Grille articles */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-64 animate-pulse rounded-xl bg-line-100" />
+            <div key={i} className="h-72 animate-pulse rounded-xl bg-line-100" />
           ))
         ) : items.length === 0 ? (
           <p className="col-span-full rounded-xl border border-line-200 bg-paper p-8 text-center text-sm text-ink-500">
-            Aucun article publié pour cette langue.
+            Aucun article pour cette langue.
           </p>
         ) : (
           items.map((it) => (
@@ -162,55 +160,101 @@ export default function BlogAdminPage() {
               article={it}
               wagtailEditUrl={`${wagtailAdminBase()}/pages/${it.id}/edit/`}
               onCoverChanged={patchCover}
+              onLiveChanged={patchLive}
+              onOpenComments={() => setCommentsFor(it)}
             />
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {count > PAGE_SIZE ? (
+        <div className="flex items-center justify-center gap-3">
+          <button
+            type="button"
+            disabled={offset === 0}
+            onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+            className="inline-flex items-center gap-1 rounded-lg border border-line-200 bg-paper px-3 py-1.5 text-sm text-ink-700 disabled:opacity-40 hover:enabled:bg-line-50"
+          >
+            <ChevronLeft className="size-4" aria-hidden="true" />
+            Précédent
+          </button>
+          <span className="text-sm text-ink-600">
+            Page {currentPage} / {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() => setOffset((o) => o + PAGE_SIZE)}
+            className="inline-flex items-center gap-1 rounded-lg border border-line-200 bg-paper px-3 py-1.5 text-sm text-ink-700 disabled:opacity-40 hover:enabled:bg-line-50"
+          >
+            Suivant
+            <ChevronRight className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+
+      <CommentsModal
+        article={commentsFor}
+        onClose={() => setCommentsFor(null)}
+      />
     </div>
   );
 }
-
 
 function ArticleCard({
   article,
   wagtailEditUrl,
   onCoverChanged,
+  onLiveChanged,
+  onOpenComments,
 }: {
-  article: WagtailArticle;
+  article: AdminBlogArticle;
   wagtailEditUrl: string;
   onCoverChanged: (id: number, cover: { url: string } | null) => void;
+  onLiveChanged: (id: number, live: boolean) => void;
+  onOpenComments: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const cover = article.cover_image_data?.url;
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    // Réinitialise l'input pour permettre de re-choisir le même fichier.
     if (fileRef.current) fileRef.current.value = "";
     if (!file) return;
     setErr(null);
     setBusy(true);
     try {
       const res = await adminApi.cmsBlog.setCoverImage(article.id, file);
-      // On applique la nouvelle image renvoyée par le backend (déjà republiée)
-      // plutôt que de relire l'API Wagtail v2, qui peut renvoyer un cache. Le
-      // paramètre anti-cache garantit le rechargement de l'<img>.
-      const nextCover = res.cover_image_data
+      const next = res.cover_image_data
         ? { url: bust(res.cover_image_data.url) }
         : null;
-      onCoverChanged(article.id, nextCover);
+      onCoverChanged(article.id, next);
     } catch (e2) {
-      const msg = (e2 as { detail?: string }).detail;
-      setErr(msg ?? "Échec du changement d'image.");
+      setErr((e2 as { detail?: string }).detail ?? "Échec du changement d'image.");
     } finally {
       setBusy(false);
     }
   }
 
+  async function toggleLive() {
+    setErr(null);
+    setToggling(true);
+    try {
+      const res = await adminApi.cmsBlog.setLive(article.id, !article.live);
+      onLiveChanged(article.id, res.live);
+    } catch (e2) {
+      setErr((e2 as { detail?: string }).detail ?? "Action impossible.");
+    } finally {
+      setToggling(false);
+    }
+  }
+
   return (
-    <article className="overflow-hidden rounded-xl border border-line-200 bg-paper shadow-sm transition-all hover:shadow">
+    <article className="flex flex-col overflow-hidden rounded-xl border border-line-200 bg-paper shadow-sm transition-all hover:shadow">
       <div className="group relative">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -218,7 +262,17 @@ function ArticleCard({
         ) : (
           <div className="aspect-[16/10] bg-cream/60" />
         )}
-        {/* Overlay bouton « Changer l'image » */}
+        {/* Badge statut */}
+        <span
+          className={
+            "absolute left-2 top-2 inline-flex items-center rounded-full px-2 py-0.5 text-[0.65rem] font-semibold ring-1 ring-inset " +
+            (article.live
+              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+              : "bg-line-100 text-ink-500 ring-line-200")
+          }
+        >
+          {article.live ? "En ligne" : "Désactivé"}
+        </span>
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
@@ -240,38 +294,153 @@ function ArticleCard({
           className="hidden"
         />
       </div>
-      <div className="space-y-2 p-4">
+
+      <div className="flex flex-1 flex-col space-y-2 p-4">
         <p className="font-mono text-[0.65rem] uppercase tracking-wide text-ink-500">
-          {article.date ? new Date(article.date).toLocaleDateString("fr-CM") : "Brouillon"}
+          {fmtDate(article.date)}
           {" · "}
           {article.author_name || "Gathé"}
         </p>
         <h2 className="font-editorial text-base font-medium leading-tight text-ink-900">
           {article.title}
         </h2>
-        {article.excerpt ? (
-          <p className="line-clamp-2 text-xs text-ink-600">{article.excerpt}</p>
-        ) : null}
+
         {err ? <p className="text-xs text-terra-700">{err}</p> : null}
-        <div className="flex items-center justify-between pt-2">
-          <a
-            href={article.meta.html_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-medium text-blue-700 hover:underline"
+
+        <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
+          <button
+            type="button"
+            onClick={toggleLive}
+            disabled={toggling}
+            className={
+              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ring-1 ring-inset disabled:opacity-60 " +
+              (article.live
+                ? "bg-terra-50/60 text-terra-700 ring-terra-400/40 hover:bg-terra-50"
+                : "bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100")
+            }
           >
-            Voir en ligne →
-          </a>
+            {toggling ? (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <Power className="size-3.5" aria-hidden="true" />
+            )}
+            {article.live ? "Désactiver" : "Activer"}
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenComments}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200 hover:bg-blue-100"
+          >
+            <MessageSquare className="size-3.5" aria-hidden="true" />
+            {article.comment_count} commentaire{article.comment_count > 1 ? "s" : ""}
+          </button>
+
+          {article.live && article.html_url ? (
+            <a
+              href={article.html_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-medium text-ink-600 hover:text-blue-700"
+            >
+              <Eye className="size-3.5" aria-hidden="true" />
+              Voir
+            </a>
+          ) : null}
+
           <a
             href={wagtailEditUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg bg-ink-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-ink-800"
+            className="ml-auto rounded-lg bg-ink-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-ink-800"
           >
-            Éditer dans Wagtail
+            Éditer
           </a>
         </div>
       </div>
     </article>
+  );
+}
+
+function CommentsModal({
+  article,
+  onClose,
+}: {
+  article: AdminBlogArticle | null;
+  onClose: () => void;
+}) {
+  const [rows, setRows] = useState<ArticleCommentRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!article) return;
+    setLoading(true);
+    setError(null);
+    setRows([]);
+    adminApi.cmsBlog
+      .comments(article.id, { limit: 50 })
+      .then((data) => setRows(data.results))
+      .catch(() => setError("Échec du chargement des commentaires."))
+      .finally(() => setLoading(false));
+  }, [article]);
+
+  return (
+    <Modal
+      open={article !== null}
+      onClose={onClose}
+      title={article ? `Commentaires · ${article.title}` : "Commentaires"}
+      description="Aperçu des commentaires et réponses (les masqués sont signalés)."
+    >
+      {loading ? (
+        <p className="py-6 text-center text-sm text-ink-500">Chargement…</p>
+      ) : error ? (
+        <p className="text-sm text-terra-700">{error}</p>
+      ) : rows.length === 0 ? (
+        <p className="py-6 text-center text-sm text-ink-500">
+          Aucun commentaire pour cet article.
+        </p>
+      ) : (
+        <ul className="space-y-3">
+          {rows.map((c) => (
+            <CommentItem key={c.id} c={c} />
+          ))}
+        </ul>
+      )}
+    </Modal>
+  );
+}
+
+function CommentItem({ c, depth = 0 }: { c: ArticleCommentRow; depth?: number }) {
+  return (
+    <li className={depth > 0 ? "ml-4 border-l border-line-200 pl-3" : ""}>
+      <div className="rounded-lg border border-line-200 bg-cream/40 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-ink-900">
+            {c.author_name || "Membre"}
+          </p>
+          <span className="text-[0.65rem] text-ink-500">
+            {new Date(c.created_at).toLocaleDateString("fr-FR", {
+              day: "2-digit",
+              month: "short",
+              year: "2-digit",
+            })}
+            {c.hidden ? (
+              <span className="ml-2 rounded-full bg-terra-50 px-1.5 py-0.5 font-semibold text-terra-700 ring-1 ring-inset ring-terra-400/40">
+                masqué
+              </span>
+            ) : null}
+          </span>
+        </div>
+        <p className="mt-1 whitespace-pre-wrap text-sm text-ink-700">{c.body}</p>
+      </div>
+      {c.replies?.length ? (
+        <ul className="mt-2 space-y-2">
+          {c.replies.map((r) => (
+            <CommentItem key={r.id} c={r} depth={depth + 1} />
+          ))}
+        </ul>
+      ) : null}
+    </li>
   );
 }
