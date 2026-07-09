@@ -140,7 +140,7 @@ class _PayoutTile extends StatelessWidget {
                     Expanded(
                       child: Text(
                         payout.loanNumeroDossier.isEmpty
-                            ? 'Crédit #${payout.loanId}'
+                            ? 'Crédit'
                             : payout.loanNumeroDossier,
                         style: const TextStyle(
                           color: PaColors.inkPrimary,
