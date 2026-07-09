@@ -731,6 +731,11 @@ class _RequestCard extends ConsumerWidget {
               ),
             ),
           ],
+          // Flow de la demande — timeline VERTICALE (beaucoup d'étapes
+          // possibles selon la voie, d'où le format vertical plutôt qu'horizontal).
+          const SizedBox(height: 14),
+          _CreditFlowTimeline(status: request.statut),
+
           // CH-9 . Bouton « Télécharger ma note » disponible à tout moment
           // après création (la note PDF reflète l'état courant : moyen de
           // réception, échéancier si Loan créé, etc.).
@@ -797,6 +802,159 @@ class _RequestCard extends ConsumerWidget {
 
 /// CH-7 . Sheet compact pour régler les frais d'étude depuis la page Crédit
 /// quand la demande est restée bloquée en `enAttente`.
+/// Timeline VERTICALE du parcours d'une demande de crédit. Le crédit ayant
+/// beaucoup d'états possibles (3 voies, double approbation, funding…), le
+/// format vertical reste lisible là où un stepper horizontal serait trop serré.
+class _CreditFlowTimeline extends StatelessWidget {
+  const _CreditFlowTimeline({required this.status});
+  final LoanRequestStatus status;
+
+  static const _steps = [
+    'Demande soumise',
+    'Frais d\'étude réglés',
+    'Instruction du comité',
+    'Décision',
+    'Crédit accordé',
+  ];
+
+  bool get _rejected => switch (status) {
+        LoanRequestStatus.rejetee ||
+        LoanRequestStatus.rejeteeAvaliste ||
+        LoanRequestStatus.rejeteeCampagne =>
+          true,
+        _ => false,
+      };
+
+  // Index de l'étape courante (0..4).
+  int get _reached => switch (status) {
+        LoanRequestStatus.enAttente ||
+        LoanRequestStatus.enAttenteAvaliste ||
+        LoanRequestStatus.enValidationCampagne =>
+          1,
+        LoanRequestStatus.enInstruction => 2,
+        LoanRequestStatus.enAttenteAcceptationMembre ||
+        LoanRequestStatus.approuveeProvisoire ||
+        LoanRequestStatus.enAttenteFunding =>
+          3,
+        LoanRequestStatus.approuvee => 4,
+        LoanRequestStatus.rejetee ||
+        LoanRequestStatus.rejeteeAvaliste ||
+        LoanRequestStatus.rejeteeCampagne =>
+          3,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    // Si rejeté, on s'arrête à « Décision » (pas de « Crédit accordé »).
+    final count = _rejected ? 4 : _steps.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < count; i++)
+          _VStep(
+            index: i + 1,
+            label: (_rejected && i == 3) ? 'Demande rejetée' : _steps[i],
+            done: i < _reached && !(_rejected && i == 3),
+            active: i == _reached && !_rejected,
+            rejected: _rejected && i == 3,
+            isLast: i == count - 1,
+          ),
+      ],
+    );
+  }
+}
+
+class _VStep extends StatelessWidget {
+  const _VStep({
+    required this.index,
+    required this.label,
+    required this.done,
+    required this.active,
+    required this.rejected,
+    required this.isLast,
+  });
+
+  final int index;
+  final String label;
+  final bool done;
+  final bool active;
+  final bool rejected;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color circle = rejected
+        ? PaColors.danger
+        : done
+            ? PaColors.teal
+            : active
+                ? PaColors.navy
+                : PaColors.paper;
+    final Color border = (rejected || done || active) ? circle : PaColors.line;
+    final Color txt = (rejected || done || active) ? Colors.white : PaColors.inkMuted;
+    final Color labelColor = rejected
+        ? PaColors.danger
+        : active
+            ? PaColors.navy
+            : done
+                ? PaColors.teal
+                : PaColors.inkMuted;
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: circle,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: border, width: 1.5),
+                ),
+                alignment: Alignment.center,
+                child: rejected
+                    ? const Icon(Icons.close_rounded, size: 15, color: Colors.white)
+                    : done
+                        ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+                        : Text(
+                            '$index',
+                            style: TextStyle(
+                              color: txt,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    color: done ? PaColors.teal : PaColors.line,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Padding(
+            padding: EdgeInsets.only(top: 4, bottom: isLast ? 0 : 14),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: labelColor,
+                fontSize: 13,
+                fontWeight: active || rejected ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StudyFeePaySheet extends ConsumerStatefulWidget {
   const _StudyFeePaySheet({this.montant});
 

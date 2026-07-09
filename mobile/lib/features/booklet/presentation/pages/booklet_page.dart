@@ -251,7 +251,7 @@ class _PendingOrderCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '#${order.id}',
+                      'Commandé le ${AppDateFormatter.long(order.dateCommande)}',
                       style: const TextStyle(
                         color: PaColors.inkPrimary,
                         fontSize: 15,
