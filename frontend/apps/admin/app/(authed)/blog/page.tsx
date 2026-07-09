@@ -32,6 +32,14 @@ function wagtailBase(): string {
   return "/api/v2";
 }
 
+// Ajoute un paramètre anti-cache à une URL d'image fraîchement changée pour
+// forcer le navigateur à la recharger, même si l'URL de rendition est
+// identique à la précédente.
+function bust(url: string): string {
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}v=${Date.now()}`;
+}
+
 // Le panneau d'edition vit dans le Wagtail admin (Django).
 function wagtailAdminBase(): string {
   if (typeof window === "undefined") return "/admin";
@@ -48,6 +56,18 @@ export default function BlogAdminPage() {
   const [items, setItems] = useState<WagtailArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Applique immédiatement la nouvelle image renvoyée par le backend (réponse
+  // autoritaire de l'upload) au bon article, sans dépendre d'une relecture de
+  // l'API Wagtail v2 (qui peut être cachée / pas encore propagée).
+  const patchCover = useCallback(
+    (id: number, cover: { url: string } | null) => {
+      setItems((prev) =>
+        prev.map((it) => (it.id === id ? { ...it, cover_image_data: cover } : it)),
+      );
+    },
+    [],
+  );
 
   const reload = useCallback(() => {
     setLoading(true);
@@ -141,7 +161,7 @@ export default function BlogAdminPage() {
               key={it.id}
               article={it}
               wagtailEditUrl={`${wagtailAdminBase()}/pages/${it.id}/edit/`}
-              onChanged={reload}
+              onCoverChanged={patchCover}
             />
           ))
         )}
@@ -154,11 +174,11 @@ export default function BlogAdminPage() {
 function ArticleCard({
   article,
   wagtailEditUrl,
-  onChanged,
+  onCoverChanged,
 }: {
   article: WagtailArticle;
   wagtailEditUrl: string;
-  onChanged: () => void;
+  onCoverChanged: (id: number, cover: { url: string } | null) => void;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
@@ -173,11 +193,18 @@ function ArticleCard({
     setErr(null);
     setBusy(true);
     try {
-      await adminApi.cmsBlog.setCoverImage(article.id, file);
-      onChanged(); // refetch la liste → nouvelle image visible immédiatement.
+      const res = await adminApi.cmsBlog.setCoverImage(article.id, file);
+      // On applique la nouvelle image renvoyée par le backend (déjà republiée)
+      // plutôt que de relire l'API Wagtail v2, qui peut renvoyer un cache. Le
+      // paramètre anti-cache garantit le rechargement de l'<img>.
+      const nextCover = res.cover_image_data
+        ? { url: bust(res.cover_image_data.url) }
+        : null;
+      onCoverChanged(article.id, nextCover);
     } catch (e2) {
       const msg = (e2 as { detail?: string }).detail;
       setErr(msg ?? "Échec du changement d'image.");
+    } finally {
       setBusy(false);
     }
   }
