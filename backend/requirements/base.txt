@@ -31,6 +31,11 @@ django-ratelimit>=4.1
 # HTTP client for outbound calls to payment providers (Tara Money & friends)
 requests>=2.32
 
+# Notifications push — OAuth2 du service account Firebase pour l'API FCM HTTP v1
+# (envoi des notifications push mobiles). Dormant tant que FCM_CREDENTIALS_JSON
+# n'est pas posé côté serveur.
+google-auth>=2.28
+
 # OpenAPI / Swagger schema generation for the cooperative API.
 drf-spectacular>=0.27
 
