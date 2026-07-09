@@ -163,6 +163,13 @@ export default function CampagnesPage() {
                   >
                     Postuler à cette campagne
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/credit/campagnes/${c.id}`)}
+                    className="mt-2 text-sm font-medium text-blue-700 transition-colors hover:underline"
+                  >
+                    Détails & commentaires →
+                  </button>
                 </div>
               </article>
             ))}

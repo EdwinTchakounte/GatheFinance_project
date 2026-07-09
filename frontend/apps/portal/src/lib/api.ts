@@ -209,6 +209,25 @@ export type Campaign = {
   flyer_url: string;
 };
 
+// Social — likes + commentaires (fil 1 niveau). Miroir du mobile.
+export type SocialKind = "articles" | "campaigns";
+export type ReactionState = { liked: boolean; count: number };
+export type PortalComment = {
+  id: number;
+  parent_id: number | null;
+  body: string;
+  author_name: string;
+  created_at: string;
+  hidden: boolean;
+  replies: PortalComment[];
+};
+export type PortalCommentsPage = {
+  count: number;
+  limit: number;
+  offset: number;
+  results: PortalComment[];
+};
+
 export type PaymentRead = {
   id: number;
   montant: string;
@@ -799,5 +818,33 @@ export const portalApi = {
         method: "POST",
         body: JSON.stringify({ current_password, new_password }),
       }),
+  },
+
+  // Social — likes + commentaires (articles & campagnes). Miroir du mobile.
+  social: {
+    reaction: (kind: SocialKind, id: number) =>
+      request<ReactionState>(`/social/${kind}/${id}/reaction/`),
+    toggleLike: (kind: SocialKind, id: number) =>
+      request<ReactionState>(`/social/${kind}/${id}/like/`, { method: "POST" }),
+    comments: (
+      kind: SocialKind,
+      id: number,
+      params: { limit?: number; offset?: number } = {},
+    ) => {
+      const sp = new URLSearchParams();
+      if (params.limit != null) sp.set("limit", String(params.limit));
+      if (params.offset != null) sp.set("offset", String(params.offset));
+      const q = sp.toString();
+      return request<PortalCommentsPage>(
+        `/social/${kind}/${id}/comments/${q ? `?${q}` : ""}`,
+      );
+    },
+    postComment: (kind: SocialKind, id: number, body: string, parentId?: number) =>
+      request<PortalComment>(`/social/${kind}/${id}/comments/`, {
+        method: "POST",
+        body: JSON.stringify(parentId ? { body, parent_id: parentId } : { body }),
+      }),
+    deleteComment: (pk: number) =>
+      request<void>(`/social/comments/${pk}/`, { method: "DELETE" }),
   },
 };

@@ -102,7 +102,9 @@ function DepositForm() {
       }, multiple de 50.`
     : isEpargneClassique
       ? "Minimum 1 000 XAF."
-      : "Minimum 100 XAF.";
+      : isCreditFees
+        ? "Frais d'étude fixés par la coopérative — non modifiable."
+        : "Minimum 100 XAF.";
 
   // Prime CSRF + pre-fill amount according to context.
   useEffect(() => {
@@ -470,9 +472,18 @@ function DepositForm() {
               min={minAmount}
               step={isLoanRepayment ? "0.01" : isCollecte ? COLLECTE_AMOUNT_STEP : 100}
               required
+              readOnly={isCreditFees}
               value={form.montant}
-              onChange={(e) => setForm({ ...form, montant: e.target.value })}
-              className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+              onChange={(e) => {
+                // Frais d'étude : montant piloté par l'admin (FeeType), non
+                // modifiable par le membre — aligné sur le mobile.
+                if (isCreditFees) return;
+                setForm({ ...form, montant: e.target.value });
+              }}
+              className={
+                "mt-2 block w-full rounded-md border border-line-200 px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700 " +
+                (isCreditFees ? "cursor-not-allowed bg-line-50 text-ink-600" : "bg-paper")
+              }
             />
             <p className="mt-1 text-xs text-ink-600">{amountHelp}</p>
 
