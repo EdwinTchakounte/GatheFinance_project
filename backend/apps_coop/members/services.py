@@ -128,13 +128,6 @@ def approve_membership_request(
             f"(expected {MembershipRequest.Statut.EN_ATTENTE!r})."
         )
 
-    # Article 3 : l'entretien d'admission est obligatoire et conditionne
-    # l'acceptation. On refuse l'approbation tant qu'il n'a pas été enregistré.
-    if request_obj.date_entretien is None:
-        raise ValueError(
-            "Entretien d'admission requis (Article 3) avant d'approuver la demande."
-        )
-
     User = get_user_model()
 
     # Allow the admin to fix identity at approval time. Fall back to whatever

@@ -11,7 +11,6 @@ from decimal import Decimal
 
 import factory
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 
 from apps_coop.members.models import Member, MembershipRequest
 from apps_coop.savings.models import SavingsAccount
@@ -44,10 +43,6 @@ class MembershipRequestFactory(factory.django.DjangoModelFactory):
     motivation = "Souhaite épargner régulièrement."
     language = "fr"
     statut = MembershipRequest.Statut.EN_ATTENTE
-    # Entretien d'admission réputé tenu (Article 3) — le chemin nominal des
-    # tests approuve directement. Le guard "sans entretien" est testé à part.
-    date_entretien = factory.LazyFunction(timezone.now)
-    entretien_favorable = True
 
 
 class MemberFactory(factory.django.DjangoModelFactory):

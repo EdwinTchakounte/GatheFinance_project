@@ -144,8 +144,6 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   final _phoneCtrl = TextEditingController();
   // CH-7 . Numéro Mobile Money pour régler les frais d'étude.
   final _feePhoneCtrl = TextEditingController();
-  // TODO: REMOVE_FOR_PROD . montant éditable pour tester STK Push à 100 XAF.
-  final _feeAmountCtrl = TextEditingController(text: '100');
   LoanReceiveChannel _canal = LoanReceiveChannel.taraMomo;
   LoanRequestSubmission? _submission;
 
@@ -262,7 +260,6 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     _montantCtrl.dispose();
     _phoneCtrl.dispose();
     _feePhoneCtrl.dispose();
-    _feeAmountCtrl.dispose();
     _avalisteNumeroCtrl.dispose();
     _avalisteNomCtrl.dispose();
     _garantieDescCtrl.dispose();
@@ -472,12 +469,8 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
         }
       }
       if (!mounted) return;
-      // CH-7 . Pré-remplit le téléphone côté paiement des frais : si le canal
-      // de réception choisi est Tara MoMo, on reprend le numéro saisi ; sinon
-      // on laisse vide pour que le membre choisisse.
-      if (needsPhone && _feePhoneCtrl.text.isEmpty) {
-        _feePhoneCtrl.text = phone;
-      }
+      // CH-7 . On laisse le champ téléphone des frais VIDE : le membre saisit
+      // le numéro Mobile Money de son choix sans avoir à effacer un pré-rempli.
       setState(() {
         _submission = submission;
         _step = _Step.success;
@@ -533,10 +526,11 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
-    final amount = int.tryParse(_feeAmountCtrl.text.trim());
-    if (amount == null || amount < 100) {
+    // Montant piloté par l'admin (renvoyé à la soumission) — non éditable.
+    final amount = _submission?.studyFee?.montant.round();
+    if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Montant min : 100 XAF.')),
+        const SnackBar(content: Text('Montant des frais indisponible.')),
       );
       return;
     }
@@ -1284,23 +1278,6 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
               decoration: const InputDecoration(
                 hintText: '+237 6XX XX XX XX',
                 prefixIcon: Icon(Icons.phone_iphone_rounded, size: 20),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
-            ),
-
-            // TODO: REMOVE_FOR_PROD . montant éditable mode test.
-            const SizedBox(height: AppSpacing.l),
-            Text('Montant (XAF) . mode test',
-                style: AppTypography.labelMedium,),
-            const SizedBox(height: AppSpacing.s),
-            TextFormField(
-              controller: _feeAmountCtrl,
-              keyboardType: TextInputType.number,
-              style: AppTypography.bodyLarge,
-              decoration: const InputDecoration(
-                hintText: '100',
-                suffixText: 'XAF',
                 contentPadding:
                     EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),

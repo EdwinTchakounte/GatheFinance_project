@@ -254,10 +254,6 @@ export type MembershipRequest = {
   cni_verso_url: string | null;
   plan_localisation_url: string | null;
   photo_identite_url: string | null;
-  // Entretien Art. 3 (X1) . conditionne l'approbation.
-  date_entretien: string | null;
-  entretien_avis: string;
-  entretien_favorable: boolean | null;
   statut: "en_attente" | "approuvee" | "rejetee";
   statut_display: string;
   motif_rejet: string;
@@ -773,6 +769,45 @@ export type SocialCommentsFilters = {
   offset?: number;
 };
 
+// Admin blog (articles vitrine) — liste complète (publiés + brouillons).
+export type AdminBlogArticle = {
+  id: number;
+  title: string;
+  slug: string;
+  date: string | null;
+  live: boolean;
+  has_unpublished_changes: boolean;
+  html_url: string | null;
+  cover_image_data: { url: string } | null;
+  comment_count: number;
+  author_name: string | null;
+};
+
+export type AdminBlogPage = {
+  count: number;
+  limit: number;
+  offset: number;
+  results: AdminBlogArticle[];
+};
+
+// Commentaire d'un article (vue staff — inclut les masqués).
+export type ArticleCommentRow = {
+  id: number;
+  parent_id: number | null;
+  body: string;
+  author_name: string;
+  created_at: string;
+  hidden: boolean;
+  replies: ArticleCommentRow[];
+};
+
+export type ArticleCommentsPage = {
+  count: number;
+  limit: number;
+  offset: number;
+  results: ArticleCommentRow[];
+};
+
 // Refonte 2026 — Retraits épargne avec canal MOMO/présentiel + payout Tara.
 export type WithdrawalStatut =
   | "en_attente"
@@ -1026,16 +1061,6 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify({ motif }),
       }),
-    // Article 3 . enregistrement de l'entretien d'admission.
-    // Sans cet appel, l'endpoint approve renvoie 400.
-    recordInterview: (
-      id: number,
-      payload: { avis: string; favorable: boolean; date_entretien?: string },
-    ) =>
-      request<MembershipRequest>(
-        `/admin/membership-requests/${id}/interview/`,
-        { method: "POST", body: JSON.stringify(payload) },
-      ),
   },
 
   loanRequests: {
@@ -1229,12 +1254,35 @@ export const adminApi = {
   // Édition rapide des articles vitrine (image de couverture) sans passer
   // par Wagtail. Le backend republie la page → revalidation ISR de la vitrine.
   cmsBlog: {
+    list: (
+      params: { locale?: "fr" | "en"; limit?: number; offset?: number; q?: string } = {},
+    ) => {
+      const sp = new URLSearchParams();
+      if (params.locale) sp.set("locale", params.locale);
+      if (params.limit != null) sp.set("limit", String(params.limit));
+      if (params.offset != null) sp.set("offset", String(params.offset));
+      if (params.q) sp.set("q", params.q);
+      return request<AdminBlogPage>(`/cms/blog/?${sp.toString()}`);
+    },
     setCoverImage: (pageId: number, file: File) => {
       const fd = new FormData();
       fd.append("image", file);
       return request<{ ok: boolean; cover_image_data: { url: string } | null }>(
         `/cms/blog/${pageId}/cover-image/`,
         { method: "POST", body: fd },
+      );
+    },
+    setLive: (pageId: number, live: boolean) =>
+      request<{ id: number; live: boolean }>(`/cms/blog/${pageId}/live/`, {
+        method: "POST",
+        body: JSON.stringify({ live }),
+      }),
+    comments: (pageId: number, params: { limit?: number; offset?: number } = {}) => {
+      const sp = new URLSearchParams();
+      if (params.limit != null) sp.set("limit", String(params.limit));
+      if (params.offset != null) sp.set("offset", String(params.offset));
+      return request<ArticleCommentsPage>(
+        `/social/articles/${pageId}/comments/?${sp.toString()}`,
       );
     },
   },

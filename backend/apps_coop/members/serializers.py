@@ -79,11 +79,10 @@ class MembershipPublicSerializer(serializers.Serializer):
     language = serializers.ChoiceField(choices=LANG_CHOICES, default="fr")
 
     # Pièces — optionnelles à la candidature publique (vitrine peut
-    # soumettre en JSON sans fichiers). Per Art.3 du Règlement, la collecte
-    # finale des 4 pièces (CNI recto/verso, plan localisation, photo
-    # identité) se fait à l'entretien d'admission, géré par l'admin.
-    # Le mobile peut quand même envoyer les fichiers en avance via
-    # multipart/form-data, ils seront acceptés et attachés à la requête.
+    # soumettre en JSON sans fichiers). La collecte finale des 4 pièces
+    # (CNI recto/verso, plan localisation, photo identité) peut être
+    # complétée par l'admin. Le mobile peut quand même envoyer les fichiers
+    # en avance via multipart/form-data, ils seront acceptés et attachés.
     cni_recto = serializers.FileField(
         required=False, allow_null=True, validators=[_validate_piece_size],
     )
@@ -195,7 +194,6 @@ class MembershipRequestReadSerializer(serializers.ModelSerializer):
             "motivation",
             "cni_recto_url", "cni_verso_url",
             "plan_localisation_url", "photo_identite_url",
-            "date_entretien", "entretien_avis", "entretien_favorable",
             "statut", "statut_display", "motif_rejet",
             "created_at", "date_decision",
         )

@@ -53,7 +53,7 @@ enum _StatutPro { salarie, commercant, artisan, sansEmploi, autre }
 ///
 /// Identité (nom complet, email), téléphone + WhatsApp, ville + lieu précis,
 /// statut pro, contact d'urgence (nom + lien + téléphone), motivation.
-/// Pièces (CNI, plan de localisation) remises à l'entretien (Art. 3).
+/// Pièces (CNI, plan de localisation) transmises à la coopérative.
 ///
 /// Mock-only : flow visuel complet, persistance branchée plus tard via
 /// `SubmitMembershipRequest`.

@@ -39,6 +39,10 @@ x-backend-env: &backend-env
   PORTAL_DOMAIN: ${PORTAL_DOMAIN}
   PUBLIC_BASE_URL: https://${API_DOMAIN}
   REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+  # Revalidation ISR de la vitrine via l'URL INTERNE du service Next.js (réseau
+  # Docker) plutôt que le domaine public HTTPS : évite l'échec hairpin NAT/TLS
+  # depuis le conteneur backend, qui laissait la vitrine sur l'ancienne image.
+  REVALIDATE_URL: http://site:3000/api/revalidate
   CORS_ALLOWED_ORIGINS: https://${SITE_DOMAIN},https://${PORTAL_DOMAIN},https://${ADMIN_DOMAIN}
   CSRF_TRUSTED_ORIGINS: https://${SITE_DOMAIN},https://${PORTAL_DOMAIN},https://${ADMIN_DOMAIN},https://${API_DOMAIN},https://${CMS_DOMAIN}
   # E-mail : API HTTP Brevo via django-anymail (pas de SMTP). prod.py sélectionne

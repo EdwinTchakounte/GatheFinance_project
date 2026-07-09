@@ -260,10 +260,9 @@ class LoansDioDataSource implements LoansRemoteDataSource {
     int? montant,
   }) async {
     try {
-      // CH-7 — Le backend pioche normalement le montant dans FeeType.DEMANDE_CREDIT
+      // CH-7 — Le backend est AUTORITAIRE sur le montant (FeeType.DEMANDE_CREDIT)
       // et identifie la LoanRequest cible par le membre (en_attente). Le hook
       // `_hook_loan_request_fees` la promeut en `en_instruction` à validation.
-      // TODO: REMOVE_FOR_PROD — montant éditable pour tester STK Push à 100 XAF.
       final response = await _dio.post<Map<String, dynamic>>(
         '/payments/init/',
         data: {
@@ -413,6 +412,10 @@ LoanRequestEntity _parseRequest(Map<String, dynamic> json) {
     // L6 — Échéance indicative d'étude (soumission + ~1 mois). Nullable pour
     // les demandes legacy sans date calculée côté backend.
     dateLimiteEtude: _dateOrNull(json['date_limite_etude']),
+    // CH-7 — Frais d'étude applicables (piloté admin), pour le « payer plus tard ».
+    fraisEtudeMontant: json['frais_etude_montant'] != null
+        ? _num(json['frais_etude_montant'])
+        : null,
   );
 }
 

@@ -83,7 +83,7 @@ def build_attestation_pdf(member) -> bytes:
         ("", False),
         (
             "a été admis(e) en qualité de membre de la coopérative, "
-            "à l'issue de l'entretien d'admission prévu par le Règlement Intérieur.",
+            "conformément au Règlement Intérieur.",
             False,
         ),
         ("", False),

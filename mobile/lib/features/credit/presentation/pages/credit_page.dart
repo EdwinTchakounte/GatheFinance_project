@@ -768,7 +768,10 @@ class _RequestCard extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => _StudyFeePaySheet.show(context),
+                onPressed: () => _StudyFeePaySheet.show(
+                  context,
+                  montant: request.fraisEtudeMontant?.round(),
+                ),
                 icon: const Icon(Icons.receipt_long_rounded, size: 18),
                 label: const Text('Payer les frais d\'étude'),
                 style: ElevatedButton.styleFrom(
@@ -795,9 +798,12 @@ class _RequestCard extends ConsumerWidget {
 /// CH-7 . Sheet compact pour régler les frais d'étude depuis la page Crédit
 /// quand la demande est restée bloquée en `enAttente`.
 class _StudyFeePaySheet extends ConsumerStatefulWidget {
-  const _StudyFeePaySheet();
+  const _StudyFeePaySheet({this.montant});
 
-  static Future<void> show(BuildContext context) {
+  /// Frais d'étude pilotés par l'admin (renvoyés par le backend). Non éditable.
+  final int? montant;
+
+  static Future<void> show(BuildContext context, {int? montant}) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -806,7 +812,7 @@ class _StudyFeePaySheet extends ConsumerStatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (_) => const _StudyFeePaySheet(),
+      builder: (_) => _StudyFeePaySheet(montant: montant),
     );
   }
 
@@ -816,14 +822,11 @@ class _StudyFeePaySheet extends ConsumerStatefulWidget {
 
 class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
   final _phoneCtrl = TextEditingController();
-  // TODO: REMOVE_FOR_PROD . montant éditable pour tester STK Push à 100 XAF.
-  final _amountCtrl = TextEditingController(text: '100');
   bool _loading = false;
 
   @override
   void dispose() {
     _phoneCtrl.dispose();
-    _amountCtrl.dispose();
     super.dispose();
   }
 
@@ -837,10 +840,10 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
       );
       return;
     }
-    final amount = int.tryParse(_amountCtrl.text.trim());
-    if (amount == null || amount < 100) {
+    final amount = widget.montant;
+    if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Montant min : 100 XAF.')),
+        const SnackBar(content: Text('Montant des frais indisponible.')),
       );
       return;
     }
@@ -931,24 +934,27 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                       EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
               ),
-              const SizedBox(height: 16),
-              // TODO: REMOVE_FOR_PROD . montant éditable mode test.
-              const Text('Montant (XAF) . mode test',
-                  style: TextStyle(
-                      color: PaColors.inkSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,),),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _amountCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  hintText: '100',
-                  suffixText: 'XAF',
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              if (widget.montant != null) ...[
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Frais d\'étude',
+                        style: TextStyle(
+                            color: PaColors.inkSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,),),
+                    Text(
+                      XAFFormatter.format(widget.montant!),
+                      style: const TextStyle(
+                        color: PaColors.inkPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+              ],
               const SizedBox(height: 22),
               SizedBox(
                 width: double.infinity,

@@ -56,7 +56,7 @@ export default function AdhesionsPipelinePage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi
             tone="amber"
-            label="En attente d'entretien"
+            label="Demandes en attente"
             value={f.requests_en_attente}
             hint="MembershipRequest statut en_attente"
             href="/membership-requests?statut=en_attente"
@@ -116,27 +116,20 @@ export default function AdhesionsPipelinePage() {
             <Chev />
             <Step
               n={2}
-              label="Entretien (Art. 3)"
-              detail="Guard admin"
-              tone="amber"
-            />
-            <Chev />
-            <Step
-              n={3}
               label="Approbation"
               detail={`${f.requests_approved_pending_payment} SUSPENDU`}
               tone="blue"
             />
             <Chev />
             <Step
-              n={4}
+              n={3}
               label="Paiement 3 frais"
               detail="Adhésion + Inscription + Carnet"
               tone="blue"
             />
             <Chev />
             <Step
-              n={5}
+              n={4}
               label="Membre actif"
               detail={`${f.members_actifs} ACTIF`}
               tone="emerald"
