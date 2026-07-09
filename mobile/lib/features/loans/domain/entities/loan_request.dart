@@ -64,6 +64,7 @@ class LoanRequestEntity {
     this.fieldVisitOutcome,
     this.route,
     this.dateLimiteEtude,
+    this.fraisEtudeMontant,
   });
 
   final int id;
@@ -92,4 +93,8 @@ class LoanRequestEntity {
   // L6 — Échéance indicative d'étude de la commission (soumission + ~1 mois).
   // Peut être null pour les demandes legacy antérieures au calcul backend.
   final DateTime? dateLimiteEtude;
+
+  // CH-7 — Frais d'étude applicables (pilotés admin). Sert au « payer plus
+  // tard » pour afficher/régler le bon montant. Null si non configuré.
+  final num? fraisEtudeMontant;
 }

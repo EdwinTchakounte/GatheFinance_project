@@ -106,6 +106,20 @@ def init_payment(request):
             status=status.HTTP_403_FORBIDDEN,
         )
 
+    # Frais d'étude de dossier : le montant est PILOTÉ PAR L'ADMIN
+    # (FeeType.DEMANDE_CREDIT), jamais par le client. On écrase le montant reçu
+    # par le tarif officiel dès qu'il est configuré (> 0) — sinon un client
+    # falsifié (ou un reliquat de test) pourrait régler un montant arbitraire.
+    if data["type"] == Payment.Type.FRAIS_DEMANDE_CREDIT:
+        try:
+            official = FeeType.objects.get(
+                code=FeeType.Code.DEMANDE_CREDIT, actif=True
+            ).montant
+        except FeeType.DoesNotExist:
+            official = None
+        if official is not None and official > 0:
+            data["montant"] = official
+
     # For repayments, the Loan must exist, belong to the member, and the
     # amount must not exceed what's still owed (anti-surplus).
     if data["type"] == Payment.Type.REMBOURSEMENT:

@@ -101,6 +101,10 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
     # Pièces justificatives uploadées (attestation CFP, carte CGA, etc.) —
     # indexées par schema_field_id pour relier au champ source.
     attachments = serializers.SerializerMethodField()
+    # Frais d'étude applicables (pilotés admin via FeeType.DEMANDE_CREDIT) —
+    # exposés pour que les clients (ex. mobile « payer plus tard ») affichent et
+    # règlent le bon montant. Le backend reste autoritaire à l'`init` du paiement.
+    frais_etude_montant = serializers.SerializerMethodField()
 
     class Meta:
         model = LoanRequest
@@ -119,6 +123,7 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "date_decision",
             # L6 — échéance indicative d'étude commission
             "date_limite_etude",
+            "frais_etude_montant",
             "loan",
             "extra_payload",
             "attachments",
@@ -132,6 +137,16 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "cni_demandeur",
         )
         read_only_fields = fields
+
+    def get_frais_etude_montant(self, obj):
+        from apps_coop.payments.models import FeeType
+
+        montant = (
+            FeeType.objects.filter(code=FeeType.Code.DEMANDE_CREDIT, actif=True)
+            .values_list("montant", flat=True)
+            .first()
+        )
+        return str(montant) if montant is not None else None
 
     def get_member(self, obj):
         m = getattr(obj, "member", None)
