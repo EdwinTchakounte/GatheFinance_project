@@ -46,10 +46,13 @@ def test_absolute_media_url_none_passthrough():
 
 @pytest.mark.django_db
 @override_settings(WAGTAILADMIN_BASE_URL="https://cms.example.com")
-def test_cover_image_data_url_is_absolute_with_upload():
+def test_cover_image_data_url_is_absolute_with_upload(tmp_path, settings):
     from django.core.files.uploadedfile import SimpleUploadedFile
     from wagtail.images.models import Image as WagtailImage
     from wagtail.models import Collection
+
+    # Le `media/` du dépôt n'est pas inscriptible en CI/local → dossier temp.
+    settings.MEDIA_ROOT = str(tmp_path)
 
     if Collection.get_first_root_node() is None:
         Collection.add_root(name="Root")
