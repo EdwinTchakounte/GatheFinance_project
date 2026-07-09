@@ -57,12 +57,95 @@ def send_push_to_user(user, *, title: str, body: str, data: dict | None = None) 
         return 0
 
 
-def _deliver(*, token: str, platform: str, title: str, body: str, data: dict) -> bool:
-    """Livraison réelle au fournisseur — à implémenter (FCM HTTP v1).
+_FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
+# Cache module-level du couple (Credentials, project_id) — google-auth ne
+# rafraîchit le jeton OAuth (~1h) que lorsqu'il est expiré.
+_FCM_CREDS = None
 
-    Placeholder : tant que FCM n'est pas branché, on logge et on renvoie False.
-    """
-    logger.debug("push (stub) → %s/%s : %s", platform, token[:12], title)
+
+def _fcm_credentials():
+    """(access_token, project_id) depuis le service account, ou None.
+
+    Le JSON du compte de service vit dans ``settings.FCM_CREDENTIALS_JSON``
+    (chaîne JSON en env). Imports google-auth **locaux** : le module reste
+    importable même si la lib n'est pas installée (push dormant)."""
+    global _FCM_CREDS
+    raw = getattr(settings, "FCM_CREDENTIALS_JSON", "") or ""
+    if not raw:
+        return None
+    try:
+        from google.auth.transport.requests import Request as GoogleAuthRequest
+
+        if _FCM_CREDS is None:
+            import json as _json
+
+            from google.oauth2 import service_account
+
+            info = _json.loads(raw) if isinstance(raw, str) else raw
+            creds = service_account.Credentials.from_service_account_info(
+                info, scopes=[_FCM_SCOPE]
+            )
+            _FCM_CREDS = (creds, info.get("project_id", ""))
+        creds, project_id = _FCM_CREDS
+        if not creds.valid:
+            creds.refresh(GoogleAuthRequest())
+        return creds.token, project_id
+    except Exception:  # noqa: BLE001 — credentials mal formées → push dormant.
+        logger.warning("FCM: credentials invalides / google-auth absent.", exc_info=True)
+        return None
+
+
+def _deactivate_token(token: str) -> None:
+    """Désactive un DeviceToken devenu invalide (app désinstallée, data effacée)."""
+    try:
+        from .models import DeviceToken
+
+        DeviceToken.objects.filter(token=token, active=True).update(active=False)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _deliver(*, token: str, platform: str, title: str, body: str, data: dict) -> bool:
+    """Livraison réelle via l'API FCM HTTP v1. Renvoie True si accepté (200).
+
+    Best-effort : toute erreur → False (jamais d'exception). Un token invalide
+    (``UNREGISTERED`` / 404) est désactivé pour ne plus l'interroger."""
+    import requests
+
+    creds = _fcm_credentials()
+    if creds is None:
+        return False
+    access_token, project_id = creds
+    if not project_id:
+        return False
+
+    message = {
+        "message": {
+            "token": token,
+            "notification": {"title": title, "body": body},
+            # FCM data payload : valeurs en chaînes uniquement.
+            "data": {str(k): str(v) for k, v in (data or {}).items()},
+        }
+    }
+    try:
+        resp = requests.post(
+            f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send",
+            json=message,
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("FCM: échec réseau vers %s/%s", platform, token[:12], exc_info=True)
+        return False
+
+    if resp.status_code == 200:
+        return True
+    text = (resp.text or "")[:300]
+    if resp.status_code in (400, 403, 404) and (
+        "UNREGISTERED" in text or "NOT_FOUND" in text or "INVALID_ARGUMENT" in text
+    ):
+        _deactivate_token(token)
+    logger.warning("FCM send failed (%s) : %s", resp.status_code, text)
     return False
 
 
