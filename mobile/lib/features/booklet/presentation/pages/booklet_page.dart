@@ -297,6 +297,28 @@ class _PendingOrderCard extends StatelessWidget {
               ],
             ),
           ),
+          // Carnets multiples : on peut commander un autre carnet même pendant
+          // qu'une commande est en cours (chaque commande = un nouveau carnet).
+          const SizedBox(height: 14),
+          Center(
+            child: TextButton(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: PaColors.inkMuted,
+              ),
+              onPressed: () => OrderBookletSheet.show(context),
+              child: Text(
+                l.booklet_active_reorder_hint,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
