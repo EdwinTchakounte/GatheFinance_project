@@ -27,6 +27,9 @@ x-backend-env: &backend-env
   DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
   WAGTAILADMIN_BASE_URL: https://${CMS_DOMAIN}
   FRONTEND_BASE_URL: https://${SITE_DOMAIN}
+  # URL publique de la VITRINE : hostname du Site Wagtail + liens "Voir" du blog.
+  # DOIT être la vitrine (SITE_DOMAIN), pas le portail — sinon /blog/<slug> 404.
+  SITE_PUBLIC_URL: https://${SITE_DOMAIN}
   # Domaine du PORTAIL membre (≠ site marketing). Sert à construire les liens
   # transactionnels envoyés par e-mail : `/definir-mot-de-passe?token=...`,
   # `/connexion`, etc. Sans cette var le backend retombe sur le default

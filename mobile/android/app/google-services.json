@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "782302588935",
+    "project_id": "gathe-finance",
+    "storage_bucket": "gathe-finance.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:782302588935:android:a0851793f6322f826afaa2",
+        "android_client_info": {
+          "package_name": "com.gathefinance.gathe_finance"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDD5us6DZa4N4tR8q9VT_QMOHcsM4AA2BE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

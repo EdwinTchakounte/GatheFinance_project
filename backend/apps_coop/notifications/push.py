@@ -78,10 +78,21 @@ def _fcm_credentials():
 
         if _FCM_CREDS is None:
             import json as _json
+            import os
 
             from google.oauth2 import service_account
 
-            info = _json.loads(raw) if isinstance(raw, str) else raw
+            content = raw
+            if isinstance(content, str):
+                stripped = content.strip()
+                # Accepte soit le JSON en clair, soit un CHEMIN vers un fichier
+                # JSON (plus simple à poser en prod qu'un gros blob en .env).
+                if not stripped.startswith("{") and os.path.exists(stripped):
+                    with open(stripped, encoding="utf-8") as f:
+                        content = f.read()
+                info = _json.loads(content)
+            else:
+                info = content
             creds = service_account.Credentials.from_service_account_info(
                 info, scopes=[_FCM_SCOPE]
             )

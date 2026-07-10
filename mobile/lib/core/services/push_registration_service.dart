@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -26,8 +27,26 @@ class NoopPushTokenProvider implements PushTokenProvider {
   Future<String?> getToken() async => null;
 }
 
+/// Implémentation FCM réelle : demande la permission (Android 13+/iOS) puis
+/// renvoie le registration token. Tout est best-effort → `null` en cas d'échec
+/// (Firebase non initialisé en test, permission refusée, réseau…).
+class FcmPushTokenProvider implements PushTokenProvider {
+  const FcmPushTokenProvider();
+
+  @override
+  Future<String?> getToken() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission();
+      return await messaging.getToken();
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
 final pushTokenProvider = Provider<PushTokenProvider>(
-  (ref) => const NoopPushTokenProvider(),
+  (ref) => const FcmPushTokenProvider(),
 );
 
 /// Service d'enregistrement du jeton push auprès du backend.

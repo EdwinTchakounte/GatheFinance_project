@@ -49,8 +49,11 @@ def _frontend_url_for(page: Page) -> str:
     on redirige vers le front Next.js qui rend la page via l'API.
 
     Mapping (aligné sur ``apps_cms.cms.signals._page_paths``) :
-      - locale FR (défaut) : ``{FRONTEND_BASE_URL}/<path>``
-      - locale EN          : ``{FRONTEND_BASE_URL}/en/<path>``
+      - locale FR (défaut) : ``{SITE_PUBLIC_URL}/<path>``
+      - locale EN          : ``{SITE_PUBLIC_URL}/en/<path>``
+
+    ``SITE_PUBLIC_URL`` = VITRINE (pas ``FRONTEND_PUBLIC_URL`` = portail membre,
+    qui n'a pas de route /blog/<slug> → 404).
     """
     # Appelle la méthode bound de Page (non l'override) pour éviter la récursion.
     try:
@@ -60,7 +63,7 @@ def _frontend_url_for(page: Page) -> str:
     locale = getattr(getattr(page, "locale", None), "language_code", "fr")
     prefix = "" if locale == "fr" else f"/{locale}"
     path = f"{prefix}{url_path}".rstrip("/") or "/"
-    base = (getattr(settings, "FRONTEND_PUBLIC_URL", None)
+    base = (getattr(settings, "SITE_PUBLIC_URL", None)
             or settings.FRONTEND_BASE_URL
             or "http://localhost:3000").rstrip("/")
     return f"{base}{path}"

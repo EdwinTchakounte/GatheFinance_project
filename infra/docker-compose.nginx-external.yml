@@ -43,19 +43,31 @@ services:
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@gathe-db:5432/${POSTGRES_DB}"
 
+  # Alias UNIQUES (gathe-site/portal/admin) attendus par la conf nginx
+  # (nginx.gathe-finance.container.conf). Sans eux, nginx tente `site`/`portal`/
+  # `admin` — noms génériques en collision possible sur le réseau partagé → 502.
   site:
-    networks: [internal, shared]
+    networks:
+      internal:
+      shared:
+        aliases: [gathe-site]
     environment:
       CMS_API_URL: "http://gathe-backend:8000"
       BACKEND_INTERNAL_URL: "http://gathe-backend:8000"
 
   portal:
-    networks: [internal, shared]
+    networks:
+      internal:
+      shared:
+        aliases: [gathe-portal]
     environment:
       BACKEND_INTERNAL_URL: "http://gathe-backend:8000"
 
   admin:
-    networks: [internal, shared]
+    networks:
+      internal:
+      shared:
+        aliases: [gathe-admin]
     environment:
       BACKEND_INTERNAL_URL: "http://gathe-backend:8000"
 

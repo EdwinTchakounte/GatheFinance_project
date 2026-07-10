@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/providers.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/services/push_registration_service.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../domain/entities/member.dart';
 import '../../domain/usecases/sign_in.dart';
@@ -14,16 +17,29 @@ class AuthNotifier extends AsyncNotifier<Member?> {
   late final _signOut = ref.read(signOutUseCaseProvider);
 
   @override
-  Future<Member?> build() => _getCurrent.call(const NoParams());
+  Future<Member?> build() async {
+    final member = await _getCurrent.call(const NoParams());
+    // Déjà connecté (session persistée) → (ré)enregistre le token push.
+    if (member != null) {
+      unawaited(ref.read(pushRegistrationServiceProvider).syncToken());
+    }
+    return member;
+  }
 
   Future<void> signIn({required String email, required String password}) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
       () => _signIn.call(SignInParams(email: email, password: password)),
     );
+    // Login réussi → enregistre le token push auprès du backend (best-effort).
+    if (state.hasValue && state.value != null) {
+      unawaited(ref.read(pushRegistrationServiceProvider).syncToken());
+    }
   }
 
   Future<void> signOut() async {
+    // Désenregistre le token push AVANT de fermer la session (endpoint authentifié).
+    await ref.read(pushRegistrationServiceProvider).clearToken();
     await _signOut.call(const NoParams());
     state = const AsyncValue.data(null);
   }
