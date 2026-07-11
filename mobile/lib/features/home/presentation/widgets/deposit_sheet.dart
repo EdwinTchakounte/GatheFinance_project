@@ -7,7 +7,9 @@ import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/services/tara_checkout_launcher.dart';
+import '../../../../core/services/transaction_fee_provider.dart';
 import '../../../../core/widgets/brand_loader.dart';
+import '../../../../core/widgets/payment_fee_breakdown.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../l10n/gen/app_localizations.dart';
@@ -674,6 +676,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                 final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
                 if (digits.length < 8) return l.err_number_incomplete;
                 return null;
+              },
+            ),
+
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _amountCtrl,
+              builder: (_, value, __) {
+                final rate =
+                    ref.watch(transactionFeeRateProvider).valueOrNull ?? 0.0;
+                final m = num.tryParse(value.text.replaceAll(' ', '')) ?? 0;
+                return PaymentFeeBreakdown(montant: m, rate: rate);
               },
             ),
 

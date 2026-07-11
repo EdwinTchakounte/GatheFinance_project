@@ -9,7 +9,9 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/services/tara_checkout_launcher.dart';
+import '../../../../core/services/transaction_fee_provider.dart';
 import '../../../../core/widgets/brand_loader.dart';
+import '../../../../core/widgets/payment_fee_breakdown.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../state/booklet_notifier.dart';
@@ -219,6 +221,16 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
                   ),
                 ],
               ),
+            ),
+
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _amountCtrl,
+              builder: (_, value, __) {
+                final rate =
+                    ref.watch(transactionFeeRateProvider).valueOrNull ?? 0.0;
+                final m = int.tryParse(value.text.trim()) ?? 0;
+                return PaymentFeeBreakdown(montant: m, rate: rate);
+              },
             ),
 
             const SizedBox(height: AppSpacing.xl),

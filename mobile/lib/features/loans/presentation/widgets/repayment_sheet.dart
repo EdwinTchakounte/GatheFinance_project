@@ -8,7 +8,9 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
+import '../../../../core/services/transaction_fee_provider.dart';
 import '../../../../core/widgets/brand_loader.dart';
+import '../../../../core/widgets/payment_fee_breakdown.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/loan.dart';
@@ -266,6 +268,17 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
                 final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
                 if (digits.length < 8) return l.err_number_incomplete;
                 return null;
+              },
+            ),
+
+            // Frais de transaction (%) éventuels — réactif au montant saisi.
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _amountCtrl,
+              builder: (_, value, __) {
+                final rate =
+                    ref.watch(transactionFeeRateProvider).valueOrNull ?? 0.0;
+                final m = num.tryParse(value.text.replaceAll(' ', '')) ?? 0;
+                return PaymentFeeBreakdown(montant: m, rate: rate);
               },
             ),
 
