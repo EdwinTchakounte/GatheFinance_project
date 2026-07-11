@@ -413,6 +413,21 @@ SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 30)  # 30 min
 SESSION_SAVE_EVERY_REQUEST = True  # échéance glissante (renouvelée à l'activité)
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
+# --- Cache ------------------------------------------------------------------
+# Cache local par-process (LocMemCache) : sert à mémoïser les *config helpers*
+# (taux `RateParam`, settings `AppSetting`) qui étaient relus en DB à CHAQUE
+# appel (chemin chaud : dashboards, calculs crédit/épargne). TTL court +
+# invalidation à l'écriture (signaux post_save). Pas de cache partagé (Redis
+# absent) → chaque worker a le sien ; une valeur éditée par l'admin se propage
+# via l'invalidation (worker éditeur) puis le TTL sur les autres.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "gathe-config-cache",
+        "TIMEOUT": 60,
+    }
+}
+
 # CSRF — cookie readable by JS so the SPA can attach the X-CSRFToken header.
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "Lax"

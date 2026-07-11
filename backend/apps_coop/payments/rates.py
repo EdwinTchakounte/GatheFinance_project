@@ -50,14 +50,29 @@ def default_rate(code: str) -> Decimal:
     return Decimal(defaults[code])
 
 
+_RATE_MISS = "\x00__miss__\x00"  # sentinelle "pas de ligne DB" (≠ None)
+
+
+def rate_cache_key(code: str) -> str:
+    return f"rate:{code}"
+
+
 def get_rate(code: str) -> Decimal:
     """Taux courant pour ``code`` : valeur DB si présente+active, sinon défaut.
 
-    Ne lève jamais pour cause de DB indisponible : on retombe sur le défaut
-    réglementaire (les calculs restent corrects même sans seed).
+    Mémoïsé (cache local, TTL court) + invalidé à l'écriture d'un ``RateParam``
+    (signal, voir payments/models.py). Ne lève jamais : DB/cache indisponible →
+    défaut réglementaire (les calculs restent corrects même sans seed).
     """
     default = default_rate(code)  # valide aussi le code (KeyError si inconnu)
     try:
+        from django.core.cache import cache
+
+        ck = rate_cache_key(code)
+        cached = cache.get(ck)
+        if cached is not None:
+            return default if cached == _RATE_MISS else Decimal(cached)
+
         from .models import RateParam
 
         valeur = (
@@ -65,7 +80,8 @@ def get_rate(code: str) -> Decimal:
             .values_list("valeur", flat=True)
             .first()
         )
-    except Exception:  # table non migrée / DB indisponible
+        cache.set(ck, _RATE_MISS if valeur is None else str(valeur))
+        return default if valeur is None else Decimal(valeur)
+    except Exception:  # table non migrée / DB ou cache indisponible
         logger.warning("get_rate(%s) — DB indisponible, défaut réglementaire", code)
         return default
-    return Decimal(valeur) if valeur is not None else default

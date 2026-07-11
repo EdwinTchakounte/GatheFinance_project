@@ -224,3 +224,20 @@ class PaymentProof(TimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.type_document} pour Payment #{self.payment_id}"
+
+
+# --- Invalidation du cache des taux ----------------------------------------
+# get_rate (apps_coop.payments.rates) mémoïse chaque taux ; on le purge dès
+# qu'un admin édite/supprime un RateParam (propagation immédiate sur le worker
+# éditeur ; les autres suivent via le TTL du cache).
+from django.db.models.signals import post_delete, post_save  # noqa: E402
+from django.dispatch import receiver  # noqa: E402
+
+
+@receiver([post_save, post_delete], sender=RateParam)
+def _invalidate_rate_cache(sender, instance, **kwargs):  # noqa: ANN001, ARG001, ANN201
+    from django.core.cache import cache
+
+    from .rates import rate_cache_key
+
+    cache.delete(rate_cache_key(instance.code))

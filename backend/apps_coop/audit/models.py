@@ -120,3 +120,20 @@ class CooperativeAsset(TimestampedModel):
     def get_solo(cls) -> "CooperativeAsset":
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+# --- Invalidation du cache des AppSetting ----------------------------------
+# Le config-cache (apps_coop.audit.services._read_setting_raw) mémoïse chaque
+# valeur ; on la purge dès qu'un admin l'édite/supprime pour une propagation
+# immédiate (sur le worker éditeur ; les autres suivent via le TTL).
+from django.db.models.signals import post_delete, post_save  # noqa: E402
+from django.dispatch import receiver  # noqa: E402
+
+
+@receiver([post_save, post_delete], sender=AppSetting)
+def _invalidate_appsetting_cache(sender, instance, **kwargs):  # noqa: ANN001, ARG001, ANN201
+    from django.core.cache import cache
+
+    from .services import setting_cache_key
+
+    cache.delete(setting_cache_key(instance.cle))
