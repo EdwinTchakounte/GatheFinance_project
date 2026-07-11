@@ -36,6 +36,7 @@ class CommentSerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
     body = serializers.SerializerMethodField()
     is_mine = serializers.SerializerMethodField()
+    is_staff_author = serializers.SerializerMethodField()
     replies = serializers.SerializerMethodField()
     reply_count = serializers.SerializerMethodField()
 
@@ -49,6 +50,7 @@ class CommentSerializer(serializers.ModelSerializer):
             "created_at",
             "hidden",
             "is_mine",
+            "is_staff_author",
             "replies",
             "reply_count",
         )
@@ -56,6 +58,10 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def get_author_name(self, obj) -> str:
         return _author_display(obj.user)
+
+    def get_is_staff_author(self, obj) -> bool:
+        # Réponse « officielle » de l'équipe (badge côté UI).
+        return bool(getattr(obj.user, "is_staff", False))
 
     def get_body(self, obj) -> str:
         if obj.hidden:

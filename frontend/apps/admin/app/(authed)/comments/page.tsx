@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { EyeOff, Eye, RotateCcw, Search } from "lucide-react";
+import { EyeOff, Eye, MessageSquare, RotateCcw, Search } from "lucide-react";
 
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { Modal, ModalField, modalInputClass, buttonClasses } from "@/components/modal";
@@ -44,6 +44,12 @@ function Inner() {
   const [hideReason, setHideReason] = useState("");
   const [hideBusy, setHideBusy] = useState(false);
   const [hideError, setHideError] = useState<string | null>(null);
+
+  // Modale réponse (réponse officielle de l'équipe)
+  const [replyTarget, setReplyTarget] = useState<SocialCommentRow | null>(null);
+  const [replyBody, setReplyBody] = useState("");
+  const [replyBusy, setReplyBusy] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -109,6 +115,23 @@ function Inner() {
     } catch (err) {
       const apiErr = err as ApiError;
       setError(apiErr.detail ?? "Action impossible.");
+    }
+  }
+
+  async function submitReply() {
+    if (!replyTarget || replyBody.trim().length === 0) return;
+    setReplyBusy(true);
+    setReplyError(null);
+    try {
+      await adminApi.social.comments.reply(replyTarget.id, replyBody.trim());
+      setReplyTarget(null);
+      setReplyBody("");
+      await reload();
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setReplyError(apiErr.detail ?? "Réponse impossible.");
+    } finally {
+      setReplyBusy(false);
     }
   }
 
@@ -298,29 +321,43 @@ function Inner() {
             emptyLabel="Aucun commentaire ne correspond à ces filtres."
             exportFilename="commentaires"
             exportTitle="Commentaires — GATHE Finance"
-            actions={(row) =>
-              row.hidden ? (
-                <button
-                  type="button"
-                  onClick={() => unhide(row)}
-                  className="inline-flex items-center gap-1 rounded-md border border-line-200 bg-paper px-2 py-1 text-xs font-medium text-ink-700 hover:border-emerald hover:text-emerald"
-                >
-                  Restaurer
-                </button>
-              ) : (
+            actions={(row) => (
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => {
-                    setHideTarget(row);
-                    setHideReason("");
-                    setHideError(null);
+                    setReplyTarget(row);
+                    setReplyBody("");
+                    setReplyError(null);
                   }}
-                  className="inline-flex items-center gap-1 rounded-md border border-line-200 bg-paper px-2 py-1 text-xs font-medium text-ink-700 hover:border-terra-700 hover:text-terra-700"
+                  className="inline-flex items-center gap-1 rounded-md border border-line-200 bg-paper px-2 py-1 text-xs font-medium text-ink-700 hover:border-blue-700 hover:text-blue-700"
                 >
-                  Masquer
+                  <MessageSquare className="size-3" aria-hidden="true" />
+                  Répondre
                 </button>
-              )
-            }
+                {row.hidden ? (
+                  <button
+                    type="button"
+                    onClick={() => unhide(row)}
+                    className="inline-flex items-center gap-1 rounded-md border border-line-200 bg-paper px-2 py-1 text-xs font-medium text-ink-700 hover:border-emerald hover:text-emerald"
+                  >
+                    Restaurer
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHideTarget(row);
+                      setHideReason("");
+                      setHideError(null);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md border border-line-200 bg-paper px-2 py-1 text-xs font-medium text-ink-700 hover:border-terra-700 hover:text-terra-700"
+                  >
+                    Masquer
+                  </button>
+                )}
+              </div>
+            )}
           />
           {count > 0 ? (
             <Pagination
@@ -386,6 +423,58 @@ function Inner() {
             </ModalField>
             {hideError ? (
               <p className="text-sm text-terra-700">{hideError}</p>
+            ) : null}
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        open={replyTarget !== null}
+        onClose={() => setReplyTarget(null)}
+        title="Répondre au commentaire"
+        description="Votre réponse apparaîtra dans le fil, signée « Équipe » (réponse officielle). L'auteur du commentaire est notifié."
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setReplyTarget(null)}
+              className={buttonClasses({ variant: "ghost", size: "sm" })}
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              disabled={replyBusy || replyBody.trim().length === 0}
+              onClick={submitReply}
+              className={buttonClasses({ variant: "primary", size: "sm" })}
+            >
+              {replyBusy ? "Envoi…" : "Publier la réponse"}
+            </button>
+          </>
+        }
+      >
+        {replyTarget ? (
+          <div className="space-y-3">
+            <div className="rounded-md border border-line-200 bg-cream/50 p-3 text-sm text-ink-700">
+              <p className="mb-1 text-xs font-medium text-ink-500">
+                {replyTarget.author_name} · {labelForContentType(replyTarget.content_type_label)} #{replyTarget.object_id}
+              </p>
+              <p className="line-clamp-3 italic">
+                {replyTarget.body || "(vide)"}
+              </p>
+            </div>
+            <ModalField label="Votre réponse">
+              <textarea
+                value={replyBody}
+                onChange={(e) => setReplyBody(e.target.value)}
+                rows={3}
+                maxLength={1000}
+                className={modalInputClass}
+                placeholder="Réponse de l'équipe GATHE…"
+              />
+            </ModalField>
+            {replyError ? (
+              <p className="text-sm text-terra-700">{replyError}</p>
             ) : null}
           </div>
         ) : null}

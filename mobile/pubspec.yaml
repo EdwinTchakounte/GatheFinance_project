@@ -27,6 +27,9 @@ dependencies:
   dio_cookie_manager: ^3.1.1
   path_provider: ^2.1.4
 
+  # Partage natif (campagnes + actualités) — texte + lien + média joint.
+  share_plus: ^10.1.4
+
   # Ouverture URL externe (CH-9 — téléchargement note PDF via navigateur système).
   url_launcher: ^6.3.1
   # WebView in-app pour le checkout Tara. On NE PEUT PAS utiliser

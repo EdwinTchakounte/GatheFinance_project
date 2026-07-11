@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/network/api_config.dart';
+import '../../../../core/services/share_service.dart';
 import '../../../social/domain/entities/reaction.dart';
 import '../../../social/presentation/widgets/comments_section.dart';
 import '../../../social/presentation/widgets/like_button.dart';
@@ -57,6 +58,20 @@ class _NewsDetailPageState extends ConsumerState<NewsDetailPage> {
     }
   }
 
+  void _shareArticle() {
+    final a = widget.article;
+    final buf = StringBuffer()
+      ..writeln('📰 ${a.title}');
+    final ex = _stripHtml(a.excerpt).trim();
+    if (ex.isNotEmpty) buf..writeln()..writeln(ex);
+    if (a.htmlUrl.isNotEmpty) buf..writeln()..writeln('👉 ${a.htmlUrl}');
+    ShareService.instance.shareContent(
+      text: buf.toString().trim(),
+      mediaUrl: a.heroImageUrl,
+      subject: a.title,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final a = widget.article;
@@ -93,6 +108,27 @@ class _NewsDetailPageState extends ConsumerState<NewsDetailPage> {
               ),
             ),
             iconTheme: const IconThemeData(color: PaColors.inkPrimary),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Material(
+                  color: Colors.white.withValues(alpha: 0.88),
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _shareArticle,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.ios_share_rounded,
+                        color: PaColors.inkPrimary,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                       fit: StackFit.expand,

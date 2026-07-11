@@ -23,6 +23,16 @@ class ApiConfig {
     return kReleaseMode ? _prodDefault : _devDefault;
   }
 
+  /// URL publique de la VITRINE (sans slash final) — sert à construire les
+  /// liens partagés (campagnes/actualités) vers le site public.
+  static const String _siteProd = 'https://gathe-finance.horus-lab.com';
+  static const String _siteDev = 'http://10.0.2.2:3200';
+  static const String _siteOverride = String.fromEnvironment('SITE_BASE_URL');
+  static String get siteBaseUrl {
+    if (_siteOverride.isNotEmpty) return _siteOverride;
+    return kReleaseMode ? _siteProd : _siteDev;
+  }
+
   /// Préfixe de l'API métier (chemin relatif à [baseUrl]).
   static const String apiPrefix = '/api/v1';
 

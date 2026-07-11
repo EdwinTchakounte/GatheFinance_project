@@ -107,3 +107,42 @@ class TestThreads:
             _url(campaign), {"body": "x", "parent_id": 999999}, format="json"
         )
         assert r.status_code == 400
+
+
+class TestAdminReply:
+    """Réponse officielle du staff depuis le dashboard admin."""
+
+    def _admin_reply_url(self, pk):
+        return f"/api/v1/social/admin/comments/{pk}/reply/"
+
+    def test_admin_reply_is_staff_authored_and_notifies(self, campaign, admin_user):
+        member = MemberFactory()
+        root = _client(member.user).post(
+            _url(campaign), {"body": "Ma question"}, format="json"
+        ).data
+        n_before = Notification.objects.filter(user=member.user).count()
+
+        r = _client(admin_user).post(
+            self._admin_reply_url(root["id"]),
+            {"body": "Réponse officielle de l'équipe."},
+            format="json",
+        )
+        assert r.status_code == 201, r.data
+        assert r.data["parent_id"] == root["id"]
+        assert r.data["is_staff_author"] is True
+        assert r.data["body"] == "Réponse officielle de l'équipe."
+        # L'auteur du commentaire est notifié.
+        assert Notification.objects.filter(user=member.user).count() == n_before + 1
+
+    def test_member_reply_is_not_staff_authored(self, campaign):
+        a = MemberFactory()
+        root = _client(a.user).post(_url(campaign), {"body": "Q"}, format="json").data
+        assert root["is_staff_author"] is False
+
+    def test_non_staff_cannot_use_admin_reply(self, campaign):
+        member = MemberFactory()
+        root = _client(member.user).post(_url(campaign), {"body": "Q"}, format="json").data
+        r = _client(member.user).post(
+            self._admin_reply_url(root["id"]), {"body": "x"}, format="json"
+        )
+        assert r.status_code in (403, 401)

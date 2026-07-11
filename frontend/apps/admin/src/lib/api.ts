@@ -1760,6 +1760,12 @@ export const adminApi = {
           `/social/admin/comments/${id}/unhide/`,
           { method: "POST" },
         ),
+      // Réponse officielle de l'équipe (badge is_staff_author côté membre).
+      reply: (id: number, body: string) =>
+        request<{ id: number; parent_id: number | null; body: string; is_staff_author: boolean }>(
+          `/social/admin/comments/${id}/reply/`,
+          { method: "POST", body: JSON.stringify({ body }) },
+        ),
     },
   },
 
