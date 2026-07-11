@@ -93,15 +93,25 @@ class ClassicSavingsAccountReadSerializer(serializers.ModelSerializer):
     # (= solde − max(placement, gel garantie)).
     montant_gele_credit = serializers.SerializerMethodField()
     solde_disponible_retrait = serializers.SerializerMethodField()
+    # True tant que le placement est ouvert (avant la date-limite du 1er août
+    # 2026 + toggle global). Les clients masquent le choix « placement » quand
+    # false → tout versement va en épargne libre.
+    placement_open = serializers.SerializerMethodField()
 
     class Meta:
         model = ClassicSavingsAccount
         fields = (
             "id", "solde", "solde_libre", "solde_placement_actif",
             "montant_gele_credit", "solde_disponible_retrait",
+            "placement_open",
             "date_ouverture", "config", "transactions_recentes",
         )
         read_only_fields = fields
+
+    def get_placement_open(self, obj) -> bool:
+        from .placement import placement_open
+
+        return placement_open()
 
     def get_montant_gele_credit(self, obj: ClassicSavingsAccount):
         from apps_coop.loans.avaliste_services import member_frozen_guarantee

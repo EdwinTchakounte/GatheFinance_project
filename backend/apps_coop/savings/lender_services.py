@@ -163,6 +163,14 @@ def add_tranche(
             "Le membre n'a pas signé la convention prêteur (LenderConsent absent ou révoqué)."
         )
 
+    from .placement import placement_open
+
+    if not placement_open():
+        raise ValueError(
+            "Le placement est fermé — les versements d'épargne classique vont "
+            "désormais en épargne libre."
+        )
+
     montant = Decimal(montant)
     min_amount = _min_tranche_amount()
     if montant < min_amount:
