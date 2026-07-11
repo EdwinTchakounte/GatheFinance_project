@@ -11,7 +11,9 @@ import '../../../../core/di/providers.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/network/api_config.dart';
+import '../../../../core/services/transaction_fee_provider.dart';
 import '../../../../core/widgets/live_poller.dart';
+import '../../../../core/widgets/payment_fee_breakdown.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
@@ -1149,6 +1151,11 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                       ),
                     ),
                   ],
+                ),
+                // Frais de transaction (%) éventuels sur ce versement.
+                PaymentFeeBreakdown(
+                  montant: widget.montant ?? 0,
+                  rate: ref.watch(transactionFeeRateProvider).valueOrNull ?? 0.0,
                 ),
               ],
               const SizedBox(height: 22),
