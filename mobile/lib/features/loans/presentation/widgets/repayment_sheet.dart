@@ -9,6 +9,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/brand_loader.dart';
+import '../../../../core/widgets/momo_operator_selector.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/loan.dart';
@@ -47,6 +48,7 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountCtrl;
   final _phoneCtrl = TextEditingController();
+  String _network = 'MTN';
   _Step _step = _Step.form;
   late final AnimationController _checkCtrl;
   num? _commited;
@@ -85,7 +87,7 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
             loanId: widget.loan.id,
             montant: amount,
             phone: _phoneCtrl.text,
-            network: '',
+            network: _network,
           );
       if (!mounted) return;
       setState(() => _step = _Step.success);
@@ -266,6 +268,15 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
                 if (digits.length < 8) return l.err_number_incomplete;
                 return null;
               },
+            ),
+
+            const SizedBox(height: AppSpacing.l),
+
+            Text(l.common_operator, style: AppTypography.labelMedium),
+            const SizedBox(height: AppSpacing.s),
+            MomoOperatorSelector(
+              value: _network,
+              onChanged: (v) => setState(() => _network = v),
             ),
 
             const SizedBox(height: AppSpacing.xxl),
