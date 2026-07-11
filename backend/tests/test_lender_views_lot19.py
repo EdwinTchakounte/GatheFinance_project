@@ -242,51 +242,8 @@ class TestAddTranche:
         assert r.status_code == 400
 
 
-# ---------------------------------------------------------------------------
-# POST /savings/me/lender/tranches/<id>/cancel/
-# ---------------------------------------------------------------------------
-
-
-class TestCancelTranche:
-    def test_cancels_disponible(self, active_member):
-        active_member.date_adhesion = date.today() - timedelta(days=400)
-        active_member.save(update_fields=["date_adhesion"])
-        _set_min_tranche("1000")
-        opt_in_lender(member=active_member, is_global=False)
-        t = add_tranche(member=active_member, montant=Decimal("10000"))
-        r = _client(active_member).post(
-            f"/api/v1/savings/me/lender/tranches/{t.id}/cancel/",
-            {},
-            format="json",
-        )
-        assert r.status_code == 200
-        assert r.json()["statut"] == "annulee"
-
-    def test_cannot_cancel_engaged(self, active_member):
-        active_member.date_adhesion = date.today() - timedelta(days=400)
-        active_member.save(update_fields=["date_adhesion"])
-        _set_min_tranche("1000")
-        opt_in_lender(member=active_member, is_global=False)
-        t = add_tranche(member=active_member, montant=Decimal("10000"))
-        t.statut = LenderTranche.Statut.ENGAGEE
-        t.save(update_fields=["statut"])
-        r = _client(active_member).post(
-            f"/api/v1/savings/me/lender/tranches/{t.id}/cancel/",
-            {},
-            format="json",
-        )
-        assert r.status_code == 400
-
-    def test_404_for_other_member_tranche(self, active_member):
-        _set_min_tranche("1000")
-        other = _make_active_lender(mode_global=False)
-        t = add_tranche(member=other, montant=Decimal("10000"))
-        r = _client(active_member).post(
-            f"/api/v1/savings/me/lender/tranches/{t.id}/cancel/",
-            {},
-            format="json",
-        )
-        assert r.status_code == 404
+# Récupération de tranche membre : endpoint retiré (admin uniquement) — plus de
+# test de cancel côté membre.
 
 
 # ---------------------------------------------------------------------------
