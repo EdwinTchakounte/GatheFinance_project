@@ -12,7 +12,6 @@ import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/network/api_config.dart';
 import '../../../../core/widgets/live_poller.dart';
-import '../../../../core/widgets/momo_operator_selector.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
@@ -1018,7 +1017,6 @@ class _StudyFeePaySheet extends ConsumerStatefulWidget {
 
 class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
   final _phoneCtrl = TextEditingController();
-  String _network = 'MTN';
   bool _loading = false;
 
   @override
@@ -1049,7 +1047,8 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
     try {
       await ref.read(loanRequestsProvider.notifier).payStudyFee(
             phone: phone,
-            network: _network,
+            // Opérateur non requis : Tara le détecte via le préfixe du numéro.
+            network: '',
             montant: amount,
           );
       if (!mounted) return;
@@ -1130,17 +1129,6 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text('Opérateur',
-                  style: TextStyle(
-                      color: PaColors.inkSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,),),
-              const SizedBox(height: 8),
-              MomoOperatorSelector(
-                value: _network,
-                onChanged: (v) => setState(() => _network = v),
               ),
               if (widget.montant != null) ...[
                 const SizedBox(height: 16),
