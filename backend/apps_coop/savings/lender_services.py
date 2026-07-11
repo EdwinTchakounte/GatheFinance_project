@@ -185,30 +185,9 @@ def add_tranche(
     return tranche
 
 
-@transaction.atomic
-def cancel_tranche(*, tranche: LenderTranche, actor=None) -> LenderTranche:
-    """Annule une tranche encore DISPONIBLE (passage → ANNULEE).
-
-    Impossible si la tranche est déjà ENGAGEE / LIBEREE / ANNULEE.
-    Idempotent : appel sur une tranche déjà annulée renvoie l'objet.
-    """
-    locked = LenderTranche.objects.select_for_update().get(pk=tranche.pk)
-    if locked.statut == LenderTranche.Statut.ANNULEE:
-        return locked
-    if locked.statut != LenderTranche.Statut.DISPONIBLE:
-        raise ValueError(
-            f"Impossible d'annuler une tranche au statut '{locked.get_statut_display()}'."
-        )
-    locked.statut = LenderTranche.Statut.ANNULEE
-    locked.save(update_fields=["statut", "updated_at"])
-    record_audit(
-        action="lender.tranche.cancelled",
-        entite_type="LenderTranche",
-        entite_id=locked.id,
-        user=actor,
-        details={"member_id": locked.member_id, "montant": str(locked.montant)},
-    )
-    return locked
+# La récupération d'une tranche (DISPONIBLE → ANNULEE) est réservée à l'ADMIN
+# et à la révocation de convention (revoke_consent ci-dessous, qui fait sa
+# propre bascule). Pas de service `cancel_tranche` exposé au membre.
 
 
 @transaction.atomic

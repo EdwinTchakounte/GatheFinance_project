@@ -454,16 +454,6 @@ function TranchesSection({
     }
   }
 
-  async function onCancel(t: LenderTranche) {
-    try {
-      await portalApi.lender.cancelTranche(t.id);
-      onChange("Tranche annulée.");
-    } catch (err) {
-      const apiErr = err as ApiError;
-      onError(apiErr.detail ?? "Annulation impossible.");
-    }
-  }
-
   return (
     <section className="rounded-md border border-line-200 bg-paper p-6">
       <div className="flex items-center justify-between">
@@ -532,14 +522,9 @@ function TranchesSection({
                   )}
                 </p>
               </div>
-              {t.statut === "disponible" && (
-                <button
-                  onClick={() => onCancel(t)}
-                  className="text-xs text-ink-500 underline-offset-2 hover:text-terra-700 hover:underline"
-                >
-                  Annuler
-                </button>
-              )}
+              {/* La récupération d'une tranche est pilotée par l'ADMIN — le
+                  membre place son argent délibérément et n'annule pas lui-même
+                  ses tranches (il est seulement notifié). */}
             </li>
           ))}
         </ul>

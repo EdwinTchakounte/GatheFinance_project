@@ -10,7 +10,6 @@ from django.urls import path
 from . import views
 from .lender_views import (
     lender_add_tranche,
-    lender_cancel_tranche,
     lender_funding_respond,
     lender_me,
     lender_opt_in,
@@ -58,11 +57,8 @@ urlpatterns = [
     path("me/lender/opt-in/", lender_opt_in, name="lender-opt-in"),
     path("me/lender/revoke/", lender_revoke, name="lender-revoke"),
     path("me/lender/tranches/", lender_add_tranche, name="lender-add-tranche"),
-    path(
-        "me/lender/tranches/<int:pk>/cancel/",
-        lender_cancel_tranche,
-        name="lender-cancel-tranche",
-    ),
+    # Récupération de tranche = ADMIN uniquement (le membre est seulement
+    # notifié). Pas d'endpoint membre de cancel.
     path(
         "me/lender/funding-requests/<int:pk>/respond/",
         lender_funding_respond,

@@ -619,10 +619,8 @@ export const portalApi = {
         method: "POST",
         body: JSON.stringify({ montant }),
       }),
-    cancelTranche: (id: number) =>
-      request<LenderTranche>(`/savings/me/lender/tranches/${id}/cancel/`, {
-        method: "POST",
-      }),
+    // Récupération d'une tranche : réservée à l'ADMIN (le membre ne l'annule
+    // pas lui-même). Pas d'endpoint membre exposé.
     // A6 . Historique des interets percus en tant que preteur.
     payouts: () =>
       request<{

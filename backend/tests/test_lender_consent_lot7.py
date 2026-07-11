@@ -21,7 +21,6 @@ from apps_coop.audit.models import AppSetting, AuditLog
 from apps_coop.members.models import Member
 from apps_coop.savings.lender_services import (
     add_tranche,
-    cancel_tranche,
     opt_in_lender,
     revoke_consent,
 )
@@ -148,31 +147,6 @@ class TestAddTranche:
         assert count == 2
 
 
-class TestCancelTranche:
-    def test_cancel_disponible_ok(self, active_member):
-        opt_in_lender(member=active_member, is_global=False)
-        tranche = add_tranche(member=active_member, montant=Decimal("10000"))
-        cancelled = cancel_tranche(tranche=tranche)
-        assert cancelled.statut == LenderTranche.Statut.ANNULEE
-
-    def test_cancel_already_cancelled_idempotent(self, active_member):
-        opt_in_lender(member=active_member, is_global=False)
-        tranche = add_tranche(member=active_member, montant=Decimal("10000"))
-        cancel_tranche(tranche=tranche)
-        again = cancel_tranche(tranche=tranche)
-        assert again.statut == LenderTranche.Statut.ANNULEE
-
-    def test_cancel_engagee_blocked(self, active_member):
-        """Annulation refusée si la tranche est engagée dans un crédit."""
-        opt_in_lender(member=active_member, is_global=False)
-        tranche = add_tranche(member=active_member, montant=Decimal("10000"))
-        # Force le statut ENGAGEE (LOT 8 le fera via le funding).
-        tranche.statut = LenderTranche.Statut.ENGAGEE
-        tranche.save(update_fields=["statut"])
-        with pytest.raises(ValueError, match="Impossible d'annuler"):
-            cancel_tranche(tranche=tranche)
-
-
 # ---------------------------------------------------------------------------
 # Revoke consent
 # ---------------------------------------------------------------------------
@@ -270,7 +244,8 @@ class TestCapacitePretable:
         t_engaged.statut = LenderTranche.Statut.ENGAGEE
         t_engaged.save(update_fields=["statut"])
         t_cancelled = add_tranche(member=active_member, montant=Decimal("5000"))
-        cancel_tranche(tranche=t_cancelled)
+        t_cancelled.statut = LenderTranche.Statut.ANNULEE
+        t_cancelled.save(update_fields=["statut"])
         # Seule la 1re tranche est DISPONIBLE.
         assert active_member.capacite_pretable == Decimal("10000")
         assert t_dispo.statut == LenderTranche.Statut.DISPONIBLE

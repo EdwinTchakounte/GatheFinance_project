@@ -29,7 +29,6 @@ from apps_coop.loans.models import LenderConsentRequest
 
 from .lender_services import (
     add_tranche,
-    cancel_tranche,
     opt_in_lender,
     revoke_consent,
 )
@@ -271,34 +270,9 @@ def lender_add_tranche(request):
     return Response(_tranche_row(t), status=status.HTTP_201_CREATED)
 
 
-# ---------------------------------------------------------------------------
-# POST /savings/me/lender/tranches/<id>/cancel/ — annuler une tranche
-# ---------------------------------------------------------------------------
-
-
-@extend_schema(
-    tags=["savings"],
-    summary="Annuler une tranche DISPONIBLE (impossible si ENGAGEE)",
-    responses={
-        200: OpenApiResponse(description="Tranche annulée"),
-        400: OpenApiResponse(description="Tranche déjà engagée / statut invalide"),
-        404: OpenApiResponse(description="Tranche introuvable"),
-    },
-)
-@api_view(["POST"])
-@permission_classes([IsMember])
-@transaction.atomic
-def lender_cancel_tranche(request, pk: int):
-    member = request.user.member
-    try:
-        t = LenderTranche.objects.get(pk=pk, member=member)
-    except LenderTranche.DoesNotExist:
-        return Response({"detail": "Tranche introuvable."}, status=status.HTTP_404_NOT_FOUND)
-    try:
-        t = cancel_tranche(tranche=t, actor=request.user)
-    except ValueError as exc:
-        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-    return Response(_tranche_row(t))
+# Récupération d'une tranche = ADMIN uniquement (funding/lender-admin). Le
+# membre place son argent délibérément et n'annule pas lui-même ses tranches —
+# il est seulement notifié. Pas de vue membre de cancel.
 
 
 # ---------------------------------------------------------------------------
