@@ -483,6 +483,20 @@ function DisbursementCell({
           return;
         }
         payload.reference_externe = ref.trim();
+      } else {
+        // Mobile Money : argent réel envoyé au membre → confirmation explicite
+        // (le canal espèces a déjà son prompt de référence ci-dessus).
+        const montant = Number(row.montant_decaisse_net ?? row.montant);
+        const ok = window.confirm(
+          `Décaisser ${montant.toLocaleString("fr-FR")} XAF à ` +
+            `${row.member.prenom} ${row.member.nom} (${row.member.numero_membre}) ` +
+            `via ${MOYEN_LABEL[moyen] ?? moyen} ?\n\n` +
+            `L'argent part immédiatement sur le téléphone du membre — action irréversible.`,
+        );
+        if (!ok) {
+          setBusy(false);
+          return;
+        }
       }
       await adminApi.loans.disburseNow(row.id, payload);
       onAction();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,7 +43,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _amountCtrl = TextEditingController(text: '1000');
-  final _phoneCtrl = TextEditingController(text: '699 11 22 33');
+  // En release : champ vide (le membre saisit son vrai numéro MoMo). En debug :
+  // pré-rempli pour tester rapidement les flows Tara.
+  final _phoneCtrl =
+      TextEditingController(text: kReleaseMode ? '' : '699 11 22 33');
   // CH-3 . Sous-canal placement (épargne classique uniquement). Reste false
   // pour la cotisation.
   bool _isPlacement = false;
@@ -579,8 +583,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                 final n = num.tryParse(t);
                 if (n == null) return l.err_enter_amount;
                 if (widget.classic) {
-                  // TODO: REMOVE_FOR_PROD — plancher test 100 XAF (au lieu de
-                  // 1000) pour valider les flows. Voir kTestMinDeposit.
+                  // Plancher : 1 000 en release, 100 en debug (kTestMinDeposit).
                   if (n < kTestMinDeposit) return l.err_min_1000;
                   return null;
                 }
@@ -588,7 +591,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                 if (n % kCollecteAmountStep != 0) {
                   return l.err_amount_multiple_50;
                 }
-                // TODO: REMOVE_FOR_PROD — plancher par jour abaissé à 100.
                 final minTotal = _nbJoursCouverts * kTestMinDeposit;
                 if (n < minTotal) {
                   return l.err_collecte_min_per_day(
@@ -606,8 +608,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             Wrap(
               spacing: 8,
               children: [
-                // TODO: REMOVE_FOR_PROD — puce 100 pour tester les flows.
-                for (final v in [100, 1000, 2000, 5000])
+                // Puce 100 uniquement en debug (sandbox Tara) ; release = ≥1000.
+                for (final v in (kReleaseMode
+                    ? const [1000, 2000, 5000]
+                    : const [100, 1000, 2000, 5000]))
                   _AmountChip(
                     value: v,
                     selected: _amountCtrl.text == '$v',
