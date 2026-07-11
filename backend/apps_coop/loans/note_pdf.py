@@ -23,6 +23,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
+from apps_coop.pdf_watermark import draw_watermark
+
 
 BRAND_BLUE = colors.HexColor("#0E4D92")
 BRAND_GREEN = colors.HexColor("#1B9E5A")
@@ -100,6 +102,8 @@ def build_loan_request_note(loan_request) -> bytes:
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     width, height = A4
+    # Filigrane logo GATHE en arrière-plan (avant tout contenu).
+    draw_watermark(c, width, height)
     margin = 20 * mm
 
     c.setTitle(
