@@ -38,9 +38,9 @@ class BookletDioDataSource implements BookletRemoteDataSource {
     int? montant,
   }) async {
     try {
-      // TODO: REMOVE_FOR_PROD — mode test : 100 XAF par défaut, override possible.
-      // En prod normal, le tarif `frais_carnet` (1 000 XAF) est fixé côté backend
-      // via FeeType. Le webhook Tara créera le BookletOrder à validation.
+      // Le tarif `frais_carnet` fait autorité côté backend (FeeType) : le
+      // montant envoyé ici n'est qu'un défaut, le backend l'écrase. Le webhook
+      // Tara crée le BookletOrder à la validation du paiement.
       final response = await _dio.post<Map<String, dynamic>>(
         '/payments/init/',
         data: {
