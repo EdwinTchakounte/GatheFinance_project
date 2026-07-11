@@ -14,6 +14,7 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/savings_transaction.dart';
 import '../state/classic_savings_notifier.dart';
 import '../state/savings_notifier.dart';
+import '../../../../core/error/error_message.dart';
 
 /// Une transaction + sa provenance (collecte journalière vs épargne classique),
 /// pour libeller chaque ligne sans ambiguïté dans l'historique fusionné.
@@ -93,7 +94,7 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
                   return _List(entries: entries, typeFilter: _type);
                 },
                 loading: () => const _LoadingList(),
-                error: (e, _) => _ErrorState(message: e.toString()),
+                error: (e, _) => _ErrorState(message: friendlyError(e)),
               ),
             ),
           ),

@@ -12,6 +12,7 @@ import '../state/avaliste_notifier.dart';
 import '../widgets/accept_cni_sheet.dart';
 import '../widgets/mandat_card.dart';
 import '../widgets/refuse_motif_sheet.dart';
+import '../../../../core/error/error_message.dart';
 
 /// Page **Mes mandats d'avaliste** . l'utilisateur consulte les demandes
 /// de crédit où il est désigné comme garant, et accepte / refuse.
@@ -51,7 +52,7 @@ class _AvalisteMandatsPageState extends ConsumerState<AvalisteMandatsPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Impossible d\'accepter : $e')),
+        SnackBar(content: Text('Impossible d\'accepter : ${friendlyError(e)}')),
       );
     } finally {
       if (mounted) setState(() => _busyIds.remove(m.id));
@@ -75,7 +76,7 @@ class _AvalisteMandatsPageState extends ConsumerState<AvalisteMandatsPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Impossible de refuser : $e')),
+        SnackBar(content: Text('Impossible de refuser : ${friendlyError(e)}')),
       );
     } finally {
       if (mounted) setState(() => _busyIds.remove(m.id));
@@ -110,7 +111,7 @@ class _AvalisteMandatsPageState extends ConsumerState<AvalisteMandatsPage> {
             error: (e, _) => Center(
               child: PaErrorState(
                 title: 'Impossible de charger',
-                message: e.toString(),
+                message: friendlyError(e),
                 onRetry: () => ref.read(avalisteProvider.notifier).refresh(),
               ),
             ),

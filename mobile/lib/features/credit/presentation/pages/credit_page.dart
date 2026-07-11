@@ -27,6 +27,7 @@ import '../../../loans/presentation/state/loans_notifier.dart';
 import '../../../loans/presentation/widgets/loan_request_sheet.dart';
 import '../../../loans/presentation/widgets/renewal_sheet.dart';
 import '../../../loans/presentation/widgets/repayment_sheet.dart';
+import '../../../../core/error/error_message.dart';
 
 /// Page Crédit . style **Paysika** (palette navy/teal, cards soft).
 ///
@@ -138,7 +139,7 @@ class CreditPage extends ConsumerWidget {
                       padding: EdgeInsets.symmetric(vertical: 30, horizontal: 16),
                       child: SkeletonList(lines: 3),
                     ),
-                    error: (e, _) => _ErrorBox(message: e.toString()),
+                    error: (e, _) => _ErrorBox(message: friendlyError(e)),
                   ),
                 ),
               ),
@@ -1067,7 +1068,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
       if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err.toString())),
+        SnackBar(content: Text(friendlyError(err))),
       );
     }
   }

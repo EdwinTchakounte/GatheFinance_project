@@ -15,6 +15,7 @@ import '../../../../core/widgets/payment_fee_breakdown.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../state/booklet_notifier.dart';
+import '../../../../core/error/error_message.dart';
 
 enum _Step { form, loading, success }
 
@@ -89,7 +90,7 @@ class _OrderBookletSheetState extends ConsumerState<OrderBookletSheet>
       if (!mounted) return;
       setState(() => _step = _Step.form);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err.toString())),
+        SnackBar(content: Text(friendlyError(err))),
       );
     }
   }

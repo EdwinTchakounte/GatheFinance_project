@@ -10,6 +10,7 @@ import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/app_notification.dart';
 import '../state/notifications_notifier.dart';
+import '../../../../core/error/error_message.dart';
 import 'announcements_page.dart';
 
 /// Page Notifications . style **Paysika**.
@@ -152,7 +153,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      e.toString(),
+                      friendlyError(e),
                       style: const TextStyle(
                           color: PaColors.inkMuted, fontSize: 12.5,),
                     ),
