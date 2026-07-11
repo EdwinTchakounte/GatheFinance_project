@@ -9,6 +9,7 @@ import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../domain/entities/lender_state.dart';
 import '../state/lender_notifier.dart';
+import '../../../../core/error/error_message.dart';
 
 /// Espace prêteur du membre (équivalent mobile du portail Next.js).
 ///
@@ -68,7 +69,7 @@ class LenderPage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          e.toString(),
+                          friendlyError(e),
                           style: const TextStyle(
                             color: PaColors.inkMuted,
                             fontSize: 12.5,
@@ -154,7 +155,7 @@ class _LenderBody extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Impossible de signer : $e')),
+          SnackBar(content: Text('Impossible de signer : ${friendlyError(e)}')),
         );
       }
     }
@@ -189,7 +190,7 @@ class _LenderBody extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Échec : $e')),
+          SnackBar(content: Text('Échec : ${friendlyError(e)}')),
         );
       }
     }
@@ -264,7 +265,7 @@ class _LenderBody extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Échec : $e')),
+          SnackBar(content: Text('Échec : ${friendlyError(e)}')),
         );
       }
     }

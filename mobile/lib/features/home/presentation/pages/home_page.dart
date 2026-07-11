@@ -63,10 +63,12 @@ class HomePage extends ConsumerWidget {
             // Polling 30s sur les 2 soldes (epargne + cotisation) pour voir
             // un cash-in admin sans pull-to-refresh. Idempotent via hash JSON.
             LivePoller(
+              branchIndex: 0,
               refresh: () => ref.read(classicSavingsProvider.notifier).refresh(),
               readSnapshot: () => ref.read(classicSavingsProvider).valueOrNull,
             ),
             LivePoller(
+              branchIndex: 0,
               refresh: () => ref.read(savingsProvider.notifier).refresh(),
               readSnapshot: () => ref.read(savingsProvider).valueOrNull,
             ),

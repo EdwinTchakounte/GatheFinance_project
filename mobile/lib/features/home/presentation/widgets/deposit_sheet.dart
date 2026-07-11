@@ -17,6 +17,7 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../../../savings/domain/collecte_terms.dart';
 import '../../../savings/presentation/state/classic_savings_notifier.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
+import '../../../../core/error/error_message.dart';
 
 
 
@@ -119,7 +120,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
       error: (err, _) {
         setState(() => _step = _Step.form);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err.toString())),
+          SnackBar(content: Text(friendlyError(err))),
         );
       },
     );

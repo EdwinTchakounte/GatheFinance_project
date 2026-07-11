@@ -27,6 +27,7 @@ import '../../../loans/presentation/state/loans_notifier.dart';
 import '../../../loans/presentation/widgets/loan_request_sheet.dart';
 import '../../../loans/presentation/widgets/renewal_sheet.dart';
 import '../../../loans/presentation/widgets/repayment_sheet.dart';
+import '../../../../core/error/error_message.dart';
 
 /// Page Crédit . style **Paysika** (palette navy/teal, cards soft).
 ///
@@ -80,10 +81,12 @@ class CreditPage extends ConsumerWidget {
             // provisoire, encaissement frais d'etude, decision definitive...).
             // Idempotence via hash : pas de rebuild si la donnee est inchangee.
             LivePoller(
+              branchIndex: 1,
               refresh: () => ref.read(loansProvider.notifier).refresh(),
               readSnapshot: () => ref.read(loansProvider).valueOrNull,
             ),
             LivePoller(
+              branchIndex: 1,
               refresh: () => ref.read(loanRequestsProvider.notifier).refresh(),
               readSnapshot: () => ref.read(loanRequestsProvider).valueOrNull,
             ),
@@ -138,7 +141,7 @@ class CreditPage extends ConsumerWidget {
                       padding: EdgeInsets.symmetric(vertical: 30, horizontal: 16),
                       child: SkeletonList(lines: 3),
                     ),
-                    error: (e, _) => _ErrorBox(message: e.toString()),
+                    error: (e, _) => _ErrorBox(message: friendlyError(e)),
                   ),
                 ),
               ),
@@ -1067,7 +1070,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
       if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err.toString())),
+        SnackBar(content: Text(friendlyError(err))),
       );
     }
   }

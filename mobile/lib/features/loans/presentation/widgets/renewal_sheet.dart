@@ -14,6 +14,7 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/loan.dart';
 import '../../domain/loan_terms.dart';
 import '../state/loans_notifier.dart';
+import '../../../../core/error/error_message.dart';
 
 enum _Step { form, loading, success }
 
@@ -82,7 +83,7 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
       if (!mounted) return;
       setState(() => _step = _Step.form);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err.toString())),
+        SnackBar(content: Text(friendlyError(err))),
       );
     }
   }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../../core/utils/live_polling.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 
 /// Shell racine . bottom nav style **Paysika**.
@@ -10,7 +12,7 @@ import '../../../../l10n/gen/app_localizations.dart';
 /// 4 destinations (Accueil / Crédit / Carnet / Profil). Active = icône
 /// teal filled + label navy bold. Inactive = icône outline gris + label gris.
 /// Pas de fond coloré sur l'item actif (à la différence du Material 3 default).
-class MainShell extends StatelessWidget {
+class MainShell extends ConsumerWidget {
   const MainShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
@@ -24,9 +26,16 @@ class MainShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppL10n.of(context);
     final currentIndex = navigationShell.currentIndex;
+
+    // Synchronise l'index actif pour les pollers (post-frame : on ne modifie
+    // pas un provider pendant le build).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final notifier = ref.read(activeShellIndexProvider.notifier);
+      if (notifier.state != currentIndex) notifier.state = currentIndex;
+    });
 
     return Scaffold(
       backgroundColor: PaColors.appBg,

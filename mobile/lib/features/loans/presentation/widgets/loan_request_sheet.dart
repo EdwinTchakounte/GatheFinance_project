@@ -23,6 +23,7 @@ import '../../domain/entities/loan_request.dart';
 import '../../domain/entities/loan_request_submission.dart';
 import '../../domain/loan_terms.dart';
 import '../state/loans_notifier.dart';
+import '../../../../core/error/error_message.dart';
 
 /// Campagnes micro-crédit actives . fetch unique à l'ouverture du sheet quand
 /// le membre coche "Je postule à une campagne". Paginé côté backend mais on
@@ -481,7 +482,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       if (!mounted) return;
       setState(() => _step = _Step.form);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err.toString())),
+        SnackBar(content: Text(friendlyError(err))),
       );
     }
   }
@@ -549,7 +550,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       if (!mounted) return;
       setState(() => _step = _Step.payForm);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err.toString())),
+        SnackBar(content: Text(friendlyError(err))),
       );
     }
   }

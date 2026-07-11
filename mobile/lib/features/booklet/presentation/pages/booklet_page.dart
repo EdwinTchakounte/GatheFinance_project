@@ -63,6 +63,7 @@ class _BookletPageState extends ConsumerState<BookletPage> {
             // Polling 30s sur les commandes carnet pour voir le passage
             // payee → enImpression → delivree des qu'il a lieu cote admin.
             LivePoller(
+              branchIndex: 2,
               refresh: () => ref.read(bookletProvider.notifier).refresh(),
               readSnapshot: () => ref.read(bookletProvider).valueOrNull,
             ),

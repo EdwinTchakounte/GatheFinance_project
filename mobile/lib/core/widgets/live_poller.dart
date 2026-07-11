@@ -31,11 +31,17 @@ class LivePoller extends ConsumerStatefulWidget {
     required this.refresh,
     required this.readSnapshot,
     this.interval = kLivePollingInterval,
+    this.branchIndex,
   });
 
   final Future<void> Function() refresh;
   final Object? Function() readSnapshot;
   final Duration interval;
+
+  /// Onglet du shell où vit ce poller. Si fourni, le poller se met en PAUSE
+  /// quand ce n'est pas l'onglet actif (économie batterie/réseau), et refait un
+  /// fetch immédiat en redevenant visible. Null = toujours actif (historique).
+  final int? branchIndex;
 
   @override
   ConsumerState<LivePoller> createState() => _LivePollerState();
@@ -53,7 +59,9 @@ class _LivePollerState extends ConsumerState<LivePoller> {
       readSnapshot: widget.readSnapshot,
       interval: widget.interval,
     );
-    _polling!.start();
+    // Sans gating par onglet : démarre tout de suite (comportement historique).
+    // Avec gating : c'est build() qui démarre selon l'onglet actif.
+    if (widget.branchIndex == null) _polling!.start();
   }
 
   @override
@@ -64,5 +72,20 @@ class _LivePollerState extends ConsumerState<LivePoller> {
   }
 
   @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
+  Widget build(BuildContext context) {
+    if (widget.branchIndex != null) {
+      final active =
+          ref.watch(activeShellIndexProvider) == widget.branchIndex;
+      final running = _polling?.isRunning ?? false;
+      if (active && !running) {
+        _polling?.start();
+        // Refresh immédiat en redevenant visible (post-frame : pas de mutation
+        // de provider pendant le build).
+        WidgetsBinding.instance.addPostFrameCallback((_) => _polling?.tickNow());
+      } else if (!active && running) {
+        _polling?.stop();
+      }
+    }
+    return const SizedBox.shrink();
+  }
 }
