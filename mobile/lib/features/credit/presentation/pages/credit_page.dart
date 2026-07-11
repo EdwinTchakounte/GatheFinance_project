@@ -764,6 +764,40 @@ class _RequestCard extends ConsumerWidget {
               ),
             ),
           ),
+          // Voie campagne : la demande attend la validation du comité. Les
+          // frais d'étude ne deviennent réglables qu'APRÈS validation (le
+          // statut passe alors à en_attente). On l'explique clairement.
+          if (request.statut == LoanRequestStatus.enValidationCampagne) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: PaColors.blue.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: PaColors.blue.withValues(alpha: 0.22)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.hourglass_top_rounded,
+                      size: 18, color: PaColors.blue,),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'En attente de validation par le comité. Une fois votre '
+                      'candidature validée, vous pourrez régler vos frais '
+                      'd\'étude ici même.',
+                      style: AppTypography.bodySmall.copyWith(
+                        color: PaColors.inkMuted,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           // CH-7 . Tant que la demande est en_attente, les frais d'étude n'ont
           // pas encore été réglés et la demande ne passe pas en instruction.
           // On propose un CTA visible pour relancer le paiement Tara depuis
