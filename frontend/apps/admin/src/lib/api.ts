@@ -83,6 +83,28 @@ function _isCsrfFailure(err: unknown): boolean {
   return msg.includes("csrf") || msg.includes("forbidden");
 }
 
+// Session expirée (401 / 403-non-authentifié DRF) — PAS un CSRF, PAS une
+// permission RBAC ("ressource non autorisée"). On route vers /login.
+function _isSessionExpired(status: number, detail: string): boolean {
+  if (status === 401) return true;
+  if (status !== 403) return false;
+  const msg = detail.toLowerCase();
+  return (
+    msg.includes("not provided") ||
+    msg.includes("non fournies") ||
+    msg.includes("authentication credentials") ||
+    msg.includes("authentification non fournies")
+  );
+}
+
+let _redirectingToLogin = false;
+function _redirectToLogin(): void {
+  if (typeof window === "undefined" || _redirectingToLogin) return;
+  if (window.location.pathname.startsWith("/login")) return; // déjà là
+  _redirectingToLogin = true;
+  window.location.assign("/login?reason=expired");
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method || "GET").toUpperCase();
   const isMutating = method !== "GET" && method !== "HEAD";
@@ -131,6 +153,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!response.ok) {
     const err = await readError(response);
+    // Session expirée (hors /auth/* qui gèrent leur propre 401/403 — ex. le
+    // whoami du layout) → redirection propre vers /login.
+    if (
+      !path.startsWith("/auth/") &&
+      _isSessionExpired(response.status, err.detail || "")
+    ) {
+      _redirectToLogin();
+      throw err;
+    }
     // C1 . Message clair si malgre le retry on a toujours CSRF echec.
     if (response.status === 403 && _isCsrfFailure(err) && isMutating) {
       err.detail =

@@ -82,6 +82,31 @@ class TestApproveMembershipRequest:
         with pytest.raises(ValueError, match="nom est requis"):
             approve_membership_request(pending_request, instructed_by=admin_user)
 
+    def test_duplicate_email_already_member_raises_not_500(
+        self, pending_request, admin_user
+    ):
+        """Ré-inscription avec un email déjà membre → erreur claire (pas 500).
+
+        Régression : `member` est OneToOne → approuver une 2e demande pour un
+        email déjà rattaché à un Member crashait en IntegrityError. On veut un
+        ValueError explicite → l'admin rejette le doublon.
+        """
+        # 1re demande approuvée → Member créé et rattaché.
+        approve_membership_request(pending_request, instructed_by=admin_user, nom="Sino")
+
+        # 2e demande, MÊME email → doublon.
+        dup = MembershipRequest.objects.create(
+            nom="Sino",
+            prenom="Josue",
+            email=pending_request.email,
+            phone="+237699000001",
+            statut=MembershipRequest.Statut.EN_ATTENTE,
+        )
+        with pytest.raises(ValueError, match="déjà rattaché au membre"):
+            approve_membership_request(dup, instructed_by=admin_user, nom="Sino")
+        # Aucun doublon créé.
+        assert Member.objects.count() == 1
+
 
 # -- Rejet ------------------------------------------------------------------
 

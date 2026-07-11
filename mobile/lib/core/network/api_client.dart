@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'api_config.dart';
 import 'csrf_interceptor.dart';
+import 'session_expiry_interceptor.dart';
 
 /// Client HTTP unique de l'app — Dio + persistance cookies (sessionid +
 /// csrftoken) sur disque via `PersistCookieJar`. La session survit aux
@@ -56,6 +57,9 @@ class ApiClient {
       CookieManager(jar),
       CsrfInterceptor(jar),
       _RetryInterceptor(dio),
+      // En dernier : observe l'erreur finale (après retry réseau) pour
+      // détecter une session expirée → route vers le login (plus de martèlement).
+      SessionExpiryInterceptor(),
     ]);
 
     if (kDebugMode) {

@@ -75,6 +75,32 @@ function _isCsrfFailure(err: unknown): boolean {
   return msg.includes("csrf") || msg.includes("forbidden");
 }
 
+// Session expirée (401 / 403-non-authentifié DRF) — PAS un CSRF ni une
+// permission. On route alors proprement vers /connexion au lieu de laisser la
+// page marteler l'API en erreur.
+function _isSessionExpired(status: number, detail: string): boolean {
+  if (status === 401) return true;
+  if (status !== 403) return false;
+  const msg = detail.toLowerCase();
+  return (
+    msg.includes("not provided") ||
+    msg.includes("non fournies") ||
+    msg.includes("authentication credentials") ||
+    msg.includes("authentification non fournies")
+  );
+}
+
+let _redirectingToLogin = false;
+function _redirectToLogin(): void {
+  if (typeof window === "undefined" || _redirectingToLogin) return;
+  const seg = window.location.pathname.split("/")[1];
+  const locale = seg === "en" ? "en" : "fr";
+  const target = locale === "fr" ? "/connexion" : `/${locale}/connexion`;
+  if (window.location.pathname.endsWith("/connexion")) return; // déjà là
+  _redirectingToLogin = true;
+  window.location.assign(target);
+}
+
 
 async function request<T>(
   path: string,
@@ -127,6 +153,16 @@ async function request<T>(
 
   if (!response.ok) {
     const err = await readError(response);
+    // Session expirée (hors endpoints /auth/* qui gèrent leur propre 401/403 —
+    // ex. le check d'identité, pour ne pas forcer le login sur une page ouverte)
+    // → redirection propre vers /connexion.
+    if (
+      !path.startsWith("/auth/") &&
+      _isSessionExpired(response.status, err.detail || "")
+    ) {
+      _redirectToLogin();
+      throw err;
+    }
     // C1 . Message clair si malgre le retry on a toujours CSRF echec.
     if (response.status === 403 && _isCsrfFailure(err) && isMutating) {
       err.detail =

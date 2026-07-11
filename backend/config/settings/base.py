@@ -405,7 +405,12 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_NAME = "gathe_sessionid"
-SESSION_COOKIE_AGE = 60 * 60 * 8  # 8 h — staff and members re-login daily
+# Système critique (finance) : session courte à FENÊTRE GLISSANTE.
+# 30 min d'INACTIVITÉ → déconnexion. SAVE_EVERY_REQUEST renouvelle l'échéance
+# à chaque requête → un utilisateur actif n'est jamais coupé en plein travail,
+# mais une session laissée idle 30 min expire. Ajustable via SESSION_COOKIE_AGE.
+SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 30)  # 30 min
+SESSION_SAVE_EVERY_REQUEST = True  # échéance glissante (renouvelée à l'activité)
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 # CSRF — cookie readable by JS so the SPA can attach the X-CSRFToken header.
