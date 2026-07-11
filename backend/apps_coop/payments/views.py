@@ -302,9 +302,26 @@ def init_payment(request):
                 status=status.HTTP_200_OK,
             )
 
+    # Frais de transaction (%) prélevés EN PLUS du montant (RateParam
+    # TRANSACTION_FEE, piloté admin, 0 par défaut). Le membre paie
+    # `montant + frais` via Tara ; les hooks créditent uniquement `montant`.
+    # Arrondi au XAF entier (pas de centimes en Mobile Money).
+    from decimal import ROUND_HALF_UP
+
+    from .rates import get_rate
+
+    _base_montant = data["montant"]
+    _fee_rate = get_rate(RateParam.Code.TRANSACTION_FEE)
+    _frais = (
+        (_base_montant * _fee_rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        if _fee_rate > 0
+        else Decimal("0")
+    )
+
     payment = Payment.objects.create(
         member=request.user.member,
-        montant=data["montant"],
+        montant=_base_montant,
+        frais_transaction=_frais,
         type=data["type"],
         source=Payment.Source.MOBILE_MONEY,
         statut=Payment.Statut.EN_ATTENTE,

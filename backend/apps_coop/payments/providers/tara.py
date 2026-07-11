@@ -96,12 +96,15 @@ class TaraProvider(PaymentProviderBase):
         # productPrice (int), phoneNumber (sans +), webHookUrl.
         # Champs optionnels : network, productDescription, returnUrl,
         # productPictureUrl. On n'inclut un optionnel que s'il a une valeur.
+        # Le membre paie le montant + les frais de transaction (%) : Tara
+        # facture le TOTAL, les hooks métier ne créditent que `montant`.
+        total_a_facturer = int(payment.montant) + int(payment.frais_transaction or 0)
         payload: dict = {
             "apiKey": self.api_key,
             "businessId": self.business_id,
             "productId": str(payment.idempotency_key),
             "productName": product_name,
-            "productPrice": int(payment.montant),  # int XAF, pas string
+            "productPrice": total_a_facturer,  # int XAF, montant + frais
             "phoneNumber": self._normalize_phone(phone),  # 2376xxxxxxx
             "webHookUrl": self._webhook_url(),
         }

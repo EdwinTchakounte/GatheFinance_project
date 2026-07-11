@@ -61,6 +61,10 @@ class RateParam(TimestampedModel):
         RENEWAL_CASH = "RENEWAL_CASH", "Reconduction — intérêts au comptant"
         RENEWAL_DEFERRED = "RENEWAL_DEFERRED", "Reconduction — intérêts reportés"
         LATE_PENALTY = "LATE_PENALTY", "Pénalité de non-versement"
+        # Frais de transaction en % prélevés EN PLUS du montant sur chaque
+        # versement Mobile Money (le membre paie montant + frais ; le compte est
+        # crédité du montant de base). Défaut 0 → aucun frais tant que non réglé.
+        TRANSACTION_FEE = "TRANSACTION_FEE", "Frais de transaction sur versement (%)"
 
     code = models.CharField(max_length=32, choices=Code.choices, unique=True)
     libelle = models.CharField(max_length=120)
@@ -107,6 +111,10 @@ class Payment(TimestampedModel):
 
     member = models.ForeignKey(Member, on_delete=models.PROTECT, related_name="payments")
     montant = money_field()
+    # Frais de transaction (%) encaissés EN PLUS du montant (RateParam
+    # TRANSACTION_FEE). Le membre paie `montant + frais_transaction` via Tara ;
+    # les hooks métier créditent uniquement `montant`. 0 = pas de frais.
+    frais_transaction = money_field(default=0)
     type = models.CharField(max_length=24, choices=Type.choices, db_index=True)
     source = models.CharField(max_length=16, choices=Source.choices, db_index=True)
     statut = models.CharField(max_length=12, choices=Statut.choices, default=Statut.EN_ATTENTE, db_index=True)

@@ -225,3 +225,39 @@ def test_disburse_loan_via_tara_off_reste_en_attente(active_member, admin_user):
         network="MTN",
     )
     assert payment.statut == Payment.Statut.EN_ATTENTE
+
+
+# ---------------------------------------------------------------------------
+# Frais de transaction (%) — TRANSACTION_FEE, ajouté EN PLUS du montant
+# ---------------------------------------------------------------------------
+
+
+@override_settings(PAYMENTS_TEST_AUTO_VALIDATE=True)
+def test_transaction_fee_added_on_top_credits_base(
+    member_client, active_member, init_payload
+):
+    """Frais % : Payment.frais_transaction = montant×taux, mais le compte
+    n'est crédité QUE du montant de base (le membre paie montant+frais)."""
+    from apps_coop.payments.models import RateParam
+
+    RateParam.objects.update_or_create(
+        code=RateParam.Code.TRANSACTION_FEE,
+        defaults={"libelle": "Frais tx", "valeur": Decimal("0.02"), "actif": True},
+    )
+    solde_initial = active_member.savings_account.solde
+    res = member_client.post("/api/v1/payments/init/", data=init_payload, format="json")
+    assert res.status_code == 201
+    payment = Payment.objects.get(pk=res.json()["payment"]["id"])
+    assert payment.frais_transaction == Decimal("20")  # 1000 × 0.02
+    active_member.savings_account.refresh_from_db()
+    # Crédité du MONTANT de base (1000), pas du total (1020).
+    assert active_member.savings_account.solde == solde_initial + Decimal("1000")
+
+
+@override_settings(PAYMENTS_TEST_AUTO_VALIDATE=True)
+def test_no_transaction_fee_by_default(member_client, active_member, init_payload):
+    """Sans RateParam TRANSACTION_FEE (défaut 0) → frais_transaction = 0."""
+    res = member_client.post("/api/v1/payments/init/", data=init_payload, format="json")
+    assert res.status_code == 201
+    payment = Payment.objects.get(pk=res.json()["payment"]["id"])
+    assert payment.frais_transaction == Decimal("0")

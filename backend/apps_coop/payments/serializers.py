@@ -93,6 +93,8 @@ class PaymentReadSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "montant",
+            # Frais de transaction (%) facturés en plus du montant.
+            "frais_transaction",
             "type",
             "type_display",
             "source",
