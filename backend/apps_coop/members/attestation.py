@@ -19,6 +19,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
+from apps_coop.pdf_watermark import draw_watermark
+
 
 # Couleurs de marque (logo : bleu + vert), alignées sur les tokens front.
 BRAND_BLUE = colors.HexColor("#0E4D92")
@@ -43,6 +45,8 @@ def build_attestation_pdf(member) -> bytes:
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     width, height = A4
+    # Filigrane logo GATHE en arrière-plan (avant tout contenu).
+    draw_watermark(c, width, height)
     margin = 22 * mm
 
     c.setTitle(f"Attestation d'adhésion — {member.numero_membre}")

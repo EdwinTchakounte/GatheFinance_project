@@ -123,7 +123,9 @@ class StatesPage extends ConsumerWidget {
                               icon: Icons.savings_outlined,
                               tint: PaColors.teal,
                               label: l.states_kpi_savings,
-                              value: XAFFormatter.formatCompact(d.solde),
+                              // Solde = montant EXACT (2 500 XAF), pas un compact
+                              // arrondi qui afficherait « 3 k » pour 2 500.
+                              value: XAFFormatter.format(d.solde),
                               full: XAFFormatter.format(d.solde),
                             ),
                             loading: () => const _KpiSkeleton(),
@@ -147,7 +149,8 @@ class StatesPage extends ConsumerWidget {
                               icon: Icons.account_balance_wallet_outlined,
                               tint: PaColors.warning,
                               label: l.states_kpi_contributions,
-                              value: XAFFormatter.formatCompact(d.solde),
+                              // Solde exact (pas de compact arrondi trompeur).
+                              value: XAFFormatter.format(d.solde),
                               full: XAFFormatter.format(d.solde),
                             ),
                             loading: () => const _KpiSkeleton(),
