@@ -70,8 +70,15 @@ class Loan {
   int get installmentsPayees =>
       installments.where((i) => i.statut == InstallmentStatus.payee).length;
 
-  double get progression =>
-      installments.isEmpty ? 0 : installmentsPayees / installments.length;
+  /// Progression du remboursement = part du MONTANT remboursé sur le total dû.
+  /// Basé sur les montants (pas le nombre d'échéances payées) : avec la réforme
+  /// 2026 il n'y a qu'une échéance (date butoir unique), donc un remboursement
+  /// PARTIEL doit se refléter proportionnellement (ex. 3 000/5 000 → 60 %).
+  double get progression {
+    if (montantTotalDu <= 0) return 0;
+    final rembourse = montantTotalDu - soldeRestant;
+    return (rembourse / montantTotalDu).clamp(0.0, 1.0);
+  }
 
   /// Capital restant dû, réparti au prorata du payé sur chaque échéance.
   /// Base de calcul des intérêts de reconduction (Article 11) — le taux ne

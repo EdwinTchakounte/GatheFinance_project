@@ -29,7 +29,12 @@ class PaymentInitSerializer(serializers.Serializer):
     type = serializers.ChoiceField(choices=sorted(_ALLOWED_INIT_TYPES))
     montant = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=100)
     phone = serializers.CharField(max_length=32)
-    network = serializers.CharField(max_length=16)
+    # Opérateur : OPTIONNEL. Tara détecte le réseau à partir du préfixe du
+    # numéro (décision client 2026-06-25) et ignore ce champ → on ne l'impose
+    # plus côté client (plus de « rubrique opérateur » inutile dans les sheets).
+    network = serializers.CharField(
+        max_length=16, required=False, allow_blank=True, default=""
+    )
     # Optional links — only meaningful for remboursement / fees tied to a loan
     loan_id = serializers.IntegerField(required=False, allow_null=True)
     loan_installment_id = serializers.IntegerField(required=False, allow_null=True)
@@ -60,6 +65,9 @@ class PaymentInitSerializer(serializers.Serializer):
     )
 
     def validate_network(self, value: str) -> str:
+        # Vide accepté (Tara détecte via le préfixe du numéro).
+        if not value:
+            return ""
         upper = value.upper()
         if upper not in _ALLOWED_NETWORKS:
             raise serializers.ValidationError(
