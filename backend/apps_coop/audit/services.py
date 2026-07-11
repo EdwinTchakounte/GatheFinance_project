@@ -64,14 +64,30 @@ def client_ip(request) -> str | None:
 # raise — DB unavailable / table not migrated / value missing all fall back
 # to the regulatory default supplied by the caller.
 
-def get_int_setting(key: str, default: int) -> int:
-    """Read an integer AppSetting by ``key``; fall back to ``default``.
+# Cache des AppSetting : lues très fréquemment (chemin chaud) mais quasi-
+# immuables → mémoïsées (TTL settings.CACHES) + invalidées à l'écriture via le
+# signal post_save/post_delete sur AppSetting (voir apps_coop/audit/models.py).
+_SETTING_MISS = "\x00__miss__\x00"  # sentinelle "clé absente" (distinct de None)
 
-    Used for tunable scalars (contentieux threshold, due-soon lead, renewal
-    extra months, cut-off hour…). The caller's ``default`` mirrors the
-    regulatory value so the system stays correct even before the seed runs.
+
+def setting_cache_key(key: str) -> str:
+    return f"appsetting:{key}"
+
+
+def _read_setting_raw(key: str) -> str | None:
+    """Valeur brute (str) de l'AppSetting ``key``, ou ``None`` si absente.
+
+    Mémoïsée (cache local) + invalidée à l'écriture. Ne lève JAMAIS : cache/DB
+    indisponible → ``None`` (le caller applique alors son défaut réglementaire).
     """
     try:
+        from django.core.cache import cache
+
+        ck = setting_cache_key(key)
+        cached = cache.get(ck)
+        if cached is not None:
+            return None if cached == _SETTING_MISS else cached
+
         from .models import AppSetting
 
         raw = (
@@ -79,17 +95,25 @@ def get_int_setting(key: str, default: int) -> int:
             .values_list("valeur", flat=True)
             .first()
         )
-    except Exception:  # noqa: BLE001 — table not migrated / DB hiccup
-        import logging
+        val = None if raw is None or raw == "" else str(raw)
+        cache.set(ck, _SETTING_MISS if val is None else val)
+        return val
+    except Exception:  # noqa: BLE001 — table non migrée / DB ou cache indispo
+        return None
 
-        logging.getLogger(__name__).warning(
-            "get_int_setting(%s) — DB indisponible, défaut %s", key, default
-        )
-        return default
-    if raw is None or raw == "":
+
+def get_int_setting(key: str, default: int) -> int:
+    """Read an integer AppSetting by ``key``; fall back to ``default``.
+
+    Used for tunable scalars (contentieux threshold, due-soon lead, renewal
+    extra months, cut-off hour…). The caller's ``default`` mirrors the
+    regulatory value so the system stays correct even before the seed runs.
+    """
+    raw = _read_setting_raw(key)
+    if raw is None:
         return default
     try:
-        return int(str(raw).strip())
+        return int(raw.strip())
     except (TypeError, ValueError):
         import logging
 
@@ -104,19 +128,5 @@ def get_int_setting(key: str, default: int) -> int:
 
 def get_str_setting(key: str, default: str) -> str:
     """Read a string AppSetting by ``key``; fall back to ``default``."""
-    try:
-        from .models import AppSetting
-
-        raw = (
-            AppSetting.objects.filter(cle=key)
-            .values_list("valeur", flat=True)
-            .first()
-        )
-    except Exception:  # noqa: BLE001
-        import logging
-
-        logging.getLogger(__name__).warning(
-            "get_str_setting(%s) — DB indisponible, défaut", key
-        )
-        return default
-    return default if raw is None or raw == "" else str(raw)
+    raw = _read_setting_raw(key)
+    return default if raw is None else raw

@@ -9,6 +9,19 @@ from __future__ import annotations
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.cache import cache
+
+
+@pytest.fixture(autouse=True)
+def _clear_config_cache():
+    """Vide le cache (config helpers) entre chaque test.
+
+    Le cache LocMem n'est pas rollback avec la transaction DB : sans ce reset,
+    une valeur AppSetting/RateParam mémoïsée fuiterait d'un test à l'autre.
+    """
+    cache.clear()
+    yield
+    cache.clear()
 
 from tests.factories import (
     MemberFactory,
