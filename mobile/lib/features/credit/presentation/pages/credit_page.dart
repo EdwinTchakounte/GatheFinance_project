@@ -81,10 +81,12 @@ class CreditPage extends ConsumerWidget {
             // provisoire, encaissement frais d'etude, decision definitive...).
             // Idempotence via hash : pas de rebuild si la donnee est inchangee.
             LivePoller(
+              branchIndex: 1,
               refresh: () => ref.read(loansProvider.notifier).refresh(),
               readSnapshot: () => ref.read(loansProvider).valueOrNull,
             ),
             LivePoller(
+              branchIndex: 1,
               refresh: () => ref.read(loanRequestsProvider.notifier).refresh(),
               readSnapshot: () => ref.read(loanRequestsProvider).valueOrNull,
             ),

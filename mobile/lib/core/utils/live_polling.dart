@@ -3,6 +3,12 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// Index de l'onglet actif du shell (0=Accueil, 1=Crédit, 2=Carnet, 3=Profil).
+/// Posé par `MainShell`. Un `LivePoller` avec un `branchIndex` se met en pause
+/// quand son onglet n'est pas l'onglet actif (les branches d'un IndexedStack
+/// restent montées → sans ça, tous les pollers tournent en continu).
+final activeShellIndexProvider = StateProvider<int>((ref) => 0);
+
 /// Cadence de polling par defaut sur les pages "live" du membre (Home,
 /// Credit, Notifications). 30 s = compromis batterie / data / reactivite.
 ///
