@@ -128,6 +128,28 @@ def approve_membership_request(
             f"(expected {MembershipRequest.Statut.EN_ATTENTE!r})."
         )
 
+    # Garde anti-DOUBLON : `MembershipRequest.member` est OneToOne. Si l'email
+    # est déjà rattaché à un Member lié à UNE AUTRE demande (ré-inscription avec
+    # un email déjà membre), l'approbation tenterait un 2e rattachement →
+    # IntegrityError → 500. On renvoie une erreur claire pour que l'admin rejette
+    # le doublon au lieu de crasher.
+    existing_member = (
+        Member.objects.filter(user__email=request_obj.email)
+        .select_related("user")
+        .first()
+    )
+    if existing_member is not None:
+        other_request = (
+            MembershipRequest.objects.filter(member=existing_member)
+            .exclude(pk=request_obj.pk)
+            .first()
+        )
+        if other_request is not None:
+            raise ValueError(
+                f"Cet email est déjà rattaché au membre {existing_member.numero_membre} "
+                f"(demande #{other_request.id}). Rejetez cette demande en doublon."
+            )
+
     User = get_user_model()
 
     # Allow the admin to fix identity at approval time. Fall back to whatever

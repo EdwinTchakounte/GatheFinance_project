@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/di/providers.dart';
+import '../core/network/session_expiry.dart';
 import '../features/auth/presentation/state/auth_notifier.dart';
 import '../features/avaliste/presentation/state/avaliste_notifier.dart';
 import '../features/booklet/presentation/state/booklet_notifier.dart';
@@ -36,16 +40,33 @@ class _GatheAppState extends ConsumerState<GatheApp>
   /// le verrouillage. Standard banking : 30–60 s. On choisit 30 s.
   static const _lockGrace = Duration(seconds: 30);
 
+  StreamSubscription<void>? _sessionExpirySub;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Session expirée (401/403) détectée par l'intercepteur → on route vers le
+    // login proprement au lieu de laisser les pollers marteler l'API.
+    _sessionExpirySub =
+        SessionExpiryBus.instance.stream.listen((_) => _onSessionExpired());
   }
 
   @override
   void dispose() {
+    _sessionExpirySub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _onSessionExpired() {
+    if (!mounted) return;
+    // Déjà déconnecté ? rien à faire (évite un cycle inutile).
+    if (ref.read(authProvider).valueOrNull == null) return;
+    // Vide les cookies périmés puis rebascule l'auth : `authProvider.build`
+    // ré-appelle `/auth/me/` (→ null sans session) → le router redirige /login.
+    unawaited(ref.read(apiClientProvider).clearSession());
+    ref.invalidate(authProvider);
   }
 
   @override
