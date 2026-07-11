@@ -27,6 +27,7 @@ RATE_LABELS: dict[str, str] = {
     RateParam.Code.RENEWAL_CASH: "Reconduction — intérêts au comptant",
     RateParam.Code.RENEWAL_DEFERRED: "Reconduction — intérêts reportés",
     RateParam.Code.LATE_PENALTY: "Pénalité de non-versement",
+    RateParam.Code.TRANSACTION_FEE: "Frais de transaction sur versement (%)",
 }
 
 

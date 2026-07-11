@@ -36,6 +36,9 @@ def _defaults() -> dict[str, Decimal]:
         "RENEWAL_CASH": RenewalRate.INTERETS_AU_COMPTANT,
         "RENEWAL_DEFERRED": RenewalRate.INTERETS_REPORTES,
         "LATE_PENALTY": RenewalRate.PENALITE_NON_VERSEMENT,
+        # Frais de transaction sur versement : 0 par défaut (aucun frais tant
+        # que l'admin n'a pas fixé un pourcentage).
+        "TRANSACTION_FEE": Decimal("0"),
     }
 
 
