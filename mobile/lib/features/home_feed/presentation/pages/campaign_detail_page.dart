@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
+import '../../../../core/network/api_config.dart';
+import '../../../../core/services/share_service.dart';
 import '../../../loans/presentation/state/loans_notifier.dart';
 import '../../../loans/presentation/widgets/loan_request_sheet.dart';
 import '../../../social/domain/entities/reaction.dart';
@@ -83,6 +85,26 @@ class CampaignDetailPage extends ConsumerWidget {
     );
   }
 
+  void _shareCampaign() {
+    final c = campaign;
+    final df = DateFormat('dd MMM yyyy', 'fr_FR');
+    final buf = StringBuffer()
+      ..writeln('📣 ${c.nom}')
+      ..writeln('Microcrédit GATHE Finance — profil « ${c.profilCible} »')
+      ..writeln(
+        'Montant : ${XAFFormatter.formatCompact(c.montantMin)} → ${XAFFormatter.formatCompact(c.montantMax)}',
+      )
+      ..writeln('Taux : ${(c.tauxInteret * 100).toStringAsFixed(0)} %')
+      ..writeln('Clôture : ${df.format(c.dateFin)}')
+      ..writeln()
+      ..writeln('👉 ${ApiConfig.siteBaseUrl}/campagnes');
+    ShareService.instance.shareContent(
+      text: buf.toString().trim(),
+      mediaUrl: c.flyerUrl,
+      subject: c.nom,
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = campaign;
@@ -109,6 +131,13 @@ class CampaignDetailPage extends ConsumerWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.ios_share_rounded, color: PaColors.inkPrimary),
+            tooltip: 'Partager',
+            onPressed: _shareCampaign,
+          ),
+        ],
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(20, 8, 20, 14),

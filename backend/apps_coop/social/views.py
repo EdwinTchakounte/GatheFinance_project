@@ -369,3 +369,55 @@ def admin_unhide_comment(request, pk: int):
         update_fields=["hidden", "hidden_by", "hidden_at", "hidden_reason", "updated_at"]
     )
     return Response(AdminCommentSerializer(comment).data)
+
+
+def _kind_for_content_type(ct) -> str | None:
+    """Reverse ContentType → kind ('article'/'campaign')."""
+    for kind, (app_label, model_name) in TARGET_KINDS.items():
+        if ct.app_label == app_label and ct.model == model_name.lower():
+            return kind
+    return None
+
+
+@extend_schema(
+    tags=["social"],
+    summary="Admin — répondre à un commentaire (réponse officielle de l'équipe)",
+    description=(
+        "Crée une réponse au commentaire `pk`, authorée par le staff (exposée "
+        "avec `is_staff_author=true` → badge « Équipe » côté UI). Notifie "
+        "l'auteur du commentaire (push inclus). La réponse est rattachée à la "
+        "racine du fil (1 seul niveau, comme côté membre)."
+    ),
+    request=CommentCreateSerializer,
+    responses={201: CommentSerializer, 400: None, 404: None},
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_reply_comment(request, pk: int):
+    try:
+        parent = ContentComment.objects.get(pk=pk)
+    except ContentComment.DoesNotExist:
+        return Response(
+            {"detail": "Commentaire introuvable."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    ser = CommentCreateSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+    # 1 seul niveau : la réponse se rattache toujours à la racine du fil.
+    root = parent.parent if parent.parent_id is not None else parent
+    reply = ContentComment.objects.create(
+        user=request.user,
+        content_type=root.content_type,
+        object_id=root.object_id,
+        body=ser.validated_data["body"],
+        parent=root,
+    )
+    # Notifie l'auteur du commentaire auquel l'admin répond (pas la racine si
+    # différente) — best-effort, push inclus via create_notification.
+    kind = _kind_for_content_type(root.content_type)
+    if kind:
+        _notify_reply(parent, reply, kind, root.object_id)
+    return Response(
+        CommentSerializer(reply, context={"request": request}).data,
+        status=status.HTTP_201_CREATED,
+    )

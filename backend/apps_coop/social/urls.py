@@ -76,4 +76,9 @@ urlpatterns = [
         views.admin_unhide_comment,
         name="admin-comments-unhide",
     ),
+    path(
+        "admin/comments/<int:pk>/reply/",
+        views.admin_reply_comment,
+        name="admin-comments-reply",
+    ),
 ]
