@@ -47,3 +47,21 @@ class TestConfigCache:
         r.valeur = Decimal("0.60")
         r.save()
         assert get_rate(RateParam.Code.LATE_PENALTY) == Decimal("0.60")
+
+
+@pytest.mark.django_db
+def test_dashboard_kpis_is_cached(admin_user):
+    """Le endpoint dashboard met sa réponse en cache (recalcul évité 30s)."""
+    from django.core.cache import cache
+    from rest_framework.test import APIClient
+
+    cache.clear()
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+    r = client.get("/api/v1/admin/dashboard/")
+    assert r.status_code == 200
+    # La réponse est mémoïsée → 2e appel servi sans re-agréger.
+    assert cache.get("admin:dashboard_kpis") is not None
+    r2 = client.get("/api/v1/admin/dashboard/")
+    assert r2.status_code == 200
+    assert r2.json() == r.json()

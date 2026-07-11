@@ -639,6 +639,16 @@ def admin_reject_brc_document(request, pk: int):
 @api_view(["GET"])
 @permission_classes([IsStaff])
 def admin_dashboard_kpis(request):
+    # KPIs coop-wide (mêmes chiffres pour tous les admins) : ~23 count/aggregate.
+    # Caché 30s → l'agrégation DB ne tourne qu'une fois/30s même si le sidebar
+    # front la re-demande à chaque navigation.
+    from django.core.cache import cache
+
+    _ck = "admin:dashboard_kpis"
+    _cached = cache.get(_ck)
+    if _cached is not None:
+        return Response(_cached)
+
     from decimal import Decimal
 
     from django.db.models import Sum
@@ -771,7 +781,7 @@ def admin_dashboard_kpis(request):
         statut=Payment.Statut.VALIDE
     ).order_by("-date_validation")[:5]
 
-    return Response(
+    _payload = (
         {
             "members": {
                 "actif": members_active,
@@ -817,6 +827,8 @@ def admin_dashboard_kpis(request):
             "recent_payments": PaymentReadSerializer(payments_recent, many=True).data,
         }
     )
+    cache.set(_ck, _payload, 30)
+    return Response(_payload)
 
 
 # ───────────────────────────────────────────────────────────────────────────
