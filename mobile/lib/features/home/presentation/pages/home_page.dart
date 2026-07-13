@@ -44,14 +44,12 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final member = ref.watch(authProvider).valueOrNull;
-    // Hero présente les 2 soldes (épargne classique + cotisation journalière)
-    // via un toggle segmenté ergonomique. La card hero est **pinned** hors
-    // du scroll : elle reste toujours visible quand on défile la Home.
-    final epargne = ref.watch(classicSavingsProvider);
-    final cotisation = ref.watch(savingsProvider);
+    // Aucun ref.watch au sommet : chaque zone (header, hero, bannière statut,
+    // liste récente) souscrit à ses propres providers via un Consumer/
+    // ConsumerWidget feuille. Le squelette de la page (CustomScrollView,
+    // campagnes, actus, carousel) ne se reconstruit donc plus à chaque tick de
+    // polling des soldes — seule la zone concernée se met à jour.
     final l = AppL10n.of(context);
-    final firstName = member?.prenom ?? l.profile_member_badge;
 
     return Scaffold(
       backgroundColor: PaColors.canvas,
@@ -61,39 +59,29 @@ class HomePage extends ConsumerWidget {
         child: Column(
           children: [
             // Polling 30s sur les 2 soldes (epargne + cotisation) pour voir
-            // un cash-in admin sans pull-to-refresh. Idempotent via hash JSON.
+            // un cash-in admin sans pull-to-refresh. La dedup est faite côté
+            // notifier (silentRefresh) : pas de flicker entre 2 vrais changements.
             LivePoller(
               branchIndex: 0,
               refresh: () => ref.read(classicSavingsProvider.notifier).refresh(),
-              readSnapshot: () => ref.read(classicSavingsProvider).valueOrNull,
             ),
             LivePoller(
               branchIndex: 0,
               refresh: () => ref.read(savingsProvider.notifier).refresh(),
-              readSnapshot: () => ref.read(savingsProvider).valueOrNull,
             ),
             // ── Header FIXE (ne défile pas) . logo + greeting + cloche ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-              child: _Header(
-                firstName: firstName,
-                unread: ref.watch(unreadNotifsCountProvider),
-              ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 10, 16, 8),
+              child: _Header(),
             ),
-            // CH-2 . Bannière statut quand le membre n'est pas encore actif.
-            if (member != null && member.statut != MemberStatus.actif)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                child: _StatusBanner(status: member.statut),
-              ),
+            // CH-2 . Bannière statut (self-watch : masquée si actif/inconnu).
+            const _StatusBanner(),
             // D5 . Banniere renouvellement annuel.
             const _RenewalBanner(),
             // ── Hero PINNED (sortie des slivers) . toggle dual balance ──
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
               child: _PinnedDualHero(
-                epargne: epargne,
-                cotisation: cotisation,
                 onEpargneDeposit: () => _openClassicDeposit(context),
                 onCotisationDeposit: () => _openDeposit(context),
                 onReveal: () => PinPromptSheet.show(context),
@@ -257,33 +245,40 @@ class HomePage extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 60),
-                  child: epargne.when(
-                    data: (data) {
-                      // Opérations récentes = épargne classique ET collecte
-                      // journalière fusionnées, triées par date décroissante.
-                      // (Avant : seule l'épargne classique apparaissait, donc
-                      // les versements collecte étaient invisibles.)
-                      final coti = cotisation.valueOrNull?.transactions ??
-                          const <SavingsTransaction>[];
-                      final entries = <_RecentEntry>[
-                        for (final t in data.transactions)
-                          (tx: t, collecte: false),
-                        for (final t in coti) (tx: t, collecte: true),
-                      ]..sort((a, b) => b.tx.date.compareTo(a.tx.date));
-                      return _RecentList(
-                        entries: entries.take(4).toList(),
+                  // Consumer feuille : seule cette liste se reconstruit quand un
+                  // solde change ; le reste des slivers reste intact.
+                  child: Consumer(
+                    builder: (context, ref, _) {
+                      final epargne = ref.watch(classicSavingsProvider);
+                      final cotisation = ref.watch(savingsProvider);
+                      return epargne.when(
+                        data: (data) {
+                          // Opérations récentes = épargne classique ET collecte
+                          // journalière fusionnées, triées par date décroissante.
+                          final coti = cotisation.valueOrNull?.transactions ??
+                              const <SavingsTransaction>[];
+                          final entries = <_RecentEntry>[
+                            for (final t in data.transactions)
+                              (tx: t, collecte: false),
+                            for (final t in coti) (tx: t, collecte: true),
+                          ]..sort((a, b) => b.tx.date.compareTo(a.tx.date));
+                          return _RecentList(
+                            entries: entries.take(4).toList(),
+                          );
+                        },
+                        loading: () => const PaCard(
+                          padding:
+                              EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                          child: PaShimmerList(count: 3),
+                        ),
+                        error: (e, _) => PaCard(
+                          child: Text(
+                            l.home_history_unavailable,
+                            style: const TextStyle(color: PaColors.inkMuted),
+                          ),
+                        ),
                       );
                     },
-                    loading: () => const PaCard(
-                      padding: EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-                      child: PaShimmerList(count: 3),
-                    ),
-                    error: (e, _) => PaCard(
-                      child: Text(
-                        l.home_history_unavailable,
-                        style: const TextStyle(color: PaColors.inkMuted),
-                      ),
-                    ),
                   ),
                 ),
               ),
@@ -335,15 +330,18 @@ class HomePage extends ConsumerWidget {
 // Header . avatar circulaire avec initiale + greeting + cloche notif
 // ───────────────────────────────────────────────────────────────────────────
 
-class _Header extends StatelessWidget {
-  const _Header({required this.firstName, required this.unread});
-
-  final String firstName;
-  final int unread;
+class _Header extends ConsumerWidget {
+  const _Header();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppL10n.of(context);
+    // .select : le header ne se reconstruit que si le prénom change (rare) ;
+    // la cloche suit le compteur d'unread.
+    final prenom =
+        ref.watch(authProvider.select((m) => m.valueOrNull?.prenom));
+    final firstName = prenom ?? l.profile_member_badge;
+    final unread = ref.watch(unreadNotifsCountProvider);
     final hour = DateTime.now().hour;
     final greeting = hour < 5
         ? l.home_greeting_night
@@ -396,25 +394,23 @@ class _Header extends StatelessWidget {
 /// Hero pinned dual-balance . résout les 2 AsyncValue et alimente
 /// `PaDualHeroBalance`. État loading/error géré localement pour ne pas
 /// casser le rendu pinned.
-class _PinnedDualHero extends StatelessWidget {
+class _PinnedDualHero extends ConsumerWidget {
   const _PinnedDualHero({
-    required this.epargne,
-    required this.cotisation,
     required this.onEpargneDeposit,
     required this.onCotisationDeposit,
     required this.onReveal,
     required this.deltaLabelFmt,
   });
 
-  final AsyncValue<SavingsAccount> epargne;
-  final AsyncValue<SavingsAccount> cotisation;
   final VoidCallback onEpargneDeposit;
   final VoidCallback onCotisationDeposit;
   final Future<bool> Function() onReveal;
   final String Function(String) deltaLabelFmt;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final epargne = ref.watch(classicSavingsProvider);
+    final cotisation = ref.watch(savingsProvider);
     // Si l'une des sources est en erreur, on dégrade gracieusement avec
     // un fallback 0 plutôt que de cacher tout le hero. Le pinned doit
     // toujours rester visible . c'est sa raison d'être.
@@ -661,8 +657,27 @@ class _HeroSkeleton extends StatelessWidget {
 // - radie : exclusion définitive . pour info, pas de CTA.
 // ───────────────────────────────────────────────────────────────────────────
 
-class _StatusBanner extends StatelessWidget {
-  const _StatusBanner({required this.status});
+/// Wrapper self-watch : n'affiche la bannière que si le membre n'est pas actif.
+/// Isolé du reste de la Home → ne rebuild que sur changement de statut.
+class _StatusBanner extends ConsumerWidget {
+  const _StatusBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status =
+        ref.watch(authProvider.select((m) => m.valueOrNull?.statut));
+    if (status == null || status == MemberStatus.actif) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+      child: _StatusBannerBody(status: status),
+    );
+  }
+}
+
+class _StatusBannerBody extends StatelessWidget {
+  const _StatusBannerBody({required this.status});
 
   final MemberStatus status;
 

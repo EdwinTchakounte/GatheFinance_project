@@ -29,13 +29,16 @@ class LivePoller extends ConsumerStatefulWidget {
   const LivePoller({
     super.key,
     required this.refresh,
-    required this.readSnapshot,
+    this.readSnapshot,
     this.interval = kLivePollingInterval,
     this.branchIndex,
   });
 
   final Future<void> Function() refresh;
-  final Object? Function() readSnapshot;
+
+  /// Deprecie : la dedup est faite cote notifier (`silentRefresh`). Conserve
+  /// pour compat des call sites existants ; ignore.
+  final Object? Function()? readSnapshot;
   final Duration interval;
 
   /// Onglet du shell où vit ce poller. Si fourni, le poller se met en PAUSE
