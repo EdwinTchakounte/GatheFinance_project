@@ -2,19 +2,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/providers.dart';
 import '../../../../core/usecases/usecase.dart';
+import '../../../../core/utils/pollable_notifier.dart';
 import '../../domain/entities/booklet_order.dart';
 import '../../domain/usecases/order_booklet.dart';
 
-class BookletNotifier extends AsyncNotifier<List<BookletOrder>> {
+class BookletNotifier extends AsyncNotifier<List<BookletOrder>>
+    with PollableAsyncNotifier<List<BookletOrder>> {
   late final _getMine = ref.read(getMyBookletOrdersUseCaseProvider);
 
   @override
-  Future<List<BookletOrder>> build() => _getMine.call(const NoParams());
-
-  Future<void> refresh() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _getMine.call(const NoParams()));
+  Future<List<BookletOrder>> build() async {
+    final orders = await _getMine.call(const NoParams());
+    seedPollHash(orders);
+    return orders;
   }
+
+  Future<void> refresh() =>
+      silentRefresh(() => _getMine.call(const NoParams()));
 
   Future<BookletOrder> order({
     required String phone,

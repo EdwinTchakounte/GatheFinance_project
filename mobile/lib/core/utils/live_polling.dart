@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -18,9 +17,14 @@ final activeShellIndexProvider = StateProvider<int>((ref) => 0);
 const Duration kLivePollingInterval = Duration(seconds: 30);
 
 /// Helper Riverpod : declenche `refresh()` sur un AsyncNotifier toutes les
-/// [interval] secondes, MAIS uniquement si la donnee retournee a vraiment
-/// change (compare via hash JSON). Evite les rebuilds inutiles qui font
-/// perdre focus de saisie, scroll, etc.
+/// [interval] secondes, en mettant le timer en pause quand la page n'est pas
+/// visible (cf. [LivePoller]).
+///
+/// La **deduplication** (ne rebuild que si la donnee a change) n'est PLUS
+/// faite ici : elle vit desormais dans les notifiers via le mixin
+/// `PollableAsyncNotifier.silentRefresh` — leur `refresh()` ne repousse un
+/// nouvel etat que si le contenu differe et ne jette jamais la donnee
+/// affichee. Ce helper se contente donc de cadencer les appels.
 ///
 /// Usage type dans un ConsumerStatefulWidget :
 /// ```dart
@@ -32,7 +36,6 @@ const Duration kLivePollingInterval = Duration(seconds: 30);
 ///   _poll = LivePolling(
 ///     ref: ref,
 ///     refresh: () => ref.read(loansProvider.notifier).refresh(),
-///     readSnapshot: () => ref.read(loansProvider).valueOrNull,
 ///   );
 ///   _poll.start();
 /// }
@@ -43,16 +46,11 @@ const Duration kLivePollingInterval = Duration(seconds: 30);
 ///   super.dispose();
 /// }
 /// ```
-///
-/// Idempotence : `readSnapshot` doit retourner un objet serialisable en
-/// JSON (typiquement via `toJson()` ou un Map). On hash sa representation
-/// stringifiee et on compare au hash precedent. Si identique, on ne
-/// pousse PAS de nouvel etat (Riverpod's setState n'est pas declenche).
 class LivePolling {
   LivePolling({
     required this.ref,
     required this.refresh,
-    required this.readSnapshot,
+    this.readSnapshot,
     this.interval = kLivePollingInterval,
     this.minimumQuietGap = const Duration(seconds: 2),
   });
@@ -64,9 +62,9 @@ class LivePolling {
   /// `ref.read(myProvider.notifier).refresh()`.
   final Future<void> Function() refresh;
 
-  /// Callback qui renvoie la donnee actuelle (apres refresh). Sert au
-  /// calcul du hash pour la deduplication.
-  Object? Function() readSnapshot;
+  /// Deprecie : la dedup est faite cote notifier. Conserve pour compat des
+  /// call sites existants ; ignore.
+  final Object? Function()? readSnapshot;
 
   /// Periode entre 2 ticks. Defaut 30 s.
   final Duration interval;
@@ -76,7 +74,6 @@ class LivePolling {
   final Duration minimumQuietGap;
 
   Timer? _timer;
-  String? _lastHash;
   DateTime? _lastTickAt;
   bool _running = false;
 
@@ -86,8 +83,6 @@ class LivePolling {
   void start() {
     if (_running) return;
     _running = true;
-    // Premier hash = baseline (la page vient de monter avec ses donnees).
-    _lastHash = _hash(readSnapshot());
     _lastTickAt = DateTime.now();
     _timer = Timer.periodic(interval, (_) => _tick());
   }
@@ -104,11 +99,9 @@ class LivePolling {
     await _tick();
   }
 
-  /// Reconnait que l'utilisateur vient de faire un pull-to-refresh manuel.
-  /// Met a jour le hash baseline + reset le timer pour eviter un double
-  /// fetch immediat.
+  /// Reconnait que l'utilisateur vient de faire un pull-to-refresh manuel :
+  /// reset le timer pour eviter un double fetch immediat.
   void notifyManualRefresh() {
-    _lastHash = _hash(readSnapshot());
     _lastTickAt = DateTime.now();
   }
 
@@ -119,41 +112,7 @@ class LivePolling {
       return;
     }
     _lastTickAt = DateTime.now();
-    try {
-      await refresh();
-    } catch (_) {
-      // Best-effort. Erreur reseau / offline ; le prochain tick re-essaiera.
-      // On ne change pas le hash.
-      return;
-    }
-    final next = _hash(readSnapshot());
-    if (next == _lastHash) {
-      // Donnee identique : Riverpod a deja "rebati" le state avec un objet
-      // egal en hash; on n'a rien a forcer cote UI.
-      return;
-    }
-    _lastHash = next;
-    // Riverpod gere le rebuild automatiquement via le watch() existant
-    // dans la page : la nouvelle valeur a deja ete posee par refresh().
-  }
-
-  String _hash(Object? snapshot) {
-    if (snapshot == null) return '';
-    try {
-      // toJson() si disponible, sinon toString.
-      final encoded = jsonEncode(
-        snapshot,
-        toEncodable: (obj) {
-          try {
-            return (obj as dynamic).toJson();
-          } catch (_) {
-            return obj.toString();
-          }
-        },
-      );
-      return encoded.hashCode.toString();
-    } catch (_) {
-      return snapshot.toString().hashCode.toString();
-    }
+    // La dedup + le "garde la donnee sur echec" sont geres par le notifier.
+    await refresh();
   }
 }

@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/services/local_notif_service.dart';
 import '../../../../core/usecases/usecase.dart';
+import '../../../../core/utils/pollable_notifier.dart';
 import '../../domain/entities/app_notification.dart';
 
-class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
+class NotificationsNotifier extends AsyncNotifier<List<AppNotification>>
+    with PollableAsyncNotifier<List<AppNotification>> {
   late final _list = ref.read(listNotificationsUseCaseProvider);
   late final _markRead = ref.read(markNotificationReadUseCaseProvider);
   late final _markAllRead = ref.read(markAllNotificationsReadUseCaseProvider);
@@ -23,17 +25,19 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
     for (final n in items) {
       _seenIds.add(n.id);
     }
+    seedPollHash(items);
     return items;
   }
 
-  Future<void> refresh() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final items = await _list.call(const NoParams());
-      await _maybePushNew(items);
-      return items;
-    });
-  }
+  /// Rafraîchissement silencieux : garde la liste affichée (le compteur
+  /// d'unread ne retombe plus à 0 à chaque tick) et ne rebuild que sur
+  /// changement réel. Le push local des nouveaux items reste déclenché à
+  /// chaque fetch, avant la dédup.
+  Future<void> refresh() => silentRefresh(() async {
+        final items = await _list.call(const NoParams());
+        await _maybePushNew(items);
+        return items;
+      });
 
   /// Affiche une push locale pour chaque notif backend dont l'ID n'a pas
   /// encore ete vu. Best-effort . echec d'affichage n'interrompt pas le

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/providers.dart';
+import '../../../../core/utils/pollable_notifier.dart';
 import '../../data/datasources/lender_dio_datasource.dart';
 import '../../domain/entities/lender_state.dart';
 
@@ -15,18 +16,17 @@ final lenderDataSourceProvider = Provider<LenderDioDataSource>((ref) {
   return LenderDioDataSource(ref.watch(apiClientProvider));
 });
 
-class LenderNotifier extends AutoDisposeAsyncNotifier<LenderState> {
+class LenderNotifier extends AutoDisposeAsyncNotifier<LenderState>
+    with PollableAutoDisposeAsyncNotifier<LenderState> {
   @override
-  Future<LenderState> build() {
-    return ref.read(lenderDataSourceProvider).me();
+  Future<LenderState> build() async {
+    final state = await ref.read(lenderDataSourceProvider).me();
+    seedPollHash(state);
+    return state;
   }
 
-  Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => ref.read(lenderDataSourceProvider).me(),
-    );
-  }
+  Future<void> refresh() =>
+      silentRefresh(() => ref.read(lenderDataSourceProvider).me());
 
   Future<void> optIn({required bool isGlobal}) async {
     final ds = ref.read(lenderDataSourceProvider);

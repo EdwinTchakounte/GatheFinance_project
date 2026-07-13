@@ -1,27 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/cache/snapshot_store.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/usecases/usecase.dart';
+import '../../../../core/utils/pollable_notifier.dart';
 import '../../domain/entities/savings_account.dart';
 import '../../domain/usecases/deposit_savings.dart';
 
 const _savingsCacheKey = 'savings_cotisation_me';
 
-class SavingsNotifier extends AsyncNotifier<SavingsAccount> {
+class SavingsNotifier extends AsyncNotifier<SavingsAccount>
+    with PollableAsyncNotifier<SavingsAccount> {
   late final _getMy = ref.read(getMySavingsUseCaseProvider);
   late final _deposit = ref.read(depositSavingsUseCaseProvider);
 
-  @override
-  Future<SavingsAccount> build() async {
-    // memory mobile cache-offline . on tente d'abord le fetch live ; en cas
-    // d'échec réseau, on retombe sur le snapshot persistant pour que l'UI
-    // reste utilisable hors connexion. Le snapshot est rafraîchi à chaque
-    // fetch réussi.
+  /// Fetch live avec fallback snapshot offline. Ne persiste RIEN ici : la
+  /// persistance est déclenchée par le caller uniquement sur donnée fraîche.
+  Future<SavingsAccount> _fetch() async {
     try {
-      final live = await _getMy.call(const NoParams());
-      await SnapshotStore.save(_savingsCacheKey, live.toJson());
-      return live;
+      return await _getMy.call(const NoParams());
     } catch (e) {
       final cached = await SnapshotStore.load(_savingsCacheKey);
       if (cached == null) rethrow;
@@ -30,10 +29,28 @@ class SavingsNotifier extends AsyncNotifier<SavingsAccount> {
     }
   }
 
-  Future<void> refresh() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(build);
+  /// Persiste le snapshot offline UNIQUEMENT pour une donnée live (pas un
+  /// snapshot rechargé du cache) et seulement quand elle a changé (le caller
+  /// ne nous appelle que sur donnée fraîche).
+  Future<void> _persist(SavingsAccount acc) async {
+    if (acc.cachedAt != null) return; // vient déjà du cache : rien à réécrire.
+    await SnapshotStore.save(_savingsCacheKey, acc.toJson());
   }
+
+  @override
+  Future<SavingsAccount> build() async {
+    final acc = await _fetch();
+    seedPollHash(acc);
+    await _persist(acc);
+    return acc;
+  }
+
+  /// Rafraîchissement silencieux (polling) : garde la donnée affichée, ne
+  /// repousse le state + ne réécrit le snapshot que si le contenu a changé.
+  Future<void> refresh() => silentRefresh(
+        _fetch,
+        onFreshData: (acc) => unawaited(_persist(acc)),
+      );
 
   /// Lance un dépôt . émet `loading` puis `data` ou `error`.
   ///

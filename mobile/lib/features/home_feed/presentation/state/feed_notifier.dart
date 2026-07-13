@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/providers.dart';
+import '../../../../core/utils/pollable_notifier.dart';
 import '../../data/datasources/feed_dio_datasource.dart';
 import '../../domain/entities/feed_item.dart';
 
@@ -58,14 +59,17 @@ class FeedState {
   }
 }
 
-class HomeFeedNotifier extends AutoDisposeAsyncNotifier<FeedState> {
+class HomeFeedNotifier extends AutoDisposeAsyncNotifier<FeedState>
+    with PollableAutoDisposeAsyncNotifier<FeedState> {
   @override
   Future<FeedState> build() async {
     // Garde la donnée même si plus aucun widget watch . la Home dispose
     // souvent du Notifier en navigation latérale et le re-fetcherait
     // inutilement.
     ref.keepAlive();
-    return _loadInitial();
+    final initial = await _loadInitial();
+    seedPollHash(initial);
+    return initial;
   }
 
   Future<FeedState> _loadInitial() async {
@@ -102,10 +106,7 @@ class HomeFeedNotifier extends AutoDisposeAsyncNotifier<FeedState> {
     );
   }
 
-  Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(_loadInitial);
-  }
+  Future<void> refresh() => silentRefresh(_loadInitial);
 
   /// Charge la page suivante de campagnes en cumul. Idempotent : ne fait
   /// rien si `campaignsLoading` ou `!campaignsHasNext`.

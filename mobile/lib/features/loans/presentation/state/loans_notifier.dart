@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/providers.dart';
 import '../../../../core/usecases/usecase.dart';
+import '../../../../core/utils/pollable_notifier.dart';
 import '../../domain/entities/eligibility.dart';
 import '../../domain/entities/loan.dart';
 import '../../domain/entities/loan_renewal.dart';
@@ -15,16 +16,19 @@ import '../../domain/usecases/upload_loan_request_attachment.dart';
 
 
 /// Liste des crédits actifs du membre . reload après chaque write.
-class LoansNotifier extends AsyncNotifier<List<Loan>> {
+class LoansNotifier extends AsyncNotifier<List<Loan>>
+    with PollableAsyncNotifier<List<Loan>> {
   late final _getMine = ref.read(getMyActiveLoansUseCaseProvider);
 
   @override
-  Future<List<Loan>> build() => _getMine.call(const NoParams());
-
-  Future<void> refresh() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _getMine.call(const NoParams()));
+  Future<List<Loan>> build() async {
+    final loans = await _getMine.call(const NoParams());
+    seedPollHash(loans);
+    return loans;
   }
+
+  Future<void> refresh() =>
+      silentRefresh(() => _getMine.call(const NoParams()));
 
   /// Effectue un remboursement → met à jour la liste avec le Loan retourné.
   Future<Loan> repay({
@@ -68,16 +72,19 @@ final loansProvider =
 
 
 /// Liste des demandes de crédit du membre.
-class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>> {
+class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>>
+    with PollableAsyncNotifier<List<LoanRequestEntity>> {
   late final _getMine = ref.read(getMyLoanRequestsUseCaseProvider);
 
   @override
-  Future<List<LoanRequestEntity>> build() => _getMine.call(const NoParams());
-
-  Future<void> refresh() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _getMine.call(const NoParams()));
+  Future<List<LoanRequestEntity>> build() async {
+    final reqs = await _getMine.call(const NoParams());
+    seedPollHash(reqs);
+    return reqs;
   }
+
+  Future<void> refresh() =>
+      silentRefresh(() => _getMine.call(const NoParams()));
 
   /// Soumet une nouvelle demande de crédit.
   ///
@@ -153,16 +160,18 @@ final loanRequestsProvider = AsyncNotifierProvider<LoanRequestsNotifier,
 
 
 /// Éligibilité du membre à demander un nouveau crédit.
-class EligibilityNotifier extends AsyncNotifier<Eligibility> {
+class EligibilityNotifier extends AsyncNotifier<Eligibility>
+    with PollableAsyncNotifier<Eligibility> {
   late final _get = ref.read(getEligibilityUseCaseProvider);
 
   @override
-  Future<Eligibility> build() => _get.call(const NoParams());
-
-  Future<void> refresh() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _get.call(const NoParams()));
+  Future<Eligibility> build() async {
+    final elig = await _get.call(const NoParams());
+    seedPollHash(elig);
+    return elig;
   }
+
+  Future<void> refresh() => silentRefresh(() => _get.call(const NoParams()));
 }
 
 final eligibilityProvider =
