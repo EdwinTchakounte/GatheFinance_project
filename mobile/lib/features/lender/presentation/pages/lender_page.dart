@@ -5,7 +5,9 @@ import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/live_poller.dart';
+import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../domain/entities/lender_state.dart';
 import '../state/lender_notifier.dart';
@@ -52,31 +54,11 @@ class LenderPage extends ConsumerWidget {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(20),
                 children: [
-                  PaCard(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.error_outline,
-                            color: PaColors.danger, size: 26,),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Espace prêteur indisponible',
-                          style: TextStyle(
-                            color: PaColors.danger,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          friendlyError(e),
-                          style: const TextStyle(
-                            color: PaColors.inkMuted,
-                            fontSize: 12.5,
-                          ),
-                        ),
-                      ],
-                    ),
+                  PaErrorState(
+                    title: 'Espace prêteur indisponible',
+                    message: friendlyError(e),
+                    onRetry: () =>
+                        ref.read(lenderProvider.notifier).refresh(),
                   ),
                 ],
               ),
@@ -196,6 +178,22 @@ class _LenderBody extends ConsumerWidget {
     }
   }
 
+  /// Valide la saisie et ferme la sheet en renvoyant le montant. Affiche une
+  /// erreur inline plutôt que de fermer silencieusement sur une valeur vide/
+  /// invalide (l'ancien `num.tryParse` échouait sans aucun retour visible).
+  void _submitTranche(
+    BuildContext sheetContext,
+    TextEditingController ctrl,
+    void Function(String?) setError,
+  ) {
+    final n = num.tryParse(ctrl.text.trim().replaceAll(' ', ''));
+    if (n == null || n <= 0) {
+      setError('Entre un montant valide (supérieur à 0).');
+      return;
+    }
+    Navigator.of(sheetContext).pop(n);
+  }
+
   Future<void> _openAddTranche(BuildContext context, WidgetRef ref) async {
     final ctrl = TextEditingController();
     final submitted = await showModalBottomSheet<num?>(
@@ -205,59 +203,67 @@ class _LenderBody extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          16,
-          20,
-          MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Nouvelle tranche prêtable',
-              style: TextStyle(
-                color: PaColors.inkPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-              ),
+      builder: (sheetContext) {
+        String? error;
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) => Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              16,
+              20,
+              MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Cette tranche reste DISPONIBLE jusqu’à ce qu’un crédit la '
-              'sollicite. Tu pourras l’annuler tant qu’elle n’est pas '
-              'engagée.',
-              style: TextStyle(color: PaColors.inkSecondary, fontSize: 12.5),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: ctrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Montant (XAF)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: PaColors.teal,
-                  foregroundColor: PaColors.onTeal,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Nouvelle tranche prêtable',
+                  style: TextStyle(
+                    color: PaColors.inkPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                onPressed: () {
-                  final n = num.tryParse(ctrl.text.trim());
-                  Navigator.of(sheetContext).pop(n);
-                },
-                child: const Text('Créer la tranche'),
-              ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Cette tranche reste DISPONIBLE jusqu’à ce qu’un crédit la '
+                  'sollicite. La récupération est ensuite gérée par la '
+                  'coopérative.',
+                  style:
+                      TextStyle(color: PaColors.inkSecondary, fontSize: 12.5),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: ctrl,
+                  keyboardType: TextInputType.number,
+                  autofocus: true,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _submitTranche(
+                    sheetContext,
+                    ctrl,
+                    (m) => setSheetState(() => error = m),
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Montant (XAF)',
+                    border: const OutlineInputBorder(),
+                    errorText: error,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                PaButton(
+                  label: 'Créer la tranche',
+                  onPressed: () => _submitTranche(
+                    sheetContext,
+                    ctrl,
+                    (m) => setSheetState(() => error = m),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
     if (submitted == null || submitted <= 0) return;
     try {
@@ -308,16 +314,9 @@ class _OptInCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: onTap,
-              style: FilledButton.styleFrom(
-                backgroundColor: PaColors.teal,
-                foregroundColor: PaColors.onTeal,
-              ),
-              child: const Text('Signer la convention globale'),
-            ),
+          PaButton(
+            label: 'Signer la convention globale',
+            onPressed: onTap,
           ),
         ],
       ),

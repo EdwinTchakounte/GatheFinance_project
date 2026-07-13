@@ -6,6 +6,7 @@ import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../domain/entities/lender_payout.dart';
 
 /// CH-12 . Écran « Mes versements prêteur ».
@@ -29,7 +30,7 @@ class MyLenderPayoutsPage extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => _ErrorView(
+        error: (err, _) => PaErrorState(
           message: 'Impossible de charger tes versements.',
           onRetry: () => ref.invalidate(myLenderPayoutsProvider),
         ),
@@ -244,38 +245,3 @@ class _EmptyView extends StatelessWidget {
 }
 
 
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 36, color: PaColors.danger),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: PaColors.inkPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 14),
-            OutlinedButton(
-              onPressed: onRetry,
-              child: const Text('Réessayer'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

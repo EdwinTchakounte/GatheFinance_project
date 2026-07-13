@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../domain/entities/feed_item.dart';
 import '../state/feed_notifier.dart';
@@ -46,6 +47,7 @@ class _NewsListPageState extends ConsumerState<NewsListPage> {
     final feed = ref.watch(homeFeedProvider).valueOrNull;
     final articles = feed?.articles ?? const <NewsArticle>[];
     final loading = feed?.articlesLoading ?? false;
+    final hasError = feed?.articlesError ?? false;
 
     return Scaffold(
       backgroundColor: PaColors.canvas,
@@ -70,7 +72,13 @@ class _NewsListPageState extends ConsumerState<NewsListPage> {
           color: PaColors.teal,
           onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
           child: articles.isEmpty && !loading
-              ? const _Empty()
+              ? (hasError
+                  ? PaErrorState(
+                      message: 'Impossible de charger les actualités.',
+                      onRetry: () =>
+                          ref.read(homeFeedProvider.notifier).refresh(),
+                    )
+                  : const _Empty())
               : ListView.separated(
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),

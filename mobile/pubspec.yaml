@@ -73,9 +73,6 @@ dependencies:
   # i18n — pin sur la version exigée par flutter_localizations (Flutter 3.41)
   intl: ^0.20.2
 
-  # Polices brand
-  google_fonts: ^6.2.1
-
   # Effets visuels
   flutter_svg: ^2.0.10+1
   shimmer: ^3.0.0

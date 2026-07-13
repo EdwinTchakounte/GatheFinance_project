@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../domain/entities/feed_item.dart';
 import '../state/feed_notifier.dart';
@@ -49,6 +50,7 @@ class _CampaignsListPageState extends ConsumerState<CampaignsListPage> {
     final feed = ref.watch(homeFeedProvider).valueOrNull;
     final campaigns = feed?.campaigns ?? const <CampaignFlyer>[];
     final loading = feed?.campaignsLoading ?? false;
+    final hasError = feed?.campaignsError ?? false;
 
     return Scaffold(
       backgroundColor: PaColors.canvas,
@@ -73,7 +75,13 @@ class _CampaignsListPageState extends ConsumerState<CampaignsListPage> {
           color: PaColors.teal,
           onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
           child: campaigns.isEmpty && !loading
-              ? const _EmptyState()
+              ? (hasError
+                  ? PaErrorState(
+                      message: 'Impossible de charger les campagnes.',
+                      onRetry: () =>
+                          ref.read(homeFeedProvider.notifier).refresh(),
+                    )
+                  : const _EmptyState())
               : ListView.separated(
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
