@@ -21,7 +21,7 @@ class PaPatternBackground extends StatelessWidget {
   const PaPatternBackground({
     super.key,
     required this.child,
-    this.patternOpacity = 0.55,
+    this.patternOpacity = 0.42,
     this.showHalos = true,
   });
 

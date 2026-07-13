@@ -174,6 +174,33 @@ export default function PortalCreditPage() {
           </div>
         </header>
 
+        {/* Accès PERMANENT aux mandats d'avaliste (parité mobile — tuile
+            toujours visible). Un membre peut être garant d'autrui sans être
+            lui-même éligible à un crédit : ce lien ne doit donc PAS dépendre de
+            l'état d'éligibilité (bug corrigé — il était auparavant enfoui dans
+            la branche « éligible » et disparaissait sinon). */}
+        <button
+          type="button"
+          onClick={() => router.push("/credit/mandats-avaliste")}
+          className="mt-8 flex w-full items-center justify-between gap-4 rounded-md border border-line-200 bg-paper p-5 text-left transition-colors hover:border-blue-700/40"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-lg">
+              🤝
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-ink-900">
+                Mes mandats d'avaliste
+              </p>
+              <p className="mt-0.5 text-xs text-ink-600">
+                Réponds aux demandes où tu es désigné(e) comme garant et consulte
+                ton historique.
+              </p>
+            </div>
+          </div>
+          <span className="shrink-0 text-blue-700">→</span>
+        </button>
+
         {/* Eligibility card */}
         {eligibility ? (
           <section className="mt-8 rounded-md border border-line-200 bg-paper p-7">
@@ -213,16 +240,6 @@ export default function PortalCreditPage() {
                     className="font-medium text-blue-700 underline-offset-2 hover:underline"
                   >
                     Voir les campagnes ouvertes →
-                  </button>
-                </p>
-                <p className="mt-2 text-xs text-ink-600">
-                  Tu es désigné(e) comme garant pour quelqu'un ?{" "}
-                  <button
-                    type="button"
-                    onClick={() => router.push("/credit/mandats-avaliste")}
-                    className="font-medium text-blue-700 underline-offset-2 hover:underline"
-                  >
-                    Voir mes mandats d'avaliste →
                   </button>
                 </p>
                 <p className="mt-2 text-xs text-ink-600">

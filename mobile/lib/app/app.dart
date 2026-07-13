@@ -7,10 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/di/providers.dart';
 import '../core/network/session_expiry.dart';
 import '../features/auth/presentation/state/auth_notifier.dart';
-import '../features/avaliste/presentation/state/avaliste_notifier.dart';
 import '../features/booklet/presentation/state/booklet_notifier.dart';
-import '../features/home_feed/presentation/state/feed_notifier.dart';
-import '../features/lender/presentation/state/lender_notifier.dart';
 import '../features/loans/presentation/state/loans_notifier.dart';
 import '../features/notifications/presentation/state/notifications_notifier.dart';
 import '../features/preferences/presentation/state/locale_notifier.dart';
@@ -94,7 +91,7 @@ class _GatheAppState extends ConsumerState<GatheApp>
       // utile de re-fetch). Couvre le cas "je quitte l'app, admin change
       // un truc, je reviens" sans attendre le polling 30 s.
       if (elapsed >= _resumeRefreshGrace) {
-        _invalidateLiveProviders();
+        _refreshLiveProviders();
       }
     }
   }
@@ -105,28 +102,34 @@ class _GatheAppState extends ConsumerState<GatheApp>
   /// instantane (< 3 s = file picker, retour ecran d'a cote).
   static const _resumeRefreshGrace = Duration(seconds: 3);
 
-  void _invalidateLiveProviders() {
-    // Invalide forcement le cache des providers AsyncNotifier "live" (donnees
-    // qui peuvent avoir change cote admin pendant l'absence). Riverpod
-    // refetch automatiquement quand quelqu'un re-watch.
-    //
-    // Securite : enveloppe chaque invalidate dans un try/catch pour
-    // qu'une provider non-encore-initialisee ne casse pas le chain.
-    void safeInvalidate(ProviderOrFamily provider) {
+  void _refreshLiveProviders() {
+    // Refresh SILENCIEUX des providers live au retour foreground (donnees qui
+    // peuvent avoir change cote admin pendant l'absence). On appelle
+    // `notifier.refresh()` (silentRefresh + dedup par hash) plutot que
+    // `invalidate` : invalidate remettrait la page VISIBLE en skeleton et
+    // reset le badge notif a chaque resume — exactement le flicker qu'on veut
+    // eviter. Best-effort : un provider non-instancie est ignore.
+    void safe(void Function() run) {
       try {
-        ref.invalidate(provider);
-      } catch (_) {/* provider pas instancie : rien a invalider */}
+        run();
+      } catch (_) {/* provider pas instancie : rien a rafraichir */}
     }
-    safeInvalidate(authProvider);
-    safeInvalidate(savingsProvider);
-    safeInvalidate(classicSavingsProvider);
-    safeInvalidate(loansProvider);
-    safeInvalidate(loanRequestsProvider);
-    safeInvalidate(notificationsProvider);
-    safeInvalidate(bookletProvider);
-    safeInvalidate(lenderProvider);
-    safeInvalidate(avalisteProvider);
-    safeInvalidate(homeFeedProvider);
+    // Providers PERSISTANTS des onglets (StatefulShellRoute.indexedStack : les
+    // branches restent montees) → refresh silencieux, pas de flicker.
+    safe(() => ref.read(savingsProvider.notifier).refresh());
+    safe(() => ref.read(classicSavingsProvider.notifier).refresh());
+    safe(() => ref.read(loansProvider.notifier).refresh());
+    safe(() => ref.read(loanRequestsProvider.notifier).refresh());
+    safe(() => ref.read(notificationsProvider.notifier).refresh());
+    safe(() => ref.read(bookletProvider.notifier).refresh());
+    // Statut membre : peut avoir bascule (activation/suspension) cote admin
+    // pendant l'absence. Pas de refresh() sur AuthNotifier → invalidate leger
+    // (n'impacte que 2 petits leaves : greeting + banniere statut).
+    safe(() => ref.invalidate(authProvider));
+    // Providers AUTODISPOSE (lender / avaliste / homeFeed) : volontairement PAS
+    // rafraichis ici. Ils se rechargent frais a la navigation (autoDispose) et
+    // chacune de leurs pages a son propre LivePoller. Les forcer ici
+    // instancierait + fetcherait des donnees hors ecran → refresh inutile.
   }
 
   @override
