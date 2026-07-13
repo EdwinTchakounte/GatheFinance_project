@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Container } from "@gathe/ui";
+import { Container, buttonClasses } from "@gathe/ui";
 
 import { portalApi, type ApiError, type Identity } from "@/lib/api";
 
@@ -117,6 +117,47 @@ export default function ProfilPage() {
             </a>
           </div>
         </header>
+
+        {/* ───── Frais d'adhésion (accès PERMANENT — parité mobile) ─────
+            Auparavant le paiement des 3 frais (13 000 XAF) n'était atteignable
+            que via le CTA « suspendu » de l'accueil. Cette carte l'expose en
+            permanence : règlement si le compte n'est pas activé, sinon accès à
+            l'historique (reçus). */}
+        {me?.member ? (
+          me.member.statut === "suspendu" ? (
+            <section className="mb-8 rounded-xl border border-amber-300/60 bg-amber-50/60 p-6 shadow-sm">
+              <h2 className="font-editorial text-xl text-ink-900">
+                Frais d'adhésion
+              </h2>
+              <p className="mt-1 text-sm text-ink-700">
+                Ton compte n'est pas encore activé. Règle tes 3 frais d'adhésion
+                (adhésion 10 000 · inscription 2 000 · carnet 1 000 ={" "}
+                <strong>13 000 XAF</strong>) pour l'activer.
+              </p>
+              <a
+                href="/activation"
+                className={buttonClasses({ variant: "success", size: "md" }) + " mt-4 inline-flex"}
+              >
+                Régler mes frais →
+              </a>
+            </section>
+          ) : (
+            <section className="mb-8 rounded-xl border border-line-200 bg-paper p-6 shadow-sm">
+              <h2 className="font-editorial text-xl text-ink-900">
+                Frais d'adhésion
+              </h2>
+              <p className="mt-1 text-sm text-ink-700">
+                Tes frais d'adhésion sont réglés — ton compte est actif. ✓
+              </p>
+              <a
+                href="/paiements"
+                className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:underline"
+              >
+                Voir mes reçus de versement →
+              </a>
+            </section>
+          )
+        ) : null}
 
         {/* ───── Mes infos ───── */}
         <form onSubmit={onSaveInfo} className="mb-8 rounded-xl border border-line-200 bg-paper p-6 shadow-sm">
