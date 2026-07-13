@@ -27,6 +27,7 @@ from apps_coop.payments.models import FeeType, Payment
 
 from .models import Loan, LoanRequest
 from .serializers import (
+    AdminLoanRequestReadSerializer,
     LoanDisburseSerializer,
     LoanReadSerializer,
     LoanRenewalDecideSerializer,
@@ -450,7 +451,8 @@ def admin_list_loan_requests(request):
     statut = request.query_params.get("statut")
     if statut:
         qs = qs.filter(statut=statut)
-    return Response(LoanRequestReadSerializer(qs, many=True).data)
+    # Admin/staff : serializer étendu (visite terrain incluse).
+    return Response(AdminLoanRequestReadSerializer(qs, many=True).data)
 
 
 @extend_schema(
@@ -1319,8 +1321,8 @@ def loan_request_field_visit(request, pk: int):
         ip=client_ip(request),
     )
 
-    from .serializers import LoanRequestReadSerializer as _LRR
-    return Response(_LRR(lr).data)
+    # Réponse staff : serializer admin (visite terrain incluse).
+    return Response(AdminLoanRequestReadSerializer(lr).data)
 
 
 # ---------------------------------------------------------------------------

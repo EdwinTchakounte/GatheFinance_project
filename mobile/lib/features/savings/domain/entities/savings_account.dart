@@ -14,6 +14,8 @@ class SavingsAccount {
     this.soldePlacementActif,
     this.soldeDisponibleRetrait,
     this.montantGeleCredit,
+    this.placementOpen,
+    this.placementEligibilityMonths,
     this.cachedAt,
   });
 
@@ -36,6 +38,17 @@ class SavingsAccount {
   /// la collecte / snapshots plus anciens.
   final num? soldeDisponibleRetrait;
   final num? montantGeleCredit;
+
+  /// Épargne classique : `true` tant que CE membre peut encore verser en
+  /// PLACEMENT (verrou global + fenêtre des N premiers mois d'ancienneté).
+  /// Quand `false`, l'UI masque le choix « placement » → tout dépôt part en
+  /// épargne libre. `null` = donnée absente (collecte / snapshot ancien) →
+  /// l'UI traite alors le placement comme ouvert (comportement historique).
+  final bool? placementOpen;
+
+  /// Durée de la fenêtre d'éligibilité au placement (mois), pour l'affichage
+  /// (« placement ouvert les 6 premiers mois »). `null` si non fourni.
+  final int? placementEligibilityMonths;
 
   /// Plafond réellement retirable : la part explicitement disponible au retrait
   /// si le backend la fournit (épargne classique, garantie crédit déduite),
@@ -61,6 +74,8 @@ class SavingsAccount {
       soldePlacementActif: soldePlacementActif,
       soldeDisponibleRetrait: soldeDisponibleRetrait,
       montantGeleCredit: montantGeleCredit,
+      placementOpen: placementOpen,
+      placementEligibilityMonths: placementEligibilityMonths,
       dateOuverture: dateOuverture,
       tauxInteret: tauxInteret,
       transactions: transactions ?? this.transactions,
@@ -77,6 +92,9 @@ class SavingsAccount {
         if (soldeDisponibleRetrait != null)
           'solde_disponible_retrait': soldeDisponibleRetrait,
         if (montantGeleCredit != null) 'montant_gele_credit': montantGeleCredit,
+        if (placementOpen != null) 'placement_open': placementOpen,
+        if (placementEligibilityMonths != null)
+          'placement_eligibility_months': placementEligibilityMonths,
         'date_ouverture': dateOuverture.toIso8601String(),
         'taux_interet': tauxInteret,
         'transactions': transactions.map((t) => t.toJson()).toList(),
@@ -91,6 +109,9 @@ class SavingsAccount {
       soldePlacementActif: json['solde_placement_actif'] as num?,
       soldeDisponibleRetrait: json['solde_disponible_retrait'] as num?,
       montantGeleCredit: json['montant_gele_credit'] as num?,
+      placementOpen: json['placement_open'] as bool?,
+      placementEligibilityMonths:
+          (json['placement_eligibility_months'] as num?)?.toInt(),
       dateOuverture:
           DateTime.tryParse((json['date_ouverture'] as String?) ?? '') ??
               DateTime.now(),

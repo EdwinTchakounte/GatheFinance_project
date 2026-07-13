@@ -533,12 +533,13 @@ def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
         # tranche prêteur (DISPONIBLE/ENGAGEE), pas d'une date fixe.
     )
 
-    # Placement fermé (toggle off OU après la date-limite, 1er août 2026) →
-    # le versement reste en épargne LIBRE : aucune tranche créée.
-    from apps_coop.savings.placement import placement_open
+    # Placement fermé (toggle off, après la date-limite globale, OU membre
+    # hors de sa fenêtre des N premiers mois d'ancienneté) → le versement reste
+    # en épargne LIBRE : aucune tranche créée.
+    from apps_coop.savings.placement import placement_open_for_member
 
     tranche_id: int | None = None
-    if payment.is_placement and placement_open():
+    if payment.is_placement and placement_open_for_member(payment.member):
         consent, _ = LenderConsent.objects.get_or_create(
             member=payment.member,
             defaults={

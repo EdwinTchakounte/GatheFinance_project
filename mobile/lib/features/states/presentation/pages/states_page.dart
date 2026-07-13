@@ -18,6 +18,7 @@ import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../auth/domain/entities/member.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
+import '../../../receipts/presentation/pages/receipts_page.dart';
 import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
 import '../../../savings/domain/entities/withdrawal_request.dart';
@@ -257,6 +258,22 @@ class StatesPage extends ConsumerWidget {
                           collecte.valueOrNull?.solde ?? 0,
                           l,
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Reçu par versement : chaque paiement peut générer sa
+                      // mini-facture GATHE (PDF) téléchargeable.
+                      PaButton(
+                        label: 'Mes reçus de versement',
+                        icon: Icons.receipt_long_outlined,
+                        variant: PaButtonVariant.outline,
+                        onPressed: () {
+                          unawaited(HapticFeedback.lightImpact());
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ReceiptsPage(),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

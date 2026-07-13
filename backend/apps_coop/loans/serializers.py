@@ -10,8 +10,13 @@ from rest_framework import serializers
 from .models import Loan, LoanInstallment, LoanRequest
 
 
-# Configurable later via AppSetting — kept tight for the MVP.
-MIN_DUREE_MOIS = 3
+# Aucun plancher réglementaire sur la durée : un crédit remboursé plus vite est
+# autorisé. La SEULE contrainte « max selon le montant » (paliers Art. 7) est
+# appliquée à l'APPROBATION — ``services.approuver_demande`` recalcule la durée
+# via ``duration_months_for(montant)`` et l'écrase sur le Loan. Au submit on
+# garde donc juste un plancher technique de 1 mois (durée nulle interdite) et un
+# plafond de sécurité large.
+MIN_DUREE_MOIS = 1
 MAX_DUREE_MOIS = 36
 MIN_MONTANT_XAF = 5000
 
@@ -217,6 +222,25 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "disbursed": already_disbursed,
             "disbursement_pending": disbursement_pending,
         }
+
+
+class AdminLoanRequestReadSerializer(LoanRequestReadSerializer):
+    """Variante ADMIN — expose en plus les champs de la visite terrain.
+
+    ``field_visit_note`` est le compte-rendu INTERNE de l'agent (observations
+    candides sur le demandeur / son activité). Il ne doit JAMAIS transiter par
+    un endpoint membre : on le réserve à cette sous-classe, utilisée uniquement
+    par les vues staff/comité. ``field_visit_outcome`` débloque le bouton
+    « Décision définitive » côté dashboard.
+    """
+
+    class Meta(LoanRequestReadSerializer.Meta):
+        fields = LoanRequestReadSerializer.Meta.fields + (
+            "field_visit_done_at",
+            "field_visit_outcome",
+            "field_visit_note",
+        )
+        read_only_fields = fields
 
 
 class LoanInstallmentReadSerializer(serializers.ModelSerializer):

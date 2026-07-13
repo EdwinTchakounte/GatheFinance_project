@@ -153,6 +153,26 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   // Étape 0 (épargne classique) . CH-3 : choix Libre vs Placement
   // ───────────────────────────────────────────────────────────────────────
   Widget _kindChoiceStep() {
+    // Fenêtre placement PAR MEMBRE : le placement n'est ouvert que pendant les
+    // N premiers mois d'ancienneté. Le backend expose `placementOpen` sur le
+    // compte épargne classique. `null` (donnée absente) → on laisse ouvert
+    // (comportement historique ; le backend reste autoritaire au dépôt).
+    final account = ref.watch(classicSavingsProvider).valueOrNull;
+    final placementAllowed = account?.placementOpen ?? true;
+    final windowMonths = account?.placementEligibilityMonths;
+
+    // Si le placement n'est plus permis mais qu'il était sélectionné, on
+    // retombe sur « Libre » (setState hors build via post-frame).
+    if (!placementAllowed && _isPlacement) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isPlacement) setState(() => _isPlacement = false);
+      });
+    }
+
+    final windowLabel = windowMonths != null
+        ? '$windowMonths premiers mois'
+        : 'premiers mois';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 26),
       child: SingleChildScrollView(
@@ -182,10 +202,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               accent: PaColors.teal,
               accentSurface: PaColors.tealSurface,
               title: 'Placement',
-              subtitle:
-                  'Bloqué 12 mois, rapporte un intérêt versé à maturité. Idéal si vous n\'avez pas besoin de la somme tout de suite.',
-              pill: '+ Intérêt à 12 mois',
-              selected: _isPlacement,
+              subtitle: placementAllowed
+                  ? 'Bloqué 12 mois, rapporte un intérêt versé à maturité. Idéal si vous n\'avez pas besoin de la somme tout de suite.'
+                  : 'Réservé aux $windowLabel suivant l\'adhésion. Cette fenêtre est terminée pour votre compte.',
+              pill: placementAllowed
+                  ? '+ Intérêt à 12 mois'
+                  : 'Fenêtre terminée',
+              selected: _isPlacement && placementAllowed,
+              disabled: !placementAllowed,
               onTap: () => setState(() => _isPlacement = true),
             ),
             const SizedBox(height: 10),
@@ -197,15 +221,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               subtitle:
                   'Retrait possible à tout moment. Pas d\'intérêt versé sur ce dépôt.',
               pill: 'Retrait libre',
-              selected: !_isPlacement,
+              selected: !_isPlacement || !placementAllowed,
               onTap: () => setState(() => _isPlacement = false),
             ),
 
             const SizedBox(height: 16),
             _InfoStrip(
-              text: _isPlacement
-                  ? 'Un placement crée une tranche bloquée pendant 12 mois. À maturité, vous récupérez le capital + l\'intérêt sur votre solde épargne.'
-                  : 'Un dépôt libre est crédité sur votre solde épargne classique et reste à votre disposition.',
+              text: !placementAllowed
+                  ? 'Le placement n\'est ouvert que pendant les $windowLabel suivant l\'adhésion. Votre dépôt sera versé en épargne libre.'
+                  : _isPlacement
+                      ? 'Un placement crée une tranche bloquée pendant 12 mois. À maturité, vous récupérez le capital + l\'intérêt sur votre solde épargne.'
+                      : 'Un dépôt libre est crédité sur votre solde épargne classique et reste à votre disposition.',
             ),
             const SizedBox(height: 22),
 
@@ -1147,6 +1173,7 @@ class _KindCard extends StatelessWidget {
     required this.pill,
     required this.selected,
     required this.onTap,
+    this.disabled = false,
   });
 
   final IconData icon;
@@ -1158,12 +1185,18 @@ class _KindCard extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// Option indisponible (ex. placement hors fenêtre d'éligibilité) : la carte
+  /// est grisée et non sélectionnable.
+  final bool disabled;
+
   @override
   Widget build(BuildContext context) {
-    return PaCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(14),
-      background: PaColors.cardBg,
+    return Opacity(
+      opacity: disabled ? 0.5 : 1,
+      child: PaCard(
+        onTap: disabled ? null : onTap,
+        padding: const EdgeInsets.all(14),
+        background: PaColors.cardBg,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1234,6 +1267,7 @@ class _KindCard extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }

@@ -9,6 +9,7 @@ import {
   ArrowUp,
   CheckCircle2,
   Lock,
+  Pencil,
   Plus,
   Save,
   Trash2,
@@ -69,6 +70,7 @@ export default function FormSchemaEditorPage({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [editingField, setEditingField] = useState<{
     sectionIdx: number;
@@ -212,6 +214,23 @@ export default function FormSchemaEditorPage({
     }
   }
 
+  // La version active est gelée (versioning). Pour la modifier, on la duplique
+  // en brouillon éditable et on ouvre directement le nouvel éditeur — le flux
+  // « Dupliquer en brouillon » de la liste, rendu accessible en un clic ici.
+  async function onEditActive() {
+    if (!schema || duplicating) return;
+    setDuplicating(true);
+    setMessage(null);
+    try {
+      const draftSchema = await adminApi.forms.duplicate(schema.id);
+      router.push(`/forms/${draftSchema.id}`);
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setMessage({ tone: "err", text: apiErr.detail ?? "Duplication impossible." });
+      setDuplicating(false);
+    }
+  }
+
   if (loading) {
     return <main className="p-8 text-sm text-ink-500">Chargement…</main>;
   }
@@ -235,12 +254,25 @@ export default function FormSchemaEditorPage({
               {schema.kind_display} · v{schema.version}
             </h1>
             <p className="text-xs text-ink-500">
-              {readOnly ? "Version active (lecture seule)" : "Brouillon — éditable"}
+              {readOnly
+                ? "Version active (gelée) — clique « Modifier » pour créer un brouillon éditable"
+                : "Brouillon — éditable"}
               {schema.activated_at &&
                 ` · activé le ${new Date(schema.activated_at).toLocaleDateString("fr-FR")}`}
             </p>
           </div>
           <div className="flex gap-2">
+            {readOnly && (
+              <button
+                onClick={onEditActive}
+                disabled={duplicating}
+                className={buttonClasses({ variant: "primary", size: "sm" })}
+                title="Crée un brouillon éditable à partir de cette version active"
+              >
+                <Pencil className="mr-1 h-3.5 w-3.5" />
+                {duplicating ? "Duplication…" : "Modifier"}
+              </button>
+            )}
             {!readOnly && (
               <button
                 onClick={onSave}
