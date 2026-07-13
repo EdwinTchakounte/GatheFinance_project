@@ -7,6 +7,7 @@ import '../../../../core/di/providers.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_error_state.dart';
+import '../../../../core/widgets/paysika/pa_shimmer.dart';
 import '../../domain/entities/lender_payout.dart';
 
 /// CH-12 . Écran « Mes versements prêteur ».
@@ -29,7 +30,15 @@ class MyLenderPayoutsPage extends ConsumerWidget {
         scrolledUnderElevation: 0,
       ),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          children: const [
+            PaCard(
+              padding: EdgeInsets.all(16),
+              child: PaShimmerList(count: 4),
+            ),
+          ],
+        ),
         error: (err, _) => PaErrorState(
           message: 'Impossible de charger tes versements.',
           onRetry: () => ref.invalidate(myLenderPayoutsProvider),

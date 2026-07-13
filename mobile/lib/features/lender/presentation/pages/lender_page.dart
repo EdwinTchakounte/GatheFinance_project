@@ -9,6 +9,7 @@ import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
+import '../../../../core/widgets/paysika/pa_shimmer.dart';
 import '../../domain/entities/lender_state.dart';
 import '../state/lender_notifier.dart';
 import '../../../../core/error/error_message.dart';
@@ -47,8 +48,20 @@ class LenderPage extends ConsumerWidget {
             onRefresh: () => ref.read(lenderProvider.notifier).refresh(),
             child: state.when(
               data: (data) => _LenderBody(state: data),
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: PaColors.teal),
+              loading: () => ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                children: const [
+                  PaCard(
+                    padding: EdgeInsets.all(16),
+                    child: PaShimmerList(count: 2),
+                  ),
+                  SizedBox(height: 12),
+                  PaCard(
+                    padding: EdgeInsets.all(16),
+                    child: PaShimmerList(count: 3),
+                  ),
+                ],
               ),
               error: (e, _) => ListView(
                 physics: const AlwaysScrollableScrollPhysics(),

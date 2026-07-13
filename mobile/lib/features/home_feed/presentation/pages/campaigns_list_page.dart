@@ -150,6 +150,8 @@ class _CampaignRow extends StatelessWidget {
                   : CachedNetworkImage(
                       imageUrl: c.flyerUrl!,
                       fit: BoxFit.cover,
+                      // Card pleine largeur : décodage borné à ~2× l'écran.
+                      memCacheWidth: 720,
                       placeholder: (_, __) =>
                           _Placeholder(label: c.profilCible),
                       errorWidget: (_, __, ___) =>

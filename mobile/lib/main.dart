@@ -25,12 +25,8 @@ Future<void> _fcmBackgroundHandler(RemoteMessage message) async {
   }
 }
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // Préchargement des données de localisation FR pour intl.
-  await initializeDateFormatting('fr_FR');
-
-  // Firebase + notifications push (FCM). Best-effort : n'empêche jamais le boot.
+/// Firebase + listeners FCM. Best-effort : n'empêche jamais le boot.
+Future<void> _initFirebase() async {
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     FirebaseMessaging.onBackgroundMessage(_fcmBackgroundHandler);
@@ -49,6 +45,17 @@ Future<void> main() async {
   } catch (_) {
     // Firebase indisponible (build sans google-services / test) → push dormant.
   }
+}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Ces trois init sont indépendantes (I/O disque du client HTTP, données intl
+  // FR, Firebase) : on les lance EN PARALLÈLE au lieu de les enchaîner. Le
+  // time-to-first-frame devient la plus lente des trois, pas leur somme.
+  final apiClientF = ApiClient.create();
+  final dateFmtF = initializeDateFormatting('fr_FR');
+  final firebaseF = _initFirebase();
 
   // Status bar transparente — le thème prendra le relais ensuite.
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -73,9 +80,11 @@ Future<void> main() async {
     }
   }),);
 
-  // Initialise le client HTTP (cookies persistants). Toujours requis — les
-  // datasources mockées ont été supprimées en 2026-06 (chemins prod only).
-  final apiClient = await ApiClient.create();
+  // On attend les init requises avant la 1re frame : le client HTTP (cookies
+  // persistants, requis par toutes les datasources) et le formatage des dates
+  // FR. Firebase est best-effort mais bornée dans le même Future.wait.
+  await Future.wait([dateFmtF, firebaseF]);
+  final apiClient = await apiClientF;
 
   runApp(
     ProviderScope(

@@ -475,15 +475,20 @@ class _CommentBubble extends StatelessWidget {
                     ),
                     if (onDelete != null) ...[
                       const SizedBox(width: 4),
-                      InkResponse(
-                        onTap: onDelete,
-                        radius: 16,
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.more_horiz_rounded,
-                            size: 16,
-                            color: PaColors.inkMuted,
+                      // Icon-only → label a11y explicite + cible tactile élargie.
+                      Semantics(
+                        button: true,
+                        label: 'Options du commentaire',
+                        child: InkResponse(
+                          onTap: onDelete,
+                          radius: 22,
+                          child: const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: Icon(
+                              Icons.more_horiz_rounded,
+                              size: 18,
+                              color: PaColors.inkMuted,
+                            ),
                           ),
                         ),
                       ),

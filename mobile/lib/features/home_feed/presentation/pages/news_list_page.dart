@@ -141,6 +141,8 @@ class _ArticleRow extends StatelessWidget {
                   : CachedNetworkImage(
                       imageUrl: a.heroImageUrl!,
                       fit: BoxFit.cover,
+                      // Card pleine largeur : décodage borné à ~2× l'écran.
+                      memCacheWidth: 720,
                       placeholder: (_, __) => const _Placeholder(),
                       errorWidget: (_, __, ___) => const _Placeholder(),
                     ),
