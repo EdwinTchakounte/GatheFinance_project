@@ -191,7 +191,15 @@ def search_eligible_avalistes(request):
         return Response({"results": []})
 
     base = Member.objects.exclude(pk=me.pk).filter(statut=Member.Statut.ACTIF)
-    qs = base.filter(Q(numero_membre__icontains=q) | Q(nom__icontains=q))[:30]
+    # Recherche élargie : numéro, nom, PRÉNOM et TÉLÉPHONE. Avant on ne matchait
+    # que numéro/nom → taper un prénom ou un numéro de téléphone ne renvoyait
+    # rien, donnant l'impression que « la recherche ne marche pas ».
+    qs = base.filter(
+        Q(numero_membre__icontains=q)
+        | Q(nom__icontains=q)
+        | Q(prenom__icontains=q)
+        | Q(phone__icontains=q)
+    )[:30]
 
     # `is_senior` est un computed @property en Python — on filtre côté
     # appli plutôt qu'en SQL pour rester aligné sur le seuil configurable

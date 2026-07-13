@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/providers.dart';
+import '../../../../core/utils/pollable_notifier.dart';
 import '../../data/datasources/feed_dio_datasource.dart';
 import '../../domain/entities/feed_item.dart';
 
@@ -18,17 +19,26 @@ class FeedState {
     required this.campaigns,
     required this.campaignsHasNext,
     required this.campaignsLoading,
+    this.campaignsError = false,
     required this.articles,
     required this.articlesHasNext,
     required this.articlesLoading,
+    this.articlesError = false,
   });
 
   final List<CampaignFlyer> campaigns;
   final bool campaignsHasNext;
   final bool campaignsLoading;
+
+  /// Le dernier fetch des campagnes a échoué (réseau). Permet à l'UI de
+  /// distinguer « aucune campagne » d'un « chargement impossible » et
+  /// d'offrir un retry au lieu d'un empty state trompeur.
+  final bool campaignsError;
+
   final List<NewsArticle> articles;
   final bool articlesHasNext;
   final bool articlesLoading;
+  final bool articlesError;
 
   static const empty = FeedState(
     campaigns: [],
@@ -43,37 +53,48 @@ class FeedState {
     List<CampaignFlyer>? campaigns,
     bool? campaignsHasNext,
     bool? campaignsLoading,
+    bool? campaignsError,
     List<NewsArticle>? articles,
     bool? articlesHasNext,
     bool? articlesLoading,
+    bool? articlesError,
   }) {
     return FeedState(
       campaigns: campaigns ?? this.campaigns,
       campaignsHasNext: campaignsHasNext ?? this.campaignsHasNext,
       campaignsLoading: campaignsLoading ?? this.campaignsLoading,
+      campaignsError: campaignsError ?? this.campaignsError,
       articles: articles ?? this.articles,
       articlesHasNext: articlesHasNext ?? this.articlesHasNext,
       articlesLoading: articlesLoading ?? this.articlesLoading,
+      articlesError: articlesError ?? this.articlesError,
     );
   }
 }
 
-class HomeFeedNotifier extends AutoDisposeAsyncNotifier<FeedState> {
+class HomeFeedNotifier extends AutoDisposeAsyncNotifier<FeedState>
+    with PollableAutoDisposeAsyncNotifier<FeedState> {
   @override
   Future<FeedState> build() async {
     // Garde la donnée même si plus aucun widget watch . la Home dispose
     // souvent du Notifier en navigation latérale et le re-fetcherait
     // inutilement.
     ref.keepAlive();
-    return _loadInitial();
+    final initial = await _loadInitial();
+    seedPollHash(initial);
+    return initial;
   }
 
   Future<FeedState> _loadInitial() async {
     final ds = ref.read(feedDataSourceProvider);
     // Chargements parallèles avec catchError indépendant : si l'une
-    // plante, l'autre s'affiche quand même.
+    // plante, l'autre s'affiche quand même. On mémorise l'échec par flux pour
+    // que l'UI affiche un retry plutôt qu'un empty state trompeur.
+    var campErr = false;
+    var newsErr = false;
     final campF =
         ds.activeCampaigns(limit: _kPageSize, offset: 0).catchError((_) {
+      campErr = true;
       return const FeedPage<CampaignFlyer>(
         items: [],
         total: 0,
@@ -82,6 +103,7 @@ class HomeFeedNotifier extends AutoDisposeAsyncNotifier<FeedState> {
       );
     });
     final newsF = ds.latestArticles(limit: _kPageSize, offset: 0).catchError((_) {
+      newsErr = true;
       return const FeedPage<NewsArticle>(
         items: [],
         total: 0,
@@ -96,16 +118,15 @@ class HomeFeedNotifier extends AutoDisposeAsyncNotifier<FeedState> {
       campaigns: camp.items,
       campaignsHasNext: camp.hasNext,
       campaignsLoading: false,
+      campaignsError: campErr,
       articles: news.items,
       articlesHasNext: news.hasNext,
       articlesLoading: false,
+      articlesError: newsErr,
     );
   }
 
-  Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(_loadInitial);
-  }
+  Future<void> refresh() => silentRefresh(_loadInitial);
 
   /// Charge la page suivante de campagnes en cumul. Idempotent : ne fait
   /// rien si `campaignsLoading` ou `!campaignsHasNext`.

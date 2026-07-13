@@ -223,6 +223,11 @@ SavingsAccount _parseAccount(Map<String, dynamic> json) {
     montantGeleCredit: json.containsKey('montant_gele_credit')
         ? _num(json['montant_gele_credit'])
         : null,
+    // Fenêtre placement par membre (épargne classique) : présent uniquement sur
+    // le snapshot classique → null côté collecte (l'UI le traite comme ouvert).
+    placementOpen: json['placement_open'] as bool?,
+    placementEligibilityMonths:
+        (json['placement_eligibility_months'] as num?)?.toInt(),
     dateOuverture: _date(json['date_ouverture']),
     tauxInteret: _num(tauxRaw),
     transactions: txList

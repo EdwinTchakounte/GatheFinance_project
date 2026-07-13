@@ -1,26 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/providers.dart';
+import '../../../../core/utils/pollable_notifier.dart';
 import '../../domain/entities/avaliste_mandat.dart';
 import '../../domain/usecases/avaliste_usecases.dart';
 
-class AvalisteNotifier extends AutoDisposeAsyncNotifier<AvalisteMandatList> {
+class AvalisteNotifier extends AutoDisposeAsyncNotifier<AvalisteMandatList>
+    with PollableAutoDisposeAsyncNotifier<AvalisteMandatList> {
   late final ListAvalisteMandats _list =
       ref.read(listAvalisteMandatsUseCaseProvider);
   late final RespondAvalisteMandat _respond =
       ref.read(respondAvalisteMandatUseCaseProvider);
 
   @override
-  Future<AvalisteMandatList> build() {
-    return _list.call(const ListAvalisteParams());
+  Future<AvalisteMandatList> build() async {
+    final list = await _list.call(const ListAvalisteParams());
+    seedPollHash(list);
+    return list;
   }
 
-  Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => _list.call(const ListAvalisteParams()),
-    );
-  }
+  Future<void> refresh() =>
+      silentRefresh(() => _list.call(const ListAvalisteParams()));
 
   /// Répond à un mandat . émet un nouveau snapshot avec l'item à jour.
   /// Renvoie le mandat modifié ; remonte une [Exception] sur erreur (l'UI

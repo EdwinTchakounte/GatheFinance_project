@@ -312,6 +312,10 @@ class _CampaignCard extends StatelessWidget {
                     child: CachedNetworkImage(
                             imageUrl: c.flyerUrl ?? '',
                             fit: BoxFit.cover,
+                            // Décodage borné à ~2× la largeur d'affichage de la
+                            // card carousel : évite de garder l'image pleine
+                            // résolution en mémoire.
+                            memCacheWidth: 560,
                             fadeInDuration:
                                 const Duration(milliseconds: 200),
                             placeholder: (_, __) =>
@@ -498,6 +502,7 @@ class _ArticleCard extends StatelessWidget {
                 child: CachedNetworkImage(
                         imageUrl: a.heroImageUrl ?? '',
                         fit: BoxFit.cover,
+                        memCacheWidth: 560,
                         fadeInDuration: const Duration(milliseconds: 200),
                         placeholder: (_, __) => _PlaceholderArticle(title: a.title),
                         errorWidget: (_, __, ___) =>

@@ -77,6 +77,13 @@ function DepositForm() {
   const [placementMode, setPlacementMode] = useState<"libre" | "placement">(
     searchParams.get("mode") === "placement" ? "placement" : "libre",
   );
+  // Fenêtre placement PAR MEMBRE : le placement n'est ouvert que pendant les N
+  // premiers mois d'ancienneté. On lit `placement_open` sur le compte épargne
+  // classique ; false → on masque le choix « placement » (parité mobile).
+  const [placementAllowed, setPlacementAllowed] = useState(true);
+  const [placementWindowMonths, setPlacementWindowMonths] = useState<number | null>(
+    null,
+  );
   // LOT 6 — Multi-jours pré-payé sur la cotisation journalière (context savings).
   // 1 = mode normal (montant libre, min 100). > 1 = montant verrouille a
   // nbJours x kCollecteMinPerDay (1000 par defaut, ajustable backend).
@@ -144,6 +151,26 @@ function DepositForm() {
     }
   }, [isCreditFees, isLoanRepayment, loanId, isCarnetContext]);
 
+  // Fenêtre placement : lit `placement_open` sur le compte épargne classique.
+  useEffect(() => {
+    if (!isEpargneClassique) return;
+    let cancelled = false;
+    portalApi
+      .classicSavings()
+      .then((snap) => {
+        if (cancelled) return;
+        const allowed = snap.placement_open ?? true;
+        setPlacementAllowed(allowed);
+        setPlacementWindowMonths(snap.placement_eligibility_months ?? null);
+        // Retombe sur « libre » si le placement n'est plus permis.
+        if (!allowed) setPlacementMode("libre");
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isEpargneClassique]);
+
   // Auto-poll the payment status every 2 s while it's `en_attente`.
   useEffect(() => {
     if (!payment || payment.statut !== "en_attente") return;
@@ -209,7 +236,8 @@ function DepositForm() {
         // Réseau déduit du préfixe — plus de sélecteur manuel côté membre.
         network: inferNetwork(form.phone),
         loan_id: isLoanRepayment ? loanId : null,
-        is_placement: isEpargneClassique && placementMode === "placement",
+        is_placement:
+          isEpargneClassique && placementAllowed && placementMode === "placement",
         nb_jours_couverts: isMultiJour ? nbJours : undefined,
       });
       setPayment(result.payment);
@@ -392,23 +420,36 @@ function DepositForm() {
               </button>
               <button
                 type="button"
-                onClick={() => setPlacementMode("placement")}
+                disabled={!placementAllowed}
+                onClick={() => placementAllowed && setPlacementMode("placement")}
                 aria-pressed={placementMode === "placement"}
+                aria-disabled={!placementAllowed}
                 className={
                   "rounded-md border p-4 text-left transition-colors " +
-                  (placementMode === "placement"
-                    ? "border-emerald bg-emerald/10 ring-2 ring-emerald/20"
-                    : "border-line-200 bg-paper hover:border-line-400")
+                  (!placementAllowed
+                    ? "cursor-not-allowed border-line-200 bg-line-100 opacity-60"
+                    : placementMode === "placement"
+                      ? "border-emerald bg-emerald/10 ring-2 ring-emerald/20"
+                      : "border-line-200 bg-paper hover:border-line-400")
                 }
               >
                 <p className="text-sm font-semibold text-ink-900">Placement</p>
                 <p className="mt-1 text-xs text-ink-600">
-                  La coop peut financer un crédit avec ce dépôt. Tu touches une
-                  part des intérêts au remboursement.
+                  {placementAllowed
+                    ? "La coop peut financer un crédit avec ce dépôt. Tu touches une part des intérêts au remboursement."
+                    : `Réservé aux ${
+                        placementWindowMonths ?? ""
+                      } premiers mois suivant l'adhésion. Cette fenêtre est terminée pour ton compte.`}
                 </p>
               </button>
             </div>
-            {placementMode === "placement" ? (
+            {!placementAllowed ? (
+              <p className="mt-3 text-xs text-ink-500">
+                Le placement n&apos;est ouvert que pendant les{" "}
+                {placementWindowMonths ?? ""} premiers mois suivant
+                l&apos;adhésion. Ton dépôt sera versé en épargne libre.
+              </p>
+            ) : placementMode === "placement" ? (
               <p className="mt-3 text-xs text-ink-500">
                 Le dépôt sera bloqué tant qu&apos;il finance un crédit, puis
                 redeviendra retirable à la clôture du crédit. Le taux de
@@ -586,18 +627,29 @@ function DepositForm() {
               <strong>{Number(payment.montant).toLocaleString("fr-FR")} XAF</strong>{" "}
               a bien été crédité sur ton compte d'épargne.
             </p>
-            <button
-              onClick={() =>
-                router.push(isCreditContext ? "/credit" : "/")
-              }
-              className={buttonClasses({ variant: "success", size: "md" }) + " mt-6"}
-            >
-              {isLoanRepayment
-                ? "Voir mon crédit mis à jour"
-                : isCreditFees
-                  ? "Voir l'état de ma demande"
-                  : "Retour au tableau de bord"}
-            </button>
+            <div className="mt-6 flex flex-col items-center gap-3">
+              <button
+                onClick={() =>
+                  router.push(isCreditContext ? "/credit" : "/")
+                }
+                className={buttonClasses({ variant: "success", size: "md" })}
+              >
+                {isLoanRepayment
+                  ? "Voir mon crédit mis à jour"
+                  : isCreditFees
+                    ? "Voir l'état de ma demande"
+                    : "Retour au tableau de bord"}
+              </button>
+              {/* Reçu de versement (mini-facture PDF) — parité mobile. */}
+              <a
+                href={portalApi.payments.receiptUrl(payment.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:underline"
+              >
+                📄 Télécharger le reçu (PDF)
+              </a>
+            </div>
           </div>
         ) : null}
 

@@ -303,14 +303,22 @@ export default function EpargneIndexPage() {
             <h2 className="font-editorial text-xl font-medium text-ink-900">
               Opérations récentes
             </h2>
-            {recent.length > 0 ? (
+            <div className="flex items-center gap-4">
               <Link
-                href="/epargne/historique"
+                href="/paiements"
                 className="text-sm font-medium text-blue-700 hover:underline"
               >
-                Voir tout l'historique →
+                Mes reçus →
               </Link>
-            ) : null}
+              {recent.length > 0 ? (
+                <Link
+                  href="/epargne/historique"
+                  className="text-sm font-medium text-blue-700 hover:underline"
+                >
+                  Voir tout l'historique →
+                </Link>
+              ) : null}
+            </div>
           </div>
           {recent.length > 0 ? (
             <ul className="mt-5 divide-y divide-line-200 rounded-md border border-line-200 bg-paper">

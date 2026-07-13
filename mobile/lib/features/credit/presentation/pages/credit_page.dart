@@ -14,6 +14,7 @@ import '../../../../core/network/api_config.dart';
 import '../../../../core/services/transaction_fee_provider.dart';
 import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/payment_fee_breakdown.dart';
+import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
@@ -1162,33 +1163,10 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                 ),
               ],
               const SizedBox(height: 22),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: PaColors.navy,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white,),
-                        )
-                      : const Text(
-                          'Payer maintenant',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14.5,
-                          ),
-                        ),
-                ),
+              PaButton(
+                label: 'Payer maintenant',
+                onPressed: _submit,
+                loading: _loading,
               ),
             ],
           ),

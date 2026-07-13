@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../app/theme/paysika/pa_colors.dart';
 
@@ -104,7 +105,14 @@ class PaButton extends StatelessWidget {
         child: Ink(
           decoration: decoration,
           child: InkWell(
-            onTap: disabled ? null : onPressed,
+            // Retour tactile léger sur chaque action principale (un seul
+            // point d'entrée → toute l'app en bénéficie).
+            onTap: disabled
+                ? null
+                : () {
+                    HapticFeedback.lightImpact();
+                    onPressed!();
+                  },
             borderRadius: radius,
             child: Container(
               height: height,

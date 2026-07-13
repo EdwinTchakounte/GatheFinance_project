@@ -27,6 +27,17 @@ const TYPE_OPTIONS: { value: CashInType; label: string }[] = [
 ];
 
 
+// Frais FIXES : le montant est arrêté dans le catalogue (FeeType), l'admin ne
+// doit PAS pouvoir valider un montant différent. On mappe le type de versement
+// vers le code FeeType pour récupérer le tarif officiel et verrouiller le champ.
+const FIXED_FEE_CODE: Partial<Record<CashInType, string>> = {
+  frais_adhesion: "ADHESION",
+  frais_inscription: "INSCRIPTION",
+  frais_carnet: "CARNET",
+  frais_demande_credit: "DEMANDE_CREDIT",
+};
+
+
 // Optionnel : pre-remplir membre + type + montant a l'ouverture, pour les
 // flots ou le contexte est connu (ex: encaisser les frais d'etude d'une
 // demande precise depuis la page /loan-requests).
@@ -80,6 +91,13 @@ export function CashInModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Tarifs officiels des frais fixes (FeeType) → verrouillage du montant.
+  const [feeAmounts, setFeeAmounts] = useState<Record<string, number>>({});
+  const fixedFeeCode = FIXED_FEE_CODE[paymentType];
+  const officialAmount =
+    fixedFeeCode != null ? feeAmounts[fixedFeeCode] : undefined;
+  const montantLocked = officialAmount != null && officialAmount > 0;
+
   function reset() {
     setMemberQuery("");
     setMembers([]);
@@ -94,6 +112,37 @@ export function CashInModal({
     setIsRenewal(false);
     setError(null);
   }
+
+  // Charge les tarifs officiels des frais fixes à l'ouverture.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const cfg = await adminApi.costs.config();
+        if (cancelled) return;
+        const map: Record<string, number> = {};
+        for (const fee of cfg.fees) {
+          if (fee.actif) map[fee.code] = Number(fee.montant);
+        }
+        setFeeAmounts(map);
+      } catch {
+        // Pas bloquant : sans tarif, le champ reste éditable (fallback backend).
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  // Verrouille le montant au tarif officiel dès qu'un frais fixe est
+  // sélectionné (et que son tarif est connu). Empêche toute validation avec un
+  // montant différent — barrière serveur en plus dans admin_cash_in_payment.
+  useEffect(() => {
+    if (montantLocked && officialAmount != null) {
+      setMontant(String(officialAmount));
+    }
+  }, [montantLocked, officialAmount, paymentType]);
 
   useEffect(() => {
     if (!open) {
@@ -310,7 +359,14 @@ export function CashInModal({
         </ModalField>
 
         {/* Montant */}
-        <ModalField label="Montant (XAF)">
+        <ModalField
+          label="Montant (XAF)"
+          hint={
+            montantLocked
+              ? "Montant fixe pour ce type de frais — non modifiable."
+              : undefined
+          }
+        >
           <input
             type="number"
             min="1"
@@ -318,7 +374,13 @@ export function CashInModal({
             value={montant}
             onChange={(e) => setMontant(e.target.value)}
             placeholder="0"
-            className={modalInputClass}
+            readOnly={montantLocked}
+            aria-readonly={montantLocked}
+            className={
+              montantLocked
+                ? `${modalInputClass} cursor-not-allowed bg-line-100 text-ink-500`
+                : modalInputClass
+            }
           />
         </ModalField>
 

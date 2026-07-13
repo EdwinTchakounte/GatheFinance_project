@@ -251,6 +251,29 @@ def init_payment(request):
         data["type"] == Payment.Type.EPARGNE_CLASSIQUE
     )
 
+    # Fenêtre placement PAR MEMBRE : le placement n'est ouvert que pendant les
+    # N premiers mois d'ancienneté (défaut 6). Au-delà (ou après fermeture
+    # globale), on refuse explicitement — le client masque déjà l'option, ceci
+    # est la barrière serveur. Le membre peut toujours verser en LIBRE.
+    if is_placement:
+        from apps_coop.savings.placement import (
+            placement_eligibility_months,
+            placement_open_for_member,
+        )
+
+        if not placement_open_for_member(request.user.member):
+            months = placement_eligibility_months()
+            return Response(
+                {
+                    "detail": (
+                        f"Le placement n'est ouvert que pendant les {months} "
+                        f"premiers mois suivant l'adhésion. Ton épargne peut "
+                        f"toujours être versée en LIBRE."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
     # O4 . Anti double-tap . si l'utilisateur tape 'Payer' 2 fois en moins
     # de N secondes (defaut 30s, tunable payments.init.dedup_window_seconds),
     # on reutilise le Payment EN_ATTENTE existant pour ne pas declencher 2
@@ -428,6 +451,43 @@ def payment_detail(request, pk: int):
     except Payment.DoesNotExist:
         return Response({"detail": "Paiement introuvable."}, status=status.HTTP_404_NOT_FOUND)
     return Response(PaymentReadSerializer(payment).data)
+
+
+@extend_schema(
+    tags=["payments"],
+    summary="Reçu de versement (PDF)",
+    description=(
+        "Reçu / mini-facture PDF d'un versement du membre connecté. Contient les "
+        "variables importantes selon l'action (montant, frais, taux applicable, "
+        "dates, référence, statut). Réservé au propriétaire du paiement."
+    ),
+    responses={
+        200: OpenApiResponse(description="PDF binaire (application/pdf)"),
+        404: OpenApiResponse(description="Pas le paiement du membre"),
+    },
+)
+@api_view(["GET"])
+@permission_classes([IsMember])
+def payment_receipt(request, pk: int):
+    """Télécharge le reçu PDF d'un paiement appartenant au membre connecté."""
+    from django.http import HttpResponse
+
+    from .receipt_pdf import build_payment_receipt
+
+    try:
+        payment = Payment.objects.select_related("member").get(
+            pk=pk, member=request.user.member
+        )
+    except Payment.DoesNotExist:
+        return Response(
+            {"detail": "Paiement introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    pdf_bytes = build_payment_receipt(payment)
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    filename = f"recu-gathe-{payment.member.numero_membre}-{payment.id}.pdf"
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -982,6 +1042,36 @@ def admin_cash_in_payment(request):
             {"detail": "Le montant doit etre strictement positif."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+    # 2bis. Frais FIXES pilotés par l'admin (carnet, adhésion, inscription,
+    # reconduction) : le montant est arrêté dans le catalogue FeeType, jamais
+    # librement saisi. On REFUSE toute validation manuelle avec un montant
+    # différent du tarif officiel (le front verrouille déjà le champ ; ceci est
+    # la barrière serveur). Même logique que `init_payment` pour les frais.
+    _FIXED_FEE_CODE = {
+        Payment.Type.FRAIS_CARNET: FeeType.Code.CARNET,
+        Payment.Type.FRAIS_ADHESION: FeeType.Code.ADHESION,
+        Payment.Type.FRAIS_INSCRIPTION: FeeType.Code.INSCRIPTION,
+        Payment.Type.FRAIS_RECONDUCTION: FeeType.Code.RECONDUCTION,
+    }
+    fee_code = _FIXED_FEE_CODE.get(payment_type)
+    if fee_code is not None:
+        official = (
+            FeeType.objects.filter(code=fee_code, actif=True)
+            .values_list("montant", flat=True)
+            .first()
+        )
+        if official is not None and official > 0 and montant != official:
+            return Response(
+                {
+                    "detail": (
+                        f"Montant fixe pour ces frais : {int(official)} FCFA. "
+                        f"La validation avec un montant différent ({int(montant)} "
+                        f"FCFA) n'est pas autorisée."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     # 3. Resolve member.
     try:

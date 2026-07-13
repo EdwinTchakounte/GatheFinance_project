@@ -93,25 +93,33 @@ class ClassicSavingsAccountReadSerializer(serializers.ModelSerializer):
     # (= solde − max(placement, gel garantie)).
     montant_gele_credit = serializers.SerializerMethodField()
     solde_disponible_retrait = serializers.SerializerMethodField()
-    # True tant que le placement est ouvert (avant la date-limite du 1er août
-    # 2026 + toggle global). Les clients masquent le choix « placement » quand
-    # false → tout versement va en épargne libre.
+    # True tant que CE membre peut placer : verrou global (date-limite + toggle)
+    # ET fenêtre par membre (N premiers mois d'ancienneté, défaut 6). Les clients
+    # masquent le choix « placement » quand false → tout versement va en LIBRE.
     placement_open = serializers.SerializerMethodField()
+    # Nombre de mois de la fenêtre d'éligibilité (pour l'affichage côté client :
+    # « placement ouvert les 6 premiers mois »).
+    placement_eligibility_months = serializers.SerializerMethodField()
 
     class Meta:
         model = ClassicSavingsAccount
         fields = (
             "id", "solde", "solde_libre", "solde_placement_actif",
             "montant_gele_credit", "solde_disponible_retrait",
-            "placement_open",
+            "placement_open", "placement_eligibility_months",
             "date_ouverture", "config", "transactions_recentes",
         )
         read_only_fields = fields
 
     def get_placement_open(self, obj) -> bool:
-        from .placement import placement_open
+        from .placement import placement_open_for_member
 
-        return placement_open()
+        return placement_open_for_member(obj.member)
+
+    def get_placement_eligibility_months(self, obj) -> int:
+        from .placement import placement_eligibility_months
+
+        return placement_eligibility_months()
 
     def get_montant_gele_credit(self, obj: ClassicSavingsAccount):
         from apps_coop.loans.avaliste_services import member_frozen_guarantee

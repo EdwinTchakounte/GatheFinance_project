@@ -222,6 +222,12 @@ export type ClassicSavingsSnapshot = {
   // ou auto-garantie) et solde réellement retirable une fois ce gel déduit.
   montant_gele_credit: string;
   solde_disponible_retrait: string;
+  // Fenêtre placement PAR MEMBRE : true tant que ce membre peut encore verser
+  // en placement (verrou global + N premiers mois d'ancienneté). Quand false, le
+  // portail masque le choix « placement ». `placement_eligibility_months` = la
+  // durée de la fenêtre (mois) pour l'affichage.
+  placement_open?: boolean;
+  placement_eligibility_months?: number;
   date_ouverture: string;
   config: {
     taux_interet_annuel?: string;
@@ -795,6 +801,9 @@ export const portalApi = {
         body: JSON.stringify(data),
       }),
     detail: (id: number) => request<PaymentRead>(`/payments/${id}/`),
+    /** URL du reçu de versement (mini-facture PDF) — ouverte dans un onglet.
+     *  Le PDF est servi inline par le backend (cookies de session inclus). */
+    receiptUrl: (id: number) => `${API_BASE}/payments/${id}/receipt/`,
     /** Historique des paiements du membre courant — utilisé notamment par
      *  l'écran d'activation pour identifier quels frais sont déjà réglés. */
     me: (type?: string) =>
