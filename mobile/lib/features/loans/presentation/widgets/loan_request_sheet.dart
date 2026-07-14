@@ -1770,12 +1770,10 @@ class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
                 // cautions engagées. Si 0, on désactive le tap : ce membre
                 // est plein, désigner serait refusé par le backend.
                 final saturated = c.capaciteCaution <= 0;
-                final capacityLabel = c.soldeTotal > 0
-                    ? AppL10n.of(context).lreq_avaliste_capacity(
-                        XAFFormatter.formatCompact(c.capaciteCaution),
-                        c.numeroMembre,
-                      )
-                    : c.numeroMembre;
+                final capacityLabel = AppL10n.of(context).lreq_avaliste_capacity(
+                  XAFFormatter.formatCompact(c.capaciteCaution),
+                  c.numeroMembre,
+                );
                 return ListTile(
                   dense: true,
                   enabled: !saturated,
@@ -1798,9 +1796,7 @@ class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
                   ),
                   subtitle: Text(
                     saturated
-                        ? AppL10n.of(context).lreq_avaliste_saturated(
-                            XAFFormatter.formatCompact(c.cautionsEngagees),
-                          )
+                        ? 'Capacité de garantie épuisée'
                         : capacityLabel,
                     style: TextStyle(
                       color: saturated

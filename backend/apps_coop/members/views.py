@@ -216,16 +216,18 @@ def search_eligible_avalistes(request):
         if not m.is_senior:
             continue
         try:
-            solde, engaged, capacity = member_caution_capacity(m)
+            _solde, _engaged, capacity = member_caution_capacity(m)
         except Exception:  # noqa: BLE001 — best-effort, never block typeahead
-            solde = engaged = capacity = 0
+            capacity = 0
+        # SÉCURITÉ : on n'expose QUE la capacité de caution restante (le
+        # minimum fonctionnel pour choisir un garant viable). Le solde total et
+        # les cautions déjà engagées d'un AUTRE membre ne sont pas divulgués au
+        # demandeur (sur-divulgation financière retirée).
         results.append({
             "numero_membre": m.numero_membre,
             "nom": m.nom,
             "prenom": m.prenom,
             "is_senior": True,
-            "solde_total": str(solde),
-            "cautions_engagees": str(engaged),
             "capacite_caution": str(capacity),
         })
         if len(results) >= 10:

@@ -104,8 +104,6 @@ AvalisteCandidate _parseCandidate(Map<String, dynamic> json) {
     nom: (json['nom'] as String?) ?? '',
     prenom: (json['prenom'] as String?) ?? '',
     isSenior: (json['is_senior'] as bool?) ?? true,
-    soldeTotal: num.tryParse('${json['solde_total']}') ?? 0,
-    cautionsEngagees: num.tryParse('${json['cautions_engagees']}') ?? 0,
     capaciteCaution: num.tryParse('${json['capacite_caution']}') ?? 0,
   );
 }

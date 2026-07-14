@@ -24,8 +24,6 @@ type AvalisteCandidate = {
   nom: string;
   prenom: string;
   is_senior: boolean;
-  solde_total: string;
-  cautions_engagees: string;
   capacite_caution: string;
 };
 
@@ -866,12 +864,11 @@ export default function PortalLoanRequestPage() {
                     {avalisteSelected.numero_membre}
                   </p>
                   <p className="mt-1 text-[11px] text-ink-600">
-                    Capacite restante :{" "}
+                    Capacité de garantie restante :{" "}
                     <strong>
                       {Number(avalisteSelected.capacite_caution).toLocaleString("fr-FR")} XAF
-                    </strong>{" "}
-                    (solde {Number(avalisteSelected.solde_total).toLocaleString("fr-FR")} XAF
-                    − cautions {Number(avalisteSelected.cautions_engagees).toLocaleString("fr-FR")} XAF).
+                    </strong>
+                    .
                   </p>
                   <button
                     type="button"

@@ -706,8 +706,6 @@ export const portalApi = {
           nom: string;
           prenom: string;
           is_senior: boolean;
-          solde_total: string;
-          cautions_engagees: string;
           capacite_caution: string;
         }>;
       }>(`/members/search-avaliste/?q=${encodeURIComponent(q)}`),
