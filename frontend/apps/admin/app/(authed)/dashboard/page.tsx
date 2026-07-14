@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Skeleton, SkeletonCard } from "@gathe/ui";
 import {
   ArrowUpRight,
   Wallet,
@@ -52,7 +53,14 @@ function DashboardContent() {
 
   if (loading || !kpis) {
     return (
-      <div className="px-8 py-12 text-ink-600">Chargement des KPIs…</div>
+      <div className="p-8">
+        <Skeleton className="mb-6 h-8 w-52" />
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <SkeletonCard key={i} className="h-28" />
+          ))}
+        </div>
+      </div>
     );
   }
 

@@ -127,6 +127,14 @@ class CreditPage extends ConsumerWidget {
                     skipLoadingOnReload: true,
                     data: (loans) {
                       if (loans.isEmpty) {
+                        // Ne PAS afficher « pas encore de crédit » si le membre
+                        // a une demande en cours : elle est déjà rendue dans la
+                        // section « Demandes en cours » juste en dessous, donc
+                        // la carte vide serait contradictoire. On ne la montre
+                        // que s'il n'a NI crédit actif NI demande.
+                        if (requests.isNotEmpty) {
+                          return const SizedBox.shrink();
+                        }
                         return const _EmptyState();
                       }
                       return Column(

@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Container, buttonClasses } from "@gathe/ui";
+import { FileText } from "lucide-react";
+
+import { Container, buttonClasses, EmptyState, Skeleton, SkeletonList } from "@gathe/ui";
 
 import {
   portalApi,
@@ -132,7 +134,10 @@ export default function PortalCreditPage() {
   if (loading) {
     return (
       <main className="py-16">
-        <Container><p className="text-center text-ink-600">Chargement…</p></Container>
+        <Container className="max-w-4xl">
+          <Skeleton className="mb-8 h-9 w-48" />
+          <SkeletonList count={3} cardClassName="h-28" />
+        </Container>
       </main>
     );
   }
@@ -418,9 +423,12 @@ export default function PortalCreditPage() {
             Mes demandes de crédit
           </h2>
           {!requests || requests.length === 0 ? (
-            <p className="mt-5 rounded-md border border-dashed border-line-200 bg-paper/70 p-8 text-center text-sm text-ink-600">
-              Aucune demande pour le moment.
-            </p>
+            <EmptyState
+              icon={FileText}
+              title="Aucune demande de crédit"
+              message="Tes demandes de crédit apparaîtront ici une fois soumises."
+              className="mt-5"
+            />
           ) : (
             <ul className="mt-5 divide-y divide-line-200 rounded-md border border-line-200 bg-paper">
               {requests.map((r) => (

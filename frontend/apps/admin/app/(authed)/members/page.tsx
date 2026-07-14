@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { SkeletonList } from "@gathe/ui";
 import { Mail, Phone, Search } from "lucide-react";
 
 import { ColumnsMenu } from "@/components/columns-menu";
@@ -492,7 +493,7 @@ function Inner() {
       ) : null}
 
       {loading ? (
-        <p className="text-ink-600">Chargement…</p>
+        <SkeletonList count={6} cardClassName="h-14" />
       ) : items.length === 0 ? (
         <p className="rounded-md border border-dashed border-line-200 bg-paper/70 p-12 text-center text-sm text-ink-600">
           Aucun membre ne correspond à ces filtres.

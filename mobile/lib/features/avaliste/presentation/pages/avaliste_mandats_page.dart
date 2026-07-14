@@ -13,6 +13,7 @@ import '../widgets/accept_cni_sheet.dart';
 import '../widgets/mandat_card.dart';
 import '../widgets/refuse_motif_sheet.dart';
 import '../../../../core/error/error_message.dart';
+import '../../../../core/widgets/paysika/pa_empty_state.dart';
 
 /// Page **Mes mandats d'avaliste** . l'utilisateur consulte les demandes
 /// de crédit où il est désigné comme garant, et accepte / refuse.
@@ -154,23 +155,12 @@ class _Content extends StatelessWidget {
       return ListView(
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
         children: [
-          const SizedBox(height: 80),
-          Icon(
-            Icons.handshake_outlined,
-            size: 64,
-            color: PaColors.teal.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Aucun mandat pour l\'instant',
-            textAlign: TextAlign.center,
-            style: PaText.heading(size: 18),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Quand un membre te désigne comme garant, tu le verras ici.',
-            textAlign: TextAlign.center,
-            style: PaText.body().copyWith(color: PaColors.inkSecondary),
+          const SizedBox(height: 70),
+          const PaEmptyState(
+            icon: Icons.handshake_outlined,
+            title: 'Aucun mandat pour l\'instant',
+            message:
+                'Quand un membre te désigne comme garant, tu le verras ici.',
           ),
         ],
       );

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_empty_state.dart';
 import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../domain/entities/feed_item.dart';
@@ -130,44 +131,53 @@ class _ArticleRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Visuel : image + dégradé + pastille date ───────────────────
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(20),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             child: AspectRatio(
               aspectRatio: 16 / 9,
-              child: a.heroImageUrl == null
-                  ? const _Placeholder()
-                  : CachedNetworkImage(
-                      imageUrl: a.heroImageUrl!,
-                      fit: BoxFit.cover,
-                      // Card pleine largeur : décodage borné à ~2× l'écran.
-                      memCacheWidth: 720,
-                      placeholder: (_, __) => const _Placeholder(),
-                      errorWidget: (_, __, ___) => const _Placeholder(),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  a.heroImageUrl == null
+                      ? const _Placeholder()
+                      : CachedNetworkImage(
+                          imageUrl: a.heroImageUrl!,
+                          fit: BoxFit.cover,
+                          memCacheWidth: 720,
+                          placeholder: (_, __) => const _Placeholder(),
+                          errorWidget: (_, __, ___) => const _Placeholder(),
+                        ),
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _Scrim(),
+                  ),
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: _Pill(
+                      text: dt.format(a.publishedAt).toUpperCase(),
+                      bg: Colors.white.withValues(alpha: 0.92),
+                      fg: PaColors.warning,
+                      icon: Icons.event_note_rounded,
                     ),
+                  ),
+                ],
+              ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  dt.format(a.publishedAt).toUpperCase(),
-                  style: const TextStyle(
-                    color: PaColors.warning,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
                   a.title,
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 16,
+                    fontSize: 16.5,
                     fontWeight: FontWeight.w700,
                     height: 1.3,
                   ),
@@ -185,7 +195,79 @@ class _ArticleRow extends StatelessWidget {
                     ),
                   ),
                 ],
+                const SizedBox(height: 12),
+                const Row(
+                  children: [
+                    Text(
+                      'Lire l\'article',
+                      style: TextStyle(
+                        color: PaColors.warning,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(width: 3),
+                    Icon(Icons.arrow_forward_rounded,
+                        size: 17, color: PaColors.warning,),
+                  ],
+                ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dégradé bas d'une image de carte (profondeur + lisibilité des pastilles).
+class _Scrim extends StatelessWidget {
+  const _Scrim();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 64,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.28)],
+        ),
+      ),
+    );
+  }
+}
+
+/// Pastille flottante posée sur l'image d'une carte.
+class _Pill extends StatelessWidget {
+  const _Pill({required this.text, required this.bg, required this.fg, this.icon});
+  final String text;
+  final Color bg;
+  final Color fg;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: fg),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            text,
+            style: TextStyle(
+              color: fg,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -225,18 +307,12 @@ class _Empty extends StatelessWidget {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: const [
-        SizedBox(height: 80),
-        Icon(Icons.article_outlined, color: PaColors.inkMuted, size: 56),
-        SizedBox(height: 16),
-        Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              'Aucune actualité pour le moment.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: PaColors.inkMuted, fontSize: 13),
-            ),
-          ),
+        SizedBox(height: 70),
+        PaEmptyState(
+          icon: Icons.article_outlined,
+          tint: PaColors.warning,
+          title: 'Aucune actualité pour le moment',
+          message: 'Reviens plus tard, ou tire vers le bas pour rafraîchir.',
         ),
       ],
     );

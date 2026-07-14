@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { SkeletonList } from "@gathe/ui";
 import { Search, Plus } from "lucide-react";
 
 import { CashInModal } from "@/components/cash-in-modal";
@@ -299,7 +300,7 @@ function Inner() {
       ) : null}
 
       {loading ? (
-        <p className="text-ink-600">Chargement…</p>
+        <SkeletonList count={6} cardClassName="h-14" />
       ) : (
         <DataTable
           columns={columns}

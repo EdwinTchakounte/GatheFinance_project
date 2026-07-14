@@ -18,6 +18,8 @@ import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../auth/domain/entities/member.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
+import '../../../lender/domain/entities/lender_state.dart';
+import '../../../lender/presentation/state/lender_notifier.dart';
 import '../../../receipts/presentation/pages/receipts_page.dart';
 import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
@@ -178,6 +180,20 @@ class StatesPage extends ConsumerWidget {
                           lines: [
                             (l.states_balance_today,
                                 XAFFormatter.format(d.solde)),
+                            // Détail épargne classique : part placée (bloquée /
+                            // finance des crédits) vs part libre vs gel garantie
+                            // vs réellement retirable.
+                            if (d.soldePlacementActif != null)
+                              ('En placement',
+                                  XAFFormatter.format(d.soldePlacementActif!)),
+                            if (d.soldeLibre != null)
+                              ('Libre', XAFFormatter.format(d.soldeLibre!)),
+                            if ((d.montantGeleCredit ?? 0) > 0)
+                              ('Gelé en garantie',
+                                  XAFFormatter.format(d.montantGeleCredit!)),
+                            if (d.soldeDisponibleRetrait != null)
+                              ('Disponible au retrait',
+                                  XAFFormatter.format(d.soldeRetirable)),
                             (
                               l.states_interest_rate,
                               '${(d.tauxInteret * 100).toStringAsFixed(2).replaceAll('.', ',')} %'
@@ -198,6 +214,8 @@ class StatesPage extends ConsumerWidget {
                               ref.read(classicSavingsProvider.notifier).refresh(),
                         ),
                       ),
+                      // Tranches de placement engagées pour financer des crédits.
+                      const _PlacementTranchesSection(),
                       const SizedBox(height: 22),
                       PaCard(
                         padding: EdgeInsets.zero,
@@ -566,6 +584,131 @@ class _KpiSkeleton extends StatelessWidget {
   }
 }
 
+
+/// Section « Mes tranches de placement » — montre les tranches d'épargne
+/// placée du membre et lesquelles financent actuellement un crédit (statut
+/// `engagee`). Auto-cachée si le membre n'a aucune tranche (pas de placement).
+/// Watch interne de [lenderProvider] pour ne pas élargir le build de la page.
+class _PlacementTranchesSection extends ConsumerWidget {
+  const _PlacementTranchesSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lender = ref.watch(lenderProvider);
+    final tranches = lender.valueOrNull?.tranches ?? const <LenderTranche>[];
+    // Rien à montrer si le membre n'a jamais placé.
+    if (tranches.isEmpty) return const SizedBox.shrink();
+
+    // Tri : engagées d'abord (celles qui financent un crédit), puis dispo.
+    final sorted = [...tranches]..sort((a, b) {
+        int rank(LenderTrancheStatut s) => switch (s) {
+              LenderTrancheStatut.engagee => 0,
+              LenderTrancheStatut.disponible => 1,
+              LenderTrancheStatut.liberee => 2,
+              LenderTrancheStatut.annulee => 3,
+            };
+        return rank(a.statut).compareTo(rank(b.statut));
+      });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 22),
+        Text('Mes tranches de placement', style: PaText.label(size: 15)),
+        const SizedBox(height: 4),
+        Text(
+          'Ton épargne placée finance des crédits. Tu es rémunéré sur les '
+          'tranches engagées ; les disponibles attendent d\'être allouées.',
+          style: PaText.body(size: 12.5, color: PaColors.inkMuted),
+        ),
+        const SizedBox(height: 12),
+        PaCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Column(
+            children: [
+              for (var i = 0; i < sorted.length; i++) ...[
+                _TrancheRow(tranche: sorted[i]),
+                if (i < sorted.length - 1)
+                  const Divider(height: 1, color: PaColors.line),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrancheRow extends StatelessWidget {
+  const _TrancheRow({required this.tranche});
+  final LenderTranche tranche;
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, label, sub) = switch (tranche.statut) {
+      LenderTrancheStatut.engagee => (
+          PaColors.teal,
+          'Engagée',
+          tranche.loanId != null
+              ? 'Finance le crédit #${tranche.loanId}'
+              : 'Finance un crédit',
+        ),
+      LenderTrancheStatut.disponible => (
+          PaColors.warning,
+          'Disponible',
+          'En attente d\'allocation',
+        ),
+      LenderTrancheStatut.liberee => (
+          PaColors.inkMuted,
+          'Libérée',
+          'Crédit clôturé — redevenue libre',
+        ),
+      LenderTrancheStatut.annulee => (
+          PaColors.inkMuted,
+          'Annulée',
+          'Tranche annulée',
+        ),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(XAFFormatter.format(tranche.montant),
+                    style: PaText.amount(size: 15),),
+                const SizedBox(height: 2),
+                Text(sub,
+                    style: PaText.body(size: 12, color: PaColors.inkMuted),),
+              ],
+            ),
+          ),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              label,
+              style: PaText.body(size: 11.5, color: color)
+                  .copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _DetailCard extends StatelessWidget {
   const _DetailCard({required this.lines});

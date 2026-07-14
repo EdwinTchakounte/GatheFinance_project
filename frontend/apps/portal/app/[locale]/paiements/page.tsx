@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Container } from "@gathe/ui";
+import { Receipt } from "lucide-react";
+
+import { Container, EmptyState, SkeletonList } from "@gathe/ui";
 
 import { portalApi, type ApiError, type PaymentRead } from "@/lib/api";
 
@@ -91,18 +93,17 @@ export default function ReceiptsPage() {
 
       <div className="py-6">
         {loading ? (
-          <p className="text-sm text-ink-500">Chargement…</p>
+          <SkeletonList count={5} cardClassName="h-16" />
         ) : error ? (
           <p className="rounded-md border border-rose-200 bg-rose-50/60 p-3 text-sm text-rose-700">
             {error}
           </p>
         ) : items.length === 0 ? (
-          <div className="rounded-md border border-line-200 bg-paper p-8 text-center">
-            <p className="text-sm text-ink-600">
-              Aucun versement pour l&apos;instant. Dès que tu effectues un
-              versement, tu pourras télécharger ici son reçu.
-            </p>
-          </div>
+          <EmptyState
+            icon={Receipt}
+            title="Aucun versement pour l'instant"
+            message="Dès que tu effectues un versement, tu pourras télécharger ici son reçu."
+          />
         ) : (
           <ul className="divide-y divide-line-200 rounded-md border border-line-200 bg-paper">
             {items.map((p) => {

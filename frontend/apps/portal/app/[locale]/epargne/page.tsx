@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Container, buttonClasses } from "@gathe/ui";
+import { Wallet } from "lucide-react";
+
+import { Container, buttonClasses, EmptyState, Skeleton, SkeletonList } from "@gathe/ui";
 
 import {
   portalApi,
@@ -102,9 +104,10 @@ export default function EpargneIndexPage() {
 
   if (loading) {
     return (
-      <main className="min-h-svh bg-cream py-20">
+      <main className="min-h-svh bg-cream py-16">
         <Container>
-          <p className="text-center text-ink-600">Chargement…</p>
+          <Skeleton className="mb-8 h-9 w-56" />
+          <SkeletonList count={4} cardClassName="h-24" />
         </Container>
       </main>
     );
@@ -365,10 +368,12 @@ export default function EpargneIndexPage() {
               })}
             </ul>
           ) : (
-            <p className="mt-5 rounded-md border border-dashed border-line-200 bg-paper/70 p-8 text-center text-sm text-ink-600">
-              Aucune opération pour le moment. Effectue ton premier versement
-              quand tu veux.
-            </p>
+            <EmptyState
+              icon={Wallet}
+              title="Aucune opération"
+              message="Effectue ton premier versement quand tu veux, il apparaîtra ici."
+              className="mt-5"
+            />
           )}
         </section>
       </Container>

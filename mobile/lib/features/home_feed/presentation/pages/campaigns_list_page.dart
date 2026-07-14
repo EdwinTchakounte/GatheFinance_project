@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_empty_state.dart';
 import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../domain/entities/feed_item.dart';
@@ -106,8 +107,11 @@ class _CampaignsListPageState extends ConsumerState<CampaignsListPage> {
                     }
                     return _CampaignRow(
                       c: campaigns[i],
-                      onTap: () => context.pop(campaigns[i].id),
-                      onOpenDetail: () => context.pushNamed(
+                      // Tap sur la carte → on ENTRE dans la campagne (détail +
+                      // commentaires + CTA « Postuler »). Le détail porte le
+                      // flow de demande de crédit pré-rempli sur la voie
+                      // campagne.
+                      onOpen: () => context.pushNamed(
                         'campaign-detail',
                         pathParameters: {'id': '${campaigns[i].id}'},
                         extra: campaigns[i],
@@ -122,168 +126,158 @@ class _CampaignsListPageState extends ConsumerState<CampaignsListPage> {
 }
 
 class _CampaignRow extends StatelessWidget {
-  const _CampaignRow({
-    required this.c,
-    required this.onTap,
-    required this.onOpenDetail,
-  });
+  const _CampaignRow({required this.c, required this.onOpen});
   final CampaignFlyer c;
-  final VoidCallback onTap;
-  final VoidCallback onOpenDetail;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
+    // Urgence : jours restants avant clôture (pastille sur l'image).
+    final daysLeft = c.dateFin.difference(DateTime.now()).inDays;
+    final urgent = daysLeft >= 0 && daysLeft <= 7;
+    final urgencyText = daysLeft < 0
+        ? 'Clôturée'
+        : daysLeft == 0
+            ? 'Dernier jour'
+            : daysLeft <= 7
+                ? 'Se termine dans ${daysLeft}j'
+                : 'Clôture ${_d(c.dateFin)}';
+
     return PaCard(
       padding: EdgeInsets.zero,
-      onTap: onTap,
+      onTap: onOpen,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Visuel : image + dégradé + pastilles flottantes ────────────
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(20),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             child: AspectRatio(
               aspectRatio: 16 / 9,
-              child: c.flyerUrl == null
-                  ? _Placeholder(label: c.profilCible)
-                  : CachedNetworkImage(
-                      imageUrl: c.flyerUrl!,
-                      fit: BoxFit.cover,
-                      // Card pleine largeur : décodage borné à ~2× l'écran.
-                      memCacheWidth: 720,
-                      placeholder: (_, __) =>
-                          _Placeholder(label: c.profilCible),
-                      errorWidget: (_, __, ___) =>
-                          _Placeholder(label: c.profilCible),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  c.flyerUrl == null
+                      ? _Placeholder(label: c.profilCible)
+                      : CachedNetworkImage(
+                          imageUrl: c.flyerUrl!,
+                          fit: BoxFit.cover,
+                          memCacheWidth: 720,
+                          placeholder: (_, __) =>
+                              _Placeholder(label: c.profilCible),
+                          errorWidget: (_, __, ___) =>
+                              _Placeholder(label: c.profilCible),
+                        ),
+                  // Dégradé bas → lisibilité + profondeur.
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _Scrim(),
+                  ),
+                  // Pastille profil cible (haut-gauche).
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: _Pill(
+                      text: c.profilCible.toUpperCase(),
+                      bg: Colors.white.withValues(alpha: 0.92),
+                      fg: PaColors.teal,
                     ),
+                  ),
+                  // Pastille urgence (haut-droite).
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: _Pill(
+                      text: urgencyText,
+                      bg: urgent
+                          ? PaColors.warning
+                          : Colors.black.withValues(alpha: 0.45),
+                      fg: Colors.white,
+                      icon: Icons.schedule_rounded,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: PaColors.tealSurface,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        c.profilCible.toUpperCase(),
-                        style: const TextStyle(
-                          color: PaColors.teal,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'Clôture ${_d(c.dateFin)}',
-                      style: const TextStyle(
-                        color: PaColors.inkMuted,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
                 Text(
                   c.nom,
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 16,
+                    fontSize: 16.5,
                     fontWeight: FontWeight.w700,
                     height: 1.25,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Icon(Icons.payments_outlined,
-                        size: 16, color: PaColors.teal,),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '${XAFFormatter.formatCompact(c.montantMin)}  →  ${XAFFormatter.formatCompact(c.montantMax)}',
-                        style: const TextStyle(
-                          color: PaColors.inkSecondary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${(c.tauxInteret * 100).toStringAsFixed(0)} %',
-                      style: const TextStyle(
-                        color: PaColors.teal,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    InkWell(
-                      onTap: onOpenDetail,
-                      borderRadius: BorderRadius.circular(8),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 2,
-                        ),
+                // Bloc chiffres : montant + taux, sur fond doux.
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: PaColors.tealSurface.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.payments_outlined,
+                          size: 17, color: PaColors.teal,),
+                      const SizedBox(width: 8),
+                      Expanded(
                         child: Text(
-                          'Détails & commentaires',
-                          style: TextStyle(
-                            color: PaColors.inkSecondary,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
+                          '${XAFFormatter.formatCompact(c.montantMin)}  →  ${XAFFormatter.formatCompact(c.montantMax)}',
+                          style: const TextStyle(
+                            color: PaColors.inkPrimary,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
-                    ),
-                    const Spacer(),
-                    // Le bouton "Postuler" ouvre le detail qui contient le
-                    // CTA fonctionnel (chronologie + documents requis + flow
-                    // demande de credit pre-rempli sur la voie campagne).
-                    InkWell(
-                      onTap: onOpenDetail,
-                      borderRadius: BorderRadius.circular(8),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Postuler',
-                              style: TextStyle(
-                                color: PaColors.teal,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            SizedBox(width: 2),
-                            Icon(Icons.arrow_forward_rounded,
-                                size: 18, color: PaColors.teal,),
-                          ],
+                      Text(
+                        '${(c.tauxInteret * 100).toStringAsFixed(0)} % / crédit',
+                        style: const TextStyle(
+                          color: PaColors.teal,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // CTA pleine largeur « Postuler ».
+                SizedBox(
+                  width: double.infinity,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    decoration: BoxDecoration(
+                      color: PaColors.teal,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Voir la campagne & postuler',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(Icons.arrow_forward_rounded,
+                            size: 18, color: Colors.white,),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -295,6 +289,62 @@ class _CampaignRow extends StatelessWidget {
 
   String _d(DateTime dt) =>
       '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}';
+}
+
+/// Dégradé bas d'une image de carte (profondeur + lisibilité des pastilles).
+class _Scrim extends StatelessWidget {
+  const _Scrim();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 64,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.28)],
+        ),
+      ),
+    );
+  }
+}
+
+/// Pastille flottante posée sur l'image d'une carte (profil, urgence, date).
+class _Pill extends StatelessWidget {
+  const _Pill({required this.text, required this.bg, required this.fg, this.icon});
+  final String text;
+  final Color bg;
+  final Color fg;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: fg),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            text,
+            style: TextStyle(
+              color: fg,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Placeholder extends StatelessWidget {
@@ -340,24 +390,12 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        const SizedBox(height: 80),
-        const Icon(Icons.campaign_outlined,
-            color: PaColors.inkMuted, size: 56,),
-        const SizedBox(height: 16),
-        const Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              'Aucune campagne active en ce moment.\n'
-              'Reviens plus tard ou tire vers le bas pour rafraîchir.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: PaColors.inkMuted,
-                fontSize: 13,
-              ),
-            ),
-          ),
+      children: const [
+        SizedBox(height: 70),
+        PaEmptyState(
+          icon: Icons.campaign_outlined,
+          title: 'Aucune campagne active',
+          message: 'Reviens plus tard, ou tire vers le bas pour rafraîchir.',
         ),
       ],
     );
