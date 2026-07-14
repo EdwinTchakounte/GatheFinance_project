@@ -98,6 +98,18 @@ class TestSearchAvalisteBroadened:
         nums = [x["numero_membre"] for x in r.json()["results"]]
         assert junior.numero_membre not in nums
 
+    def test_search_hides_other_members_financials(self, active_member):
+        """SÉCURITÉ : la recherche n'expose QUE la capacité de caution — pas le
+        solde total ni les cautions engagées d'un autre membre."""
+        senior = _senior(nom="Ngassa", prenom="Zephirin", classique=Decimal("80000"))
+        r = self._api(active_member).get(self.URL, {"q": "ngass"})
+        assert r.status_code == 200, r.content
+        row = next(x for x in r.json()["results"]
+                   if x["numero_membre"] == senior.numero_membre)
+        assert "capacite_caution" in row
+        assert "solde_total" not in row
+        assert "cautions_engagees" not in row
+
 
 # ---------------------------------------------------------------------------
 # #2b — Cycle de gel complet
