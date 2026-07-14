@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { SkeletonList } from "@gathe/ui";
 import { Search, Wallet, Loader2, CheckCircle2, Coins } from "lucide-react";
 
 import { DataTable, type DataColumn } from "@/components/data-table";
@@ -305,7 +306,7 @@ function Inner() {
       ) : null}
 
       {loading ? (
-        <p className="text-ink-600">Chargement…</p>
+        <SkeletonList count={6} cardClassName="h-14" />
       ) : (
         <DataTable
           columns={columns}

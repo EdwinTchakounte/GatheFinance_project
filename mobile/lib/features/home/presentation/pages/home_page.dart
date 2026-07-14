@@ -30,6 +30,7 @@ import '../../../savings/domain/entities/savings_transaction.dart';
 import '../../../savings/presentation/state/classic_savings_notifier.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
 import '../widgets/deposit_sheet.dart';
+import '../../../../core/widgets/paysika/pa_empty_state.dart';
 
 /// Accueil . **prototype Paysika** (style validé sur captures `capture_paysika/`).
 ///
@@ -550,14 +551,9 @@ class _RecentList extends StatelessWidget {
     final l = AppL10n.of(context);
 
     if (entries.isEmpty) {
-      return PaCard(
-        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
-        child: Center(
-          child: Text(
-            l.home_no_operations,
-            style: const TextStyle(color: PaColors.inkMuted),
-          ),
-        ),
+      return PaEmptyState(
+        icon: Icons.receipt_long_outlined,
+        title: l.home_no_operations,
       );
     }
 

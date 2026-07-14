@@ -155,8 +155,27 @@ def build_payment_receipt(payment: Payment) -> bytes:
     y = _row("Nom complet", f"{member.prenom} {member.nom}".strip(), y, bold_value=True)
     y = _row("Numéro de membre", member.numero_membre, y)
 
+    # --- Panneau MONTANT mis en valeur (info clé du reçu) -----------------
+    statut_label = _STATUT_LABEL.get(payment.statut, payment.statut)
+    y -= 12
+    panel_h = 58
+    panel_bottom = y - panel_h
+    c.setFillColor(colors.HexColor("#EFF4FA"))
+    c.setStrokeColor(BRAND_BLUE)
+    c.setLineWidth(0.8)
+    c.roundRect(margin, panel_bottom, width - 2 * margin, panel_h, 8, stroke=1, fill=1)
+    c.setFillColor(BRAND_BLUE)
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawString(margin + 14, y - 18, payment.get_type_display().upper())
+    c.setFillColor(INK)
+    c.setFont("Helvetica-Bold", 23)
+    c.drawString(margin + 14, y - 43, _fmt_xaf(payment.montant))
+    c.setFillColor(MUTED)
+    c.setFont("Helvetica", 9)
+    c.drawRightString(width - margin - 14, y - 18, f"Statut : {statut_label}")
+    y = panel_bottom - 20
+
     # --- Bloc Opération ----------------------------------------------------
-    y -= 4
     y = _section_header("Opération", y)
     y = _row("Type de versement", payment.get_type_display(), y, bold_value=True)
     y = _row("Montant versé", _fmt_xaf(payment.montant), y, bold_value=True)
@@ -174,8 +193,7 @@ def build_payment_receipt(payment: Payment) -> bytes:
     if payment.type == Payment.Type.EPARGNE_CLASSIQUE:
         y = _row("Sous-canal", "Placement" if payment.is_placement else "Libre", y)
 
-    statut_label = _STATUT_LABEL.get(payment.statut, payment.statut)
-    y = _row("Statut", statut_label, y, bold_value=True)
+    # (Statut affiché dans le panneau montant ci-dessus.)
 
     # --- Bloc Traçabilité --------------------------------------------------
     y -= 4

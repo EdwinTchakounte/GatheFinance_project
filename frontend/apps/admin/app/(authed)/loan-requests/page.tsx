@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, Coins, FileText, Scale, Send, X } from "lucide-react";
 
-import { buttonClasses } from "@gathe/ui";
+import { buttonClasses, SkeletonList } from "@gathe/ui";
 
 import { CashInModal, type CashInPrefill } from "@/components/cash-in-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
@@ -380,7 +380,7 @@ function Inner() {
       ) : null}
 
       {loading ? (
-        <p className="text-ink-600">Chargement…</p>
+        <SkeletonList count={6} cardClassName="h-14" />
       ) : (
         <DataTable
           columns={columns}

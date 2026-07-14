@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { buttonClasses } from "@gathe/ui";
+
 import { portalApi, type ApiError } from "@/lib/api";
 
 
@@ -154,7 +156,7 @@ export default function PortalLoginPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                className={buttonClasses({ variant: "primary", size: "lg", fullWidth: true }) + " mt-2"}
               >
                 {submitting ? "Connexion…" : "Se connecter"}
               </button>

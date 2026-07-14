@@ -1,5 +1,7 @@
 "use client";
 
+import { EmptyState } from "@gathe/ui";
+import { Inbox } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
 import { ColumnsMenu } from "@/components/columns-menu";
@@ -133,9 +135,7 @@ export function DataTable<T>({
       </div>
 
       {rows.length === 0 ? (
-        <p className="rounded-md border border-dashed border-line-200 bg-paper/70 p-12 text-center text-sm text-ink-600">
-          {emptyLabel}
-        </p>
+        <EmptyState icon={Inbox} title={emptyLabel} tone="neutral" />
       ) : (
         <div className="overflow-x-auto rounded-md border border-line-200 bg-paper">
           <table className="table-admin min-w-full">
