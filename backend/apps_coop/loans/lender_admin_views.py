@@ -222,6 +222,7 @@ def admin_lender_pool_summary(request):
 
 @api_view(["POST"])
 @permission_classes([IsAdmin])
+@transaction.atomic
 def admin_compose_funding_manual(request, pk: int):
     """Engage manuellement des tranches preteur sur un Loan donne.
 
@@ -371,13 +372,18 @@ def admin_compose_funding_manual(request, pk: int):
     )
 
     # A5 . Notif email + in-app a chaque preteur. Best-effort : une erreur
-    # d'envoi ne doit pas casser la reponse admin. Execute APRES la
-    # transaction.atomic() pour eviter d'envoyer si rollback.
-    _notify_lenders_engagement(
-        loan=loan,
-        per_lender_total=per_lender_total,
-        per_lender_member=per_lender_member,
-        engaged_at=now,
+    # d'envoi ne doit pas casser la reponse admin. La vue etant desormais
+    # entierement @transaction.atomic (le verrou select_for_update du Loan
+    # l'exige), on differe l'envoi via on_commit : les mails ne partent
+    # qu'apres commit (jamais en cas de rollback) et ne tiennent pas la
+    # transaction ouverte pendant l'appel HTTP Brevo.
+    transaction.on_commit(
+        lambda: _notify_lenders_engagement(
+            loan=loan,
+            per_lender_total=per_lender_total,
+            per_lender_member=per_lender_member,
+            engaged_at=now,
+        )
     )
 
     return Response(
