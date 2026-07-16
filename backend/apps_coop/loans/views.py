@@ -338,6 +338,18 @@ def loan_request_create(request):
             recipient_phone=(data.get("recipient_phone") or "").strip(),
         )
 
+        # Auto-couverture : projette le gel du demandeur sur ses tranches de
+        # placement (elles sortent du pool prêteur). La voie avaliste fait la
+        # même chose depuis request_avaliste_consent, avec son propre montant.
+        if gel_demandeur_initial:
+            from .guarantee_tranches import earmark_guarantee_tranches
+
+            earmark_guarantee_tranches(
+                member=member,
+                montant=gel_demandeur_initial,
+                loan_request=loan_request,
+            )
+
         # Voie AVALISTE : pose AvalisteConsent + LR → EN_ATTENTE_AVALISTE.
         if route_eval.route == EligibilityRoute.AVALISTE:
             from .avaliste_services import request_avaliste_consent

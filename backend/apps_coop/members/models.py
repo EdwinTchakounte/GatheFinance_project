@@ -151,11 +151,17 @@ class Member(TimestampedModel):
         """Capacité prêtable du membre (refonte 2026 §6 — Épargne-prêteur).
 
         Retourne ``Decimal(0)`` si pas de consentement actif. Sinon :
-          • Mode A (global) : ``solde_epargne_classique - tranches_engagees``
+          • Mode A (global) : ``solde_classique − engagées − gel de garantie``
           • Mode B (tranches) : somme des tranches en statut ``DISPONIBLE``
 
         Note : on lit l'épargne **classique** (``classic_savings_account``),
         pas la collecte journalière (qui est restituée fin de mois).
+
+        Réforme garantie 2026 : ce qui est immobilisé en garantie d'un crédit
+        n'est pas prêtable — sinon le même argent garantirait un crédit tout en
+        en finançant un autre. En mode B les tranches ``GELEE`` sont exclues
+        d'office (on ne somme que ``DISPONIBLE``) ; en mode A, où le pool est le
+        solde brut, il faut soustraire le gel explicitement.
         """
         from decimal import Decimal
 
@@ -176,7 +182,16 @@ class Member(TimestampedModel):
                 member=self,
                 statut=LenderTranche.Statut.ENGAGEE,
             ).aggregate(s=Sum("montant"))["s"] or Decimal("0.00")
-            return max(Decimal("0.00"), solde - Decimal(engaged))
+            # Le gel de garantie porte sur le solde (tranches GELEE + part
+            # libre) : chaque XAF n'est donc soustrait qu'une seule fois.
+            frozen = Decimal("0.00")
+            try:  # import local — évite le cycle members <-> loans.
+                from apps_coop.loans.avaliste_services import member_frozen_guarantee
+
+                frozen = member_frozen_guarantee(self)
+            except Exception:  # noqa: BLE001 — best-effort, ne bloque pas la lecture
+                pass
+            return max(Decimal("0.00"), solde - Decimal(engaged) - frozen)
         # Mode B — somme des tranches disponibles
         dispo = LenderTranche.objects.filter(
             member=self,

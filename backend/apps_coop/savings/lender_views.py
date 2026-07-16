@@ -126,12 +126,7 @@ def _funding_pending_row(cr: LenderConsentRequest) -> dict:
 def _aggregate_state(member) -> dict:
     consent = LenderConsent.objects.filter(member=member).first()
     tranches = LenderTranche.objects.filter(member=member).order_by("-created_at")
-    by_statut = {
-        "disponible": Decimal("0"),
-        "engagee": Decimal("0"),
-        "liberee": Decimal("0"),
-        "annulee": Decimal("0"),
-    }
+    by_statut = {s.value: Decimal("0") for s in LenderTranche.Statut}
     for t in tranches:
         if t.statut in by_statut:
             by_statut[t.statut] += Decimal(t.montant)

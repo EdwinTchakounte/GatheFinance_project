@@ -29,6 +29,7 @@ from apps_coop.audit.services import (
 )
 from apps_coop.members.models import Member
 
+from .guarantee_tranches import earmark_guarantee_tranches
 from .models import AvalisteConsent, LoanRequest
 
 
@@ -59,10 +60,8 @@ def _min_coverage_ratio() -> Decimal:
 
 # Statuts de LoanRequest où le gel du collatéral demandeur est LIBÉRÉ
 # (dossier mort). Tout autre statut = gel vivant tant que le Loan associé
-# n'est pas CLOTURE.
-_REQUEST_RELEASED_STATUSES = None  # calculé paresseusement (voir _released_request_statuses)
-
-
+# n'est pas CLOTURE. Sert aussi de règle de libération aux tranches GELEE
+# (cf. apps_coop.loans.signals).
 def _released_request_statuses():
     from .models import LoanRequest
 
@@ -190,10 +189,15 @@ def find_avaliste(numero_identification: str, nom: str) -> Member:
 
     Lève :
       - ``LookupError`` si le numéro est inconnu.
-      - ``ValueError`` si le nom ne correspond pas, le membre n'est pas
-        ACTIF, ou n'est pas senior.
+      - ``ValueError`` si le nom ne correspond pas ou si le membre n'est pas
+        ACTIF.
 
     Validation casse-insensible + trim sur ``nom`` (anti-faute de frappe).
+
+    Réforme garantie 2026 : **aucune condition d'ancienneté**. Ce qui fait un
+    avaliste valable, c'est sa capacité à immobiliser le montant — pas son
+    âge dans la coopérative. Un membre de la cohorte 2026 avec l'épargne
+    suffisante est un meilleur garant qu'un ancien à sec.
     """
     numero = (numero_identification or "").strip()
     nom_saisi = (nom or "").strip()
@@ -210,11 +214,6 @@ def find_avaliste(numero_identification: str, nom: str) -> Member:
     if avaliste.statut != Member.Statut.ACTIF:
         raise ValueError(
             f"Le membre {numero} n'est pas actif (statut: {avaliste.statut})."
-        )
-
-    if not avaliste.is_senior:
-        raise ValueError(
-            f"Le membre {numero} n'a pas l'ancienneté requise pour être avaliste."
         )
 
     return avaliste
@@ -309,6 +308,10 @@ def request_avaliste_consent(
     loan_request.save(
         update_fields=["montant_gele_demandeur", "statut", "updated_at"]
     )
+    # Projette le gel sur les tranches : placement d'abord, libre ensuite.
+    earmark_guarantee_tranches(
+        member=borrower, montant=gel_demandeur, loan_request=loan_request
+    )
 
     record_audit(
         action="loan_request.avaliste_consent_requested",
@@ -382,6 +385,13 @@ def respond_to_avaliste_consent(
         # (en_attente) si des frais sont dus, sinon direct en instruction.
         lr.statut = status_after_prevoie(lr)
         lr.save(update_fields=["avaliste", "statut", "updated_at"])
+        # La caution devient effective : on projette le gel de l'avaliste sur
+        # ses tranches de placement (elles sortent du pool prêteur).
+        earmark_guarantee_tranches(
+            member=consent.avaliste,
+            montant=consent.montant_caution,
+            loan_request=lr,
+        )
         record_audit(
             action="loan_request.avaliste_accepted",
             entite_type="LoanRequest",

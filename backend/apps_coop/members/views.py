@@ -201,9 +201,10 @@ def search_eligible_avalistes(request):
         | Q(phone__icontains=q)
     )[:30]
 
-    # `is_senior` est un computed @property en Python — on filtre côté
-    # appli plutôt qu'en SQL pour rester aligné sur le seuil configurable
-    # (cf. apps_coop.members.models.Member.is_senior).
+    # Réforme garantie 2026 : plus aucun filtre d'ancienneté. Seule compte la
+    # capacité à immobiliser le montant — un membre de la cohorte 2026 avec
+    # l'épargne suffisante est un garant valable. Le filtre `is_senior` était
+    # muet : il faisait disparaître des candidats sans expliquer pourquoi.
     #
     # Memory note `avaliste-cap-solde` : on expose la capacité de caution
     # disponible (solde cumulé − cautions déjà engagées) pour que le mobile
@@ -213,8 +214,6 @@ def search_eligible_avalistes(request):
 
     results = []
     for m in qs:
-        if not m.is_senior:
-            continue
         try:
             _solde, _engaged, capacity = member_caution_capacity(m)
         except Exception:  # noqa: BLE001 — best-effort, never block typeahead
@@ -227,7 +226,9 @@ def search_eligible_avalistes(request):
             "numero_membre": m.numero_membre,
             "nom": m.nom,
             "prenom": m.prenom,
-            "is_senior": True,
+            # Purement informatif depuis la réforme 2026 : l'ancienneté ne
+            # conditionne plus rien côté avaliste. Conservé pour compat client.
+            "is_senior": m.is_senior,
             "capacite_caution": str(capacity),
         })
         if len(results) >= 10:
@@ -459,10 +460,7 @@ def admin_list_members(request):
         r["member_id"]: r["total"] or ZERO
         for r in LenderTranche.objects.filter(
             member_id__in=ids,
-            statut__in=[
-                LenderTranche.Statut.DISPONIBLE,
-                LenderTranche.Statut.ENGAGEE,
-            ],
+            statut__in=LenderTranche.STATUTS_ACTIFS,
         )
         .values("member_id")
         .annotate(total=Sum("montant"))
@@ -715,27 +713,24 @@ def admin_dashboard_kpis(request):
         or Decimal("0")
     )
     # A3 . L'epargne classique est un seul produit avec 2 sous-canaux :
-    #   - libre = cash sur ClassicSavingsAccount.solde
-    #   - placement = LenderTranche actives (DISPONIBLE ou ENGAGEE) du membre
-    # Les deux appartiennent au membre . on les somme dans "Epargne classique".
-    # Le breakdown libre/placement est expose en sous-detail pour l'UI.
-    epargne_classique_libre = (
+    #   - placement = LenderTranche actives du membre (DISPONIBLE/GELEE/ENGAGEE)
+    #   - libre = le reste du solde
+    # ``ClassicSavingsAccount.solde`` est le TOTAL : le placement en est deja un
+    # sous-ensemble (cf. solde_libre = solde - solde_placement_actif). On ne
+    # doit donc surtout pas additionner les deux . le placement serait compte
+    # deux fois dans "Epargne classique" et dans l'epargne totale.
+    epargne_classique = (
         ClassicSavingsAccount.objects.aggregate(total=Sum("solde"))["total"]
         or Decimal("0")
     )
     epargne_placement = (
         LenderTranche.objects.filter(
-            statut__in=[
-                LenderTranche.Statut.DISPONIBLE,
-                LenderTranche.Statut.ENGAGEE,
-            ]
+            statut__in=LenderTranche.STATUTS_ACTIFS
         ).aggregate(total=Sum("montant"))["total"]
         or Decimal("0")
     )
-    epargne_classique = (
-        Decimal(epargne_classique_libre) + Decimal(epargne_placement)
-    )
-    epargne_total = Decimal(epargne_collecte) + epargne_classique
+    epargne_classique_libre = Decimal(epargne_classique) - Decimal(epargne_placement)
+    epargne_total = Decimal(epargne_collecte) + Decimal(epargne_classique)
 
     # --- Épargne classique — état du cycle anniversaire (LOT 5) ----------
     classique_notifie = ClassicSavingsAccount.objects.filter(
