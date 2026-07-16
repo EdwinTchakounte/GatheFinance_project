@@ -194,6 +194,15 @@ DATABASES = {
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
     ),
 }
+# Connexions persistantes. Par défaut Django ouvre une connexion PostgreSQL par
+# requête et la ferme à la réponse : sur un VPS c'est ~10-20 ms de handshake +
+# un fork côté Postgres, payés sur CHAQUE appel d'API.
+#
+# Attention au dimensionnement : chaque worker × thread garde sa propre
+# connexion ouverte pendant CONN_MAX_AGE. Il faut donc
+# GUNICORN_WORKERS × GUNICORN_THREADS < max_connections de Postgres (100 par
+# défaut) — cf. la CMD gunicorn du Dockerfile.
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
