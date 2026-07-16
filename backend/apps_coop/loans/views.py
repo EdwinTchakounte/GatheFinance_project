@@ -350,15 +350,24 @@ def loan_request_create(request):
                 loan_request=loan_request,
             )
 
-        # Voie AVALISTE : pose AvalisteConsent + LR → EN_ATTENTE_AVALISTE.
+        # Voie AVALISTE — « frais d'abord, avaliste ensuite » : on mémorise la
+        # désignation, on ne sollicite personne. Le consentement est posé par
+        # open_instruction_after_fees, une fois les frais encaissés.
         if route_eval.route == EligibilityRoute.AVALISTE:
-            from .avaliste_services import request_avaliste_consent
-
-            request_avaliste_consent(
-                loan_request,
-                numero_identification=data["avaliste_numero"],
-                nom=data["avaliste_nom"],
+            loan_request.avaliste_numero_saisi = data["avaliste_numero"].strip()
+            loan_request.avaliste_nom_saisi = data["avaliste_nom"].strip()
+            loan_request.save(
+                update_fields=[
+                    "avaliste_numero_saisi",
+                    "avaliste_nom_saisi",
+                    "updated_at",
+                ]
             )
+            # Étude gratuite → rien à encaisser, on enchaîne tout de suite.
+            if frais_montant <= 0:
+                from .study_fee_services import open_instruction_after_fees
+
+                open_instruction_after_fees(loan_request)
 
         record_audit(
             action="loan_request.submitted",
@@ -1269,6 +1278,41 @@ def loan_request_record_study_fee(request, pk: int):
     from apps_coop.payments.services import _hook_loan_request_fees
 
     _hook_loan_request_fees(payment, {})
+    lr.refresh_from_db()
+    return Response(LoanRequestReadSerializer(lr).data)
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="Membre — régler les frais d'étude par déduction sur son épargne",
+    description=(
+        "3e canal de règlement des frais d'étude (les deux autres : agence via "
+        "`/study-fee/`, mobile money via `/payments/init/`). Prélève le montant "
+        "sur l'épargne **classique** du membre et fait basculer la demande "
+        "comme n'importe quel encaissement.\n\n"
+        "Le prélèvement ne peut mordre que sur la part réellement retirable : "
+        "ni le placement ni l'épargne gelée en garantie ne sont ponctionnables. "
+        "409 si le disponible est insuffisant ou si la demande n'attend pas de "
+        "frais."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsActiveMember])
+def loan_request_pay_study_fee_from_savings(request, pk: int):
+    from .study_fee_services import StudyFeeError, pay_study_fee_from_savings
+
+    try:
+        lr = LoanRequest.objects.get(pk=pk, member=request.user.member)
+    except LoanRequest.DoesNotExist:
+        return Response(
+            {"detail": "Demande introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    try:
+        pay_study_fee_from_savings(lr)
+    except StudyFeeError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
     lr.refresh_from_db()
     return Response(LoanRequestReadSerializer(lr).data)
 

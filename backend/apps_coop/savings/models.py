@@ -308,6 +308,11 @@ class ClassicSavingsTransaction(TimestampedModel):
             "interet_preteur",
             "Part d'intérêts crédit reversée au prêteur (refonte 2026)",
         )
+        # Porte des frais d'étude (2026) — 3e canal de règlement.
+        FRAIS_DEMANDE_CREDIT = (
+            "frais_demande_credit",
+            "Frais d'étude crédit prélevés sur l'épargne (2026)",
+        )
         # LOT 13 (refonte 2026) — Saisie sur épargne classique (R1 étendue).
         RETRAIT_FORCE = (
             "retrait_force",

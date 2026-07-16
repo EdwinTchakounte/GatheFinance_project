@@ -740,8 +740,11 @@ def _hook_loan_request_fees(payment: Payment, _raw: dict) -> None:
         )
         return
 
-    pending.statut = LoanRequest.Statut.EN_INSTRUCTION
-    pending.save(update_fields=["statut", "updated_at"])
+    # Point unique du parcours post-frais : ouvre l'instruction, ou sollicite
+    # l'avaliste désigné à la soumission (« frais d'abord, avaliste ensuite »).
+    from apps_coop.loans.study_fee_services import open_instruction_after_fees
+
+    open_instruction_after_fees(pending)
     record_audit(
         action="loan_request.fees_paid",
         entite_type="LoanRequest",

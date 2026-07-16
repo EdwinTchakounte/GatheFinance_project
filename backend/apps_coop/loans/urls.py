@@ -54,6 +54,7 @@ from .views import (
     loan_request_decide_provisional,
     loan_request_field_visit,
     loan_request_list,
+    loan_request_pay_study_fee_from_savings,
     loan_request_record_study_fee,
     loan_request_note,
     loan_request_upload_attachment,
@@ -134,6 +135,12 @@ urlpatterns = [
         "requests/<int:pk>/study-fee/",
         loan_request_record_study_fee,
         name="record-study-fee",
+    ),
+    # Porte des frais 2026 — 3e canal : le membre règle sur son épargne.
+    path(
+        "requests/<int:pk>/study-fee/from-savings/",
+        loan_request_pay_study_fee_from_savings,
+        name="study-fee-from-savings",
     ),
     # L4 — Évaluation garantie matérielle par la commission (staff).
     path(

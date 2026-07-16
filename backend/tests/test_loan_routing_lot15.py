@@ -159,9 +159,17 @@ class TestVoieSeniorBrc:
 
 
 class TestVoieAvaliste:
-    def test_new_member_with_valid_avaliste_creates_lr_en_attente_avaliste(
+    def test_new_member_with_valid_avaliste_creates_lr_en_attente_frais(
         self, active_member
     ):
+        """Porte des frais 2026 : « frais d'abord, avaliste ensuite ».
+
+        La demande naît en ``en_attente`` (frais à payer) et la désignation est
+        mémorisée. L'avaliste n'est PAS sollicité tant que les 5000 XAF ne sont
+        pas encaissés — inutile de déranger un tiers sur un dossier que le
+        demandeur n'a pas encore validé en payant. Le consentement et le gel
+        sont posés à l'encaissement (cf. test_study_fee_gate_2026).
+        """
         _seed_fee()
         _new_member(active_member)
         _seed_classic(active_member, 10000)
@@ -184,13 +192,27 @@ class TestVoieAvaliste:
         assert r.status_code == 201, r.content
         body = r.json()
         assert body["route"] == "avaliste"
-        assert body["loan_request"]["statut"] == "en_attente_avaliste"
-        # L'AvalisteConsent a été posé.
+        assert body["loan_request"]["statut"] == "en_attente"
+
         lr = LoanRequest.objects.get(pk=body["loan_request"]["id"])
-        assert hasattr(lr, "avaliste_consent")
+        assert not hasattr(lr, "avaliste_consent"), (
+            "aucun tiers ne doit être sollicité avant l'encaissement des frais"
+        )
+        assert lr.frais_demande_credit_paye is False
+        # La désignation est mémorisée en attendant le paiement.
+        assert lr.avaliste_numero_saisi == avaliste.numero_membre
+        assert lr.avaliste_nom_saisi == "DUPONT"
+
+        # À l'encaissement, l'avaliste est sollicité et le gel se pose :
+        # le demandeur gèle son épargne dispo (10k), l'avaliste comble le
+        # manque (100k − 10k = 90k).
+        from apps_coop.loans.study_fee_services import open_instruction_after_fees
+
+        open_instruction_after_fees(lr)
+
+        lr.refresh_from_db()
+        assert lr.statut == LoanRequest.Statut.EN_ATTENTE_AVALISTE
         assert lr.avaliste_consent.statut == AvalisteConsent.Statut.PENDING
-        # Réforme garantie : le demandeur gèle sa propre épargne dispo (10k),
-        # l'avaliste comble le manque (100k − 10k = 90k).
         assert lr.montant_gele_demandeur == Decimal("10000")
         assert lr.avaliste_consent.montant_caution == Decimal("90000")
 
