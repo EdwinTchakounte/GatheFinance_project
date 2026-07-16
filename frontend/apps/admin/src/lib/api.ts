@@ -1425,6 +1425,51 @@ export const adminApi = {
       }),
   },
 
+  // Reprise d'historique — carnets papier antidatés (backend IsStaff).
+  antidated: {
+    // Crée un carnet daté dans le passé (reprise d'un carnet papier existant).
+    // montant défaut 0 : le carnet existe déjà, pas de ré-encaissement.
+    createBooklet: (payload: {
+      member_id: number;
+      date: string;
+      montant?: number | string;
+      annee?: number;
+      note?: string;
+    }) =>
+      request<{
+        booklet_order_id: number;
+        payment_id: number | null;
+        date: string;
+        annee: number | null;
+      }>("/savings/admin/antidated-booklet/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    // Écriture (dépôt/retrait) à sa vraie date, sur collecte ou classique.
+    // 409 si un retrait rendrait le solde négatif.
+    recordEntry: (payload: {
+      member_id: number;
+      product: "collecte" | "classique";
+      sens: "depot" | "retrait";
+      montant: number | string;
+      date: string;
+      booklet_order_id?: number;
+      note?: string;
+    }) =>
+      request<{
+        transaction_id: number;
+        product: string;
+        sens: string;
+        montant: string;
+        date: string;
+        solde_apres: string;
+        booklet_order_id: number | null;
+      }>("/savings/admin/antidated-entry/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+  },
+
   // P2 — Tunables AppSettings refonte 2026 (BRC, ancienneté, eligibility,
   // seizure, judicial, etc.). Catalogue côté serveur (audit/tunables.py).
   appSettings: {

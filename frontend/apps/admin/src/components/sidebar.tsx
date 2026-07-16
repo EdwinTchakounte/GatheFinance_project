@@ -24,6 +24,7 @@ import {
   ScrollText,
   MessageSquareText,
   Notebook,
+  CalendarClock,
   Newspaper,
   GitBranch,
   Coins,
@@ -60,6 +61,7 @@ const NAV: NavItem[] = [
   { href: "/payments", label: "Paiements", icon: Receipt },
   { href: "/withdrawals", label: "Retraits épargne", icon: ArrowDownToLine },
   { href: "/booklet-orders", label: "Commandes carnet", icon: Notebook },
+  { href: "/antidated-entries", label: "Saisies antidatées", icon: CalendarClock },
   { href: "/members", label: "Membres", icon: Users },
   // Refonte 2026 — LOT 1 + LOT 5 + LOT 16.
   { href: "/brc", label: "Justificatifs BRC", icon: FileCheck },

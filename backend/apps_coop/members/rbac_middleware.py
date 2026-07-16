@@ -32,6 +32,10 @@ PREFIX_RULES: list[tuple[str, str]] = [
     ("admin/brc/", "brc"),
     ("admin/booklet-orders/", "booklet-orders"),
     ("admin/withdrawals/", "withdrawals"),
+    # Saisies antidatées — AVANT le catch-all savings/admin/ (1er match gagne),
+    # sinon elles tomberaient sous la ressource « renewals ».
+    ("savings/admin/antidated-booklet/", "antidated-entries"),
+    ("savings/admin/antidated-entry/", "antidated-entries"),
     # Renouvellements épargne (app savings : renewals + cron intérêt mensuel).
     ("savings/admin/", "renewals"),
     # Crédit (app loans)
