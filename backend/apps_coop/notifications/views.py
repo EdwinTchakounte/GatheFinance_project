@@ -62,6 +62,8 @@ def list_my_announcements(request):
     member = getattr(request.user, "member", None)
     now = timezone.now()
 
+    not_expired = Q(expires_at__isnull=True) | Q(expires_at__gt=now)
+
     # Audience : l'annonce touche le membre si elle est « pour tous », ou pour
     # son statut (actif/suspendu), ou s'il figure dans la sélection nominative.
     audience_q = Q(audience=Announcement.Audience.ALL)
@@ -71,13 +73,23 @@ def list_my_announcements(request):
             audience_q |= Q(audience=Announcement.Audience.ACTIFS)
         elif statut == member.Statut.SUSPENDU:
             audience_q |= Q(audience=Announcement.Audience.SUSPENDUS)
-        audience_q |= Q(
-            audience=Announcement.Audience.SELECTION,
-            audience_member_ids__contains=member.id,
-        )
+        # Sélection nominative : `audience_member_ids` est un JSONField (liste
+        # d'ids). Le lookup `__contains` dessus n'existe QUE sur PostgreSQL —
+        # il lève NotSupportedError sur SQLite (dev local + tests). On teste donc
+        # l'appartenance en Python : l'ensemble « sélection » est petit et ciblé,
+        # le coût est négligeable, et le code marche sur les deux bases.
+        selection_ids = [
+            a.id
+            for a in Announcement.objects.filter(
+                not_expired, audience=Announcement.Audience.SELECTION
+            ).only("id", "audience_member_ids")
+            if member.id in (a.audience_member_ids or [])
+        ]
+        if selection_ids:
+            audience_q |= Q(id__in=selection_ids)
 
     qs = (
-        Announcement.objects.filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+        Announcement.objects.filter(not_expired)
         .filter(audience_q)
         .order_by("-published_at", "-created_at")[:100]
     )
