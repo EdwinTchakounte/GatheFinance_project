@@ -191,3 +191,22 @@ class TestAntidatedEntriesGuarded:
         assert (
             _client(u).get("/api/v1/savings/admin/renewals/").status_code == 403
         )
+
+
+class TestReportPdfGuarded:
+    """Rapports PDF : coop → ressource dashboard, relevé membre → members."""
+
+    def test_coop_report_exige_dashboard(self):
+        from django.contrib.auth.models import Group
+        u = _staff("rep@t.local", roles=[("Vue", ["dashboard"])])
+        assert _client(u).get("/api/v1/admin/report/coop/").status_code != 403
+        # Un rôle sans dashboard est refusé.
+        u2 = _staff("rep2@t.local", roles=[("Carnets", ["booklet-orders"])])
+        assert _client(u2).get("/api/v1/admin/report/coop/").status_code == 403
+
+    def test_member_statement_exige_members(self):
+        u = _staff("mem@t.local", roles=[("Membres", ["members"])])
+        # 404 (membre inexistant) mais surtout PAS 403.
+        assert _client(u).get("/api/v1/admin/members/1/statement/").status_code != 403
+        u2 = _staff("mem2@t.local", roles=[("Carnets", ["booklet-orders"])])
+        assert _client(u2).get("/api/v1/admin/members/1/statement/").status_code == 403

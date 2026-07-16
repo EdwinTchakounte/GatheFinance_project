@@ -1240,6 +1240,16 @@ export const adminApi = {
           offset: params.offset ? String(params.offset) : undefined,
         })}`,
       ),
+    // Relevé PDF de situation d'un membre (staff) — ouvert dans un onglet,
+    // servi inline par le backend (cookies de session inclus).
+    statementUrl: (memberId: number) =>
+      `${API_BASE}/admin/members/${memberId}/statement/`,
+  },
+
+  // Rapports PDF coopérative-wide.
+  reports: {
+    // « État de la coopérative » — photo actionnable (staff / ressource dashboard).
+    coopUrl: () => `${API_BASE}/admin/report/coop/`,
   },
 
   withdrawals: {

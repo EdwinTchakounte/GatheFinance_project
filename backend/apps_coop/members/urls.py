@@ -48,6 +48,15 @@ urlpatterns = [
 
     # Admin endpoints (Next.js admin dashboard)
     path("admin/dashboard/", views.admin_dashboard_kpis, name="admin-dashboard"),
+    # Rapports PDF — photo coop (ressource dashboard) + relevé membre (ressource
+    # members, mappée par le catch-all admin/members/). La route report AVANT
+    # admin/members/ pour la lisibilité ; l'ordre n'importe pas (chemins distincts).
+    path("admin/report/coop/", views.admin_coop_report_pdf, name="admin-report-coop"),
+    path(
+        "admin/members/<int:pk>/statement/",
+        views.admin_member_statement_pdf,
+        name="admin-member-statement",
+    ),
     path("admin/members/", views.admin_list_members, name="admin-members-list"),
     path("admin/membership-requests/", views.admin_list_membership_requests, name="admin-membership-list"),
     path("admin/membership-requests/<int:pk>/approve/", views.admin_approve_membership_request, name="admin-membership-approve"),

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SkeletonList } from "@gathe/ui";
-import { Mail, Phone, Search } from "lucide-react";
+import { Mail, Phone, Search, FileDown } from "lucide-react";
 
 import { ColumnsMenu } from "@/components/columns-menu";
 import { ExportMenu } from "@/components/export-menu";
@@ -280,6 +280,16 @@ function MemberRecapModal({
             tant qu'un crédit est actif (bloquée au retrait).
           </p>
         ) : null}
+
+        <a
+          href={adminApi.members.statementUrl(member.id)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-line-300 bg-white px-3.5 py-2.5 text-sm font-medium text-ink-800 transition-colors hover:border-blue-400 hover:text-blue-700"
+        >
+          <FileDown className="size-4" aria-hidden="true" />
+          Télécharger le relevé PDF
+        </a>
       </div>
     </Modal>
   );

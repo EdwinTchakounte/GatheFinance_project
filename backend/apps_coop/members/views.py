@@ -1044,3 +1044,75 @@ def admin_adhesion_pipeline(request):
         ],
         "suspended_members": suspended_rows,
     })
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Rapports PDF — photo coop + relevé membre (staff)
+# ───────────────────────────────────────────────────────────────────────────
+
+
+@extend_schema(
+    tags=["members"],
+    summary="🔒 Staff — Rapport PDF : état instantané de la coopérative",
+    description=(
+        "Photo actionnable de la coopérative : KPI (membres, épargne, encours, "
+        "pool prêteur), graphiques (répartition épargne, portefeuille crédit) et "
+        "un bloc « Actions à mener » (files d'attente + alertes). Aucun cumul "
+        "historique — état courant. Permission : `dashboard`."
+    ),
+    responses={200: OpenApiResponse(description="PDF binaire (application/pdf)")},
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_coop_report_pdf(request):
+    from django.http import HttpResponse
+
+    from .report_pdf import build_coop_report
+
+    pdf = build_coop_report()
+    record_audit(
+        action="report.coop.generated",
+        entite_type="cooperative",
+        user=request.user,
+        ip=client_ip(request),
+    )
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = (
+        f'inline; filename="gathe-etat-cooperative-{timezone.localdate().isoformat()}.pdf"'
+    )
+    return resp
+
+
+@extend_schema(
+    tags=["members"],
+    summary="🔒 Staff — Relevé PDF de situation d'un membre",
+    description=(
+        "Relevé d'un membre : épargne (collecte + classique + placement), "
+        "crédits, dernières écritures, carnets détenus. Permission : `members`."
+    ),
+    responses={
+        200: OpenApiResponse(description="PDF binaire (application/pdf)"),
+        404: OpenApiResponse(description="Membre introuvable"),
+    },
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_member_statement_pdf(request, pk: int):
+    from django.http import HttpResponse
+
+    from .report_pdf import build_member_statement
+
+    member = get_object_or_404(Member, pk=pk)
+    pdf = build_member_statement(member)
+    record_audit(
+        action="report.member_statement.generated",
+        entite_type="Member",
+        entite_id=member.id,
+        user=request.user,
+        ip=client_ip(request),
+    )
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = (
+        f'inline; filename="gathe-releve-{member.numero_membre}.pdf"'
+    )
+    return resp
