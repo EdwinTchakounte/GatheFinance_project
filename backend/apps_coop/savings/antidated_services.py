@@ -224,7 +224,13 @@ def record_antidated_entry(
     signed = montant if sens == SENS_DEPOT else -montant
 
     if product == PRODUCT_COLLECTE:
-        SavingsAccount.objects.get_or_create(member=member)
+        # date_ouverture est NOT NULL : on la fournit au cas où le membre n'a
+        # pas encore de compte collecte (reprise d'historique d'un ancien
+        # carnet). On l'ancre à la date de l'écriture, cohérent avec le passé
+        # qu'on reconstitue.
+        SavingsAccount.objects.get_or_create(
+            member=member, defaults={"date_ouverture": op_day}
+        )
         account = SavingsAccount.objects.select_for_update().get(member=member)
         nouveau_solde = Decimal(account.solde) + signed
         if nouveau_solde < 0:

@@ -98,6 +98,25 @@ class TestCollecte:
         assert res.solde_apres == Decimal("6000")
         assert SavingsAccount.objects.get(member=m).solde == Decimal("6000")
 
+    def test_cree_le_compte_collecte_si_absent(self):
+        """Reprise d'historique d'un membre SANS compte collecte : le
+        get_or_create doit fournir date_ouverture (NOT NULL) — sinon
+        IntegrityError. La fabrique de test pré-crée le compte, ce qui masquait
+        ce chemin ; on le force en supprimant le compte d'abord.
+        """
+        m = MemberFactory()
+        SavingsAccount.objects.filter(member=m).delete()
+        assert not SavingsAccount.objects.filter(member=m).exists()
+
+        record_antidated_entry(
+            member=m, product="collecte", sens="depot",
+            montant=Decimal("10000"), date_op=date(2026, 1, 20),
+        )
+
+        acct = SavingsAccount.objects.get(member=m)
+        assert acct.solde == Decimal("10000")
+        assert acct.date_ouverture == date(2026, 1, 20)
+
     def test_somme_des_ecritures_egale_le_solde(self):
         """L'invariant central de la reprise d'historique."""
         m = MemberFactory()
