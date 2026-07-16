@@ -285,3 +285,79 @@ class TestConvergenceDesCanaux:
 
         lr.refresh_from_db()
         assert lr.statut == LoanRequest.Statut.EN_INSTRUCTION
+
+
+# ---------------------------------------------------------------------------
+# 4 — Surface API consommée par le mobile et le portail
+# ---------------------------------------------------------------------------
+
+
+class TestApiFraisEtude:
+    """Ce que les clients voient. La déduction est le canal par défaut, mais
+    elle n'est proposable que si le retirable couvre les frais : le client doit
+    pouvoir en décider sans second aller-retour."""
+
+    def _api(self, member):
+        from rest_framework.test import APIClient
+
+        c = APIClient()
+        c.force_authenticate(user=member.user)
+        return c
+
+    def test_le_relev_expose_de_quoi_choisir_le_canal(self):
+        m = _member(solde=Decimal("20000"))
+        _pending_request(m)
+
+        r = self._api(m).get("/api/v1/loans/me/requests/")
+        assert r.status_code == 200, r.content
+        row = r.json()["results"][0] if "results" in r.json() else r.json()[0]
+
+        assert row["frais_etude_montant"] == "5000.00"
+        assert row["frais_demande_credit_paye"] is False
+        assert Decimal(row["epargne_disponible_frais"]) == Decimal("20000")
+
+    def test_epargne_disponible_exclut_placement_et_gel(self):
+        """Le champ doit refléter le retirable, pas le solde brut — sinon le
+        client pré-sélectionne la déduction et se prend un 409."""
+        m = _member(solde=Decimal("20000"), placements=["20000"])
+        _pending_request(m)
+
+        r = self._api(m).get("/api/v1/loans/me/requests/")
+        row = r.json()["results"][0] if "results" in r.json() else r.json()[0]
+        assert Decimal(row["epargne_disponible_frais"]) == Decimal("0")
+
+    def test_endpoint_deduction_regle_les_frais(self):
+        m = _member(solde=Decimal("20000"))
+        lr = _pending_request(m)
+
+        r = self._api(m).post(
+            f"/api/v1/loans/requests/{lr.id}/study-fee/from-savings/"
+        )
+        assert r.status_code == 200, r.content
+        assert r.json()["statut"] == "en_instruction"
+        assert r.json()["frais_demande_credit_paye"] is True
+        assert ClassicSavingsAccount.objects.get(member=m).solde == Decimal("15000")
+
+    def test_endpoint_deduction_409_si_insuffisant(self):
+        m = _member(solde=Decimal("1000"))
+        lr = _pending_request(m)
+
+        r = self._api(m).post(
+            f"/api/v1/loans/requests/{lr.id}/study-fee/from-savings/"
+        )
+        assert r.status_code == 409, r.content
+        assert "insuffisante" in r.json()["detail"]
+
+    def test_endpoint_deduction_ne_touche_pas_la_demande_dun_autre(self):
+        """Cloisonnement : l'endpoint filtre sur member=request.user.member."""
+        victime = _member(solde=Decimal("20000"))
+        lr = _pending_request(victime)
+        attaquant = _member(solde=Decimal("20000"))
+
+        r = self._api(attaquant).post(
+            f"/api/v1/loans/requests/{lr.id}/study-fee/from-savings/"
+        )
+        assert r.status_code == 404
+        assert ClassicSavingsAccount.objects.get(member=victime).solde == Decimal(
+            "20000"
+        )
