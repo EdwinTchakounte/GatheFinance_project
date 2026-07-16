@@ -30,7 +30,7 @@ def _fmt_xaf(amount) -> str:
         return str(amount)
 
 from .models import Payment
-from .providers import get_provider
+from .providers import default_provider_code, get_provider
 
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ def init_payin_for_payment(
     place avec ``reference_externe`` et ``gateway_initiated_at`` — le
     caller (view) doit le persister.
     """
-    provider = get_provider(payment.provider_code or "tara")
+    provider = get_provider(payment.provider_code or default_provider_code())
     result = provider.init_payin(payment, phone=phone, network=network)
     payment.reference_externe = result.provider_reference
     payment.gateway_initiated_at = timezone.now()

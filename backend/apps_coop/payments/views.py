@@ -35,7 +35,7 @@ from apps_coop.audit.services import client_ip, record as record_audit
 from apps_coop.members.permissions import IsAdmin, IsMember, IsStaff
 
 from .models import FeeType, Payment, RateParam
-from .providers import get_provider
+from .providers import default_provider_code, get_provider
 from .providers.base import ProviderError
 from .serializers import PaymentInitSerializer, PaymentReadSerializer
 from .services import handle_webhook_event, init_payin_for_payment
@@ -348,7 +348,7 @@ def init_payment(request):
         type=data["type"],
         source=Payment.Source.MOBILE_MONEY,
         statut=Payment.Statut.EN_ATTENTE,
-        provider_code="tara",
+        provider_code=default_provider_code(),
         date_versement=timezone.now(),
         loan_id=data.get("loan_id"),
         loan_installment_id=data.get("loan_installment_id"),
@@ -547,6 +547,10 @@ def webhook_tara(request):
     Django session involved on purpose.
     """
     signature = request.headers.get("X-Tara-Signature", "")
+    # "tara" en dur À DESSEIN : cette vue EST la route webhook de Tara
+    # (/webhook/tara/, en-tête X-Tara-Signature). Un autre prestataire aurait
+    # sa propre route + sa propre vérification. Ce n'est pas un défaut de
+    # centralisation — le webhook entrant est provider-spécifique par nature.
     provider = get_provider("tara")
 
     try:

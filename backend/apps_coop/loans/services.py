@@ -495,7 +495,7 @@ def disburse_loan_via_tara(
 
     from apps_coop.audit.services import record as record_audit
     from apps_coop.payments.models import Payment
-    from apps_coop.payments.providers import get_provider
+    from apps_coop.payments.providers import default_provider_code, get_provider
     from apps_coop.payments.providers.base import ProviderError
 
     # 1) Idempotence + création du Payment (atomique, court).
@@ -521,7 +521,7 @@ def disburse_loan_via_tara(
             type=Payment.Type.DECAISSEMENT,
             source=Payment.Source.MOBILE_MONEY,
             statut=Payment.Statut.EN_ATTENTE,
-            provider_code="tara",
+            provider_code=default_provider_code(),
             validated_by=agent,
             date_versement=timezone.now(),
             loan=loan,
@@ -530,7 +530,7 @@ def disburse_loan_via_tara(
 
     # 2) Appel provider hors transaction — on veut pouvoir persister un statut
     #    `rejete` en cas d'échec, indépendamment de la transaction d'init.
-    provider = get_provider("tara")
+    provider = get_provider(payment.provider_code or default_provider_code())
     try:
         result = provider.init_payout(
             payment, recipient_phone=recipient_phone, network=network

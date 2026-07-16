@@ -63,6 +63,15 @@ REVALIDATE_URL = env("REVALIDATE_URL", default="")
 # Each provider reads its own env vars; leave them blank in dev/CI so any
 # accidental call fails loud (`ProviderError: credentials not configured`).
 
+# Prestataire de paiement par défaut pour les NOUVEAUX paiements sortants
+# (init payin, décaissements crédit, retraits épargne). Centralise ce qui
+# était écrit en dur (`provider_code="tara"`) à chaque création de Payment :
+# changer de prestataire = changer ce réglage, sans toucher au code métier.
+# La valeur doit correspondre au `code` d'un provider enregistré (cf.
+# apps_coop.payments.providers). Le webhook entrant reste routé par prestataire
+# (chaque provider a sa propre route /webhook/<code>/).
+DEFAULT_PAYMENT_PROVIDER = env("DEFAULT_PAYMENT_PROVIDER", default="tara")
+
 # Tara Money — https://taramoney.com/developer
 TARA_API_KEY = env("TARA_API_KEY", default="")
 TARA_BUSINESS_ID = env("TARA_BUSINESS_ID", default="")
