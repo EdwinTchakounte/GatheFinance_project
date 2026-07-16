@@ -37,7 +37,9 @@ function inferNetwork(phone: string): PaymentInitInput["network"] {
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 // Article 4 (amendé) : 2 canaux disponibles pour la cotisation.
-type Channel = "mobile" | "agency";
+// "deduction" = prélèvement sur l'épargne classique. Nommé ainsi et pas
+// "savings" pour ne pas se confondre avec le context "savings" (collecte).
+type Channel = "mobile" | "agency" | "deduction";
 
 
 function DepositForm() {
@@ -62,11 +64,28 @@ function DepositForm() {
   const loanId = loanIdParam ? Number(loanIdParam) : null;
   // Helper: la page renvoie vers /credit pour tout ce qui touche au crédit.
   const isCreditContext = isCreditFees || isLoanRepayment;
-  // Le choix de canal (Tara vs agence) ne concerne que la collecte journalière.
-  const offerChannelChoice = context === "savings";
+  // Le choix de canal concerne la collecte journalière (Tara vs agence) et,
+  // depuis la porte des frais 2026, les frais d'étude — qui ajoutent un 3e
+  // canal : la déduction sur l'épargne classique.
+  const offerChannelChoice = context === "savings" || isCreditFees;
+  const requestIdParam = searchParams.get("request");
+  const requestId = requestIdParam ? Number(requestIdParam) : null;
 
   const [form, setForm] = useState<FormState>(INITIAL);
+  // La déduction est le canal PAR DÉFAUT des frais d'étude. On ne peut pas le
+  // pré-sélectionner tout de suite : on ignore encore si le retirable couvre
+  // les frais. Le useEffect ci-dessous bascule une fois la demande chargée.
   const [channel, setChannel] = useState<Channel>("mobile");
+  // Retirable réellement ponctionnable pour les frais (hors placement, hors
+  // épargne gelée en garantie). null = pas encore chargé.
+  const [feeDispo, setFeeDispo] = useState<number | null>(null);
+  // La déduction n'a pas de Payment "en attente" à afficher : elle est réglée
+  // d'emblée. On a donc besoin de notre propre état de succès.
+  const [deductionDone, setDeductionDone] = useState(false);
+  // Tant que le retirable n'est pas chargé (null), on ne propose pas la
+  // déduction : mieux vaut un canal grisé une seconde qu'un 409 après clic.
+  const deductionAffordable =
+    feeDispo !== null && feeDispo >= Number(form.montant || "0");
   const [submitting, setSubmitting] = useState(false);
   const [payment, setPayment] = useState<PaymentRead | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +143,19 @@ function DepositForm() {
           if (fee) setForm((f) => ({ ...f, montant: fee.montant }));
         })
         .catch(() => undefined);
+      // Le retirable décide si la déduction — canal par défaut — est tenable.
+      // Sans ça on pré-sélectionnerait un canal qui répondrait 409.
+      portalApi.loans
+        .listMine()
+        .then((requests) => {
+          const r = requests.find((x) => x.id === requestId);
+          if (!r) return;
+          const dispo = Number(r.epargne_disponible_frais ?? "0");
+          const du = Number(r.frais_etude_montant ?? "0");
+          setFeeDispo(dispo);
+          if (dispo >= du && du > 0) setChannel("deduction");
+        })
+        .catch(() => undefined);
     } else if (isLoanRepayment && loanId !== null) {
       // Pre-fill the form with the next due installment's amount.
       portalApi.loans
@@ -149,7 +181,7 @@ function DepositForm() {
         })
         .catch(() => undefined);
     }
-  }, [isCreditFees, isLoanRepayment, loanId, isCarnetContext]);
+  }, [isCreditFees, isLoanRepayment, loanId, isCarnetContext, requestId]);
 
   // Fenêtre placement : lit `placement_open` sur le compte épargne classique.
   useEffect(() => {
@@ -219,6 +251,15 @@ function DepositForm() {
 
     setSubmitting(true);
     try {
+      // Déduction épargne : transfert interne, donc pas /payments/init/ (qui
+      // force source=mobile_money et attend un encaissement externe). C'est
+      // synchrone : la demande revient déjà avec son nouveau statut, il n'y a
+      // ni paymentUrl ni webhook à attendre.
+      if (isCreditFees && channel === "deduction" && requestId !== null) {
+        await portalApi.loans.payStudyFeeFromSavings(requestId);
+        setDeductionDone(true);
+        return;
+      }
       const result = await portalApi.payments.init({
         type: isCreditFees
           ? "frais_demande_credit"
@@ -319,13 +360,66 @@ function DepositForm() {
           </p>
         </header>
 
-        {/* Article 4 amendé — choix du canal (mobile/agence) pour l'épargne */}
-        {offerChannelChoice && !payment ? (
+        {/* Frais réglés par déduction — succès (pas de Payment à attendre) */}
+        {deductionDone ? (
+          <div className="rounded-md border border-emerald/30 bg-emerald/5 p-7">
+            <h2 className="font-editorial text-xl font-medium text-ink-900">
+              Frais d&apos;étude réglés
+            </h2>
+            <p className="mt-3 text-sm text-ink-700">
+              Le montant a été prélevé sur ton épargne classique. Ton dossier
+              part en étude — tu n&apos;as rien d&apos;autre à faire.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push("/credit")}
+              className={buttonClasses({ variant: "primary", size: "md" }) + " mt-5"}
+            >
+              Voir ma demande
+            </button>
+          </div>
+        ) : null}
+
+        {/* Article 4 amendé — choix du canal (mobile/agence) pour l'épargne.
+            Porte des frais 2026 — 3e canal (déduction) pour les frais d'étude. */}
+        {offerChannelChoice && !payment && !deductionDone ? (
           <section className="mb-6 rounded-md border border-line-200 bg-paper p-6">
             <h2 className="font-display text-xs font-semibold uppercase tracking-[0.14em] text-ink-600">
-              Comment veux-tu verser ?
+              {isCreditFees ? "Comment veux-tu régler ?" : "Comment veux-tu verser ?"}
             </h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div
+              className={
+                "mt-4 grid gap-3 " +
+                (isCreditFees ? "sm:grid-cols-3" : "sm:grid-cols-2")
+              }
+            >
+              {isCreditFees ? (
+                <button
+                  type="button"
+                  onClick={() => setChannel("deduction")}
+                  disabled={!deductionAffordable}
+                  aria-pressed={channel === "deduction"}
+                  className={
+                    "rounded-md border p-4 text-left transition-colors " +
+                    (!deductionAffordable
+                      ? "cursor-not-allowed border-line-200 bg-paper/50 opacity-60"
+                      : channel === "deduction"
+                        ? "border-blue-700 bg-blue-50 ring-2 ring-blue-700/20"
+                        : "border-line-200 bg-paper hover:border-line-400")
+                  }
+                >
+                  <p className="text-sm font-semibold text-ink-900">
+                    Sur mon épargne
+                  </p>
+                  <p className="mt-1 text-xs text-ink-600">
+                    {feeDispo === null
+                      ? "Vérification du solde disponible…"
+                      : !deductionAffordable
+                        ? `Disponible insuffisant (${feeDispo.toLocaleString("fr-FR")} XAF). Le placement et l'épargne gelée en garantie ne sont pas ponctionnables.`
+                        : `Prélèvement immédiat · ${feeDispo.toLocaleString("fr-FR")} XAF disponibles`}
+                  </p>
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setChannel("mobile")}
@@ -370,7 +464,7 @@ function DepositForm() {
         ) : null}
 
         {/* Branche "agence" — pas de formulaire, juste un rappel */}
-        {offerChannelChoice && channel === "agency" && !payment ? (
+        {offerChannelChoice && channel === "agency" && !payment && !deductionDone ? (
           <div className="rounded-md border border-line-200 bg-cream p-7">
             <h2 className="font-editorial text-xl font-medium text-ink-900">
               On te garde une place à l&apos;agence
@@ -378,8 +472,10 @@ function DepositForm() {
             <p className="mt-3 text-sm text-ink-700">
               Présente-toi à <strong>Akwa, Douala (Bercy)</strong> du lundi au
               vendredi entre <strong>08h00 et 17h00</strong> avec ton numéro
-              de membre. L&apos;agent enregistre ton versement et le crédit
-              apparaît immédiatement sur ton solde.
+              de membre.{" "}
+              {isCreditFees
+                ? "L'agent enregistre le règlement de tes frais et ton dossier part aussitôt en étude."
+                : "L'agent enregistre ton versement et le crédit apparaît immédiatement sur ton solde."}
             </p>
             <p className="mt-3 text-xs text-ink-600">
               Ton numéro de membre est visible dans ton profil. Si tu préfères
@@ -387,10 +483,43 @@ function DepositForm() {
             </p>
             <button
               type="button"
-              onClick={() => router.push("/")}
+              onClick={() => router.push(isCreditFees ? "/credit" : "/")}
               className={buttonClasses({ variant: "secondary", size: "md" }) + " mt-5"}
             >
-              Retour au tableau de bord
+              {isCreditFees ? "Retour à ma demande" : "Retour au tableau de bord"}
+            </button>
+          </div>
+        ) : null}
+
+        {/* Déduction épargne — confirmation. Le formulaire Mobile Money est
+            masqué sur ce canal (pas de numéro à saisir), il faut donc son
+            propre bouton pour déclencher le prélèvement. */}
+        {isCreditFees && channel === "deduction" && !payment && !deductionDone ? (
+          <div className="rounded-md border border-line-200 bg-cream p-7">
+            <h2 className="font-editorial text-xl font-medium text-ink-900">
+              Régler sur ton épargne
+            </h2>
+            <p className="mt-3 text-sm text-ink-700">
+              <strong>{Number(form.montant || "0").toLocaleString("fr-FR")} XAF</strong>{" "}
+              seront prélevés immédiatement sur ton épargne classique. Aucun
+              numéro à saisir, aucune notification à valider.
+            </p>
+            <p className="mt-3 text-xs text-ink-600">
+              Seule la part librement retirable est ponctionnée. Ton placement et
+              l&apos;épargne gelée en garantie d&apos;un crédit ne sont pas touchés.
+            </p>
+            {error ? (
+              <div className="mt-4 rounded-md border border-terra-400/40 bg-terra-50/60 px-3 py-2 text-sm text-terra-700">
+                {error}
+              </div>
+            ) : null}
+            <button
+              type="button"
+              onClick={(e) => onSubmit(e)}
+              disabled={submitting || !deductionAffordable}
+              className={buttonClasses({ variant: "primary", size: "md" }) + " mt-5"}
+            >
+              {submitting ? "Prélèvement…" : "Régler maintenant"}
             </button>
           </div>
         ) : null}
