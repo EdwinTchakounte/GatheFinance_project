@@ -62,8 +62,9 @@ class CreditPage extends ConsumerWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
         ref.read(pendingCampaignSelectionProvider.notifier).state = null;
-        LoanRequestSheet.show(
+        _startLoanRequestFlow(
           context,
+          ref,
           eligibility,
           prefillCampaignId: next,
         );
@@ -182,10 +183,11 @@ class CreditPage extends ConsumerWidget {
                       eligibility: eligibility,
                       onSelect: eligibility == null
                           ? null
-                          : (voie) => LoanRequestSheet.show(
+                          : (voie) => _startLoanRequestFlow(
                                 context,
+                                ref,
                                 eligibility,
-                                initialVoie: voie,
+                                voie: voie,
                               ),
                     );
                   },
@@ -237,14 +239,20 @@ class CreditPage extends ConsumerWidget {
       floatingActionButton: Consumer(
         builder: (context, ref, _) {
           final eligibility = ref.watch(eligibilityProvider).valueOrNull;
+          // On observe AUSSI les demandes en cours : une demande déjà en
+          // instruction bloque une nouvelle (sinon le « + » ouvrait le
+          // formulaire pour rien → 400 au submit).
+          final requests =
+              ref.watch(loanRequestsProvider).valueOrNull ?? const [];
+          final hasBlockingRequest =
+              requests.any((r) => r.statut.blocksNewLoanRequest);
           final isLoading = eligibility == null;
-          final isBlocked = eligibility != null && !eligibility.eligible;
+          final isBlocked = hasBlockingRequest ||
+              (eligibility != null && !eligibility.eligible);
           return _NewRequestFab(
             onPressed: isLoading
                 ? null
-                : isBlocked
-                    ? () => _showIneligibilityDialog(context, eligibility.motifs)
-                    : () => LoanRequestSheet.show(context, eligibility),
+                : () => _startLoanRequestFlow(context, ref, eligibility),
             disabled: isLoading || isBlocked,
           );
         },
@@ -302,9 +310,50 @@ class _NewRequestFab extends StatelessWidget {
 }
 
 
+// Motif affiché quand une demande est DÉJÀ en cours de traitement. Le backend
+// rejette de toute façon une 2e demande (« demande en cours »), mais on l'
+// explique AVANT d'ouvrir le formulaire — au lieu de laisser le membre remplir
+// pour rien puis se heurter à un 400.
+const String _kRequestInProgressMotif =
+    'Tu as déjà une demande de crédit en cours de traitement. Attends la '
+    'décision (ou la clôture du crédit) avant d\'en soumettre une nouvelle.';
+
+/// Point d'entrée UNIQUE pour lancer une demande de crédit. Vérifie d'abord :
+///   1. qu'aucune demande n'est déjà en cours (statut bloquant), et
+///   2. que l'éligibilité backend est OK (pas de crédit actif non soldé…).
+/// Si l'un des deux bloque, affiche le message explicatif ; sinon ouvre le
+/// formulaire. Centralisé pour que TOUS les points d'entrée (FAB, carrousel
+/// des voies, sélection d'une campagne depuis la Home) soient gardés pareil.
+void _startLoanRequestFlow(
+  BuildContext context,
+  WidgetRef ref,
+  Eligibility eligibility, {
+  LoanRequestVoie? voie,
+  int? prefillCampaignId,
+}) {
+  final requests = ref.read(loanRequestsProvider).valueOrNull ?? const [];
+  final hasBlockingRequest =
+      requests.any((r) => r.statut.blocksNewLoanRequest);
+  final motifs = <String>[
+    if (hasBlockingRequest) _kRequestInProgressMotif,
+    if (!eligibility.eligible) ...eligibility.motifs,
+  ];
+  if (motifs.isNotEmpty) {
+    _showIneligibilityDialog(context, motifs);
+    return;
+  }
+  LoanRequestSheet.show(
+    context,
+    eligibility,
+    initialVoie: voie,
+    prefillCampaignId: prefillCampaignId,
+  );
+}
+
 // Dialog présenté au tap du FAB quand le membre n'est pas éligible à une
 // nouvelle demande (typiquement : un crédit en cours non soldé . Règle 2 de
-// compute_eligibility côté backend). Affiche les motifs renvoyés par l'API.
+// compute_eligibility côté backend, ou une demande déjà en cours). Affiche les
+// motifs.
 void _showIneligibilityDialog(BuildContext context, List<String> motifs) {
   showDialog<void>(
     context: context,
@@ -821,10 +870,8 @@ class _RequestCard extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => _StudyFeePaySheet.show(
-                  context,
-                  montant: request.fraisEtudeMontant?.round(),
-                ),
+                onPressed: () =>
+                    _StudyFeePaySheet.show(context, request: request),
                 icon: const Icon(Icons.receipt_long_rounded, size: 18),
                 label: const Text('Payer les frais d\'étude'),
                 style: ElevatedButton.styleFrom(
@@ -1006,13 +1053,18 @@ class _VStep extends StatelessWidget {
   }
 }
 
+/// Porte des frais 2026 — les 3 canaux de règlement, un seul au choix.
+enum _FeeChannel { deduction, momo, agence }
+
 class _StudyFeePaySheet extends ConsumerStatefulWidget {
-  const _StudyFeePaySheet({this.montant});
+  const _StudyFeePaySheet({required this.request});
 
-  /// Frais d'étude pilotés par l'admin (renvoyés par le backend). Non éditable.
-  final int? montant;
+  /// La demande à régler. Porte le montant (piloté admin, non éditable) et le
+  /// retirable, qui décide si la déduction — canal par défaut — est tenable.
+  final LoanRequestEntity request;
 
-  static Future<void> show(BuildContext context, {int? montant}) {
+  static Future<void> show(BuildContext context,
+      {required LoanRequestEntity request,}) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1021,7 +1073,7 @@ class _StudyFeePaySheet extends ConsumerStatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (_) => _StudyFeePaySheet(montant: montant),
+      builder: (_) => _StudyFeePaySheet(request: request),
     );
   }
 
@@ -1032,11 +1084,53 @@ class _StudyFeePaySheet extends ConsumerStatefulWidget {
 class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
   final _phoneCtrl = TextEditingController();
   bool _loading = false;
+  late _FeeChannel _channel;
+
+  int? get _montant => widget.request.fraisEtudeMontant?.round();
+
+  @override
+  void initState() {
+    super.initState();
+    // La déduction est le canal par défaut — mais seulement si le retirable
+    // couvre les frais. Sinon on bascule d'office sur Mobile Money plutôt que
+    // de pré-sélectionner un canal qui se ferait refuser.
+    _channel = widget.request.peutDeduireSurEpargne
+        ? _FeeChannel.deduction
+        : _FeeChannel.momo;
+  }
 
   @override
   void dispose() {
     _phoneCtrl.dispose();
     super.dispose();
+  }
+
+  /// Déduction sur épargne : transfert interne, donc synchrone. Pas de Tara,
+  /// pas de notification à valider — au retour, la demande a déjà avancé.
+  Future<void> _submitDeduction() async {
+    unawaited(HapticFeedback.mediumImpact());
+    setState(() => _loading = true);
+    try {
+      await ref
+          .read(loanRequestsProvider.notifier)
+          .payStudyFeeFromSavings(requestId: widget.request.id);
+      if (!mounted) return;
+      unawaited(HapticFeedback.heavyImpact());
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Frais réglés sur votre épargne . votre dossier part en étude.',
+          ),
+        ),
+      );
+    } catch (err) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(err))),
+      );
+    }
   }
 
   Future<void> _submit() async {
@@ -1049,7 +1143,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
       );
       return;
     }
-    final amount = widget.montant;
+    final amount = _montant;
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Montant des frais indisponible.')),
@@ -1128,23 +1222,95 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text('Numéro Mobile Money',
+              const Text('Comment voulez-vous régler ?',
                   style: TextStyle(
                       color: PaColors.inkSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,),),
               const SizedBox(height: 8),
-              TextFormField(
-                controller: _phoneCtrl,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  hintText: '+237 6XX XX XX XX',
-                  prefixIcon: Icon(Icons.phone_iphone_rounded, size: 20),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _FeeChannelChip(
+                      label: 'Mon épargne',
+                      icon: Icons.savings_rounded,
+                      selected: _channel == _FeeChannel.deduction,
+                      // Grisé si le retirable ne couvre pas les frais : le
+                      // placement et l'épargne gelée en garantie ne sont pas
+                      // ponctionnables.
+                      enabled: widget.request.peutDeduireSurEpargne,
+                      onTap: () =>
+                          setState(() => _channel = _FeeChannel.deduction),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _FeeChannelChip(
+                      label: 'Mobile Money',
+                      icon: Icons.phone_iphone_rounded,
+                      selected: _channel == _FeeChannel.momo,
+                      onTap: () => setState(() => _channel = _FeeChannel.momo),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _FeeChannelChip(
+                      label: 'Agence',
+                      icon: Icons.store_rounded,
+                      selected: _channel == _FeeChannel.agence,
+                      onTap: () => setState(() => _channel = _FeeChannel.agence),
+                    ),
+                  ),
+                ],
               ),
-              if (widget.montant != null) ...[
+              if (!widget.request.peutDeduireSurEpargne) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Épargne disponible : '
+                  '${XAFFormatter.format(widget.request.epargneDisponibleFrais.round())} '
+                  '. insuffisant pour ces frais. Votre placement et votre '
+                  'épargne gelée en garantie ne sont pas ponctionnables.',
+                  style: const TextStyle(
+                    color: PaColors.inkSecondary,
+                    fontSize: 11.5,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+              if (_channel == _FeeChannel.momo) ...[
+                const SizedBox(height: 20),
+                const Text('Numéro Mobile Money',
+                    style: TextStyle(
+                        color: PaColors.inkSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,),),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    hintText: '+237 6XX XX XX XX',
+                    prefixIcon: Icon(Icons.phone_iphone_rounded, size: 20),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                ),
+              ],
+              if (_channel == _FeeChannel.agence) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Présentez-vous à Akwa, Douala (Bercy), du lundi au vendredi '
+                  'entre 08h00 et 17h00, avec votre numéro de membre. L\'agent '
+                  'enregistre le règlement et votre dossier part aussitôt en '
+                  'étude.',
+                  style: TextStyle(
+                    color: PaColors.inkSecondary,
+                    fontSize: 13,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+              if (_montant != null) ...[
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1155,7 +1321,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                             fontSize: 13,
                             fontWeight: FontWeight.w600,),),
                     Text(
-                      XAFFormatter.format(widget.montant!),
+                      XAFFormatter.format(_montant!),
                       style: const TextStyle(
                         color: PaColors.inkPrimary,
                         fontSize: 15,
@@ -1164,18 +1330,32 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                     ),
                   ],
                 ),
-                // Frais de transaction (%) éventuels sur ce versement.
-                PaymentFeeBreakdown(
-                  montant: widget.montant ?? 0,
-                  rate: ref.watch(transactionFeeRateProvider).valueOrNull ?? 0.0,
-                ),
+                // Frais de transaction (%) — Mobile Money uniquement. Un
+                // transfert interne (déduction) et un versement en espèces à
+                // l'agence n'en supportent aucun.
+                if (_channel == _FeeChannel.momo)
+                  PaymentFeeBreakdown(
+                    montant: _montant ?? 0,
+                    rate:
+                        ref.watch(transactionFeeRateProvider).valueOrNull ?? 0.0,
+                  ),
               ],
               const SizedBox(height: 22),
-              PaButton(
-                label: 'Payer maintenant',
-                onPressed: _submit,
-                loading: _loading,
-              ),
+              if (_channel == _FeeChannel.agence)
+                PaButton(
+                  label: 'J\'ai compris',
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+              else
+                PaButton(
+                  label: _channel == _FeeChannel.deduction
+                      ? 'Régler sur mon épargne'
+                      : 'Payer maintenant',
+                  onPressed: _channel == _FeeChannel.deduction
+                      ? _submitDeduction
+                      : _submit,
+                  loading: _loading,
+                ),
             ],
           ),
         ),
@@ -1859,6 +2039,72 @@ class _RouteBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+/// Sélecteur de canal de règlement des frais d'étude.
+///
+/// Calqué sur `_ChannelChip` du sheet de retrait (même vocabulaire visuel pour
+/// le membre), avec en plus un état désactivé : la déduction sur épargne n'est
+/// proposable que si le retirable couvre les frais.
+class _FeeChannelChip extends StatelessWidget {
+  const _FeeChannelChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = !enabled
+        ? PaColors.inkMuted
+        : selected
+            ? PaColors.teal
+            : PaColors.inkPrimary;
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            color: selected && enabled ? PaColors.tealSurface : PaColors.paper,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected && enabled
+                  ? PaColors.teal
+                  : PaColors.inkMuted.withValues(alpha: 0.2),
+              width: selected && enabled ? 1.6 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: fg, size: 22),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: fg,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

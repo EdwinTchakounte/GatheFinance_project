@@ -22,6 +22,29 @@ enum LoanRequestStatus {
   enAttenteFunding,
 }
 
+extension LoanRequestStatusX on LoanRequestStatus {
+  /// `true` tant que la demande occupe une « place » dans le circuit et
+  /// empêche donc d'en soumettre une nouvelle (règle backend « demande en
+  /// cours »). Les statuts TERMINAUX (rejets divers, approbation convertie en
+  /// crédit) ne bloquent pas : le membre peut re-postuler / désigner un autre
+  /// avaliste / attendre la clôture du crédit qui en découle.
+  bool get blocksNewLoanRequest => switch (this) {
+        LoanRequestStatus.enAttente ||
+        LoanRequestStatus.enInstruction ||
+        LoanRequestStatus.enAttenteAcceptationMembre ||
+        LoanRequestStatus.approuveeProvisoire ||
+        LoanRequestStatus.enAttenteAvaliste ||
+        LoanRequestStatus.enValidationCampagne ||
+        LoanRequestStatus.enAttenteFunding =>
+          true,
+        LoanRequestStatus.approuvee ||
+        LoanRequestStatus.rejetee ||
+        LoanRequestStatus.rejeteeAvaliste ||
+        LoanRequestStatus.rejeteeCampagne =>
+          false,
+      };
+}
+
 /// Voie d'éligibilité empruntée (§6 BUSINESS_RULES_2026).
 enum LoanRoute {
   seniorBrc, // collecte ≥ ratio . capital propre coop
@@ -65,6 +88,8 @@ class LoanRequestEntity {
     this.route,
     this.dateLimiteEtude,
     this.fraisEtudeMontant,
+    this.fraisPaye = false,
+    this.epargneDisponibleFrais = 0,
   });
 
   final int id;
@@ -97,4 +122,20 @@ class LoanRequestEntity {
   // CH-7 — Frais d'étude applicables (pilotés admin). Sert au « payer plus
   // tard » pour afficher/régler le bon montant. Null si non configuré.
   final num? fraisEtudeMontant;
+
+  // Porte des frais 2026 — les frais sont exigibles avant toute instruction.
+  final bool fraisPaye;
+
+  // Part de l'épargne classique réellement ponctionnable pour ces frais : le
+  // RETIRABLE, hors placement et hors épargne gelée en garantie. Décide si le
+  // canal « déduction » — proposé par défaut — est tenable, sans second appel.
+  final num epargneDisponibleFrais;
+
+  /// La déduction sur épargne couvre-t-elle les frais dus ?
+  /// Faux si l'étude est gratuite (rien à régler) ou si le retirable ne suffit
+  /// pas — dans ce cas le membre doit passer par l'agence ou le mobile money.
+  bool get peutDeduireSurEpargne {
+    final du = fraisEtudeMontant ?? 0;
+    return du > 0 && epargneDisponibleFrais >= du;
+  }
 }

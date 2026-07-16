@@ -50,6 +50,7 @@ import '../../features/loans/domain/usecases/get_my_loan_requests.dart';
 import '../../features/loans/domain/usecases/get_active_loan_request_schema.dart';
 import '../../features/loans/domain/usecases/make_loan_repayment.dart';
 import '../../features/loans/domain/usecases/pay_loan_request_study_fee.dart';
+import '../../features/loans/domain/usecases/pay_study_fee_from_savings.dart';
 import '../../features/loans/domain/usecases/request_loan_renewal.dart';
 import '../../features/loans/domain/usecases/submit_loan_request.dart';
 import '../../features/loans/domain/usecases/upload_loan_request_attachment.dart';
@@ -252,6 +253,11 @@ final activeAdhesionSchemaProvider = FutureProvider.autoDispose((ref) async {
 final payLoanRequestStudyFeeUseCaseProvider =
     Provider<PayLoanRequestStudyFee>(
   (ref) => PayLoanRequestStudyFee(ref.watch(loansRepositoryProvider)),
+);
+
+// Porte des frais 2026 — 3e canal : déduction sur l'épargne classique.
+final payStudyFeeFromSavingsUseCaseProvider = Provider<PayStudyFeeFromSavings>(
+  (ref) => PayStudyFeeFromSavings(ref.watch(loansRepositoryProvider)),
 );
 
 // CH-5 — Récupération du FormSchema actif pour le formulaire de demande.

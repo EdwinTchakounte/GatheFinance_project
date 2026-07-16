@@ -35,6 +35,16 @@ abstract class LoansRemoteDataSource {
     int? montant,
   });
 
+  /// Porte des frais 2026 — 3e canal : déduction sur l'épargne classique.
+  ///
+  /// Rien à voir avec [payStudyFee] : c'est un transfert interne, donc
+  /// synchrone. Pas de Tara, pas de `paymentUrl`, pas de webhook à attendre —
+  /// la demande a déjà changé de statut au retour.
+  ///
+  /// Lève une erreur métier si le retirable ne couvre pas les frais (le
+  /// placement et l'épargne gelée en garantie ne sont pas ponctionnables).
+  Future<void> payStudyFeeFromSavings({required int requestId});
+
   /// CH-5 — Récupère le FormSchema actif pour le formulaire de demande.
   /// `null` si aucun schéma actif (mode legacy).
   Future<FormSchema?> getActiveLoanRequestSchema();
