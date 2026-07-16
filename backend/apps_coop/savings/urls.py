@@ -52,6 +52,17 @@ urlpatterns = [
         views.admin_run_monthly_interest,
         name="admin-cron-monthly-interest",
     ),
+    # Admin — reprise d'historique des carnets papier (antidaté).
+    path(
+        "admin/antidated-booklet/",
+        views.admin_create_antidated_booklet,
+        name="admin-antidated-booklet",
+    ),
+    path(
+        "admin/antidated-entry/",
+        views.admin_record_antidated_entry,
+        name="admin-antidated-entry",
+    ),
     # LOT 19 (refonte 2026) — Espace prêteur (consent + tranches + funding 24h).
     path("me/lender/", lender_me, name="lender-me"),
     path("me/lender/opt-in/", lender_opt_in, name="lender-opt-in"),

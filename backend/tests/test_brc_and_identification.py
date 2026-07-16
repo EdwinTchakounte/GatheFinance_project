@@ -90,11 +90,18 @@ class TestGenerateNumeroMembre:
         assert n.startswith(f"GF-{year}-")
 
     def test_sequence_picks_max_then_plus_one(self, active_member):
-        """Si des numéros existants ont des séquences éparpillées, on prend max+1."""
+        """Si des numéros existants ont des séquences éparpillées, on prend max+1.
+
+        Séquences volontairement TRÈS hautes (9xxx) : ``MemberFactory`` numérote
+        via un ``factory.Sequence`` global au process, qui ne se réinitialise pas
+        entre les tests. Dans la suite complète, le compteur dépasse largement
+        99 → un `[42, 7, 99]` ferait remonter le max ambiant (fixture
+        active_member) et non 99. On borne donc au-dessus de tout numéro que la
+        fabrique pourrait générer.
+        """
         year = date.today().year
-        # On crée des numéros manuellement avec une séquence haute.
         User = get_user_model()
-        for i, seq in enumerate([42, 7, 99], start=1):
+        for i, seq in enumerate([9042, 9007, 9099], start=1):
             user = User.objects.create_user(
                 username=f"seqtest{i}@x.fr", email=f"seqtest{i}@x.fr"
             )
@@ -106,7 +113,7 @@ class TestGenerateNumeroMembre:
                 date_adhesion=date.today(),
             )
         n = generate_numero_membre()
-        assert n == f"GF-{year}-0100"  # max 99 + 1
+        assert n == f"GF-{year}-9100"  # max 9099 + 1
 
 
 # ---------------------------------------------------------------------------

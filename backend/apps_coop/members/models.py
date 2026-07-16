@@ -448,6 +448,45 @@ class BookletOrder(TimestampedModel):
         """
         return cls.objects.filter(member=member).order_by("-created_at", "-id").first()
 
+    @classmethod
+    def for_member_at(cls, member, at_date) -> "BookletOrder | None":
+        """Carnet **actif à une date passée** (écritures antidatées).
+
+        ``latest_for`` rattache toujours au carnet le PLUS RÉCENT — faux pour
+        une reprise d'historique : une écriture de mars doit se rattacher au
+        carnet que le membre détenait en mars, pas à celui commandé depuis.
+
+        Règle : le carnet le plus récent commandé **au plus tard** à ``at_date``.
+        Si ``at_date`` précède tous les carnets connus (le carnet papier
+        existait avant sa saisie en base), on retombe sur le **plus ancien**
+        carnet plutôt que sur rien. ``None`` seulement si le membre n'a aucun
+        carnet.
+
+        ``at_date`` accepte un ``date`` ou un ``datetime`` (comparé à
+        ``created_at``, tronqué au jour).
+        """
+        from datetime import datetime, time
+
+        from django.utils import timezone as _tz
+
+        if isinstance(at_date, datetime):
+            cutoff = at_date
+        else:
+            cutoff = datetime.combine(at_date, time.max)
+            if _tz.is_naive(cutoff) and _tz.is_aware(_tz.now()):
+                cutoff = _tz.make_aware(cutoff, _tz.get_current_timezone())
+
+        active = (
+            cls.objects.filter(member=member, created_at__lte=cutoff)
+            .order_by("-created_at", "-id")
+            .first()
+        )
+        if active is not None:
+            return active
+        # Date antérieure à tout carnet connu → le plus ancien (le papier
+        # existait déjà). None si le membre n'a jamais eu de carnet.
+        return cls.objects.filter(member=member).order_by("created_at", "id").first()
+
 
 class BRCDocument(TimestampedModel):
     """Justificatif BRC (Broad Range Consulting) uploadé par un membre.

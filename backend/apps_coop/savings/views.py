@@ -619,3 +619,184 @@ def admin_run_monthly_interest(request):
         ip=client_ip(request),
     )
     return Response(summary)
+
+
+# ── Écritures antidatées — reprise d'historique des carnets papier ───────────
+
+@extend_schema(
+    tags=["savings"],
+    summary="🔒 Staff — créer un carnet antidaté (reprise carnet papier)",
+    description=(
+        "Crée un `BookletOrder` daté dans le passé, pour un membre dont le "
+        "carnet papier existe déjà. Marqué DELIVREE. Ne rejoue aucun hook (pas "
+        "de renouvellement d'adhésion, pas de second carnet). Les écritures "
+        "antidatées postérieures s'y rattacheront.\n\n"
+        "Body : `member_id`, `date` (ISO, passée), `montant` (optionnel, défaut "
+        "0 — le carnet existe déjà, pas de ré-encaissement), `annee` "
+        "(optionnel), `note` (optionnel)."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_create_antidated_booklet(request):
+    from datetime import date as _date
+    from decimal import Decimal, InvalidOperation
+
+    from apps_coop.members.models import Member
+
+    from .antidated_services import (
+        AntidatedEntryError,
+        create_antidated_booklet,
+    )
+
+    data = request.data
+    try:
+        member = Member.objects.get(pk=data.get("member_id"))
+    except (Member.DoesNotExist, TypeError, ValueError):
+        return Response(
+            {"detail": "Membre introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    raw_date = (data.get("date") or "").strip()
+    try:
+        date_op = _date.fromisoformat(raw_date)
+    except (ValueError, TypeError):
+        return Response(
+            {"detail": "Date invalide (attendu AAAA-MM-JJ)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        montant = Decimal(str(data.get("montant") or "0"))
+    except (InvalidOperation, TypeError):
+        return Response(
+            {"detail": "Montant invalide."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    annee = data.get("annee")
+    try:
+        annee = int(annee) if annee not in (None, "") else None
+    except (TypeError, ValueError):
+        return Response(
+            {"detail": "Année invalide."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        result = create_antidated_booklet(
+            member=member,
+            date_op=date_op,
+            montant=montant,
+            annee=annee,
+            note=str(data.get("note") or ""),
+            recorded_by=request.user,
+        )
+    except AntidatedEntryError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(
+        {
+            "booklet_order_id": result.booklet_order_id,
+            "payment_id": result.payment_id,
+            "date": result.date.date().isoformat(),
+            "annee": result.annee,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="🔒 Staff — enregistrer une écriture antidatée (reprise carnet papier)",
+    description=(
+        "Ressaisit une écriture (versement OU retrait) d'un carnet papier à sa "
+        "**vraie date**, pour les deux produits (collecte journalière ou épargne "
+        "classique). Reprise d'historique seule : AUCUNE clôture rejouée, aucun "
+        "Payment, aucune notification. Le solde du compte est ajusté et la ligne "
+        "de grand livre pointe vers le carnet actif à cette date.\n\n"
+        "Body : `member_id`, `product` (`collecte`|`classique`), `sens` "
+        "(`depot`|`retrait`), `montant`, `date` (ISO, passée), `booklet_order_id` "
+        "(optionnel), `note` (optionnel). 409 si le retrait rendrait le solde "
+        "négatif (ressaisir les dépôts avant les retraits)."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_record_antidated_entry(request):
+    from datetime import date as _date
+    from decimal import Decimal, InvalidOperation
+
+    from apps_coop.members.models import BookletOrder, Member
+
+    from .antidated_services import (
+        AntidatedEntryError,
+        record_antidated_entry,
+    )
+
+    data = request.data
+    try:
+        member = Member.objects.get(pk=data.get("member_id"))
+    except (Member.DoesNotExist, TypeError, ValueError):
+        return Response(
+            {"detail": "Membre introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    try:
+        montant = Decimal(str(data.get("montant") or "0"))
+    except (InvalidOperation, TypeError):
+        return Response(
+            {"detail": "Montant invalide."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    raw_date = (data.get("date") or "").strip()
+    try:
+        date_op = _date.fromisoformat(raw_date)
+    except (ValueError, TypeError):
+        return Response(
+            {"detail": "Date invalide (attendu AAAA-MM-JJ)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    booklet = None
+    booklet_id = data.get("booklet_order_id")
+    if booklet_id:
+        try:
+            booklet = BookletOrder.objects.get(pk=booklet_id, member=member)
+        except BookletOrder.DoesNotExist:
+            return Response(
+                {"detail": "Carnet introuvable pour ce membre."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+    try:
+        result = record_antidated_entry(
+            member=member,
+            product=str(data.get("product") or ""),
+            sens=str(data.get("sens") or ""),
+            montant=montant,
+            date_op=date_op,
+            booklet_order=booklet,
+            note=str(data.get("note") or ""),
+            recorded_by=request.user,
+        )
+    except AntidatedEntryError as exc:
+        # Distinction : incohérence de saisie (solde négatif) = 409, le reste
+        # = 400. On garde le message lisible dans les deux cas.
+        code = (
+            status.HTTP_409_CONFLICT
+            if "négatif" in str(exc)
+            else status.HTTP_400_BAD_REQUEST
+        )
+        return Response({"detail": str(exc)}, status=code)
+
+    return Response(
+        {
+            "transaction_id": result.transaction_id,
+            "product": result.product,
+            "sens": result.sens,
+            "montant": str(result.montant),
+            "date": result.date.date().isoformat(),
+            "solde_apres": str(result.solde_apres),
+            "booklet_order_id": result.booklet_order_id,
+        },
+        status=status.HTTP_201_CREATED,
+    )
