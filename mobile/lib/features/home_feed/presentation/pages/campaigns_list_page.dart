@@ -154,7 +154,7 @@ class _CampaignRow extends StatelessWidget {
         children: [
           // ── Visuel : image + dégradé + pastilles flottantes ────────────
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
             child: AspectRatio(
               aspectRatio: 16 / 9,
               child: Stack(

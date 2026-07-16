@@ -642,3 +642,148 @@ def build_member_statement(member, data: dict | None = None) -> bytes:
     c.showPage()
     c.save()
     return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Relevé des écritures du carnet (membre) — paginé, TOUTES les écritures
+# ---------------------------------------------------------------------------
+
+
+def collect_member_ledger(member) -> dict:
+    """TOUTES les écritures d'épargne du membre (collecte + classique).
+
+    Fusionnées, triées par date décroissante, avec le carnet auquel chaque
+    écriture est rattachée. Sert au relevé PDF téléchargeable par le membre.
+    """
+    from apps_coop.savings.models import (
+        ClassicSavingsAccount,
+        ClassicSavingsTransaction,
+        SavingsAccount,
+        SavingsTransaction,
+    )
+
+    def _booklet_label(row) -> str:
+        b = getattr(row, "booklet_order", None)
+        if b is None:
+            return "—"
+        return f"Carnet {b.annee}" if getattr(b, "annee", None) else "Carnet"
+
+    entries = []
+    for t in (
+        SavingsTransaction.objects.filter(account__member=member)
+        .select_related("booklet_order")
+        .order_by("-date", "-id")
+    ):
+        entries.append({
+            "date": t.date.date() if hasattr(t.date, "date") else t.date,
+            "produit": "Collecte",
+            "type": t.get_type_op_display(),
+            "montant": Decimal(t.montant),
+            "sens": "+" if t.type_op == SavingsTransaction.TypeOp.DEPOT else "−",
+            "carnet": _booklet_label(t),
+        })
+    for t in (
+        ClassicSavingsTransaction.objects.filter(account__member=member)
+        .select_related("booklet_order")
+        .order_by("-date", "-id")
+    ):
+        entries.append({
+            "date": t.date.date() if hasattr(t.date, "date") else t.date,
+            "produit": "Classique",
+            "type": t.get_type_op_display(),
+            "montant": Decimal(t.montant),
+            "sens": "+" if t.type_op == ClassicSavingsTransaction.TypeOp.DEPOT else "−",
+            "carnet": _booklet_label(t),
+        })
+    entries.sort(key=lambda e: e["date"], reverse=True)
+
+    collecte = SavingsAccount.objects.filter(member=member).first()
+    classique = ClassicSavingsAccount.objects.filter(member=member).first()
+    return {
+        "generated_at": date.today(),
+        "member": member,
+        "entries": entries,
+        "collecte_solde": Decimal(collecte.solde) if collecte else Decimal("0"),
+        "classique_solde": Decimal(classique.solde) if classique else Decimal("0"),
+    }
+
+
+def _ledger_table_header(c, margin, width, y):
+    c.setFillColor(MUTED)
+    c.setFont("Helvetica", 7.5)
+    c.drawString(margin + 2, y, "DATE")
+    c.drawString(margin + 26 * mm, y, "PRODUIT")
+    c.drawString(margin + 54 * mm, y, "OPÉRATION")
+    c.drawString(margin + 120 * mm, y, "CARNET")
+    c.drawRightString(width - margin, y, "MONTANT")
+    y -= 4
+    c.setStrokeColor(PANEL_BORDER)
+    c.setLineWidth(0.5)
+    c.line(margin, y, width - margin, y)
+    return y - 12
+
+
+def build_member_ledger_pdf(member, data: dict | None = None) -> bytes:
+    if data is None:
+        data = collect_member_ledger(member)
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    width, height = A4
+    margin = 18 * mm
+    c.setTitle(f"Écritures du carnet — {member.numero_membre}")
+    c.setAuthor("GATHE Finance")
+
+    y = _brand_header(
+        c, width, height, margin,
+        "RELEVÉ DES ÉCRITURES",
+        f"{member.prenom} {member.nom} · {member.numero_membre} · émis le "
+        f"{_fr_date(data['generated_at'])}",
+    )
+
+    # Bandeau soldes.
+    c.setFillColor(INK)
+    c.setFont("Helvetica", 9.5)
+    c.drawString(
+        margin, y,
+        f"Solde collecte : {_fmt_xaf(data['collecte_solde'])} XAF     "
+        f"Solde classique : {_fmt_xaf(data['classique_solde'])} XAF     "
+        f"{len(data['entries'])} écriture(s)",
+    )
+    y -= 18
+
+    y = _ledger_table_header(c, margin, width, y)
+
+    for e in data["entries"]:
+        if y < 22 * mm:
+            _footer(c, width, margin)
+            c.showPage()
+            y = _brand_header(
+                c, width, height, margin,
+                "RELEVÉ DES ÉCRITURES (SUITE)",
+                f"{member.prenom} {member.nom} · {member.numero_membre}",
+            )
+            y = _ledger_table_header(c, margin, width, y)
+
+        c.setFillColor(INK)
+        c.setFont("Helvetica", 9)
+        c.drawString(margin + 2, y, _fr_date(e["date"]))
+        c.drawString(margin + 26 * mm, y, e["produit"])
+        c.setFillColor(MUTED)
+        c.setFont("Helvetica", 8.5)
+        c.drawString(margin + 54 * mm, y, e["type"][:38])
+        c.drawString(margin + 120 * mm, y, e["carnet"][:16])
+        c.setFillColor(BRAND_GREEN if e["sens"] == "+" else BAD)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawRightString(width - margin, y, f"{e['sens']} {_fmt_xaf(e['montant'])}")
+        y -= 13
+
+    if not data["entries"]:
+        c.setFillColor(MUTED)
+        c.setFont("Helvetica-Oblique", 9)
+        c.drawString(margin + 2, y, "Aucune écriture pour le moment.")
+
+    _footer(c, width, margin)
+    c.showPage()
+    c.save()
+    return buf.getvalue()

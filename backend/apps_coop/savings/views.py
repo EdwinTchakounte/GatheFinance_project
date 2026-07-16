@@ -7,7 +7,7 @@ arrives. This view is consumption-only.
 """
 from __future__ import annotations
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import NotFound
@@ -800,3 +800,29 @@ def admin_record_antidated_entry(request):
         },
         status=status.HTTP_201_CREATED,
     )
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="Membre — relevé PDF de toutes les écritures de son carnet",
+    description=(
+        "PDF paginé listant TOUTES les écritures d'épargne du membre courant "
+        "(collecte + classique), triées par date, avec le carnet de rattachement. "
+        "Téléchargeable depuis l'onglet Carnet du mobile / portail."
+    ),
+    responses={200: OpenApiResponse(description="PDF binaire (application/pdf)")},
+)
+@api_view(["GET"])
+@permission_classes([IsActiveMember])
+def my_booklet_ledger_pdf(request):
+    from django.http import HttpResponse
+
+    from apps_coop.members.report_pdf import build_member_ledger_pdf
+
+    member = request.user.member
+    pdf = build_member_ledger_pdf(member)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = (
+        f'inline; filename="gathe-ecritures-{member.numero_membre}.pdf"'
+    )
+    return resp

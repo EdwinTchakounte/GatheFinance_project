@@ -80,7 +80,7 @@ class _AppCardState extends State<AppCard> {
       case AppCardVariant.flat:
         return AppRadii.card;
       case AppCardVariant.glass:
-        return const BorderRadius.all(AppRadii.r28);
+        return const BorderRadius.all(AppRadii.r16);
       case AppCardVariant.hero:
       case AppCardVariant.gradient:
         return AppRadii.cardHero;

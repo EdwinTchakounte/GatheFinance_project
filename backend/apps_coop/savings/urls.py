@@ -39,6 +39,8 @@ urlpatterns = [
         name="classic-transactions",
     ),
     path("classic/config/", views.classic_savings_config, name="classic-config"),
+    # Relevé PDF des écritures du carnet (membre courant).
+    path("me/ledger/", views.my_booklet_ledger_pdf, name="my-booklet-ledger"),
     # LOT 7-admin (refonte 2026) — Renouvellements épargne classique.
     path("admin/renewals/", views.admin_list_renewals, name="admin-renewals-list"),
     path(

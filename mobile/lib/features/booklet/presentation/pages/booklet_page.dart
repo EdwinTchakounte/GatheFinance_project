@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/network/api_config.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
@@ -848,7 +849,6 @@ class _OfficialDocsSection extends StatelessWidget {
         final loading = snap.connectionState == ConnectionState.waiting;
         final docs = snap.data ?? const <String, dynamic>{};
         final reglement = docs['reglement_interieur'] as Map<String, dynamic>?;
-        final carnet = docs['carnet_specimen'] as Map<String, dynamic>?;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -874,14 +874,16 @@ class _OfficialDocsSection extends StatelessWidget {
               loading: loading,
             ),
             const SizedBox(height: 8),
+            // Relevé PDF de TOUTES les écritures rattachées au carnet
+            // (remplace l'ancien specimen). Téléchargé via Dio (session).
             _OfficialDocTile(
-              icon: Icons.menu_book_outlined,
+              icon: Icons.receipt_long_rounded,
               accent: PaColors.teal,
               accentBg: PaColors.tealSurface,
-              label: 'Specimen du carnet',
-              sub: 'Aperçu du carnet remis après paiement.',
-              url: carnet?['url'] as String?,
-              loading: loading,
+              label: 'Mes écritures (PDF)',
+              sub: 'Toutes les opérations rattachées à ton carnet.',
+              url: '${ApiConfig.apiBase}/savings/me/ledger/',
+              loading: false,
             ),
           ],
         );

@@ -143,7 +143,7 @@ class _ArticleRow extends StatelessWidget {
         children: [
           // ── Visuel : image + dégradé + pastille date ───────────────────
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
             child: AspectRatio(
               aspectRatio: 16 / 9,
               child: Stack(

@@ -199,9 +199,11 @@ class HomePage extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
                   child: Row(
                     children: [
+                      // Section discrète (eyebrow muet) : les opérations
+                      // récentes sont un rappel secondaire, pas le focus.
                       Text(
-                        l.home_recent_ops,
-                        style: PaText.heading(size: 16),
+                        l.home_recent_ops.toUpperCase(),
+                        style: PaText.eyebrow(),
                       ),
                       const Spacer(),
                       TextButton(
@@ -214,9 +216,9 @@ class HomePage extends ConsumerWidget {
                         child: Text(
                           l.home_see_all,
                           style: PaText.label(
-                            size: 13.5,
-                            weight: FontWeight.w700,
-                            color: PaColors.teal,
+                            size: 12.5,
+                            weight: FontWeight.w600,
+                            color: PaColors.inkMuted,
                           ),
                         ),
                       ),
@@ -245,7 +247,7 @@ class HomePage extends ConsumerWidget {
                             for (final t in coti) (tx: t, collecte: true),
                           ]..sort((a, b) => b.tx.date.compareTo(a.tx.date));
                           return _RecentList(
-                            entries: entries.take(4).toList(),
+                            entries: entries.take(2).toList(),
                           );
                         },
                         loading: () => const PaCard(
