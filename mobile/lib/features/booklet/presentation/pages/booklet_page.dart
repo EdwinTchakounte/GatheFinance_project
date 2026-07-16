@@ -7,8 +7,6 @@ import '../../../../core/di/providers.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
-import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
-import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/pdf_preview_page.dart';
 import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
@@ -21,14 +19,17 @@ import '../widgets/order_booklet_sheet.dart';
 /// Affiche soit la commande en cours (avec timeline status), soit un appel à
 /// commander un nouveau carnet (1 000 FCFA, Article 4 du règlement).
 /// Liste l'historique des carnets précédemment délivrés.
-class BookletPage extends ConsumerStatefulWidget {
-  const BookletPage({super.key});
+/// Corps « Carnet » réutilisable, sans chrome (ni Scaffold, ni header) : il est
+/// affiché comme onglet segmenté « Carnet » à l'intérieur de la page Crédit
+/// (refonte nav 2026). Le polling est rattaché à la branche Crédit (index 1).
+class BookletBody extends ConsumerStatefulWidget {
+  const BookletBody({super.key});
 
   @override
-  ConsumerState<BookletPage> createState() => _BookletPageState();
+  ConsumerState<BookletBody> createState() => _BookletBodyState();
 }
 
-class _BookletPageState extends ConsumerState<BookletPage> {
+class _BookletBodyState extends ConsumerState<BookletBody> {
   Future<Map<String, dynamic>>? _coopDocs;
 
   @override
@@ -53,25 +54,16 @@ class _BookletPageState extends ConsumerState<BookletPage> {
     final ordersAsync = ref.watch(bookletProvider);
     final l = AppL10n.of(context);
 
-    return Scaffold(
-      backgroundColor: PaColors.canvas,
-      body: PaPatternBackground(
-        child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // Polling 30s sur les commandes carnet pour voir le passage
-            // payee → enImpression → delivree des qu'il a lieu cote admin.
-            LivePoller(
-              branchIndex: 2,
-              refresh: () => ref.read(bookletProvider.notifier).refresh(),
-              readSnapshot: () => ref.read(bookletProvider).valueOrNull,
-            ),
-            // ── Header FIXE compact . band gradient soft vert→bleu ──────
-            PaGradientHeaderBand(title: l.booklet_title),
-            const SizedBox(height: 12),
-            Expanded(
-              child: RefreshIndicator.adaptive(
+    return Column(
+      children: [
+        // Polling 30s sur les commandes carnet (onglet Carnet, branche Crédit).
+        LivePoller(
+          branchIndex: 1,
+          refresh: () => ref.read(bookletProvider.notifier).refresh(),
+          readSnapshot: () => ref.read(bookletProvider).valueOrNull,
+        ),
+        Expanded(
+          child: RefreshIndicator.adaptive(
           color: PaColors.teal,
           onRefresh: () async {
             await ref.read(bookletProvider.notifier).refresh();
@@ -176,12 +168,9 @@ class _BookletPageState extends ConsumerState<BookletPage> {
               const SliverToBoxAdapter(child: SizedBox(height: 40)),
             ],
           ),
-              ),
-            ),
-          ],
+          ),
         ),
-        ),
-      ),
+      ],
     );
   }
 }

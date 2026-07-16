@@ -80,7 +80,7 @@ class _AppCardState extends State<AppCard> {
       case AppCardVariant.flat:
         return AppRadii.card;
       case AppCardVariant.glass:
-        return const BorderRadius.all(AppRadii.r24);
+        return const BorderRadius.all(AppRadii.r28);
       case AppCardVariant.hero:
       case AppCardVariant.gradient:
         return AppRadii.cardHero;
@@ -151,6 +151,24 @@ class _AppCardState extends State<AppCard> {
     return Theme.of(context).colorScheme.surface;
   }
 
+  /// Refonte visuelle 2026 : la variante `glass` n'est plus un rectangle blanc
+  /// plat mais un panneau doux, dégradé surface → tuile mint pâle. Adoucit
+  /// l'empilement de cartes (profil) sans en changer la structure. `null` pour
+  /// les autres variantes (elles gardent leur surface / gradient propre).
+  Gradient? _autoGradient(BuildContext context) {
+    if (widget.color != null || _variant != AppCardVariant.glass) return null;
+    final base = Theme.of(context).colorScheme.surface;
+    final tint = Color.alphaBlend(
+      const Color(0xFF00B894).withValues(alpha: 0.055), // teal marque
+      base,
+    );
+    return LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [base, tint],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final base = AnimatedContainer(
@@ -158,7 +176,7 @@ class _AppCardState extends State<AppCard> {
       curve: Curves.easeOut,
       decoration: BoxDecoration(
         color: _surfaceColor(context),
-        gradient: widget.gradient,
+        gradient: widget.gradient ?? _autoGradient(context),
         borderRadius: _radius,
         boxShadow: _shadows,
         border: widget.border,

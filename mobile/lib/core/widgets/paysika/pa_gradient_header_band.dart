@@ -25,16 +25,9 @@ class PaGradientHeaderBand extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            PaColors.teal.withValues(alpha: 0.10),
-            PaColors.blue.withValues(alpha: 0.10),
-          ],
-        ),
-        border: const Border(
+      decoration: const BoxDecoration(
+        color: PaColors.paper,
+        border: Border(
           bottom: BorderSide(color: PaColors.line, width: 0.8),
         ),
       ),

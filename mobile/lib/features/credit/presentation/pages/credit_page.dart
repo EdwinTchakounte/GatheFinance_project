@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../booklet/presentation/pages/booklet_page.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
@@ -71,7 +72,9 @@ class CreditPage extends ConsumerWidget {
       });
     });
 
-    return Scaffold(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
       backgroundColor: PaColors.canvas,
       body: PaPatternBackground(
         child: SafeArea(
@@ -95,6 +98,17 @@ class CreditPage extends ConsumerWidget {
             // ── Header FIXE compact . band gradient soft vert→bleu ──────
             PaGradientHeaderBand(title: l.credit_title),
             const SizedBox(height: 12),
+            // ── Sélecteur segmenté Crédit | Carnet (refonte nav 2026) ────
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: _CreditCarnetTabs(),
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  // ═══════════ Onglet CRÉDIT ═══════════
+                  Column(
+                    children: [
             // ── Accès Mandats avaliste (LOT 21) ──────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -232,6 +246,13 @@ class CreditPage extends ConsumerWidget {
           ),
               ),
             ),
+                    ],
+                  ),
+                  // ═══════════ Onglet CARNET ═══════════
+                  const BookletBody(),
+                ],
+              ),
+            ),
           ],
         ),
         ),
@@ -256,6 +277,7 @@ class CreditPage extends ConsumerWidget {
             disabled: isLoading || isBlocked,
           );
         },
+      ),
       ),
     );
   }
@@ -2105,6 +2127,51 @@ class _FeeChannelChip extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+/// Sélecteur segmenté « pilule » en tête de la page Crédit : bascule entre
+/// l'onglet Crédit et l'onglet Carnet (refonte nav 2026). S'appuie sur le
+/// DefaultTabController qui enveloppe la page.
+class _CreditCarnetTabs extends StatelessWidget {
+  const _CreditCarnetTabs();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: PaColors.tealSurface.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: TabBar(
+        indicator: BoxDecoration(
+          color: PaColors.teal,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: PaColors.teal.withValues(alpha: 0.28),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        splashBorderRadius: BorderRadius.circular(999),
+        labelColor: Colors.white,
+        unselectedLabelColor: PaColors.inkSecondary,
+        labelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+        unselectedLabelStyle:
+            const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+        tabs: const [
+          Tab(text: 'Crédit'),
+          Tab(text: 'Carnet'),
+        ],
       ),
     );
   }

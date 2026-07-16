@@ -23,7 +23,6 @@ import '../../../auth/presentation/state/auth_notifier.dart';
 import '../../../booklet/presentation/widgets/order_booklet_sheet.dart';
 import '../../data/renewal_status_provider.dart';
 import '../../../home_feed/presentation/state/feed_notifier.dart';
-import '../../../home_feed/presentation/widgets/feed_sections.dart';
 import '../../../notifications/presentation/state/notifications_notifier.dart';
 import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
@@ -146,27 +145,9 @@ class HomePage extends ConsumerWidget {
               // le badge LOT 4 (commission 1%) sera réintégré ailleurs si
               // besoin. Évite la redondance UI signalée par le client.
 
-              // ── Section "Campagnes en cours" (LOT 11 micro-crédit) ──
-              // Tap sur une card → ouvre la liste des campagnes (la liste
-              // gère ensuite le scroll/focus sur l'item). Pas de detail page
-              // dédiée pour l'instant : la liste suffit à la démo NHR.
-              SliverToBoxAdapter(
-                child: CampaignsSection(
-                  onSeeMore: () => context.push('/campaigns'),
-                  onTapCampaign: (_) => context.push('/campaigns'),
-                ),
-              ),
-
-              // ── Section "Actualités" (Wagtail blog) ────────────────────
-              // Tap sur une card → ouvre la NewsDetailPage. L'article est
-              // passé en `extra` pour un rendu instantané (cf. router).
-              SliverToBoxAdapter(
-                child: NewsSection(
-                  onSeeMore: () => context.push('/news'),
-                  onTapArticle: (a) =>
-                      context.push('/news/${a.id}', extra: a),
-                ),
-              ),
+              // Refonte nav 2026 : Campagnes + Actualités ont quitté la Home
+              // pour l'onglet dédié « Annonces » (2 vues segmentées). La Home
+              // se recentre sur l'épargne et les opérations récentes.
 
               // ── Carousel d'infos défilant (remplace « Mes services ») ──
               SliverToBoxAdapter(

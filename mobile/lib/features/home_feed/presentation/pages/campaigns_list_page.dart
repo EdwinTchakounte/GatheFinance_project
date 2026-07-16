@@ -17,14 +17,43 @@ import '../state/feed_notifier.dart';
 /// vertical : charge la page suivante à 200 px du bas. Tap sur une carte
 /// → renvoie l'id de la campagne via `Navigator.pop` pour que le caller
 /// déclenche le sheet de demande de crédit pré-rempli (voie campagne).
-class CampaignsListPage extends ConsumerStatefulWidget {
+class CampaignsListPage extends StatelessWidget {
   const CampaignsListPage({super.key});
 
   @override
-  ConsumerState<CampaignsListPage> createState() => _CampaignsListPageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: PaColors.canvas,
+      appBar: AppBar(
+        backgroundColor: PaColors.canvas,
+        surfaceTintColor: PaColors.canvas,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: PaColors.inkPrimary),
+        title: const Text(
+          'Campagnes en cours',
+          style: TextStyle(
+            color: PaColors.inkPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      body: const PaPatternBackground(child: CampaignsListBody()),
+    );
+  }
 }
 
-class _CampaignsListPageState extends ConsumerState<CampaignsListPage> {
+/// Corps réutilisable de la liste des campagnes (sans Scaffold/AppBar).
+class CampaignsListBody extends ConsumerStatefulWidget {
+  const CampaignsListBody({super.key});
+
+  @override
+  ConsumerState<CampaignsListBody> createState() => _CampaignsListBodyState();
+}
+
+class _CampaignsListBodyState extends ConsumerState<CampaignsListBody> {
   final _scroll = ScrollController();
 
   @override
@@ -53,74 +82,48 @@ class _CampaignsListPageState extends ConsumerState<CampaignsListPage> {
     final loading = feed?.campaignsLoading ?? false;
     final hasError = feed?.campaignsError ?? false;
 
-    return Scaffold(
-      backgroundColor: PaColors.canvas,
-      appBar: AppBar(
-        backgroundColor: PaColors.canvas,
-        surfaceTintColor: PaColors.canvas,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: PaColors.inkPrimary),
-        title: const Text(
-          'Campagnes en cours',
-          style: TextStyle(
-            color: PaColors.inkPrimary,
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-      body: PaPatternBackground(
-        child: RefreshIndicator.adaptive(
-          color: PaColors.teal,
-          onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
-          child: campaigns.isEmpty && !loading
-              ? (hasError
-                  ? PaErrorState(
-                      message: 'Impossible de charger les campagnes.',
-                      onRetry: () =>
-                          ref.read(homeFeedProvider.notifier).refresh(),
-                    )
-                  : const _EmptyState())
-              : ListView.separated(
-                  controller: _scroll,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  itemCount: campaigns.length + (loading ? 1 : 0),
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (_, i) {
-                    if (i >= campaigns.length) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: PaColors.teal,
-                            ),
-                          ),
+    return RefreshIndicator.adaptive(
+      color: PaColors.teal,
+      onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
+      child: campaigns.isEmpty && !loading
+          ? (hasError
+              ? PaErrorState(
+                  message: 'Impossible de charger les campagnes.',
+                  onRetry: () => ref.read(homeFeedProvider.notifier).refresh(),
+                )
+              : const _EmptyState())
+          : ListView.separated(
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              itemCount: campaigns.length + (loading ? 1 : 0),
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (_, i) {
+                if (i >= campaigns.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: PaColors.teal,
                         ),
-                      );
-                    }
-                    return _CampaignRow(
-                      c: campaigns[i],
-                      // Tap sur la carte → on ENTRE dans la campagne (détail +
-                      // commentaires + CTA « Postuler »). Le détail porte le
-                      // flow de demande de crédit pré-rempli sur la voie
-                      // campagne.
-                      onOpen: () => context.pushNamed(
-                        'campaign-detail',
-                        pathParameters: {'id': '${campaigns[i].id}'},
-                        extra: campaigns[i],
                       ),
-                    );
-                  },
-                ),
-        ),
-      ),
+                    ),
+                  );
+                }
+                return _CampaignRow(
+                  c: campaigns[i],
+                  onOpen: () => context.pushNamed(
+                    'campaign-detail',
+                    pathParameters: {'id': '${campaigns[i].id}'},
+                    extra: campaigns[i],
+                  ),
+                );
+              },
+            ),
     );
   }
 }

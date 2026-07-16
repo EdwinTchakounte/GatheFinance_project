@@ -66,9 +66,9 @@ class MainShell extends ConsumerWidget {
                   onTap: () => _goBranch(1),
                 ),
                 _PaNavItem(
-                  icon: Icons.menu_book_outlined,
-                  selectedIcon: Icons.menu_book_rounded,
-                  label: l.nav_booklet,
+                  icon: Icons.campaign_outlined,
+                  selectedIcon: Icons.campaign_rounded,
+                  label: 'Annonces',
                   selected: currentIndex == 2,
                   onTap: () => _goBranch(2),
                 ),
