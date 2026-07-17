@@ -815,6 +815,16 @@ export type AdminBlogArticle = {
   cover_image_data: { url: string } | null;
   comment_count: number;
   author_name: string | null;
+  has_en: boolean;
+};
+
+export type BlogI18n = {
+  id: number;
+  title: string;
+  excerpt: string;
+  title_en: string;
+  excerpt_en: string;
+  body_en: string;
 };
 
 export type AdminBlogPage = {
@@ -1051,6 +1061,77 @@ function qs(params: Record<string, string | undefined>): string {
   return "?" + new URLSearchParams(entries as [string, string][]).toString();
 }
 
+// Fiche d'adhésion d'un membre (infos renseignées à la soumission).
+export type MemberAdhesion = {
+  id: number;
+  statut: string;
+  soumis_le: string;
+  identity: {
+    nom: string;
+    prenom: string;
+    email: string;
+    phone: string;
+    whatsapp: string;
+    city: string;
+    quartier_localite: string;
+    statut_pro: string;
+    language: string;
+  };
+  urgence: { nom: string; lien: string; phone: string };
+  motivation: string;
+  extra_payload: Record<string, unknown>;
+  form_schema_version: number | null;
+  pieces: {
+    cni_recto: string | null;
+    cni_verso: string | null;
+    plan_localisation: string | null;
+    photo_identite: string | null;
+  };
+};
+
+
+// Fin de mois collecte — préférence d'un membre.
+export type CollecteEomRow = {
+  member_id: number;
+  numero_membre: string;
+  nom: string;
+  solde: string;
+  preference: "cash" | "epargne";
+};
+
+export type CollecteEomPage = {
+  summary: { cash: number; epargne: number; total: number };
+  results: CollecteEomRow[];
+};
+
+
+// Support membre — fil unique membre ↔ support.
+export type SupportMessageRow = {
+  id: number;
+  sender: "member" | "staff";
+  body: string;
+  read_by_recipient: boolean;
+  created_at: string;
+};
+
+export type SupportThreadRow = {
+  id: number;
+  member_id: number;
+  member_numero: string;
+  member_nom: string;
+  last_message_at: string | null;
+  last_body: string;
+  staff_unread: number;
+};
+
+export type SupportThreadDetail = {
+  thread_id: number;
+  member_numero: string;
+  member_nom: string;
+  messages: SupportMessageRow[];
+};
+
+
 export const adminApi = {
   primeCsrf: () => request<{ csrfToken: string }>("/auth/csrf/"),
   login: (email: string, password: string) =>
@@ -1240,6 +1321,27 @@ export const adminApi = {
           offset: params.offset ? String(params.offset) : undefined,
         })}`,
       ),
+    // Relevé PDF de situation d'un membre (staff) — ouvert dans un onglet,
+    // servi inline par le backend (cookies de session inclus).
+    statementUrl: (memberId: number) =>
+      `${API_BASE}/admin/members/${memberId}/statement/`,
+    // Fiche d'adhésion (infos renseignées à la soumission de la demande).
+    adhesion: (memberId: number) =>
+      request<MemberAdhesion>(`/admin/members/${memberId}/adhesion/`),
+  },
+
+  // Fin de mois collecte — choix des membres (cash vs bascule épargne).
+  collecteEom: {
+    list: (onlyActive = false) =>
+      request<CollecteEomPage>(
+        `/savings/admin/collecte-preferences/${onlyActive ? "?only_active=1" : ""}`,
+      ),
+  },
+
+  // Rapports PDF coopérative-wide.
+  reports: {
+    // « État de la coopérative » — photo actionnable (staff / ressource dashboard).
+    coopUrl: () => `${API_BASE}/admin/report/coop/`,
   },
 
   withdrawals: {
@@ -1311,6 +1413,17 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify({ live }),
       }),
+    // Correspondance anglaise (titre / extrait / contenu) — édition dashboard.
+    getI18n: (pageId: number) =>
+      request<BlogI18n>(`/cms/blog/${pageId}/i18n/`),
+    setI18n: (
+      pageId: number,
+      payload: { title_en: string; excerpt_en: string; body_en: string },
+    ) =>
+      request<Omit<BlogI18n, "title" | "excerpt">>(
+        `/cms/blog/${pageId}/i18n/`,
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
     comments: (pageId: number, params: { limit?: number; offset?: number } = {}) => {
       const sp = new URLSearchParams();
       if (params.limit != null) sp.set("limit", String(params.limit));
@@ -1422,6 +1535,51 @@ export const adminApi = {
       }>(`/savings/admin/renewals/${id}/process/`, {
         method: "POST",
         body: JSON.stringify(paid_amount !== undefined ? { paid_amount } : {}),
+      }),
+  },
+
+  // Reprise d'historique — carnets papier antidatés (backend IsStaff).
+  antidated: {
+    // Crée un carnet daté dans le passé (reprise d'un carnet papier existant).
+    // montant défaut 0 : le carnet existe déjà, pas de ré-encaissement.
+    createBooklet: (payload: {
+      member_id: number;
+      date: string;
+      montant?: number | string;
+      annee?: number;
+      note?: string;
+    }) =>
+      request<{
+        booklet_order_id: number;
+        payment_id: number | null;
+        date: string;
+        annee: number | null;
+      }>("/savings/admin/antidated-booklet/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    // Écriture (dépôt/retrait) à sa vraie date, sur collecte ou classique.
+    // 409 si un retrait rendrait le solde négatif.
+    recordEntry: (payload: {
+      member_id: number;
+      product: "collecte" | "classique";
+      sens: "depot" | "retrait";
+      montant: number | string;
+      date: string;
+      booklet_order_id?: number;
+      note?: string;
+    }) =>
+      request<{
+        transaction_id: number;
+        product: string;
+        sens: string;
+        montant: string;
+        date: string;
+        solde_apres: string;
+        booklet_order_id: number | null;
+      }>("/savings/admin/antidated-entry/", {
+        method: "POST",
+        body: JSON.stringify(payload),
       }),
   },
 
@@ -1767,6 +1925,18 @@ export const adminApi = {
           { method: "POST", body: JSON.stringify({ body }) },
         ),
     },
+  },
+
+  // Support membre — boîte de réception (fils) + réponse du support.
+  support: {
+    threads: () => request<SupportThreadRow[]>("/support/admin/threads/"),
+    thread: (id: number) =>
+      request<SupportThreadDetail>(`/support/admin/threads/${id}/`),
+    reply: (id: number, body: string) =>
+      request<SupportMessageRow>(`/support/admin/threads/${id}/reply/`, {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      }),
   },
 
   // LA-1..3 . Pool de tranches preteur (epargne placement).

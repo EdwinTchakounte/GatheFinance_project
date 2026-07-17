@@ -54,7 +54,12 @@ Future<void> main() async {
   // FR, Firebase) : on les lance EN PARALLÈLE au lieu de les enchaîner. Le
   // time-to-first-frame devient la plus lente des trois, pas leur somme.
   final apiClientF = ApiClient.create();
-  final dateFmtF = initializeDateFormatting('fr_FR');
+  // Données intl pour les DEUX langues supportées (FR + EN) : les dates se
+  // localisent alors avec la locale courante (cf. AppDateFormatter).
+  final dateFmtF = Future.wait([
+    initializeDateFormatting('fr_FR'),
+    initializeDateFormatting('en'),
+  ]);
   final firebaseF = _initFirebase();
 
   // Status bar transparente — le thème prendra le relais ensuite.

@@ -94,6 +94,9 @@ export type BlogListItem = {
 
 export type BlogPost = BlogListItem & {
   body: StreamBlock[];
+  /** Corps anglais (HTML RichText) quand la locale = en et qu'il est renseigné.
+   *  Prioritaire sur `body` (StreamField FR) à l'affichage. */
+  bodyHtml: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
 };
@@ -114,15 +117,20 @@ export function getSiteSettings(): Promise<SiteSettings | null> {
   return cmsFetch<SiteSettings>("/api/site/settings/");
 }
 
-function normaliseItem(it: Record<string, unknown>): BlogListItem {
+function normaliseItem(it: Record<string, unknown>, wantEn = false): BlogListItem {
   const meta = (it.meta as Record<string, unknown> | undefined) ?? {};
   const cover = (it.cover_image_data as CmsImage) ?? null;
+  // i18n : les articles vivent en FR + une correspondance EN optionnelle
+  // (champs title_en / excerpt_en). En locale EN, on prend l'EN s'il existe,
+  // sinon on retombe sur le FR.
+  const titleEn = String(it.title_en ?? "").trim();
+  const excerptEn = String(it.excerpt_en ?? "").trim();
   return {
     id: Number(it.id),
-    title: String(it.title ?? ""),
+    title: wantEn && titleEn ? titleEn : String(it.title ?? ""),
     slug: String(meta.slug ?? it.slug ?? ""),
     date: String(it.date ?? meta.first_published_at ?? ""),
-    excerpt: String(it.excerpt ?? ""),
+    excerpt: wantEn && excerptEn ? excerptEn : String(it.excerpt ?? ""),
     coverImage: cover && cover.url ? { ...cover, url: cmsUrl(cover.url)! } : null,
     authorName: (it.author_name as string) || null,
     categories: Array.isArray(it.category_list)
@@ -134,11 +142,13 @@ function normaliseItem(it: Record<string, unknown>): BlogListItem {
   };
 }
 
-const POST_FIELDS = "date,excerpt,cover_image_data,author_name,category_list";
+const POST_FIELDS =
+  "date,excerpt,cover_image_data,author_name,category_list,title_en,excerpt_en";
 
 /** Published blog posts for a locale. Falls back to FR if the locale has none. */
 export async function getBlogPosts(locale: string, limit = 12): Promise<BlogListItem[]> {
   const loc = wagtailLocale(locale);
+  const wantEn = loc === "en";
   const fetchFor = async (l: string) =>
     cmsFetch<{ items: Array<Record<string, unknown>> }>(
       `/api/v2/pages/?type=cms.BlogPostPage&fields=${POST_FIELDS}&order=-date&limit=${limit}&locale=${l}`,
@@ -146,23 +156,26 @@ export async function getBlogPosts(locale: string, limit = 12): Promise<BlogList
   let data = await fetchFor(loc);
   if ((!data?.items || data.items.length === 0) && loc !== "fr") data = await fetchFor("fr");
   if (!data?.items) return [];
-  return data.items.map(normaliseItem);
+  return data.items.map((it) => normaliseItem(it, wantEn));
 }
 
 /** A single blog post by slug (with full body). Falls back to FR if missing. */
 export async function getBlogPost(slug: string, locale: string): Promise<BlogPost | null> {
   const loc = wagtailLocale(locale);
+  const wantEn = loc === "en";
   const fetchFor = async (l: string) =>
     cmsFetch<{ items: Array<Record<string, unknown>> }>(
-      `/api/v2/pages/?type=cms.BlogPostPage&slug=${encodeURIComponent(slug)}&fields=${POST_FIELDS},body,seo_title,search_description&locale=${l}`,
+      `/api/v2/pages/?type=cms.BlogPostPage&slug=${encodeURIComponent(slug)}&fields=${POST_FIELDS},body,body_en,seo_title,search_description&locale=${l}`,
     );
   let data = await fetchFor(loc);
   if ((!data?.items || data.items.length === 0) && loc !== "fr") data = await fetchFor("fr");
   const it = data?.items?.[0];
   if (!it) return null;
+  const bodyEn = String(it.body_en ?? "").trim();
   return {
-    ...normaliseItem(it),
+    ...normaliseItem(it, wantEn),
     body: Array.isArray(it.body) ? (it.body as StreamBlock[]) : [],
+    bodyHtml: wantEn && bodyEn ? bodyEn : null,
     seoTitle: (it.seo_title as string) || null,
     seoDescription: (it.search_description as string) || null,
   };

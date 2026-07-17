@@ -228,7 +228,7 @@ function Inner() {
                 </button>
               </div>
             ) : (
-              <span className="text-xs text-ink-400">—</span>
+              <span className="text-xs text-ink-400"></span>
             )
           }
         />

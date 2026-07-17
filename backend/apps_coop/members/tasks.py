@@ -24,7 +24,9 @@ logger = logging.getLogger(__name__)
 #: l'anniversaire annuel). Modifiable via ``AppSetting.members.reinscription.lead_days``.
 DEFAULT_LEAD_DAYS = 30
 #: D2 . Periode de grace apres l'anniversaire avant suspension auto.
-DEFAULT_GRACE_DAYS = 30
+#: Décision 2026-07-17 (G5) : J+10 — tout membre non ré-inscrit passe INACTIF
+#: 10 jours après la clôture du cycle. Tunable ``members.reinscription.grace_days``.
+DEFAULT_GRACE_DAYS = 10
 
 
 def rappel_reinscription_annuelle() -> dict:

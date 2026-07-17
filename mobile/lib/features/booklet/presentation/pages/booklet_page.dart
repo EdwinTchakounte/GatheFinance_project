@@ -4,11 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/network/api_config.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
-import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
-import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/pdf_preview_page.dart';
 import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
@@ -21,14 +20,17 @@ import '../widgets/order_booklet_sheet.dart';
 /// Affiche soit la commande en cours (avec timeline status), soit un appel à
 /// commander un nouveau carnet (1 000 FCFA, Article 4 du règlement).
 /// Liste l'historique des carnets précédemment délivrés.
-class BookletPage extends ConsumerStatefulWidget {
-  const BookletPage({super.key});
+/// Corps « Carnet » réutilisable, sans chrome (ni Scaffold, ni header) : il est
+/// affiché comme onglet segmenté « Carnet » à l'intérieur de la page Crédit
+/// (refonte nav 2026). Le polling est rattaché à la branche Crédit (index 1).
+class BookletBody extends ConsumerStatefulWidget {
+  const BookletBody({super.key});
 
   @override
-  ConsumerState<BookletPage> createState() => _BookletPageState();
+  ConsumerState<BookletBody> createState() => _BookletBodyState();
 }
 
-class _BookletPageState extends ConsumerState<BookletPage> {
+class _BookletBodyState extends ConsumerState<BookletBody> {
   Future<Map<String, dynamic>>? _coopDocs;
 
   @override
@@ -53,25 +55,16 @@ class _BookletPageState extends ConsumerState<BookletPage> {
     final ordersAsync = ref.watch(bookletProvider);
     final l = AppL10n.of(context);
 
-    return Scaffold(
-      backgroundColor: PaColors.canvas,
-      body: PaPatternBackground(
-        child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // Polling 30s sur les commandes carnet pour voir le passage
-            // payee → enImpression → delivree des qu'il a lieu cote admin.
-            LivePoller(
-              branchIndex: 2,
-              refresh: () => ref.read(bookletProvider.notifier).refresh(),
-              readSnapshot: () => ref.read(bookletProvider).valueOrNull,
-            ),
-            // ── Header FIXE compact . band gradient soft vert→bleu ──────
-            PaGradientHeaderBand(title: l.booklet_title),
-            const SizedBox(height: 12),
-            Expanded(
-              child: RefreshIndicator.adaptive(
+    return Column(
+      children: [
+        // Polling 30s sur les commandes carnet (onglet Carnet, branche Crédit).
+        LivePoller(
+          branchIndex: 1,
+          refresh: () => ref.read(bookletProvider.notifier).refresh(),
+          readSnapshot: () => ref.read(bookletProvider).valueOrNull,
+        ),
+        Expanded(
+          child: RefreshIndicator.adaptive(
           color: PaColors.teal,
           onRefresh: () async {
             await ref.read(bookletProvider.notifier).refresh();
@@ -141,7 +134,7 @@ class _BookletPageState extends ConsumerState<BookletPage> {
                         l.booklet_history_title,
                         style: const TextStyle(
                           color: PaColors.inkPrimary,
-                          fontSize: 15,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -176,12 +169,9 @@ class _BookletPageState extends ConsumerState<BookletPage> {
               const SliverToBoxAdapter(child: SizedBox(height: 40)),
             ],
           ),
-              ),
-            ),
-          ],
+          ),
         ),
-        ),
-      ),
+      ],
     );
   }
 }
@@ -252,7 +242,9 @@ class _PendingOrderCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Commandé le ${AppDateFormatter.long(order.dateCommande)}',
+                      l.booklet_ordered_on(
+                        AppDateFormatter.long(order.dateCommande),
+                      ),
                       style: const TextStyle(
                         color: PaColors.inkPrimary,
                         fontSize: 15,
@@ -599,9 +591,9 @@ class _OrderNewCard extends StatelessWidget {
                         color: PaColors.tealSurface,
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: const Text(
-                        'Validité 1 an',
-                        style: TextStyle(
+                      child: Text(
+                        l.booklet_validity_1y,
+                        style: const TextStyle(
                           color: PaColors.teal,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -714,23 +706,23 @@ class _HistoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
     return PaCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: PaColors.successSurface,
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.menu_book_outlined,
               color: PaColors.success,
-              size: 19,
+              size: 16,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -739,11 +731,11 @@ class _HistoryTile extends StatelessWidget {
                   l.booklet_history_item('${order.id}'),
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 14,
+                    fontSize: 12.5,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   l.booklet_history_delivered_on(
                     AppDateFormatter.long(
@@ -752,7 +744,7 @@ class _HistoryTile extends StatelessWidget {
                   ),
                   style: const TextStyle(
                     color: PaColors.inkMuted,
-                    fontSize: 12,
+                    fontSize: 10.5,
                   ),
                 ),
               ],
@@ -856,19 +848,19 @@ class _OfficialDocsSection extends StatelessWidget {
     return FutureBuilder<Map<String, dynamic>>(
       future: future,
       builder: (context, snap) {
+        final l = AppL10n.of(context);
         final loading = snap.connectionState == ConnectionState.waiting;
         final docs = snap.data ?? const <String, dynamic>{};
         final reglement = docs['reglement_interieur'] as Map<String, dynamic>?;
-        final carnet = docs['carnet_specimen'] as Map<String, dynamic>?;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
               child: Text(
-                'Documents officiels',
-                style: TextStyle(
+                l.booklet_docs_title,
+                style: const TextStyle(
                   color: PaColors.inkPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -879,20 +871,22 @@ class _OfficialDocsSection extends StatelessWidget {
               icon: Icons.gavel_rounded,
               accent: PaColors.navy,
               accentBg: const Color(0xFFE8EDFA), // navy tinted surface
-              label: 'Reglement interieur',
-              sub: 'Statuts + droits et devoirs du sociétaire.',
+              label: l.booklet_doc_reglement,
+              sub: l.booklet_doc_reglement_sub,
               url: reglement?['url'] as String?,
               loading: loading,
             ),
             const SizedBox(height: 8),
+            // Relevé PDF de TOUTES les écritures rattachées au carnet
+            // (remplace l'ancien specimen). Téléchargé via Dio (session).
             _OfficialDocTile(
-              icon: Icons.menu_book_outlined,
+              icon: Icons.receipt_long_rounded,
               accent: PaColors.teal,
               accentBg: PaColors.tealSurface,
-              label: 'Specimen du carnet',
-              sub: 'Aperçu du carnet remis après paiement.',
-              url: carnet?['url'] as String?,
-              loading: loading,
+              label: l.booklet_doc_ledger,
+              sub: l.booklet_doc_ledger_sub,
+              url: '${ApiConfig.apiBase}/savings/me/ledger/',
+              loading: false,
             ),
           ],
         );
@@ -925,6 +919,7 @@ class _OfficialDocTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return PaCard(
       padding: EdgeInsets.zero,
       child: Material(
@@ -968,8 +963,8 @@ class _OfficialDocTile extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         loading
-                            ? 'Chargement...'
-                            : (_available ? sub : 'Bientôt disponible'),
+                            ? l.common_loading
+                            : (_available ? sub : l.booklet_doc_soon),
                         style: const TextStyle(
                           color: PaColors.inkMuted,
                           fontSize: 12.5,
@@ -993,7 +988,7 @@ class _OfficialDocTile extends StatelessWidget {
                             color: accent, size: 14,),
                         const SizedBox(width: 4),
                         Text(
-                          'Aperçu',
+                          l.common_preview,
                           style: TextStyle(
                             color: accent,
                             fontSize: 11.5,

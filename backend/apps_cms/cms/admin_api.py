@@ -127,11 +127,58 @@ def blog_list(request):
             "cover_image_data": p.cover_image_data,
             "comment_count": counts.get(p.id, 0),
             "author_name": p.author_name,
+            # Indicateur EN : au moins un champ anglais renseigné.
+            "has_en": bool(p.title_en or p.excerpt_en or str(p.body_en)),
         }
         for p in page_items
     ]
     return Response(
         {"count": total, "limit": limit, "offset": offset, "results": results}
+    )
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsStaff])
+def blog_i18n(request, page_id: int):
+    """Lit (GET) ou met à jour (POST) la **correspondance anglaise** d'un
+    article (titre / extrait / contenu), directement depuis le dashboard —
+    sans passer par Wagtail. Les champs EN sont optionnels (chaîne vide =
+    pas de traduction → la vitrine retombe sur le FR).
+
+    Un POST republie l'article (s'il est live) pour déclencher la revalidation
+    ISR de la vitrine.
+    """
+    page = get_object_or_404(BlogPostPage, pk=page_id)
+
+    if request.method == "GET":
+        return Response(
+            {
+                "id": page.id,
+                "title": page.title,
+                "excerpt": page.excerpt,
+                "title_en": page.title_en,
+                "excerpt_en": page.excerpt_en,
+                "body_en": str(page.body_en),
+            }
+        )
+
+    data = request.data
+    page.title_en = (data.get("title_en") or "").strip()[:255]
+    page.excerpt_en = (data.get("excerpt_en") or "").strip()[:400]
+    page.body_en = data.get("body_en") or ""
+
+    revision = page.save_revision()
+    if page.live:
+        revision.publish()  # → revalidation ISR vitrine.
+    page.refresh_from_db()
+
+    return Response(
+        {
+            "id": page.id,
+            "title_en": page.title_en,
+            "excerpt_en": page.excerpt_en,
+            "body_en": str(page.body_en),
+        }
     )
 
 

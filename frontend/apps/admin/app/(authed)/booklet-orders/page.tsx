@@ -86,7 +86,7 @@ export default function BookletOrdersPage() {
       key: "phone",
       label: "Téléphone",
       text: (r) => r.member_phone || "",
-      render: (r) => <span className="text-ink-700">{r.member_phone || "—"}</span>,
+      render: (r) => <span className="text-ink-700">{r.member_phone || ""}</span>,
     },
     {
       key: "paiement",
@@ -202,7 +202,7 @@ export default function BookletOrdersPage() {
               <span className="text-xs text-ink-500">
                 {row.date_delivrance
                   ? `Le ${new Date(row.date_delivrance).toLocaleDateString("fr-CM")}`
-                  : "—"}
+                  : ""}
               </span>
             )
           }

@@ -161,7 +161,7 @@ function Inner() {
                         ? new Date(
                             row.date_prochaine_maturite,
                           ).toLocaleDateString("fr-FR")
-                        : "—"}
+                        : ""}
                     </span>
                     <span>
                       Solde :{" "}

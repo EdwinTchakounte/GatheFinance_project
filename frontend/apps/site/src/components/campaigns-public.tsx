@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type Campaign = {
+export type Campaign = {
   id: number;
   nom: string;
   profil_cible: string;
@@ -14,14 +14,15 @@ type Campaign = {
   flyer_url: string;
   frais_etude_montant?: string | null;
   documents_requis?: string[];
+  is_open?: boolean;
 };
 
-function fmtXAF(v: string): string {
+export function fmtXAF(v: string): string {
   const n = Number(v);
   return Number.isFinite(n) ? n.toLocaleString("fr-FR") + " XAF" : v;
 }
 
-function fmtDate(iso: string): string {
+export function fmtDate(iso: string): string {
   try {
     return new Date(iso).toLocaleDateString("fr-FR", {
       day: "2-digit",
@@ -36,7 +37,7 @@ function fmtDate(iso: string): string {
 const inputCls =
   "mt-1 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-emerald focus:ring-1 focus:ring-emerald";
 
-function ApplyForm({ campaign }: { campaign: Campaign }) {
+export function ApplyForm({ campaign }: { campaign: Campaign }) {
   const [form, setForm] = useState({
     nom: "",
     prenom: "",

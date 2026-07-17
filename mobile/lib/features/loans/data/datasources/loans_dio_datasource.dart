@@ -280,6 +280,20 @@ class LoansDioDataSource implements LoansRemoteDataSource {
   }
 
   @override
+  Future<void> payStudyFeeFromSavings({required int requestId}) async {
+    try {
+      // Transfert interne : le backend débite l'épargne classique et crée un
+      // Payment déjà VALIDE, qui déclenche le même hook que les deux autres
+      // canaux. Rien à lancer côté Tara, rien à attendre.
+      await _dio.post<Map<String, dynamic>>(
+        '/loans/requests/$requestId/study-fee/from-savings/',
+      );
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
   Future<FormSchema?> getActiveLoanRequestSchema() async {
     try {
       final res = await _dio.get<Map<String, dynamic>>(
@@ -416,6 +430,9 @@ LoanRequestEntity _parseRequest(Map<String, dynamic> json) {
     fraisEtudeMontant: json['frais_etude_montant'] != null
         ? _num(json['frais_etude_montant'])
         : null,
+    // Porte des frais 2026 — de quoi choisir le canal sans second appel.
+    fraisPaye: json['frais_demande_credit_paye'] == true,
+    epargneDisponibleFrais: _num(json['epargne_disponible_frais'] ?? 0),
   );
 }
 

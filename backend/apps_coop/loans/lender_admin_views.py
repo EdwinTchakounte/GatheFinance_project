@@ -206,10 +206,7 @@ def admin_lender_pool_summary(request):
         )
     )
     summary = {
-        "disponible": {"n": 0, "total": "0"},
-        "engagee": {"n": 0, "total": "0"},
-        "liberee": {"n": 0, "total": "0"},
-        "annulee": {"n": 0, "total": "0"},
+        s.value: {"n": 0, "total": "0"} for s in LenderTranche.Statut
     }
     for r in rows:
         summary[r["statut"]] = {"n": r["n"], "total": str(r["total"] or 0)}

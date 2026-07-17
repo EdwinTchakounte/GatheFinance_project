@@ -310,6 +310,14 @@ export type LoanRequest = {
   // Échéance indicative de l'étude par la commission (soumission + ~1 mois).
   // Règlement : étude sous 1 semaine à 1 mois. Peut être null.
   date_limite_etude?: string | null;
+  // Porte des frais d'étude (2026) — exigibles avant toute instruction.
+  // Montant piloté admin (FeeType.DEMANDE_CREDIT). null = étude gratuite.
+  frais_etude_montant?: string | null;
+  frais_demande_credit_paye?: boolean;
+  // Part de l'épargne classique réellement ponctionnable pour ces frais
+  // (hors placement et hors épargne gelée en garantie). Sert à savoir si le
+  // canal « déduction » — proposé par défaut — est tenable, sans second appel.
+  epargne_disponible_frais?: string;
 };
 
 // Refonte 2026 LOT 19 — Espace prêteur (épargne-prêteur).
@@ -463,6 +471,15 @@ export type PortalNotification = {
   message: string;
   lien: string;
   lue: boolean;
+  created_at: string;
+};
+
+// Support membre — message d'un fil unique (membre ↔ support coopérative).
+export type PortalSupportMessage = {
+  id: number;
+  sender: "member" | "staff";
+  body: string;
+  read_by_recipient: boolean;
   created_at: string;
 };
 
@@ -791,6 +808,21 @@ export const portalApi = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    /** Frais d'étude — 3e canal : déduction sur l'épargne classique.
+     *
+     *  Ne PAS passer par `/payments/init/` : cet endpoint force
+     *  `source=mobile_money` et attend un encaissement externe. Ici c'est un
+     *  transfert interne, donc synchrone : pas de paymentUrl, pas de webhook,
+     *  pas de polling — la demande revient déjà avec son nouveau statut.
+     *
+     *  409 si le retirable ne couvre pas les frais (le placement et l'épargne
+     *  gelée en garantie ne sont pas ponctionnables) ou s'il n'y a pas de
+     *  compte classique. */
+    payStudyFeeFromSavings: (requestId: number) =>
+      request<LoanRequest>(
+        `/loans/requests/${requestId}/study-fee/from-savings/`,
+        { method: "POST" },
+      ),
   },
   payments: {
     init: (data: PaymentInitInput) =>
@@ -830,6 +862,20 @@ export const portalApi = {
       request<{ results: PortalAnnouncement[] }>(
         "/notifications/announcements/",
       ),
+  },
+
+  // Support membre (fil unique membre ↔ support). Parité avec le mobile.
+  support: {
+    thread: () =>
+      request<{ thread_id: number; messages: PortalSupportMessage[] }>(
+        "/support/thread/",
+      ),
+    send: (body: string) =>
+      request<PortalSupportMessage>("/support/messages/", {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      }),
+    unread: () => request<{ count: number }>("/support/unread/"),
   },
 
   // Carnet : liste des commandes du membre (statut : payee / en_impression / delivree).

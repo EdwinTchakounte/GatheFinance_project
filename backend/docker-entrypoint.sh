@@ -36,6 +36,13 @@ python manage.py bootstrap_site || true
 python manage.py seed_blog || true
 python manage.py seed_fees || true
 python manage.py seed_rates || true
+# Planification des crons django-q2 (suspension annuelle, interets mensuels,
+# expiration funding 24h, reconciliation paiements...). SANS ce seed, le worker
+# qcluster tourne mais n'a AUCUNE tache planifiee a executer. Idempotent
+# (get_or_create par nom) : sans effet si les schedules existent deja. Le
+# service qcluster demarre apres le backend (depends_on healthy), donc pas de
+# course sur la creation des Schedule.
+python manage.py seed_q_schedules || true
 
 # Create an admin user from env vars (Django reads DJANGO_SUPERUSER_PASSWORD itself).
 if [ -n "${DJANGO_SUPERUSER_USERNAME:-}" ] && [ -n "${DJANGO_SUPERUSER_PASSWORD:-}" ]; then

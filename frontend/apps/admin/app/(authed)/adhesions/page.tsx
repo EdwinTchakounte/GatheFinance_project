@@ -176,8 +176,8 @@ export default function AdhesionsPipelinePage() {
                         <p className="font-mono text-xs text-ink-500">{m.numero_membre}</p>
                       </td>
                       <td className="px-4 py-3 text-ink-700">
-                        <p className="truncate text-xs">{m.email || "—"}</p>
-                        <p className="text-xs text-ink-500">{m.phone || "—"}</p>
+                        <p className="truncate text-xs">{m.email || ""}</p>
+                        <p className="text-xs text-ink-500">{m.phone || ""}</p>
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-xs font-medium text-ink-700">
@@ -227,7 +227,7 @@ export default function AdhesionsPipelinePage() {
                             Relancer
                           </a>
                         ) : (
-                          <span className="text-xs text-ink-500">—</span>
+                          <span className="text-xs text-ink-500"></span>
                         )}
                       </td>
                     </tr>

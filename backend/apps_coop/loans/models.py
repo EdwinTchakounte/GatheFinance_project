@@ -344,6 +344,26 @@ class LoanRequest(TimestampedModel):
         ),
     )
 
+    # Porte des frais d'étude (2026) — les frais sont exigibles AVANT toute
+    # instruction et avant même que l'avaliste soit sollicité. Le statut
+    # EN_ATTENTE porte déjà l'information, mais on la matérialise pour garder
+    # une trace après la transition (une demande en instruction ne dit plus si
+    # ses frais ont été payés ou si l'étude était gratuite).
+    frais_demande_credit_paye = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text=(
+            "Frais d'étude encaissés (agence, mobile money ou déduction "
+            "épargne). Porte d'entrée de l'instruction."
+        ),
+    )
+    # Désignation de l'avaliste saisie à la soumission. Le consentement n'est
+    # posé qu'à l'encaissement des frais (« frais d'abord, avaliste ensuite »),
+    # il faut donc mémoriser le candidat en attendant. Vidés une fois le
+    # consentement créé.
+    avaliste_numero_saisi = models.CharField(max_length=32, blank=True)
+    avaliste_nom_saisi = models.CharField(max_length=120, blank=True)
+
     # L4 (réforme garantie) — Voie GARANTIE MATÉRIELLE (fallback sans avaliste).
     # Le demandeur upload un titre de propriété (Document ACTE_GARANTIE lié à
     # cette LoanRequest) ; l'admin/commission évalue la valeur du bien, qui doit

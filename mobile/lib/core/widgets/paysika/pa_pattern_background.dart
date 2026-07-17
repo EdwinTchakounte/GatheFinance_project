@@ -37,18 +37,10 @@ class PaPatternBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // 1. Base crème + motif doodle tilé.
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: PaColors.canvas,
-              image: DecorationImage(
-                image: const AssetImage('assets/images/doodle_pattern.jpg'),
-                repeat: ImageRepeat.repeat,
-                opacity: patternOpacity,
-              ),
-            ),
-          ),
+        // 1. Base BLANCHE unie (motif doodle retiré + fond blanc sur demande
+        //    cliente 2026 : app internationale, direction visuelle épurée).
+        const Positioned.fill(
+          child: ColoredBox(color: PaColors.paper),
         ),
 
         // 2. Halos diffus . lumière douce premium.

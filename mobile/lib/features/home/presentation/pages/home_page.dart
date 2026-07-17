@@ -23,13 +23,15 @@ import '../../../auth/presentation/state/auth_notifier.dart';
 import '../../../booklet/presentation/widgets/order_booklet_sheet.dart';
 import '../../data/renewal_status_provider.dart';
 import '../../../home_feed/presentation/state/feed_notifier.dart';
-import '../../../home_feed/presentation/widgets/feed_sections.dart';
 import '../../../notifications/presentation/state/notifications_notifier.dart';
 import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
 import '../../../savings/presentation/state/classic_savings_notifier.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
 import '../widgets/deposit_sheet.dart';
+import '../widgets/membership_fee_sheet.dart';
+import '../state/membership_fees_notifier.dart';
+import '../../../loans/presentation/widgets/transfer_sheet.dart';
 import '../../../../core/widgets/paysika/pa_empty_state.dart';
 
 /// Accueil . **prototype Paysika** (style validé sur captures `capture_paysika/`).
@@ -127,9 +129,9 @@ class HomePage extends ConsumerWidget {
                         onTap: () => _openDeposit(context),
                       ),
                       PaActionPill(
-                        icon: Icons.account_balance_outlined,
-                        label: l.home_action_credit,
-                        onTap: () => context.go('/credit'),
+                        icon: Icons.swap_horiz_rounded,
+                        label: l.home_action_transfer,
+                        onTap: () => TransferSheet.show(context),
                       ),
                       PaActionPill(
                         icon: Icons.history_rounded,
@@ -146,68 +148,92 @@ class HomePage extends ConsumerWidget {
               // le badge LOT 4 (commission 1%) sera réintégré ailleurs si
               // besoin. Évite la redondance UI signalée par le client.
 
-              // ── Section "Campagnes en cours" (LOT 11 micro-crédit) ──
-              // Tap sur une card → ouvre la liste des campagnes (la liste
-              // gère ensuite le scroll/focus sur l'item). Pas de detail page
-              // dédiée pour l'instant : la liste suffit à la démo NHR.
-              SliverToBoxAdapter(
-                child: CampaignsSection(
-                  onSeeMore: () => context.push('/campaigns'),
-                  onTapCampaign: (_) => context.push('/campaigns'),
-                ),
-              ),
-
-              // ── Section "Actualités" (Wagtail blog) ────────────────────
-              // Tap sur une card → ouvre la NewsDetailPage. L'article est
-              // passé en `extra` pour un rendu instantané (cf. router).
-              SliverToBoxAdapter(
-                child: NewsSection(
-                  onSeeMore: () => context.push('/news'),
-                  onTapArticle: (a) =>
-                      context.push('/news/${a.id}', extra: a),
-                ),
-              ),
+              // Refonte nav 2026 : Campagnes + Actualités ont quitté la Home
+              // pour l'onglet dédié « Annonces » (2 vues segmentées). La Home
+              // se recentre sur l'épargne et les opérations récentes.
 
               // ── Carousel d'infos défilant (remplace « Mes services ») ──
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  child: PaInfoCarousel(
-                    slides: [
-                      PaInfoSlide(
-                        icon: Icons.savings_outlined,
-                        title: l.carousel_save_title,
-                        subtitle: l.carousel_save_sub,
-                        gradient: PaGradients.heroAurore,
-                        accent: PaColors.teal,
-                        ctaLabel: l.carousel_save_cta,
-                        onTap: () => _openDeposit(context),
-                      ),
-                      PaInfoSlide(
-                        icon: Icons.account_balance_outlined,
-                        title: l.carousel_credit_title,
-                        subtitle: l.carousel_credit_sub,
-                        accent: PaColors.teal,
-                        ctaLabel: l.carousel_credit_cta,
-                        onTap: () => context.go('/credit'),
-                      ),
-                      PaInfoSlide(
-                        icon: Icons.menu_book_outlined,
-                        title: l.carousel_booklet_title,
-                        subtitle: l.carousel_booklet_sub,
-                        accent: PaColors.warning,
-                        ctaLabel: l.carousel_booklet_cta,
-                        onTap: () => context.go('/booklet'),
-                      ),
-                      PaInfoSlide(
-                        icon: Icons.headset_mic_outlined,
-                        title: l.carousel_help_title,
-                        subtitle: l.carousel_help_sub,
-                        accent: PaColors.catNeutral,
-                        ctaLabel: l.carousel_help_cta,
-                        onTap: () => context.push('/help'),
-                      ),
-                    ],
+                  // Consumer localisé : les slides de paiement (adhésion /
+                  // inscription) n'apparaissent que si le membre a des frais dus
+                  // (statut ≠ actif). Le dernier slide mène au support en ligne.
+                  child: Consumer(
+                    builder: (context, ref, _) {
+                      final fees =
+                          ref.watch(membershipFeesProvider).valueOrNull;
+                      final showFees = fees != null && !fees.isActive;
+                      return PaInfoCarousel(
+                        slides: [
+                          if (showFees && fees.adhesionAmount > 0)
+                            PaInfoSlide(
+                              icon: Icons.verified_user_outlined,
+                              title: l.carousel_pay_adhesion_title,
+                              subtitle: l.carousel_pay_adhesion_sub,
+                              gradient: PaGradients.heroAurore,
+                              accent: PaColors.teal,
+                              ctaLabel: l.carousel_pay_cta,
+                              onTap: () => MembershipFeeSheet.show(
+                                context,
+                                code: 'ADHESION',
+                                title: l.carousel_pay_adhesion_title,
+                                amount: fees.adhesionAmount,
+                                solvable: fees.adhesionSolvable,
+                              ),
+                            ),
+                          if (showFees && fees.inscriptionAmount > 0)
+                            PaInfoSlide(
+                              icon: Icons.how_to_reg_outlined,
+                              title: l.carousel_pay_inscription_title,
+                              subtitle: l.carousel_pay_inscription_sub,
+                              accent: PaColors.navy,
+                              ctaLabel: l.carousel_pay_cta,
+                              onTap: () => MembershipFeeSheet.show(
+                                context,
+                                code: 'INSCRIPTION',
+                                title: l.carousel_pay_inscription_title,
+                                amount: fees.inscriptionAmount,
+                                solvable: fees.inscriptionSolvable,
+                              ),
+                            ),
+                          PaInfoSlide(
+                            icon: Icons.savings_outlined,
+                            title: l.carousel_save_title,
+                            subtitle: l.carousel_save_sub,
+                            gradient: PaGradients.heroAurore,
+                            accent: PaColors.teal,
+                            ctaLabel: l.carousel_save_cta,
+                            onTap: () => _openDeposit(context),
+                          ),
+                          PaInfoSlide(
+                            icon: Icons.account_balance_outlined,
+                            title: l.carousel_credit_title,
+                            subtitle: l.carousel_credit_sub,
+                            accent: PaColors.teal,
+                            ctaLabel: l.carousel_credit_cta,
+                            onTap: () => context.go('/credit'),
+                          ),
+                          PaInfoSlide(
+                            icon: Icons.menu_book_outlined,
+                            title: l.carousel_booklet_title,
+                            subtitle: l.carousel_booklet_sub,
+                            accent: PaColors.warning,
+                            ctaLabel: l.carousel_booklet_cta,
+                            onTap: () => context.go('/booklet'),
+                          ),
+                          // Slide support en ligne (chat membre ↔ coop).
+                          PaInfoSlide(
+                            icon: Icons.support_agent_rounded,
+                            title: l.carousel_help_title,
+                            subtitle: l.carousel_help_sub,
+                            accent: PaColors.catNeutral,
+                            ctaLabel: l.carousel_help_cta,
+                            onTap: () => context.push('/support'),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -218,9 +244,11 @@ class HomePage extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
                   child: Row(
                     children: [
+                      // Section discrète (eyebrow muet) : les opérations
+                      // récentes sont un rappel secondaire, pas le focus.
                       Text(
-                        l.home_recent_ops,
-                        style: PaText.heading(size: 16),
+                        l.home_recent_ops.toUpperCase(),
+                        style: PaText.eyebrow(),
                       ),
                       const Spacer(),
                       TextButton(
@@ -233,9 +261,9 @@ class HomePage extends ConsumerWidget {
                         child: Text(
                           l.home_see_all,
                           style: PaText.label(
-                            size: 13.5,
-                            weight: FontWeight.w700,
-                            color: PaColors.teal,
+                            size: 12.5,
+                            weight: FontWeight.w600,
+                            color: PaColors.inkMuted,
                           ),
                         ),
                       ),
@@ -264,7 +292,7 @@ class HomePage extends ConsumerWidget {
                             for (final t in coti) (tx: t, collecte: true),
                           ]..sort((a, b) => b.tx.date.compareTo(a.tx.date));
                           return _RecentList(
-                            entries: entries.take(4).toList(),
+                            entries: entries.take(2).toList(),
                           );
                         },
                         loading: () => const PaCard(
@@ -421,15 +449,18 @@ class _PinnedDualHero extends ConsumerWidget {
       // Vraiment rien à montrer (premier chargement) → skeleton.
       return const _HeroSkeleton();
     }
+    final l = AppL10n.of(context);
     final eTrend = ePart != null ? _balanceTrend(ePart) : null;
     final eDelta = _monthDelta(eTrend);
     final cTrend = cPart != null ? _balanceTrend(cPart) : null;
     final cDelta = _monthDelta(cTrend);
     return PaDualHeroBalance(
+      savingsLabel: l.hero_toggle_savings,
+      cotisationLabel: l.hero_toggle_collecte,
       savings: PaHeroSlot(
         amount: ePart?.solde ?? 0,
-        label: 'Mon épargne',
-        ctaLabel: 'Verser sur épargne',
+        label: l.home_hero_savings_label,
+        ctaLabel: l.home_hero_savings_cta,
         onDeposit: onEpargneDeposit,
         trend: eTrend,
         deltaLabel: eDelta == null ? null : deltaLabelFmt(eDelta.$1),
@@ -437,8 +468,8 @@ class _PinnedDualHero extends ConsumerWidget {
       ),
       cotisation: PaHeroSlot(
         amount: cPart?.solde ?? 0,
-        label: 'Ma collecte',
-        ctaLabel: 'Payer ma collecte',
+        label: l.home_hero_collecte_label,
+        ctaLabel: l.home_hero_collecte_cta,
         onDeposit: onCotisationDeposit,
         trend: cTrend,
         deltaLabel: cDelta == null ? null : deltaLabelFmt(cDelta.$1),
@@ -679,31 +710,32 @@ class _StatusBannerBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     final (icon, title, sub, bg, fg) = switch (status) {
       MemberStatus.temporaire => (
         Icons.info_outline_rounded,
-        'Compte temporaire',
-        "Paie tes frais d'inscription pour activer ton compte complet.",
+        l.account_temporary_title,
+        l.account_temporary_sub,
         PaColors.warningSurface,
         PaColors.warning,
       ),
       MemberStatus.suspendu => (
         Icons.pause_circle_outline_rounded,
-        'Compte suspendu',
-        'Contacte la coopérative pour régulariser ta situation.',
+        l.account_suspended_title,
+        l.account_suspended_sub,
         PaColors.dangerSurface,
         PaColors.danger,
       ),
       MemberStatus.radie => (
         Icons.block_rounded,
-        'Compte radié',
-        "Tu n'as plus accès aux services de la coopérative.",
+        l.account_revoked_title,
+        l.account_revoked_sub,
         PaColors.dangerSurface,
         PaColors.danger,
       ),
       MemberStatus.actif => (
         Icons.check_circle_outline_rounded,
-        'Compte actif',
+        l.account_active_title,
         '',
         PaColors.successSurface,
         PaColors.success,
@@ -765,6 +797,7 @@ class _RenewalBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(renewalStatusProvider);
+    final l = AppL10n.of(context);
     return async.maybeWhen(
       data: (status) {
         if (status == null || !status.shouldShowBanner) {
@@ -773,12 +806,12 @@ class _RenewalBanner extends ConsumerWidget {
         final isSuspended = status.isSuspended;
         final daysLeft = status.daysUntilExpiry;
         final message = isSuspended
-            ? 'Compte suspendu. Paie ton carnet annuel pour reactiver.'
+            ? l.renewal_suspended_msg
             : (daysLeft != null && daysLeft < 0)
-                ? 'Anniversaire annuel depasse de ${daysLeft.abs()} jour(s).'
+                ? l.renewal_overdue_days(daysLeft.abs())
                 : (daysLeft != null && daysLeft == 0)
-                    ? 'Anniversaire annuel . renouvelle aujourd\'hui.'
-                    : 'Renouvellement annuel dans ${daysLeft ?? 0} jour(s).';
+                    ? l.renewal_today
+                    : l.renewal_in_days(daysLeft ?? 0);
         final accent = isSuspended
             ? const Color(0xFFBA2121)
             : PaColors.warning;
@@ -820,8 +853,8 @@ class _RenewalBanner extends ConsumerWidget {
                         children: [
                           Text(
                             isSuspended
-                                ? 'Reactivation requise'
-                                : 'Renouvellement d\'adhesion',
+                                ? l.renewal_title_reactivate
+                                : l.renewal_title_renew,
                             style: PaText.body(size: 13).copyWith(
                               color: PaColors.inkPrimary,
                               fontWeight: FontWeight.w600,

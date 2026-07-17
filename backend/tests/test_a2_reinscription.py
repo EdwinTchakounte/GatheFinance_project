@@ -25,6 +25,7 @@ from apps_coop.members.tasks import (
     rappel_reinscription_annuelle,
 )
 from apps_coop.notifications.models import EventConfig, EventHook, Notification
+from tests.factories import MemberFactory
 
 
 pytestmark = pytest.mark.django_db
@@ -280,3 +281,143 @@ class TestListFilters:
         client.force_login(admin_user)
         resp = client.get("/api/v1/admin/members/?reinscription_due_soon=abc")
         assert resp.status_code == 200  # pas d'erreur 500
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 — Suspension automatique à J+grâce (le cœur du cycle annuel)
+# ---------------------------------------------------------------------------
+
+
+class TestSuspensionAutomatique:
+    """Le passage ACTIF → SUSPENDU quand la réinscription est en retard.
+
+    C'est le comportement central du cycle annuel : sans lui, un membre qui ne
+    paie pas sa cotisation resterait actif indéfiniment. IsActiveMember bloque
+    ensuite toute action d'un membre suspendu.
+    """
+
+    def test_membre_en_retard_au_dela_de_la_grace_est_suspendu(self):
+        member = MemberFactory()
+        # 365 + 30 (grâce défaut) + 5 → clairement au-delà de l'échéance.
+        _set_anchor(member, days_ago=365 + 30 + 5)
+
+        summary = rappel_reinscription_annuelle()
+
+        member.refresh_from_db()
+        assert member.statut == Member.Statut.SUSPENDU
+        assert summary["suspensions"] >= 1
+
+    def test_suspension_ecrit_un_audit(self):
+        member = MemberFactory()
+        _set_anchor(member, days_ago=365 + 30 + 5)
+
+        rappel_reinscription_annuelle()
+
+        assert AuditLog.objects.filter(
+            action="member.suspended_non_renewal",
+            entite_id=member.id,
+        ).exists()
+
+    def test_membre_dans_la_periode_de_grace_reste_actif(self):
+        member = MemberFactory()
+        # Échéance dépassée mais on est encore DANS la grâce (G5 : grâce = 10 j,
+        # donc J+5 reste actif).
+        _set_anchor(member, days_ago=365 + 5)
+
+        rappel_reinscription_annuelle()
+
+        member.refresh_from_db()
+        assert member.statut == Member.Statut.ACTIF
+
+    def test_membre_a_jour_nest_pas_suspendu(self):
+        member = MemberFactory()
+        _set_anchor(member, days_ago=30)  # réinscrit il y a 1 mois
+
+        rappel_reinscription_annuelle()
+
+        member.refresh_from_db()
+        assert member.statut == Member.Statut.ACTIF
+
+    def test_membre_deja_suspendu_nest_pas_re_traite(self):
+        """La phase 4 ne cible que les ACTIF : un déjà-suspendu n'est pas
+        re-compté (pas de double audit, pas de re-notification)."""
+        member = MemberFactory()
+        member.statut = Member.Statut.SUSPENDU
+        member.save(update_fields=["statut"])
+        _set_anchor(member, days_ago=365 + 30 + 5)
+
+        summary = rappel_reinscription_annuelle()
+
+        assert summary["suspensions"] == 0
+
+    def test_grace_configurable_via_appsetting(self):
+        """Le délai de grâce est piloté par AppSetting, pas hardcodé."""
+        AppSetting.objects.update_or_create(
+            cle="members.reinscription.grace_days", defaults={"valeur": "90"}
+        )
+        member = MemberFactory()
+        # 365 + 40 : au-delà de la grâce défaut (30) mais DANS la grâce 90.
+        _set_anchor(member, days_ago=365 + 40)
+
+        rappel_reinscription_annuelle()
+
+        member.refresh_from_db()
+        assert member.statut == Member.Statut.ACTIF, (
+            "grâce portée à 90j → un retard de 40j ne doit pas suspendre"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Réactivation au paiement de la réinscription
+# ---------------------------------------------------------------------------
+
+
+class TestReactivationAuPaiement:
+    def test_paiement_reactive_un_membre_suspendu(self):
+        """Boucle complète : suspendu pour non-renouvellement → le paiement de
+        réinscription le remet ACTIF et décale l'ancrage."""
+        from apps_coop.payments.models import Payment
+
+        member = MemberFactory()
+        member.statut = Member.Statut.SUSPENDU
+        member.save(update_fields=["statut"])
+        _set_anchor(member, days_ago=400)
+
+        payment = Payment.objects.create(
+            member=member,
+            montant=Decimal("2000"),
+            type=Payment.Type.FRAIS_CARNET,
+            source=Payment.Source.MANUEL,
+            statut=Payment.Statut.VALIDE,
+            date_versement=timezone.now(),
+            date_validation=timezone.now(),
+        )
+        from apps_coop.payments.services import _apply_membership_renewal
+
+        _apply_membership_renewal(payment)
+
+        member.refresh_from_db()
+        assert member.statut == Member.Statut.ACTIF
+        assert member.date_derniere_reinscription == timezone.localdate()
+
+    def test_cycle_complet_suspension_puis_reactivation(self):
+        """Bout en bout : le cron suspend, puis le paiement réactive."""
+        from apps_coop.payments.models import Payment
+        from apps_coop.payments.services import _apply_membership_renewal
+
+        member = MemberFactory()
+        _set_anchor(member, days_ago=365 + 30 + 5)
+        rappel_reinscription_annuelle()
+        member.refresh_from_db()
+        assert member.statut == Member.Statut.SUSPENDU
+
+        payment = Payment.objects.create(
+            member=member, montant=Decimal("2000"),
+            type=Payment.Type.FRAIS_CARNET, source=Payment.Source.MANUEL,
+            statut=Payment.Statut.VALIDE,
+            date_versement=timezone.now(), date_validation=timezone.now(),
+        )
+        _apply_membership_renewal(payment)
+
+        member.refresh_from_db()
+        assert member.statut == Member.Statut.ACTIF

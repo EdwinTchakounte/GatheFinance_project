@@ -254,11 +254,15 @@ class ClassicSavingsAccount(TimestampedModel):
     # ------------------------------------------------------------------
     # Le placement réutilise la convention prêteur (LOT 7) : chaque dépôt
     # placement crée une ``LenderTranche`` DISPONIBLE. Le solde "placement
-    # actif" = somme des tranches du membre encore DISPONIBLE ou ENGAGEE. Le
-    # solde librement retirable = solde total − ce montant.
+    # actif" = somme des tranches du membre encore DISPONIBLE, GELEE ou
+    # ENGAGEE. Le solde librement retirable = solde total − ce montant.
+    #
+    # GELEE compte comme placement actif : la tranche est immobilisée en
+    # garantie d'un crédit, elle n'est plus prêtable mais elle reste bel et
+    # bien du placement (l'argent est toujours bloqué côté membre).
     @property
     def solde_placement_actif(self) -> "Decimal":
-        """Somme des tranches prêteur du membre encore disponibles ou engagées."""
+        """Somme des tranches prêteur du membre encore actives (non restituées)."""
         from decimal import Decimal
 
         from django.db.models import Sum
@@ -266,10 +270,7 @@ class ClassicSavingsAccount(TimestampedModel):
         total = (
             LenderTranche.objects.filter(
                 member=self.member,
-                statut__in=[
-                    LenderTranche.Statut.DISPONIBLE,
-                    LenderTranche.Statut.ENGAGEE,
-                ],
+                statut__in=LenderTranche.STATUTS_ACTIFS,
             )
             .aggregate(s=Sum("montant"))["s"]
         )
@@ -307,6 +308,11 @@ class ClassicSavingsTransaction(TimestampedModel):
             "interet_preteur",
             "Part d'intérêts crédit reversée au prêteur (refonte 2026)",
         )
+        # Porte des frais d'étude (2026) — 3e canal de règlement.
+        FRAIS_DEMANDE_CREDIT = (
+            "frais_demande_credit",
+            "Frais d'étude crédit prélevés sur l'épargne (2026)",
+        )
         # LOT 13 (refonte 2026) — Saisie sur épargne classique (R1 étendue).
         RETRAIT_FORCE = (
             "retrait_force",
@@ -317,6 +323,13 @@ class ClassicSavingsTransaction(TimestampedModel):
         INTERET_PLACEMENT = (
             "interet_placement",
             "Intérêt capitalisé à la maturité d'un dépôt placement (refonte 2026)",
+        )
+        # Fin de mois collecte (refonte 2026) — entrée épargne provenant d'une
+        # bascule de la collecte (choix membre). Rend le virement identifiable
+        # sur le relevé épargne (vs un dépôt MoMo classique).
+        BASCULE_COLLECTE = (
+            "bascule_collecte",
+            "Bascule depuis la collecte (fin de mois)",
         )
 
     account = models.ForeignKey(
@@ -650,13 +663,29 @@ class LenderTranche(TimestampedModel):
     Cycle de vie : ``DISPONIBLE`` → ``ENGAGEE`` (au moment du funding d'un
     crédit, LOT 8) → ``LIBEREE`` (à la clôture du crédit, intégralité
     remboursée) ou ``ANNULEE`` (membre annule avant engagement).
+
+    Réforme garantie 2026 : branche parallèle ``DISPONIBLE`` → ``GELEE`` quand
+    la tranche est immobilisée en garantie d'un crédit (collatéral demandeur ou
+    caution avaliste), puis retour ``GELEE`` → ``DISPONIBLE`` au rejet de la
+    demande ou à la clôture du crédit garanti. Une tranche GELEE **sort du pool
+    prêteur** : le même argent ne peut pas garantir un crédit et en financer un
+    autre.
     """
 
     class Statut(models.TextChoices):
         DISPONIBLE = "disponible", "Disponible (libre d'engagement)"
+        GELEE = "gelee", "Gelée en garantie d'un crédit"
         ENGAGEE = "engagee", "Engagée dans un crédit"
         LIBEREE = "liberee", "Libérée (crédit clôturé)"
         ANNULEE = "annulee", "Annulée par le membre"
+
+    #: Statuts où l'argent de la tranche est encore immobilisé côté membre
+    #: (donc non retirable). Exclut LIBEREE / ANNULEE, qui rendent la main.
+    STATUTS_ACTIFS = (
+        Statut.DISPONIBLE,
+        Statut.GELEE,
+        Statut.ENGAGEE,
+    )
 
     member = models.ForeignKey(
         Member,
@@ -688,6 +717,23 @@ class LenderTranche(TimestampedModel):
         null=True,
         blank=True,
         help_text="Horodatage du passage ENGAGEE → LIBEREE (crédit clôturé).",
+    )
+    # Réforme garantie 2026 — immobilisation en garantie.
+    gele_par_loan_request = models.ForeignKey(
+        "loans.LoanRequest",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tranches_gelees",
+        help_text=(
+            "Demande de crédit dont la garantie immobilise cette tranche "
+            "(posé au passage DISPONIBLE → GELEE)."
+        ),
+    )
+    gele_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Horodatage du passage DISPONIBLE → GELEE.",
     )
 
     class Meta:

@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Globe,
   ImagePlus,
   Loader2,
   MessageSquare,
@@ -219,6 +220,8 @@ function ArticleCard({
   const [busy, setBusy] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [enOpen, setEnOpen] = useState(false);
+  const [hasEn, setHasEn] = useState(article.has_en);
   const cover = article.cover_image_data?.url;
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -336,6 +339,20 @@ function ArticleCard({
             {article.comment_count} commentaire{article.comment_count > 1 ? "s" : ""}
           </button>
 
+          <button
+            type="button"
+            onClick={() => setEnOpen(true)}
+            className={
+              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ring-1 ring-inset " +
+              (hasEn
+                ? "bg-teal-50 text-teal-700 ring-teal-200 hover:bg-teal-100"
+                : "bg-line-100 text-ink-500 ring-line-200 hover:bg-line-200")
+            }
+          >
+            <Globe className="size-3.5" aria-hidden="true" />
+            {hasEn ? "EN ✓" : "EN"}
+          </button>
+
           {article.live && article.html_url ? (
             <a
               href={article.html_url}
@@ -358,7 +375,155 @@ function ArticleCard({
           </a>
         </div>
       </div>
+
+      {enOpen ? (
+        <EnEditorModal
+          article={article}
+          onClose={() => setEnOpen(false)}
+          onSaved={(has) => setHasEn(has)}
+        />
+      ) : null}
     </article>
+  );
+}
+
+
+/** Modale d'édition de la correspondance anglaise (titre / extrait / contenu). */
+function EnEditorModal({
+  article,
+  onClose,
+  onSaved,
+}: {
+  article: AdminBlogArticle;
+  onClose: () => void;
+  onSaved: (hasEn: boolean) => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [titleEn, setTitleEn] = useState("");
+  const [excerptEn, setExcerptEn] = useState("");
+  const [bodyEn, setBodyEn] = useState("");
+  const [refFr, setRefFr] = useState<{ title: string; excerpt: string }>({
+    title: article.title,
+    excerpt: "",
+  });
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const d = await adminApi.cmsBlog.getI18n(article.id);
+        if (!alive) return;
+        setTitleEn(d.title_en);
+        setExcerptEn(d.excerpt_en);
+        setBodyEn(d.body_en);
+        setRefFr({ title: d.title, excerpt: d.excerpt });
+      } catch (e) {
+        if (alive) setErr((e as { detail?: string }).detail ?? "Chargement impossible.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [article.id]);
+
+  async function save() {
+    setSaving(true);
+    setErr(null);
+    try {
+      const res = await adminApi.cmsBlog.setI18n(article.id, {
+        title_en: titleEn,
+        excerpt_en: excerptEn,
+        body_en: bodyEn,
+      });
+      onSaved(Boolean(res.title_en || res.excerpt_en || res.body_en));
+      onClose();
+    } catch (e) {
+      setErr((e as { detail?: string }).detail ?? "Enregistrement impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const input =
+    "w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-sm text-ink-900 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600";
+
+  return (
+    <Modal open onClose={onClose} title="Version anglaise de l'article">
+      {loading ? (
+        <p className="py-8 text-center text-sm text-ink-500">Chargement…</p>
+      ) : (
+        <div className="space-y-4">
+          {err ? (
+            <p className="rounded-md bg-terra-50 px-3 py-2 text-sm text-terra-700">
+              {err}
+            </p>
+          ) : null}
+          <p className="text-xs text-ink-500">
+            Laisse un champ vide pour retomber sur le français côté vitrine.
+          </p>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-700">
+              Titre (EN)
+            </label>
+            <input
+              className={input}
+              value={titleEn}
+              onChange={(e) => setTitleEn(e.target.value)}
+              placeholder={refFr.title}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-700">
+              Extrait (EN)
+            </label>
+            <textarea
+              className={input}
+              rows={3}
+              value={excerptEn}
+              onChange={(e) => setExcerptEn(e.target.value)}
+              placeholder={refFr.excerpt}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-700">
+              Contenu (EN)
+            </label>
+            <textarea
+              className={input}
+              rows={10}
+              value={bodyEn}
+              onChange={(e) => setBodyEn(e.target.value)}
+              placeholder="Texte de l'article en anglais…"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-line-200 px-3 py-1.5 text-sm font-medium text-ink-700 hover:bg-cream"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="rounded-lg bg-teal-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-60"
+            >
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 

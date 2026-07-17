@@ -23,7 +23,9 @@ import {
   FileEdit,
   ScrollText,
   MessageSquareText,
+  LifeBuoy,
   Notebook,
+  CalendarClock,
   Newspaper,
   GitBranch,
   Coins,
@@ -60,6 +62,8 @@ const NAV: NavItem[] = [
   { href: "/payments", label: "Paiements", icon: Receipt },
   { href: "/withdrawals", label: "Retraits épargne", icon: ArrowDownToLine },
   { href: "/booklet-orders", label: "Commandes carnet", icon: Notebook },
+  { href: "/antidated-entries", label: "Saisies antidatées", icon: CalendarClock },
+  { href: "/collecte-preferences", label: "Fin de mois collecte", icon: CalendarClock },
   { href: "/members", label: "Membres", icon: Users },
   // Refonte 2026 — LOT 1 + LOT 5 + LOT 16.
   { href: "/brc", label: "Justificatifs BRC", icon: FileCheck },
@@ -94,6 +98,7 @@ const NAV: NavItem[] = [
   { href: "/audit", label: "Journal d'audit", icon: ScrollText },
   // Modération des commentaires (articles + campagnes).
   { href: "/comments", label: "Commentaires", icon: MessageSquareText },
+  { href: "/support", label: "Support membres", icon: LifeBuoy },
   // RBAC — gestion des utilisateurs staff + rôles/accès par ressource.
   { href: "/access", label: "Utilisateurs & accès", icon: ShieldCheck },
 ];

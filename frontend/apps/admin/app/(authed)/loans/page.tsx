@@ -452,7 +452,7 @@ function DisbursementCell({
           <Loader2 className="size-3 animate-spin" /> Payout en cours
         </span>
         <p className="mt-1 text-[10px] text-ink-500">
-          {dis.reference_externe || "—"}
+          {dis.reference_externe || ""}
         </p>
       </div>
     );

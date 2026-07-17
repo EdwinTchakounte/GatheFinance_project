@@ -201,9 +201,10 @@ def search_eligible_avalistes(request):
         | Q(phone__icontains=q)
     )[:30]
 
-    # `is_senior` est un computed @property en Python — on filtre côté
-    # appli plutôt qu'en SQL pour rester aligné sur le seuil configurable
-    # (cf. apps_coop.members.models.Member.is_senior).
+    # Réforme garantie 2026 : plus aucun filtre d'ancienneté. Seule compte la
+    # capacité à immobiliser le montant — un membre de la cohorte 2026 avec
+    # l'épargne suffisante est un garant valable. Le filtre `is_senior` était
+    # muet : il faisait disparaître des candidats sans expliquer pourquoi.
     #
     # Memory note `avaliste-cap-solde` : on expose la capacité de caution
     # disponible (solde cumulé − cautions déjà engagées) pour que le mobile
@@ -213,8 +214,6 @@ def search_eligible_avalistes(request):
 
     results = []
     for m in qs:
-        if not m.is_senior:
-            continue
         try:
             _solde, _engaged, capacity = member_caution_capacity(m)
         except Exception:  # noqa: BLE001 — best-effort, never block typeahead
@@ -227,7 +226,9 @@ def search_eligible_avalistes(request):
             "numero_membre": m.numero_membre,
             "nom": m.nom,
             "prenom": m.prenom,
-            "is_senior": True,
+            # Purement informatif depuis la réforme 2026 : l'ancienneté ne
+            # conditionne plus rien côté avaliste. Conservé pour compat client.
+            "is_senior": m.is_senior,
             "capacite_caution": str(capacity),
         })
         if len(results) >= 10:
@@ -459,10 +460,7 @@ def admin_list_members(request):
         r["member_id"]: r["total"] or ZERO
         for r in LenderTranche.objects.filter(
             member_id__in=ids,
-            statut__in=[
-                LenderTranche.Statut.DISPONIBLE,
-                LenderTranche.Statut.ENGAGEE,
-            ],
+            statut__in=LenderTranche.STATUTS_ACTIFS,
         )
         .values("member_id")
         .annotate(total=Sum("montant"))
@@ -715,27 +713,24 @@ def admin_dashboard_kpis(request):
         or Decimal("0")
     )
     # A3 . L'epargne classique est un seul produit avec 2 sous-canaux :
-    #   - libre = cash sur ClassicSavingsAccount.solde
-    #   - placement = LenderTranche actives (DISPONIBLE ou ENGAGEE) du membre
-    # Les deux appartiennent au membre . on les somme dans "Epargne classique".
-    # Le breakdown libre/placement est expose en sous-detail pour l'UI.
-    epargne_classique_libre = (
+    #   - placement = LenderTranche actives du membre (DISPONIBLE/GELEE/ENGAGEE)
+    #   - libre = le reste du solde
+    # ``ClassicSavingsAccount.solde`` est le TOTAL : le placement en est deja un
+    # sous-ensemble (cf. solde_libre = solde - solde_placement_actif). On ne
+    # doit donc surtout pas additionner les deux . le placement serait compte
+    # deux fois dans "Epargne classique" et dans l'epargne totale.
+    epargne_classique = (
         ClassicSavingsAccount.objects.aggregate(total=Sum("solde"))["total"]
         or Decimal("0")
     )
     epargne_placement = (
         LenderTranche.objects.filter(
-            statut__in=[
-                LenderTranche.Statut.DISPONIBLE,
-                LenderTranche.Statut.ENGAGEE,
-            ]
+            statut__in=LenderTranche.STATUTS_ACTIFS
         ).aggregate(total=Sum("montant"))["total"]
         or Decimal("0")
     )
-    epargne_classique = (
-        Decimal(epargne_classique_libre) + Decimal(epargne_placement)
-    )
-    epargne_total = Decimal(epargne_collecte) + epargne_classique
+    epargne_classique_libre = Decimal(epargne_classique) - Decimal(epargne_placement)
+    epargne_total = Decimal(epargne_collecte) + Decimal(epargne_classique)
 
     # --- Épargne classique — état du cycle anniversaire (LOT 5) ----------
     classique_notifie = ClassicSavingsAccount.objects.filter(
@@ -1049,3 +1044,190 @@ def admin_adhesion_pipeline(request):
         ],
         "suspended_members": suspended_rows,
     })
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Rapports PDF — photo coop + relevé membre (staff)
+# ───────────────────────────────────────────────────────────────────────────
+
+
+@extend_schema(
+    tags=["members"],
+    summary="🔒 Staff — Rapport PDF : état instantané de la coopérative",
+    description=(
+        "Photo actionnable de la coopérative : KPI (membres, épargne, encours, "
+        "pool prêteur), graphiques (répartition épargne, portefeuille crédit) et "
+        "un bloc « Actions à mener » (files d'attente + alertes). Aucun cumul "
+        "historique — état courant. Permission : `dashboard`."
+    ),
+    responses={200: OpenApiResponse(description="PDF binaire (application/pdf)")},
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_coop_report_pdf(request):
+    from django.http import HttpResponse
+
+    from .report_pdf import build_coop_report
+
+    pdf = build_coop_report()
+    record_audit(
+        action="report.coop.generated",
+        entite_type="cooperative",
+        user=request.user,
+        ip=client_ip(request),
+    )
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = (
+        f'inline; filename="gathe-etat-cooperative-{timezone.localdate().isoformat()}.pdf"'
+    )
+    return resp
+
+
+@extend_schema(
+    tags=["members"],
+    summary="🔒 Staff — Relevé PDF de situation d'un membre",
+    description=(
+        "Relevé d'un membre : épargne (collecte + classique + placement), "
+        "crédits, dernières écritures, carnets détenus. Permission : `members`."
+    ),
+    responses={
+        200: OpenApiResponse(description="PDF binaire (application/pdf)"),
+        404: OpenApiResponse(description="Membre introuvable"),
+    },
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_member_adhesion(request, pk: int):
+    """Fiche d'adhésion d'un membre — les informations qu'il a renseignées au
+    moment de la soumission de sa demande (colonnes Article 2 + champs
+    dynamiques FormSchema `extra_payload` + pièces téléversées).
+
+    404 si le membre n'a pas de demande liée (adhésion legacy / créé
+    manuellement).
+    """
+    member = get_object_or_404(Member, pk=pk)
+    req = getattr(member, "adhesion_request", None)
+    if req is None:
+        return Response(
+            {"detail": "Aucune fiche d'adhésion liée à ce membre."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    def _url(f):
+        if not f:
+            return None
+        try:
+            return request.build_absolute_uri(f.url)
+        except Exception:  # noqa: BLE001 - storage absent en dev
+            return None
+
+    return Response(
+        {
+            "id": req.id,
+            "statut": req.statut,
+            "soumis_le": req.created_at,
+            "identity": {
+                "nom": req.nom,
+                "prenom": req.prenom,
+                "email": req.email,
+                "phone": req.phone,
+                "whatsapp": req.whatsapp,
+                "city": req.city,
+                "quartier_localite": req.quartier_localite,
+                "statut_pro": req.get_statut_pro_display() if req.statut_pro else "",
+                "language": req.language,
+            },
+            "urgence": {
+                "nom": req.urgence_nom,
+                "lien": req.urgence_lien,
+                "phone": req.urgence_phone,
+            },
+            "motivation": req.motivation,
+            # Champs ajoutés par l'admin via le FormSchema dynamique (id → valeur).
+            "extra_payload": req.extra_payload or {},
+            "form_schema_version": req.form_schema_version,
+            "pieces": {
+                "cni_recto": _url(req.cni_recto),
+                "cni_verso": _url(req.cni_verso),
+                "plan_localisation": _url(req.plan_localisation),
+                "photo_identite": _url(req.photo_identite),
+            },
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# Frais membre (adhésion / inscription) — statut + paiement depuis le compte
+# (G7 carrousel + G5 réactivation, refonte 2026-07)
+# ---------------------------------------------------------------------------
+
+
+@api_view(["GET"])
+@permission_classes([IsMember])
+def my_membership_fees(request):
+    """Statut des frais adhésion/inscription : montants + solvabilité compte."""
+    from .fee_from_savings_services import available_for_fees, membership_fee_amount
+
+    member = request.user.member
+    dispo = available_for_fees(member)
+    fees = {}
+    for code in ("ADHESION", "INSCRIPTION"):
+        montant = membership_fee_amount(code)
+        fees[code] = {
+            "montant": str(montant),
+            "solvable": bool(montant > 0 and dispo >= montant),
+        }
+    return Response(
+        {
+            "statut": member.statut,
+            "available": str(dispo),
+            "fees": fees,
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsMember])
+def pay_membership_fee(request, code: str):
+    """Règle un frais (ADHESION|INSCRIPTION) depuis l'épargne du membre."""
+    from .fee_from_savings_services import (
+        FeePaymentError,
+        pay_membership_fee_from_savings,
+    )
+
+    member = request.user.member
+    try:
+        payment = pay_membership_fee_from_savings(member, code.upper())
+    except FeePaymentError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    member.refresh_from_db()
+    return Response(
+        {
+            "payment_id": payment.id,
+            "montant": str(payment.montant),
+            "statut": member.statut,
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_member_statement_pdf(request, pk: int):
+    from django.http import HttpResponse
+
+    from .report_pdf import build_member_statement
+
+    member = get_object_or_404(Member, pk=pk)
+    pdf = build_member_statement(member)
+    record_audit(
+        action="report.member_statement.generated",
+        entite_type="Member",
+        entite_id=member.id,
+        user=request.user,
+        ip=client_ip(request),
+    )
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = (
+        f'inline; filename="gathe-releve-{member.numero_membre}.pdf"'
+    )
+    return resp

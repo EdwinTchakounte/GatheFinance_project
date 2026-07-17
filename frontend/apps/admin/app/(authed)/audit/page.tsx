@@ -159,7 +159,7 @@ function Inner() {
           }}
           className="rounded-md border border-line-200 bg-paper px-3 py-2 text-sm text-ink-900 focus:border-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-700"
         >
-          <option value="">Action — toutes</option>
+          <option value="">Toutes les actions</option>
           {facets.actions.map((a) => (
             <option key={a} value={a}>
               {a}
@@ -175,7 +175,7 @@ function Inner() {
           }}
           className="rounded-md border border-line-200 bg-paper px-3 py-2 text-sm text-ink-900 focus:border-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-700"
         >
-          <option value="">Type — tous</option>
+          <option value="">Tous les types</option>
           {facets.entite_types.map((t) => (
             <option key={t} value={t}>
               {t}
@@ -287,12 +287,10 @@ function Inner() {
                           </span>
                         ) : null}
                       </>
-                    ) : (
-                      <span className="text-ink-400">—</span>
-                    )}
+                    ) : null}
                   </td>
                   <td className="font-mono text-xs text-ink-600">
-                    {row.ip || <span className="text-ink-400">—</span>}
+                    {row.ip || null}
                   </td>
                   <td className="text-right">
                     {Object.keys(row.details_json || {}).length > 0 ? (
@@ -304,9 +302,7 @@ function Inner() {
                         <Eye className="size-3.5" aria-hidden="true" />
                         Voir
                       </button>
-                    ) : (
-                      <span className="text-xs text-ink-400">—</span>
-                    )}
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -363,16 +359,16 @@ function Inner() {
                 </dd>
                 <dt className="font-medium text-ink-700">Cible</dt>
                 <dd className="text-ink-900">
-                  {selected.entite_type || "—"}
+                  {selected.entite_type || ""}
                   {selected.entite_id != null ? ` #${selected.entite_id}` : ""}
                 </dd>
                 <dt className="font-medium text-ink-700">IP</dt>
                 <dd className="font-mono text-ink-900">
-                  {selected.ip || "—"}
+                  {selected.ip || ""}
                 </dd>
                 <dt className="font-medium text-ink-700">User-Agent</dt>
                 <dd className="break-all font-mono text-xs text-ink-700">
-                  {selected.user_agent || "—"}
+                  {selected.user_agent || ""}
                 </dd>
                 <dt className="font-medium text-ink-700">Horodatage</dt>
                 <dd className="font-mono text-ink-900">

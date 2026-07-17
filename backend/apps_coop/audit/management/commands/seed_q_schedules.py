@@ -35,6 +35,28 @@ SCHEDULES = [
         ),
     },
     {
+        "name": "collecte.eom_choice_reminder",
+        "func": "apps_coop.savings.tasks.collecte_eom_choice_reminder",
+        "schedule_type": Schedule.CRON,
+        "cron": "0 9 25 * *",  # le 25 à 09:00 — rappel avant la clôture du 1er.
+        "description": (
+            "REFONTE 2026 — Rappel mensuel (notification éditable) invitant les "
+            "membres avec un solde de collecte à choisir cash vs bascule épargne "
+            "avant la clôture. Tunable collecte.eom_reminder.enabled."
+        ),
+    },
+    {
+        "name": "placement.maturity.daily",
+        "func": "apps_coop.savings.tasks.placement_maturity_processing",
+        "schedule_type": Schedule.CRON,
+        "cron": "0 4 * * *",  # quotidien 04:00 — n'agit qu'au jour d'échéance.
+        "description": (
+            "REFONTE 2026 — Restitution des placements à la date d'échéance "
+            "éditable (epargne.placement.maturity_date, défaut 01-01) : intérêts "
+            "prorata crédités + tranches DISPONIBLE libérées."
+        ),
+    },
+    {
         "name": "epargne.anniversary.daily",
         "func": "apps_coop.savings.tasks.epargne_anniversary_processing",
         "schedule_type": Schedule.CRON,

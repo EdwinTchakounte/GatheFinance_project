@@ -206,6 +206,39 @@ void main() {
       // Pas de retour à valider — succès = pas d'exception.
     });
 
+    test(
+        'payStudyFeeFromSavings POST /loans/requests/{id}/study-fee/from-savings/',
+        () async {
+      // Porte des frais 2026 — 3e canal. Ne DOIT PAS passer par
+      // /payments/init/ : cet endpoint force source=mobile_money et attend un
+      // encaissement externe. Ici c'est un transfert interne.
+      final adapter = ScriptedAdapter()
+        ..on('/auth/csrf/', method: 'GET', status: 200)
+        ..on('/loans/requests/42/study-fee/from-savings/',
+            method: 'POST',
+            status: 200,
+            body: {'id': 42, 'statut': 'en_instruction'},);
+      final ds = LoansDioDataSource(_client(adapter));
+      await ds.payStudyFeeFromSavings(requestId: 42);
+    });
+
+    test('payStudyFeeFromSavings remonte le 409 en erreur métier', () async {
+      // Le backend refuse si le retirable ne couvre pas les frais (placement
+      // et épargne gelée en garantie non ponctionnables). Le message doit
+      // remonter au membre, pas être avalé.
+      final adapter = ScriptedAdapter()
+        ..on('/auth/csrf/', method: 'GET', status: 200)
+        ..on('/loans/requests/42/study-fee/from-savings/',
+            method: 'POST',
+            status: 409,
+            body: {'detail': 'Épargne disponible insuffisante : 1000 XAF.'},);
+      final ds = LoansDioDataSource(_client(adapter));
+      expect(
+        () => ds.payStudyFeeFromSavings(requestId: 42),
+        throwsA(isA<Object>()),
+      );
+    });
+
     test('submitRequest fusionne extraValues dans le body (CH-5)', () async {
       final adapter = ScriptedAdapter()
         ..on('/auth/csrf/', method: 'GET', status: 200)

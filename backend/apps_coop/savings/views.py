@@ -7,7 +7,7 @@ arrives. This view is consumption-only.
 """
 from __future__ import annotations
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import NotFound
@@ -260,6 +260,85 @@ def classic_savings_config(request):
         ip=client_ip(request),
     )
     return Response(ClassicSavingsConfigSerializer(cfg).data)
+
+
+# ── Collecte : choix de fin de mois (cash vs bascule épargne) ───────────────
+
+@extend_schema(
+    tags=["savings"],
+    summary="Choix de fin de mois du membre (collecte)",
+    description=(
+        "GET : renvoie le choix courant. POST {preference: 'cash'|'epargne'} : "
+        "le membre décide, pour la prochaine clôture mensuelle, de récupérer sa "
+        "collecte en cash (après commission 1%) ou de la basculer vers son "
+        "épargne classique."
+    ),
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsActiveMember])
+def collecte_end_of_month_preference(request):
+    account = request.user.member.savings_account
+    if request.method == "GET":
+        return Response({"preference": account.end_of_month_preference})
+
+    pref = (request.data.get("preference") or "").strip()
+    valid = {c for c, _ in SavingsAccount.EndOfMonthPreference.choices}
+    if pref not in valid:
+        return Response(
+            {"detail": "preference doit valoir 'cash' ou 'epargne'."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    account.end_of_month_preference = pref
+    account.save(update_fields=["end_of_month_preference"])
+    record_audit(
+        action="collecte.end_of_month_preference.set",
+        entite_type="SavingsAccount",
+        entite_id=account.pk,
+        user=request.user,
+        details={"preference": pref},
+        ip=client_ip(request),
+    )
+    return Response({"preference": account.end_of_month_preference})
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="Admin — choix de fin de mois des membres (collecte)",
+    description=(
+        "Vue de pilotage : pour chaque membre ayant un solde de collecte, son "
+        "choix de fin de mois (cash / bascule épargne) et son solde courant. "
+        "Sert l'onglet admin « Fin de mois collecte »."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_collecte_preferences(request):
+    only_active = (request.query_params.get("only_active") or "").lower() in (
+        "1", "true", "yes",
+    )
+    qs = (
+        SavingsAccount.objects.select_related("member")
+        .order_by("-solde", "member__numero_membre")
+    )
+    if only_active:
+        qs = qs.filter(solde__gt=0)
+    results = [
+        {
+            "member_id": a.member_id,
+            "numero_membre": a.member.numero_membre,
+            "nom": f"{a.member.prenom} {a.member.nom}".strip(),
+            "solde": str(a.solde),
+            "preference": a.end_of_month_preference,
+        }
+        for a in qs
+    ]
+    # Compteurs récap pour l'en-tête de l'onglet.
+    summary = {
+        "cash": sum(1 for r in results if r["preference"] == "cash"),
+        "epargne": sum(1 for r in results if r["preference"] == "epargne"),
+        "total": len(results),
+    }
+    return Response({"summary": summary, "results": results})
 
 
 # ── Retrait d'épargne ───────────────────────────────────────────────────────
@@ -619,3 +698,210 @@ def admin_run_monthly_interest(request):
         ip=client_ip(request),
     )
     return Response(summary)
+
+
+# ── Écritures antidatées — reprise d'historique des carnets papier ───────────
+
+@extend_schema(
+    tags=["savings"],
+    summary="🔒 Staff — créer un carnet antidaté (reprise carnet papier)",
+    description=(
+        "Crée un `BookletOrder` daté dans le passé, pour un membre dont le "
+        "carnet papier existe déjà. Marqué DELIVREE. Ne rejoue aucun hook (pas "
+        "de renouvellement d'adhésion, pas de second carnet). Les écritures "
+        "antidatées postérieures s'y rattacheront.\n\n"
+        "Body : `member_id`, `date` (ISO, passée), `montant` (optionnel, défaut "
+        "0 — le carnet existe déjà, pas de ré-encaissement), `annee` "
+        "(optionnel), `note` (optionnel)."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_create_antidated_booklet(request):
+    from datetime import date as _date
+    from decimal import Decimal, InvalidOperation
+
+    from apps_coop.members.models import Member
+
+    from .antidated_services import (
+        AntidatedEntryError,
+        create_antidated_booklet,
+    )
+
+    data = request.data
+    try:
+        member = Member.objects.get(pk=data.get("member_id"))
+    except (Member.DoesNotExist, TypeError, ValueError):
+        return Response(
+            {"detail": "Membre introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    raw_date = (data.get("date") or "").strip()
+    try:
+        date_op = _date.fromisoformat(raw_date)
+    except (ValueError, TypeError):
+        return Response(
+            {"detail": "Date invalide (attendu AAAA-MM-JJ)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        montant = Decimal(str(data.get("montant") or "0"))
+    except (InvalidOperation, TypeError):
+        return Response(
+            {"detail": "Montant invalide."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    annee = data.get("annee")
+    try:
+        annee = int(annee) if annee not in (None, "") else None
+    except (TypeError, ValueError):
+        return Response(
+            {"detail": "Année invalide."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        result = create_antidated_booklet(
+            member=member,
+            date_op=date_op,
+            montant=montant,
+            annee=annee,
+            note=str(data.get("note") or ""),
+            recorded_by=request.user,
+        )
+    except AntidatedEntryError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(
+        {
+            "booklet_order_id": result.booklet_order_id,
+            "payment_id": result.payment_id,
+            "date": result.date.date().isoformat(),
+            "annee": result.annee,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="🔒 Staff — enregistrer une écriture antidatée (reprise carnet papier)",
+    description=(
+        "Ressaisit une écriture (versement OU retrait) d'un carnet papier à sa "
+        "**vraie date**, pour les deux produits (collecte journalière ou épargne "
+        "classique). Reprise d'historique seule : AUCUNE clôture rejouée, aucun "
+        "Payment, aucune notification. Le solde du compte est ajusté et la ligne "
+        "de grand livre pointe vers le carnet actif à cette date.\n\n"
+        "Body : `member_id`, `product` (`collecte`|`classique`), `sens` "
+        "(`depot`|`retrait`), `montant`, `date` (ISO, passée), `booklet_order_id` "
+        "(optionnel), `note` (optionnel). 409 si le retrait rendrait le solde "
+        "négatif (ressaisir les dépôts avant les retraits)."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_record_antidated_entry(request):
+    from datetime import date as _date
+    from decimal import Decimal, InvalidOperation
+
+    from apps_coop.members.models import BookletOrder, Member
+
+    from .antidated_services import (
+        AntidatedEntryError,
+        record_antidated_entry,
+    )
+
+    data = request.data
+    try:
+        member = Member.objects.get(pk=data.get("member_id"))
+    except (Member.DoesNotExist, TypeError, ValueError):
+        return Response(
+            {"detail": "Membre introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    try:
+        montant = Decimal(str(data.get("montant") or "0"))
+    except (InvalidOperation, TypeError):
+        return Response(
+            {"detail": "Montant invalide."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    raw_date = (data.get("date") or "").strip()
+    try:
+        date_op = _date.fromisoformat(raw_date)
+    except (ValueError, TypeError):
+        return Response(
+            {"detail": "Date invalide (attendu AAAA-MM-JJ)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    booklet = None
+    booklet_id = data.get("booklet_order_id")
+    if booklet_id:
+        try:
+            booklet = BookletOrder.objects.get(pk=booklet_id, member=member)
+        except BookletOrder.DoesNotExist:
+            return Response(
+                {"detail": "Carnet introuvable pour ce membre."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+    try:
+        result = record_antidated_entry(
+            member=member,
+            product=str(data.get("product") or ""),
+            sens=str(data.get("sens") or ""),
+            montant=montant,
+            date_op=date_op,
+            booklet_order=booklet,
+            note=str(data.get("note") or ""),
+            recorded_by=request.user,
+        )
+    except AntidatedEntryError as exc:
+        # Distinction : incohérence de saisie (solde négatif) = 409, le reste
+        # = 400. On garde le message lisible dans les deux cas.
+        code = (
+            status.HTTP_409_CONFLICT
+            if "négatif" in str(exc)
+            else status.HTTP_400_BAD_REQUEST
+        )
+        return Response({"detail": str(exc)}, status=code)
+
+    return Response(
+        {
+            "transaction_id": result.transaction_id,
+            "product": result.product,
+            "sens": result.sens,
+            "montant": str(result.montant),
+            "date": result.date.date().isoformat(),
+            "solde_apres": str(result.solde_apres),
+            "booklet_order_id": result.booklet_order_id,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="Membre — relevé PDF de toutes les écritures de son carnet",
+    description=(
+        "PDF paginé listant TOUTES les écritures d'épargne du membre courant "
+        "(collecte + classique), triées par date, avec le carnet de rattachement. "
+        "Téléchargeable depuis l'onglet Carnet du mobile / portail."
+    ),
+    responses={200: OpenApiResponse(description="PDF binaire (application/pdf)")},
+)
+@api_view(["GET"])
+@permission_classes([IsActiveMember])
+def my_booklet_ledger_pdf(request):
+    from django.http import HttpResponse
+
+    from apps_coop.members.report_pdf import build_member_ledger_pdf
+
+    member = request.user.member
+    pdf = build_member_ledger_pdf(member)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = (
+        f'inline; filename="gathe-ecritures-{member.numero_membre}.pdf"'
+    )
+    return resp

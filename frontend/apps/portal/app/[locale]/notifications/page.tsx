@@ -12,7 +12,14 @@ import {
 } from "@/lib/api";
 
 
-type NotifKind = "savings" | "loan" | "payment" | "lender" | "announcement" | "system";
+type NotifKind =
+  | "savings"
+  | "loan"
+  | "payment"
+  | "lender"
+  | "announcement"
+  | "support"
+  | "system";
 
 
 function kindFromType(type: string): NotifKind {
@@ -22,8 +29,20 @@ function kindFromType(type: string): NotifKind {
   if (type.startsWith("savings") || type.startsWith("withdrawal")) return "savings";
   if (type.startsWith("loan") || type.startsWith("repayment")) return "loan";
   if (type.startsWith("payment")) return "payment";
+  if (type.startsWith("support")) return "support";
   return "system";
 }
+
+// Ordre stable des catégories (onglets dynamiques + rendu).
+const KIND_ORDER: NotifKind[] = [
+  "savings",
+  "loan",
+  "payment",
+  "lender",
+  "announcement",
+  "support",
+  "system",
+];
 
 
 function splitAnnouncement(message: string): { title: string; body: string } {
@@ -74,6 +93,11 @@ const KIND_META: Record<NotifKind, { label: string; tint: string; ring: string }
     tint: "bg-blue-50 text-blue-700",
     ring: "ring-blue-200",
   },
+  support: {
+    label: "Support",
+    tint: "bg-teal-50 text-teal-700",
+    ring: "ring-teal-200",
+  },
   system: {
     label: "Notification",
     tint: "bg-amber-50 text-amber-700",
@@ -106,6 +130,9 @@ export default function PortalNotificationsPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Filtre catégorie (null = Tout). Onglets DYNAMIQUES : seules les catégories
+  // réellement présentes s'affichent (parité mobile).
+  const [filter, setFilter] = useState<NotifKind | null>(null);
 
   async function load() {
     setLoading(true);
@@ -155,6 +182,14 @@ export default function PortalNotificationsPage() {
     }
   }
 
+  const present = KIND_ORDER.filter((k) =>
+    items.some((n) => kindFromType(n.type) === k),
+  );
+  const active = filter && present.includes(filter) ? filter : null;
+  const visible = active
+    ? items.filter((n) => kindFromType(n.type) === active)
+    : items;
+
   return (
     <main className="min-h-[60vh] py-10">
       <Container width="content">
@@ -194,6 +229,30 @@ export default function PortalNotificationsPage() {
           </div>
         ) : null}
 
+        {present.length > 1 ? (
+          <div className="mb-5 flex flex-wrap gap-2">
+            {([null, ...present] as (NotifKind | null)[]).map((k) => {
+              const selected = k === active;
+              const label = k === null ? "Tout" : KIND_META[k].label;
+              return (
+                <button
+                  key={k ?? "all"}
+                  type="button"
+                  onClick={() => setFilter(k)}
+                  className={[
+                    "rounded-full px-3.5 py-1.5 text-xs font-semibold transition",
+                    selected
+                      ? "bg-teal-600 text-white"
+                      : "border border-ink-200 bg-paper text-ink-600 hover:border-ink-300",
+                  ].join(" ")}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
         {loading ? (
           <ul className="space-y-3">
             {[0, 1, 2].map((i) => (
@@ -215,7 +274,7 @@ export default function PortalNotificationsPage() {
           </div>
         ) : (
           <ul className="space-y-3">
-            {items.map((notif) => (
+            {visible.map((notif) => (
               <NotifCard
                 key={notif.id}
                 notif={notif}

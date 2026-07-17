@@ -158,7 +158,7 @@ function Inner() {
       text: (p) => `${p.reference_externe} ${p.provider_code}`,
       render: (p) => (
         <div className="font-mono text-xs text-ink-600">
-          {p.reference_externe || <span className="text-ink-400">—</span>}
+          {p.reference_externe || <span className="text-ink-400"></span>}
           <p className="text-[10px] uppercase tracking-wide text-ink-400">
             {p.provider_code}
           </p>

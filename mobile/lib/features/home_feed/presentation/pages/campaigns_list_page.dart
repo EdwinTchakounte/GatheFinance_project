@@ -9,6 +9,7 @@ import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_empty_state.dart';
 import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/feed_item.dart';
 import '../state/feed_notifier.dart';
 
@@ -17,14 +18,43 @@ import '../state/feed_notifier.dart';
 /// vertical : charge la page suivante à 200 px du bas. Tap sur une carte
 /// → renvoie l'id de la campagne via `Navigator.pop` pour que le caller
 /// déclenche le sheet de demande de crédit pré-rempli (voie campagne).
-class CampaignsListPage extends ConsumerStatefulWidget {
+class CampaignsListPage extends StatelessWidget {
   const CampaignsListPage({super.key});
 
   @override
-  ConsumerState<CampaignsListPage> createState() => _CampaignsListPageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: PaColors.canvas,
+      appBar: AppBar(
+        backgroundColor: PaColors.canvas,
+        surfaceTintColor: PaColors.canvas,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: PaColors.inkPrimary),
+        title: Text(
+          AppL10n.of(context).campaigns_title,
+          style: const TextStyle(
+            color: PaColors.inkPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      body: const PaPatternBackground(child: CampaignsListBody()),
+    );
+  }
 }
 
-class _CampaignsListPageState extends ConsumerState<CampaignsListPage> {
+/// Corps réutilisable de la liste des campagnes (sans Scaffold/AppBar).
+class CampaignsListBody extends ConsumerStatefulWidget {
+  const CampaignsListBody({super.key});
+
+  @override
+  ConsumerState<CampaignsListBody> createState() => _CampaignsListBodyState();
+}
+
+class _CampaignsListBodyState extends ConsumerState<CampaignsListBody> {
   final _scroll = ScrollController();
 
   @override
@@ -48,79 +78,54 @@ class _CampaignsListPageState extends ConsumerState<CampaignsListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     final feed = ref.watch(homeFeedProvider).valueOrNull;
     final campaigns = feed?.campaigns ?? const <CampaignFlyer>[];
     final loading = feed?.campaignsLoading ?? false;
     final hasError = feed?.campaignsError ?? false;
 
-    return Scaffold(
-      backgroundColor: PaColors.canvas,
-      appBar: AppBar(
-        backgroundColor: PaColors.canvas,
-        surfaceTintColor: PaColors.canvas,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: PaColors.inkPrimary),
-        title: const Text(
-          'Campagnes en cours',
-          style: TextStyle(
-            color: PaColors.inkPrimary,
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-      body: PaPatternBackground(
-        child: RefreshIndicator.adaptive(
-          color: PaColors.teal,
-          onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
-          child: campaigns.isEmpty && !loading
-              ? (hasError
-                  ? PaErrorState(
-                      message: 'Impossible de charger les campagnes.',
-                      onRetry: () =>
-                          ref.read(homeFeedProvider.notifier).refresh(),
-                    )
-                  : const _EmptyState())
-              : ListView.separated(
-                  controller: _scroll,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  itemCount: campaigns.length + (loading ? 1 : 0),
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (_, i) {
-                    if (i >= campaigns.length) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: PaColors.teal,
-                            ),
-                          ),
+    return RefreshIndicator.adaptive(
+      color: PaColors.teal,
+      onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
+      child: campaigns.isEmpty && !loading
+          ? (hasError
+              ? PaErrorState(
+                  message: l.campaigns_load_error,
+                  onRetry: () => ref.read(homeFeedProvider.notifier).refresh(),
+                )
+              : const _EmptyState())
+          : ListView.separated(
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              itemCount: campaigns.length + (loading ? 1 : 0),
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (_, i) {
+                if (i >= campaigns.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: PaColors.teal,
                         ),
-                      );
-                    }
-                    return _CampaignRow(
-                      c: campaigns[i],
-                      // Tap sur la carte → on ENTRE dans la campagne (détail +
-                      // commentaires + CTA « Postuler »). Le détail porte le
-                      // flow de demande de crédit pré-rempli sur la voie
-                      // campagne.
-                      onOpen: () => context.pushNamed(
-                        'campaign-detail',
-                        pathParameters: {'id': '${campaigns[i].id}'},
-                        extra: campaigns[i],
                       ),
-                    );
-                  },
-                ),
-        ),
-      ),
+                    ),
+                  );
+                }
+                return _CampaignRow(
+                  c: campaigns[i],
+                  onOpen: () => context.pushNamed(
+                    'campaign-detail',
+                    pathParameters: {'id': '${campaigns[i].id}'},
+                    extra: campaigns[i],
+                  ),
+                );
+              },
+            ),
     );
   }
 }
@@ -132,16 +137,17 @@ class _CampaignRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     // Urgence : jours restants avant clôture (pastille sur l'image).
     final daysLeft = c.dateFin.difference(DateTime.now()).inDays;
     final urgent = daysLeft >= 0 && daysLeft <= 7;
     final urgencyText = daysLeft < 0
-        ? 'Clôturée'
+        ? l.campaign_closed
         : daysLeft == 0
-            ? 'Dernier jour'
+            ? l.campaign_last_day
             : daysLeft <= 7
-                ? 'Se termine dans ${daysLeft}j'
-                : 'Clôture ${_d(c.dateFin)}';
+                ? l.campaign_ends_in_days(daysLeft)
+                : l.campaign_ends_on(_d(c.dateFin));
 
     return PaCard(
       padding: EdgeInsets.zero,
@@ -151,7 +157,7 @@ class _CampaignRow extends StatelessWidget {
         children: [
           // ── Visuel : image + dégradé + pastilles flottantes ────────────
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
             child: AspectRatio(
               aspectRatio: 16 / 9,
               child: Stack(
@@ -261,19 +267,19 @@ class _CampaignRow extends StatelessWidget {
                       color: PaColors.teal,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Voir la campagne & postuler',
-                          style: TextStyle(
+                          l.campaign_view_apply,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13.5,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        SizedBox(width: 4),
-                        Icon(Icons.arrow_forward_rounded,
+                        const SizedBox(width: 4),
+                        const Icon(Icons.arrow_forward_rounded,
                             size: 18, color: Colors.white,),
                       ],
                     ),
@@ -388,14 +394,15 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      children: const [
-        SizedBox(height: 70),
+      children: [
+        const SizedBox(height: 70),
         PaEmptyState(
           icon: Icons.campaign_outlined,
-          title: 'Aucune campagne active',
-          message: 'Reviens plus tard, ou tire vers le bas pour rafraîchir.',
+          title: l.campaigns_empty_title,
+          message: l.feed_refresh_hint,
         ),
       ],
     );

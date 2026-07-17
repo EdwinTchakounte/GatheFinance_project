@@ -30,7 +30,7 @@ def _fmt_xaf(amount) -> str:
         return str(amount)
 
 from .models import Payment
-from .providers import get_provider
+from .providers import default_provider_code, get_provider
 
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ def init_payin_for_payment(
     place avec ``reference_externe`` et ``gateway_initiated_at`` — le
     caller (view) doit le persister.
     """
-    provider = get_provider(payment.provider_code or "tara")
+    provider = get_provider(payment.provider_code or default_provider_code())
     result = provider.init_payin(payment, phone=phone, network=network)
     payment.reference_externe = result.provider_reference
     payment.gateway_initiated_at = timezone.now()
@@ -389,11 +389,33 @@ def _activate_member_if_fees_settled(member, *, trigger_payment: Payment) -> Non
 def _hook_adhesion(payment: Payment, _raw: dict) -> None:
     """UC1 — frais d'adhésion ou d'inscription reçu.
 
-    Depuis CH-2 (chantier juin 2026), le Member ne bascule à ``ACTIF`` QUE
-    lorsque les 3 frais (adhésion + inscription + carnet, 13 000 FCFA cumulés
-    par défaut) sont tous payés. Le paiement isolé d'un seul frais laisse le
-    Member ``SUSPENDU`` — voir ``_activate_member_if_fees_settled``.
+    Deux régimes :
+
+    * **Première activation** (Member ``TEMPORAIRE``) — CH-2 : le Member ne
+      bascule à ``ACTIF`` QUE lorsque les 3 frais (adhésion + inscription +
+      carnet) sont tous payés (cf. ``_activate_member_if_fees_settled``).
+
+    * **Réactivation de cycle** (Member ``SUSPENDU``) — décision 2026-07 (G5) :
+      la réactivation est basée **uniquement sur les frais d'adhésion**. Un
+      membre suspendu (cycle échu) qui re-paie son adhésion redémarre un cycle
+      → ``ACTIF`` (réinscription posée à aujourd'hui), sans exiger inscription
+      ni carnet.
     """
+    from apps_coop.members.models import Member
+
+    member = payment.member
+    # Réactivation de cycle : réservée à un membre DÉJÀ activé une fois (ses 3
+    # frais ont été soldés au moins une fois). Un membre post-approbation, lui
+    # aussi SUSPENDU mais jamais activé, garde le régime CH-2 (3 frais requis).
+    if (
+        member is not None
+        and member.statut == Member.Statut.SUSPENDU
+        and payment.type == Payment.Type.FRAIS_ADHESION
+        and _membership_fees_settled(member)
+    ):
+        _apply_membership_renewal(payment)
+        return
+
     _activate_member_if_fees_settled(payment.member, trigger_payment=payment)
 
 
@@ -740,8 +762,11 @@ def _hook_loan_request_fees(payment: Payment, _raw: dict) -> None:
         )
         return
 
-    pending.statut = LoanRequest.Statut.EN_INSTRUCTION
-    pending.save(update_fields=["statut", "updated_at"])
+    # Point unique du parcours post-frais : ouvre l'instruction, ou sollicite
+    # l'avaliste désigné à la soumission (« frais d'abord, avaliste ensuite »).
+    from apps_coop.loans.study_fee_services import open_instruction_after_fees
+
+    open_instruction_after_fees(pending)
     record_audit(
         action="loan_request.fees_paid",
         entite_type="LoanRequest",

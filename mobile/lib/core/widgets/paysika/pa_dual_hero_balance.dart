@@ -217,7 +217,7 @@ class _PaDualHeroBalanceState extends State<PaDualHeroBalance> {
                       ? Text(
                           '… … XAF',
                           style: PaText.amount(
-                            size: 24,
+                            size: 21,
                             weight: FontWeight.w700,
                             color: Colors.white,
                             height: 1.05,
@@ -236,7 +236,7 @@ class _PaDualHeroBalanceState extends State<PaDualHeroBalance> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: PaText.amount(
-                              size: 24,
+                              size: 21,
                               weight: FontWeight.w700,
                               color: Colors.white,
                               height: 1.05,

@@ -14,10 +14,12 @@ from .models import Loan, LoanInstallment, LoanRequest
 # autorisé. La SEULE contrainte « max selon le montant » (paliers Art. 7) est
 # appliquée à l'APPROBATION — ``services.approuver_demande`` recalcule la durée
 # via ``duration_months_for(montant)`` et l'écrase sur le Loan. Au submit on
-# garde donc juste un plancher technique de 1 mois (durée nulle interdite) et un
-# plafond de sécurité large.
-MIN_DUREE_MOIS = 1
-MAX_DUREE_MOIS = 36
+# borne la durée à l'intervalle réglementaire [2, 9] mois (paliers Art. 7 : de
+# 2 mois pour le 1er palier à 9 mois pour le dernier). Le client envoie de toute
+# façon une durée dérivée du montant (donc dans cet intervalle) ; ce garde-fou
+# rejette une valeur hors-bornes forgée à la main.
+MIN_DUREE_MOIS = 2
+MAX_DUREE_MOIS = 9
 MIN_MONTANT_XAF = 5000
 
 
@@ -110,6 +112,11 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
     # exposés pour que les clients (ex. mobile « payer plus tard ») affichent et
     # règlent le bon montant. Le backend reste autoritaire à l'`init` du paiement.
     frais_etude_montant = serializers.SerializerMethodField()
+    # Porte des frais 2026 — de quoi que le client choisisse son canal SANS un
+    # second aller-retour : la déduction épargne est le canal par défaut, mais
+    # elle n'est proposable que si le retirable couvre les frais (ni le
+    # placement ni l'épargne gelée en garantie ne sont ponctionnables).
+    epargne_disponible_frais = serializers.SerializerMethodField()
 
     class Meta:
         model = LoanRequest
@@ -129,6 +136,8 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             # L6 — échéance indicative d'étude commission
             "date_limite_etude",
             "frais_etude_montant",
+            "frais_demande_credit_paye",
+            "epargne_disponible_frais",
             "loan",
             "extra_payload",
             "attachments",
@@ -152,6 +161,21 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             .first()
         )
         return str(montant) if montant is not None else None
+
+    def get_epargne_disponible_frais(self, obj):
+        """Part de l'épargne classique réellement ponctionnable pour les frais.
+
+        Le client compare ce montant à ``frais_etude_montant`` pour savoir s'il
+        peut pré-sélectionner la déduction ou s'il doit basculer sur agence /
+        mobile money. "0" = pas de compte classique, ou tout est placé/gelé.
+        """
+        from apps_coop.savings.models import ClassicSavingsAccount
+        from apps_coop.savings.services import classic_withdrawable
+
+        account = ClassicSavingsAccount.objects.filter(member=obj.member).first()
+        if account is None:
+            return "0"
+        return str(classic_withdrawable(account))
 
     def get_member(self, obj):
         m = getattr(obj, "member", None)

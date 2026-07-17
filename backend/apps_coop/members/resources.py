@@ -24,6 +24,8 @@ ADMIN_RESOURCES: list[tuple[str, str]] = [
     ("payments", "Paiements"),
     ("withdrawals", "Retraits épargne"),
     ("booklet-orders", "Commandes carnet"),
+    ("antidated-entries", "Saisies antidatées"),
+    ("collecte-preferences", "Fin de mois collecte"),
     ("members", "Membres"),
     ("brc", "Justificatifs BRC"),
     ("renewals", "Renouvellements épargne"),
@@ -38,6 +40,7 @@ ADMIN_RESOURCES: list[tuple[str, str]] = [
     ("forms", "Formulaires"),
     ("audit", "Journal d'audit"),
     ("comments", "Commentaires"),
+    ("support", "Support membres"),
     ("access", "Utilisateurs & accès"),
 ]
 

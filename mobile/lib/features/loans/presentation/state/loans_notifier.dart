@@ -10,6 +10,7 @@ import '../../domain/entities/loan_request.dart';
 import '../../domain/entities/loan_request_submission.dart';
 import '../../domain/usecases/make_loan_repayment.dart';
 import '../../domain/usecases/pay_loan_request_study_fee.dart';
+import '../../domain/usecases/pay_study_fee_from_savings.dart';
 import '../../domain/usecases/request_loan_renewal.dart';
 import '../../domain/usecases/submit_loan_request.dart';
 import '../../domain/usecases/upload_loan_request_attachment.dart';
@@ -151,6 +152,15 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>>
         montant: montant,
       ),
     );
+    await refresh();
+  }
+
+  /// Porte des frais 2026 . Règle les frais sur l'épargne classique.
+  /// Contrairement au canal Mobile Money, la bascule de statut est déjà
+  /// effective au retour : le refresh reflète l'état final, pas une attente.
+  Future<void> payStudyFeeFromSavings({required int requestId}) async {
+    final useCase = ref.read(payStudyFeeFromSavingsUseCaseProvider);
+    await useCase.call(PayStudyFeeFromSavingsParams(requestId: requestId));
     await refresh();
   }
 }

@@ -9,12 +9,12 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/setup_password_page.dart';
 import '../../features/auth/presentation/state/auth_notifier.dart';
 import '../../features/avaliste/presentation/pages/avaliste_mandats_page.dart';
-import '../../features/booklet/presentation/pages/booklet_page.dart';
 import '../../features/contributions/presentation/pages/contributions_page.dart';
 import '../../features/credit/presentation/pages/credit_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/home_feed/domain/entities/feed_item.dart';
 import '../../features/home_feed/presentation/pages/campaign_detail_page.dart';
+import '../../features/home_feed/presentation/pages/annonces_page.dart';
 import '../../features/home_feed/presentation/pages/campaigns_list_page.dart';
 import '../../features/home_feed/presentation/pages/news_detail_page.dart';
 import '../../features/home_feed/presentation/pages/news_list_page.dart';
@@ -26,6 +26,7 @@ import '../../features/states/presentation/pages/states_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../../features/onboarding/presentation/state/onboarding_notifier.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/support/presentation/pages/support_page.dart';
 import '../../features/savings/presentation/pages/savings_history_page.dart';
 import '../../features/security/presentation/pages/pin_change_page.dart';
 import '../../features/security/presentation/pages/pin_lock_page.dart';
@@ -92,7 +93,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       // Sécurité : pas dans le shell si pas connecté
-      const guarded = ['/home', '/credit', '/booklet', '/profile'];
+      const guarded = ['/home', '/credit', '/annonces', '/profile'];
       if (member == null && guarded.contains(location)) {
         return seen ? '/login' : '/onboarding';
       }
@@ -203,6 +204,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             _paSlideFadePage(state, const HelpContactPage()),
       ),
 
+      // Support en ligne (chat fil unique membre ↔ support) — depuis Profil
+      // et deeplink `/support` des notifications « support.reply ».
+      GoRoute(
+        path: '/support',
+        name: 'support',
+        pageBuilder: (context, state) =>
+            _paSlideFadePage(state, const SupportPage()),
+      ),
+
       // Liste in-app des campagnes (Voir plus du carousel Home).
       // Pop avec un `campaign_id` (int) → la Home rouvre le sheet crédit
       // pré-rempli sur la voie campagne.
@@ -293,9 +303,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ],),
           StatefulShellBranch(routes: [
             GoRoute(
-              path: '/booklet',
-              name: 'booklet',
-              builder: (context, state) => const BookletPage(),
+              path: '/annonces',
+              name: 'annonces',
+              builder: (context, state) => const AnnoncesPage(),
             ),
           ],),
           StatefulShellBranch(routes: [

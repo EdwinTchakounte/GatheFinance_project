@@ -50,6 +50,10 @@ abstract class LoansRepository {
     int? montant,
   });
 
+  /// Porte des frais 2026 — 3e canal : déduction sur l'épargne classique.
+  /// Synchrone (transfert interne) : au retour, la demande a déjà avancé.
+  Future<void> payStudyFeeFromSavings({required int requestId});
+
   /// CH-5 — Récupère le `FormSchema` actif pour `loan_request`.
   ///
   /// Renvoie `null` si aucun schéma actif n'est défini côté admin (mode

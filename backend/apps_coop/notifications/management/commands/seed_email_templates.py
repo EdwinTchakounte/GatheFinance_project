@@ -1152,6 +1152,42 @@ TEMPLATES = [
         ),
         "variables": ["prenom", "montant"],
     },
+    {
+        "code": "placement.matured",
+        "objet": "Ton placement est arrive a echeance",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Placement restitue"),
+            lead(
+                "Ton placement est arrive a sa date de restitution. Les interets "
+                "(<strong>{interets} FCFA</strong>) ont ete credites sur ton "
+                "epargne classique, et le capital est de nouveau librement "
+                "retirable."
+            ),
+            closing(),
+        ),
+        "variables": ["prenom", "interets"],
+    },
+    {
+        "code": "collecte.eom_choice_reminder",
+        "objet": "Fin de mois : que faire de ta collecte ?",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("La cloture mensuelle approche"),
+            lead(
+                "Ton solde de collecte est de <strong>{montant} FCFA</strong>. "
+                "A la cloture, 1% est retenu par la cooperative. Tu peux choisir :"
+            ),
+            lead(
+                "<strong>1. Retirer en cash</strong> a l'agence, ou "
+                "<strong>2. Basculer vers ton epargne classique</strong>. "
+                "Fais ton choix dans l'application (rubrique collecte) avant la "
+                "cloture. Sans action, le retrait cash s'applique par defaut."
+            ),
+            closing(),
+        ),
+        "variables": ["prenom", "montant"],
+    },
 ]
 
 

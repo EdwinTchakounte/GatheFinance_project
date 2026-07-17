@@ -9,19 +9,52 @@ import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_empty_state.dart';
 import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/feed_item.dart';
 import '../state/feed_notifier.dart';
 
 /// Liste in-app de toutes les actualités. Atteinte depuis le "Voir plus"
 /// du carousel Home. Tap sur une carte → page de détail in-app.
-class NewsListPage extends ConsumerStatefulWidget {
+///
+/// Le contenu (RefreshIndicator + liste) est extrait dans [NewsListBody] pour
+/// pouvoir être réutilisé tel quel dans un onglet de la page « Annonces ».
+class NewsListPage extends StatelessWidget {
   const NewsListPage({super.key});
 
   @override
-  ConsumerState<NewsListPage> createState() => _NewsListPageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: PaColors.canvas,
+      appBar: AppBar(
+        backgroundColor: PaColors.canvas,
+        surfaceTintColor: PaColors.canvas,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: PaColors.inkPrimary),
+        title: Text(
+          AppL10n.of(context).news_title,
+          style: const TextStyle(
+            color: PaColors.inkPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      body: const PaPatternBackground(child: NewsListBody()),
+    );
+  }
 }
 
-class _NewsListPageState extends ConsumerState<NewsListPage> {
+/// Corps réutilisable de la liste d'actualités (sans Scaffold/AppBar).
+class NewsListBody extends ConsumerStatefulWidget {
+  const NewsListBody({super.key});
+
+  @override
+  ConsumerState<NewsListBody> createState() => _NewsListBodyState();
+}
+
+class _NewsListBodyState extends ConsumerState<NewsListBody> {
   final _scroll = ScrollController();
 
   @override
@@ -45,74 +78,53 @@ class _NewsListPageState extends ConsumerState<NewsListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     final feed = ref.watch(homeFeedProvider).valueOrNull;
     final articles = feed?.articles ?? const <NewsArticle>[];
     final loading = feed?.articlesLoading ?? false;
     final hasError = feed?.articlesError ?? false;
 
-    return Scaffold(
-      backgroundColor: PaColors.canvas,
-      appBar: AppBar(
-        backgroundColor: PaColors.canvas,
-        surfaceTintColor: PaColors.canvas,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: PaColors.inkPrimary),
-        title: const Text(
-          'Actualités',
-          style: TextStyle(
-            color: PaColors.inkPrimary,
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-      body: PaPatternBackground(
-        child: RefreshIndicator.adaptive(
-          color: PaColors.teal,
-          onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
-          child: articles.isEmpty && !loading
-              ? (hasError
-                  ? PaErrorState(
-                      message: 'Impossible de charger les actualités.',
-                      onRetry: () =>
-                          ref.read(homeFeedProvider.notifier).refresh(),
-                    )
-                  : const _Empty())
-              : ListView.separated(
-                  controller: _scroll,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  itemCount: articles.length + (loading ? 1 : 0),
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (_, i) {
-                    if (i >= articles.length) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: PaColors.teal,
-                            ),
-                          ),
+    return RefreshIndicator.adaptive(
+      color: PaColors.teal,
+      onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
+      child: articles.isEmpty && !loading
+          ? (hasError
+              ? PaErrorState(
+                  message: l.news_load_error,
+                  onRetry: () => ref.read(homeFeedProvider.notifier).refresh(),
+                )
+              : const _Empty())
+          : ListView.separated(
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              itemCount: articles.length + (loading ? 1 : 0),
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (_, i) {
+                if (i >= articles.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: PaColors.teal,
                         ),
-                      );
-                    }
-                    return _ArticleRow(
-                      a: articles[i],
-                      onTap: () => context.push(
-                        '/news/${articles[i].id}',
-                        extra: articles[i],
                       ),
-                    );
-                  },
-                ),
-        ),
-      ),
+                    ),
+                  );
+                }
+                return _ArticleRow(
+                  a: articles[i],
+                  onTap: () => context.push(
+                    '/news/${articles[i].id}',
+                    extra: articles[i],
+                  ),
+                );
+              },
+            ),
     );
   }
 }
@@ -133,7 +145,7 @@ class _ArticleRow extends StatelessWidget {
         children: [
           // ── Visuel : image + dégradé + pastille date ───────────────────
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
             child: AspectRatio(
               aspectRatio: 16 / 9,
               child: Stack(
@@ -196,18 +208,18 @@ class _ArticleRow extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 12),
-                const Row(
+                Row(
                   children: [
                     Text(
-                      'Lire l\'article',
-                      style: TextStyle(
+                      AppL10n.of(context).news_read_article,
+                      style: const TextStyle(
                         color: PaColors.warning,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    SizedBox(width: 3),
-                    Icon(Icons.arrow_forward_rounded,
+                    const SizedBox(width: 3),
+                    const Icon(Icons.arrow_forward_rounded,
                         size: 17, color: PaColors.warning,),
                   ],
                 ),
@@ -304,15 +316,16 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      children: const [
-        SizedBox(height: 70),
+      children: [
+        const SizedBox(height: 70),
         PaEmptyState(
           icon: Icons.article_outlined,
           tint: PaColors.warning,
-          title: 'Aucune actualité pour le moment',
-          message: 'Reviens plus tard, ou tire vers le bas pour rafraîchir.',
+          title: l.news_empty_title,
+          message: l.feed_refresh_hint,
         ),
       ],
     );

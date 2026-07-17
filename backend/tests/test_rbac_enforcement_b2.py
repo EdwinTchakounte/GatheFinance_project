@@ -159,3 +159,54 @@ class TestLoanStaffEndpointsGuarded:
         assert (
             _client(u).post("/api/v1/loans/requests/1/field-visit/").status_code != 403
         )
+
+
+class TestAntidatedEntriesGuarded:
+    """Saisies antidatées : mappées sur `antidated-entries`, PAS `renewals`.
+
+    Le catch-all `savings/admin/` → `renewals` capturerait ces URLs si les
+    règles spécifiques n'étaient pas placées avant lui. On vérifie donc que le
+    routage RBAC discrimine bien les deux ressources.
+    """
+
+    URL_BOOKLET = "/api/v1/savings/admin/antidated-booklet/"
+    URL_ENTRY = "/api/v1/savings/admin/antidated-entry/"
+
+    def test_granted_resource_reaches_endpoints(self):
+        u = _staff("anti@t.local", roles=[("Repro", ["antidated-entries"])])
+        # Accès autorisé → la vue répond (400 corps vide, mais surtout pas 403).
+        assert _client(u).post(self.URL_BOOKLET).status_code != 403
+        assert _client(u).post(self.URL_ENTRY).status_code != 403
+
+    def test_renewals_role_does_not_grant_antidated(self):
+        u = _staff("renew@t.local", roles=[("Renew", ["renewals"])])
+        # `renewals` ne doit PAS ouvrir les saisies antidatées (sinon le
+        # catch-all les aurait avalées sous la mauvaise ressource).
+        assert _client(u).post(self.URL_BOOKLET).status_code == 403
+        assert _client(u).post(self.URL_ENTRY).status_code == 403
+
+    def test_antidated_role_does_not_grant_renewals(self):
+        u = _staff("anti2@t.local", roles=[("Repro", ["antidated-entries"])])
+        # …et réciproquement : la ressource dédiée n'ouvre pas les renewals.
+        assert (
+            _client(u).get("/api/v1/savings/admin/renewals/").status_code == 403
+        )
+
+
+class TestReportPdfGuarded:
+    """Rapports PDF : coop → ressource dashboard, relevé membre → members."""
+
+    def test_coop_report_exige_dashboard(self):
+        from django.contrib.auth.models import Group
+        u = _staff("rep@t.local", roles=[("Vue", ["dashboard"])])
+        assert _client(u).get("/api/v1/admin/report/coop/").status_code != 403
+        # Un rôle sans dashboard est refusé.
+        u2 = _staff("rep2@t.local", roles=[("Carnets", ["booklet-orders"])])
+        assert _client(u2).get("/api/v1/admin/report/coop/").status_code == 403
+
+    def test_member_statement_exige_members(self):
+        u = _staff("mem@t.local", roles=[("Membres", ["members"])])
+        # 404 (membre inexistant) mais surtout PAS 403.
+        assert _client(u).get("/api/v1/admin/members/1/statement/").status_code != 403
+        u2 = _staff("mem2@t.local", roles=[("Carnets", ["booklet-orders"])])
+        assert _client(u2).get("/api/v1/admin/members/1/statement/").status_code == 403

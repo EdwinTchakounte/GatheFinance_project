@@ -121,6 +121,7 @@ NotifKind _kindFromType(String type) {
     return NotifKind.loan;
   }
   if (type.startsWith('payment')) return NotifKind.payment;
+  if (type.startsWith('support')) return NotifKind.support;
   return NotifKind.system;
 }
 

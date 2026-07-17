@@ -338,15 +338,36 @@ def loan_request_create(request):
             recipient_phone=(data.get("recipient_phone") or "").strip(),
         )
 
-        # Voie AVALISTE : pose AvalisteConsent + LR → EN_ATTENTE_AVALISTE.
-        if route_eval.route == EligibilityRoute.AVALISTE:
-            from .avaliste_services import request_avaliste_consent
+        # Auto-couverture : projette le gel du demandeur sur ses tranches de
+        # placement (elles sortent du pool prêteur). La voie avaliste fait la
+        # même chose depuis request_avaliste_consent, avec son propre montant.
+        if gel_demandeur_initial:
+            from .guarantee_tranches import earmark_guarantee_tranches
 
-            request_avaliste_consent(
-                loan_request,
-                numero_identification=data["avaliste_numero"],
-                nom=data["avaliste_nom"],
+            earmark_guarantee_tranches(
+                member=member,
+                montant=gel_demandeur_initial,
+                loan_request=loan_request,
             )
+
+        # Voie AVALISTE — « frais d'abord, avaliste ensuite » : on mémorise la
+        # désignation, on ne sollicite personne. Le consentement est posé par
+        # open_instruction_after_fees, une fois les frais encaissés.
+        if route_eval.route == EligibilityRoute.AVALISTE:
+            loan_request.avaliste_numero_saisi = data["avaliste_numero"].strip()
+            loan_request.avaliste_nom_saisi = data["avaliste_nom"].strip()
+            loan_request.save(
+                update_fields=[
+                    "avaliste_numero_saisi",
+                    "avaliste_nom_saisi",
+                    "updated_at",
+                ]
+            )
+            # Étude gratuite → rien à encaisser, on enchaîne tout de suite.
+            if frais_montant <= 0:
+                from .study_fee_services import open_instruction_after_fees
+
+                open_instruction_after_fees(loan_request)
 
         record_audit(
             action="loan_request.submitted",
@@ -431,6 +452,66 @@ def loan_request_create(request):
 def loan_request_list(request):
     qs = LoanRequest.objects.filter(member=request.user.member).order_by("-date_soumission")
     return Response(LoanRequestReadSerializer(qs, many=True).data)
+
+
+# ---------------------------------------------------------------------------
+# Transfert — rembourser un crédit depuis l'épargne (G6, refonte 2026-07)
+# ---------------------------------------------------------------------------
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="Argent disponible pour un transfert (remboursement)",
+    description=(
+        "Somme mobilisable pour rembourser un crédit : épargne classique "
+        "retirable (hors placement/gel) + collecte."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsActiveMember])
+def transfer_available(request):
+    from .transfer_services import available_for_transfer
+
+    data = available_for_transfer(request.user.member)
+    return Response({k: str(v) for k, v in data.items()})
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="Transférer de l'épargne vers un crédit (remboursement)",
+    description=(
+        "Rembourse `montant` sur le crédit `pk` du membre en puisant dans son "
+        "épargne classique retirable puis sa collecte. Transfert interne "
+        "(pas de Mobile Money)."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsActiveMember])
+def loan_repay_from_savings(request, pk: int):
+    from decimal import Decimal, InvalidOperation
+
+    from .transfer_services import TransferError, repay_loan_from_savings
+
+    loan = Loan.objects.filter(pk=pk, member=request.user.member).first()
+    if loan is None:
+        return Response({"detail": "Crédit introuvable."}, status=404)
+    try:
+        montant = Decimal(str(request.data.get("montant")))
+    except (InvalidOperation, TypeError):
+        return Response({"detail": "Montant invalide."}, status=400)
+    try:
+        payment = repay_loan_from_savings(loan, montant)
+    except TransferError as exc:
+        return Response({"detail": str(exc)}, status=400)
+    loan.refresh_from_db()
+    return Response(
+        {
+            "payment_id": payment.id,
+            "montant": str(payment.montant),
+            "solde_restant": str(loan.solde_restant),
+            "statut": loan.statut,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1257,6 +1338,41 @@ def loan_request_record_study_fee(request, pk: int):
     from apps_coop.payments.services import _hook_loan_request_fees
 
     _hook_loan_request_fees(payment, {})
+    lr.refresh_from_db()
+    return Response(LoanRequestReadSerializer(lr).data)
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="Membre — régler les frais d'étude par déduction sur son épargne",
+    description=(
+        "3e canal de règlement des frais d'étude (les deux autres : agence via "
+        "`/study-fee/`, mobile money via `/payments/init/`). Prélève le montant "
+        "sur l'épargne **classique** du membre et fait basculer la demande "
+        "comme n'importe quel encaissement.\n\n"
+        "Le prélèvement ne peut mordre que sur la part réellement retirable : "
+        "ni le placement ni l'épargne gelée en garantie ne sont ponctionnables. "
+        "409 si le disponible est insuffisant ou si la demande n'attend pas de "
+        "frais."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsActiveMember])
+def loan_request_pay_study_fee_from_savings(request, pk: int):
+    from .study_fee_services import StudyFeeError, pay_study_fee_from_savings
+
+    try:
+        lr = LoanRequest.objects.get(pk=pk, member=request.user.member)
+    except LoanRequest.DoesNotExist:
+        return Response(
+            {"detail": "Demande introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    try:
+        pay_study_fee_from_savings(lr)
+    except StudyFeeError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
     lr.refresh_from_db()
     return Response(LoanRequestReadSerializer(lr).data)
 

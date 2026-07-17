@@ -103,6 +103,10 @@ class Payment(TimestampedModel):
     class Source(models.TextChoices):
         MANUEL = "manuel", "Saisie agence"
         MOBILE_MONEY = "mobile_money", "Mobile Money"
+        # Porte des frais d'étude (2026) — 3e canal : le membre règle en
+        # prélevant sur son épargne classique. Pas d'argent entrant : c'est un
+        # transfert interne, validé d'emblée (aucun encaissement à attendre).
+        DEDUCTION_EPARGNE = "deduction_epargne", "Déduction sur épargne classique"
 
     class Statut(models.TextChoices):
         EN_ATTENTE = "en_attente", "En attente"
@@ -116,7 +120,7 @@ class Payment(TimestampedModel):
     # les hooks métier créditent uniquement `montant`. 0 = pas de frais.
     frais_transaction = money_field(default=0)
     type = models.CharField(max_length=24, choices=Type.choices, db_index=True)
-    source = models.CharField(max_length=16, choices=Source.choices, db_index=True)
+    source = models.CharField(max_length=24, choices=Source.choices, db_index=True)
     statut = models.CharField(max_length=12, choices=Statut.choices, default=Statut.EN_ATTENTE, db_index=True)
 
     # Optional links — set when the payment is imputed to a credit

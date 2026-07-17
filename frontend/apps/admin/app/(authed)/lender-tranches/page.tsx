@@ -127,7 +127,7 @@ function Inner() {
             {t.engaged_in_loan_dossier}
           </span>
         ) : (
-          <span className="text-xs text-ink-400">—</span>
+          <span className="text-xs text-ink-400"></span>
         ),
     },
     {

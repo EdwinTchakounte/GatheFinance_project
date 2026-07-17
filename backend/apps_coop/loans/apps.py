@@ -6,3 +6,6 @@ class LoansConfig(AppConfig):
     name = "apps_coop.loans"
     label = "loans"
     verbose_name = "Crédits"
+
+    def ready(self):
+        from . import signals  # noqa: F401 — enregistre les receivers

@@ -63,6 +63,15 @@ REVALIDATE_URL = env("REVALIDATE_URL", default="")
 # Each provider reads its own env vars; leave them blank in dev/CI so any
 # accidental call fails loud (`ProviderError: credentials not configured`).
 
+# Prestataire de paiement par défaut pour les NOUVEAUX paiements sortants
+# (init payin, décaissements crédit, retraits épargne). Centralise ce qui
+# était écrit en dur (`provider_code="tara"`) à chaque création de Payment :
+# changer de prestataire = changer ce réglage, sans toucher au code métier.
+# La valeur doit correspondre au `code` d'un provider enregistré (cf.
+# apps_coop.payments.providers). Le webhook entrant reste routé par prestataire
+# (chaque provider a sa propre route /webhook/<code>/).
+DEFAULT_PAYMENT_PROVIDER = env("DEFAULT_PAYMENT_PROVIDER", default="tara")
+
 # Tara Money — https://taramoney.com/developer
 TARA_API_KEY = env("TARA_API_KEY", default="")
 TARA_BUSINESS_ID = env("TARA_BUSINESS_ID", default="")
@@ -108,6 +117,7 @@ INSTALLED_APPS = [
     "apps_coop.audit",
     "apps_coop.forms",
     "apps_coop.social",
+    "apps_coop.support",
     # Wagtail
     "wagtail.contrib.forms",
     "wagtail.contrib.redirects",
@@ -194,6 +204,15 @@ DATABASES = {
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
     ),
 }
+# Connexions persistantes. Par défaut Django ouvre une connexion PostgreSQL par
+# requête et la ferme à la réponse : sur un VPS c'est ~10-20 ms de handshake +
+# un fork côté Postgres, payés sur CHAQUE appel d'API.
+#
+# Attention au dimensionnement : chaque worker × thread garde sa propre
+# connexion ouverte pendant CONN_MAX_AGE. Il faut donc
+# GUNICORN_WORKERS × GUNICORN_THREADS < max_connections de Postgres (100 par
+# défaut) — cf. la CMD gunicorn du Dockerfile.
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

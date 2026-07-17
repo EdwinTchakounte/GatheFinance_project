@@ -33,7 +33,11 @@ from .microcampaign_admin import (
     admin_campaigns,
     admin_loan_request_campaign_decide,
 )
-from .microcampaign_public import public_active_campaigns, public_campaign_apply
+from .microcampaign_public import (
+    public_active_campaigns,
+    public_campaign_apply,
+    public_campaign_detail,
+)
 from .views import (
     admin_list_installments,
     admin_list_loan_requests,
@@ -53,11 +57,14 @@ from .views import (
     loan_request_decide,
     loan_request_decide_provisional,
     loan_request_field_visit,
+    loan_repay_from_savings,
     loan_request_list,
+    loan_request_pay_study_fee_from_savings,
     loan_request_record_study_fee,
     loan_request_note,
     loan_request_upload_attachment,
     loans_me_active,
+    transfer_available,
     loans_me_closed,
     me_lender_payouts,
 )
@@ -70,6 +77,12 @@ urlpatterns = [
     path("me/eligibility/", loan_eligibility, name="eligibility"),
     path("me/requests/", loan_request_list, name="my-requests"),
     path("me/active/", loans_me_active, name="my-active-loans"),
+    path("transfer/available/", transfer_available, name="transfer-available"),
+    path(
+        "me/loans/<int:pk>/repay-from-savings/",
+        loan_repay_from_savings,
+        name="loan-repay-from-savings",
+    ),
     # P3 . Historique credits cloturees (parite portail web).
     path("me/closed/", loans_me_closed, name="my-closed-loans"),
     # CH-12 — Versements d'intérêts reçus en tant que prêteur.
@@ -77,6 +90,7 @@ urlpatterns = [
     # LOT 11 — Liste publique des campagnes micro-crédit actives (mobile +
     # vitrine). Pas d'auth : un membre peut partager le flyer en externe.
     path("campaigns/active/", public_active_campaigns, name="public-active-campaigns"),
+    path("campaigns/<int:pk>/", public_campaign_detail, name="public-campaign-detail"),
     path("campaigns/<int:pk>/apply/", public_campaign_apply, name="public-campaign-apply"),
     path("requests/", loan_request_create, name="create-request"),
     # CH-5 — Upload de fichier rattaché à un LoanRequest (CGA, CFP, CNI, etc.).
@@ -134,6 +148,12 @@ urlpatterns = [
         "requests/<int:pk>/study-fee/",
         loan_request_record_study_fee,
         name="record-study-fee",
+    ),
+    # Porte des frais 2026 — 3e canal : le membre règle sur son épargne.
+    path(
+        "requests/<int:pk>/study-fee/from-savings/",
+        loan_request_pay_study_fee_from_savings,
+        name="study-fee-from-savings",
     ),
     # L4 — Évaluation garantie matérielle par la commission (staff).
     path(

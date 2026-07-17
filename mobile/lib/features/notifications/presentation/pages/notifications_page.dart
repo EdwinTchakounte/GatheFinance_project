@@ -26,6 +26,11 @@ class NotificationsPage extends ConsumerStatefulWidget {
 }
 
 class _NotificationsPageState extends ConsumerState<NotificationsPage> {
+  /// Catégorie sélectionnée (`null` = Tout). Les onglets affichés sont
+  /// **dynamiques** : seules les catégories réellement présentes dans les
+  /// notifications reçues apparaissent (cf. build).
+  NotifKind? _filter;
+
   @override
   void initState() {
     super.initState();
@@ -107,17 +112,45 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
           child: notifsAsync.when(
             data: (items) {
               if (items.isEmpty) return const _EmptyState();
-              return ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 60),
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (_, i) => _NotifCard(
-                  notif: items[i],
-                  onTap: () => ref
-                      .read(notificationsProvider.notifier)
-                      .markRead(items[i].id),
-                ),
+
+              // Onglets DYNAMIQUES : seulement les catégories réellement
+              // présentes (ordre stable via l'enum). « Tout » toujours en tête.
+              final present = <NotifKind>[
+                for (final k in NotifKind.values)
+                  if (items.any((n) => n.kind == k)) k,
+              ];
+              // Le filtre courant a disparu (plus aucune notif de ce type) →
+              // on retombe sur « Tout ».
+              final active =
+                  (_filter != null && present.contains(_filter)) ? _filter : null;
+              final visible = active == null
+                  ? items
+                  : items.where((n) => n.kind == active).toList();
+
+              return Column(
+                children: [
+                  // Une seule catégorie → pas de barre (rien à filtrer).
+                  if (present.length > 1)
+                    _FilterBar(
+                      present: present,
+                      active: active,
+                      onSelect: (k) => setState(() => _filter = k),
+                    ),
+                  Expanded(
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 60),
+                      itemCount: visible.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) => _NotifCard(
+                        notif: visible[i],
+                        onTap: () => ref
+                            .read(notificationsProvider.notifier)
+                            .markRead(visible[i].id),
+                      ),
+                    ),
+                  ),
+                ],
               );
             },
             loading: () => ListView(
@@ -170,6 +203,76 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 }
 
+/// Libellé localisé d'une catégorie de notification.
+String _kindLabel(AppL10n l, NotifKind k) => switch (k) {
+      NotifKind.savings => l.notif_kind_savings,
+      NotifKind.loan => l.notif_kind_loan,
+      NotifKind.payment => l.notif_kind_payment,
+      NotifKind.lender => l.notif_kind_lender,
+      NotifKind.announcement => l.notif_kind_announcement,
+      NotifKind.support => l.notif_kind_support,
+      NotifKind.system => l.notif_kind_system,
+    };
+
+/// Barre de filtres horizontale (pilules) — « Tout » + catégories présentes.
+class _FilterBar extends StatelessWidget {
+  const _FilterBar({
+    required this.present,
+    required this.active,
+    required this.onSelect,
+  });
+
+  final List<NotifKind> present;
+  final NotifKind? active;
+  final ValueChanged<NotifKind?> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final entries = <(NotifKind?, String)>[
+      (null, l.notifs_filter_all),
+      for (final k in present) (k, _kindLabel(l, k)),
+    ];
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        itemCount: entries.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final (kind, label) = entries[i];
+          final selected = kind == active;
+          return GestureDetector(
+            onTap: () => onSelect(kind),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: selected ? PaColors.teal : PaColors.paper,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: selected ? PaColors.teal : PaColors.line,
+                  width: 0.9,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.white : PaColors.inkSecondary,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _NotifCard extends StatelessWidget {
   const _NotifCard({required this.notif, required this.onTap});
 
@@ -188,6 +291,8 @@ class _NotifCard extends StatelessWidget {
         return (icon: Icons.volunteer_activism_outlined, tint: PaColors.success);
       case NotifKind.announcement:
         return (icon: Icons.campaign_rounded, tint: PaColors.blue);
+      case NotifKind.support:
+        return (icon: Icons.support_agent_rounded, tint: PaColors.teal);
       case NotifKind.system:
         return (icon: Icons.notifications_outlined, tint: PaColors.warning);
     }

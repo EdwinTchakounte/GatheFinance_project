@@ -19,6 +19,7 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
 import '../../../preferences/presentation/state/locale_notifier.dart';
 import '../../../preferences/presentation/widgets/language_choice_sheet.dart';
+import '../../../support/presentation/state/support_notifier.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -29,10 +30,25 @@ class ProfilePage extends ConsumerWidget {
     final locale = ref.watch(localeProvider).valueOrNull ?? const Locale('fr');
     final languageLabel =
         locale.languageCode == 'en' ? 'English' : 'Français';
+    final supportUnread = ref.watch(supportUnreadProvider).valueOrNull ?? 0;
     final l = AppL10n.of(context);
 
     return Scaffold(
       backgroundColor: PaColors.canvas,
+      // Accès rapide au support : bouton flottant élevé en bas à droite
+      // (badge = messages support non-lus).
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/support'),
+        backgroundColor: PaColors.teal,
+        foregroundColor: Colors.white,
+        tooltip: l.profile_tile_support,
+        child: supportUnread > 0
+            ? Badge(
+                label: Text('$supportUnread'),
+                child: const Icon(Icons.support_agent_rounded),
+              )
+            : const Icon(Icons.support_agent_rounded),
+      ),
       body: PaPatternBackground(
         child: SafeArea(
         bottom: false,

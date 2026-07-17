@@ -97,7 +97,7 @@ class CampaignDetailPage extends ConsumerWidget {
       ..writeln('Taux : ${(c.tauxInteret * 100).toStringAsFixed(0)} %')
       ..writeln('Clôture : ${df.format(c.dateFin)}')
       ..writeln()
-      ..writeln('👉 ${ApiConfig.siteBaseUrl}/campagnes');
+      ..writeln('👉 ${ApiConfig.siteBaseUrl}/campagnes/${c.id}');
     ShareService.instance.shareContent(
       text: buf.toString().trim(),
       mediaUrl: c.flyerUrl,

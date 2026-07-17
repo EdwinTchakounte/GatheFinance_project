@@ -378,6 +378,22 @@ EVENTS: list[tuple[str, str, str, bool]] = [
         "prelevement de la commission 1%).",
         False,
     ),
+    (
+        "collecte.eom_choice_reminder",
+        "Rappel choix fin de mois collecte",
+        "Fin de mois 2026 . Rappel envoye avant la cloture : le membre choisit "
+        "de recuperer sa collecte en cash ou de la basculer vers son epargne. "
+        "Template editable par l'admin.",
+        False,
+    ),
+    (
+        "placement.matured",
+        "Placement arrivé à échéance",
+        "Placement 2026 . A la date de restitution (defaut 1er janvier), le "
+        "placement DISPONIBLE du membre est restitue avec ses interets prorata "
+        "et redevient librement retirable.",
+        False,
+    ),
 ]
 
 

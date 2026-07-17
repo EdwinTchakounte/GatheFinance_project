@@ -102,10 +102,16 @@ class TestFindAvaliste:
         out = find_avaliste(senior.numero_membre, "DUPONT")
         assert out.pk == senior.pk
 
-    def test_not_senior_raises(self):
+    def test_not_senior_is_accepted(self):
+        """Réforme garantie 2026 : l'ancienneté ne conditionne plus rien.
+
+        ``find_avaliste`` ne fait plus que de l'identification (numéro + nom +
+        membre actif). C'est la capacité à immobiliser le montant qui décide,
+        et elle est vérifiée plus tard par ``request_avaliste_consent``.
+        """
         nm = _make_new_member()
-        with pytest.raises(ValueError, match="ancienneté"):
-            find_avaliste(nm.numero_membre, nm.nom)
+        out = find_avaliste(nm.numero_membre, nm.nom)
+        assert out.pk == nm.pk
 
     def test_not_active_raises(self):
         senior = _make_senior()

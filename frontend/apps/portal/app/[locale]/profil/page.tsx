@@ -108,12 +108,18 @@ export default function ProfilPage() {
             Édite tes coordonnées et ton mot de passe. Les modifications sont
             tracées dans l'audit.
           </p>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
             <a
               href="/profil/preferences-notifications"
               className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:underline"
             >
               Préférences de notifications →
+            </a>
+            <a
+              href="/support"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-teal-700 hover:underline"
+            >
+              Support en ligne →
             </a>
           </div>
         </header>

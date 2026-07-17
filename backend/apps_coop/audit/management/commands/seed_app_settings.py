@@ -54,6 +54,13 @@ SETTINGS: list[tuple[str, str, str]] = [
         "le rappel de réinscription (alerte douce, non bloquante).",
     ),
     (
+        "members.reinscription.grace_days",
+        "10",
+        "G5 (2026-07) — Délai (jours) après la clôture du cycle avant le "
+        "passage automatique INACTIF/SUSPENDU. Défaut 10. La réactivation "
+        "exige le re-paiement des frais d'adhésion + inscription.",
+    ),
+    (
         "loans.penalite_globale.grace_days",
         "30",
         "Cycle contentieux — délai (jours) entre l'application de la "
@@ -156,6 +163,32 @@ SETTINGS: list[tuple[str, str, str]] = [
         "Ouvre/ferme le sous-canal placement de l'épargne classique. "
         "Si 'false' : la case 'placer ce dépôt' est masquée côté portail "
         "et les dépôts ne créent plus de LenderTranche.",
+    ),
+    # Placement — restitution à échéance (refonte 2026-07). Date fixe éditable.
+    (
+        "epargne.placement.maturity.enabled",
+        "true",
+        "Active la restitution automatique des placements à échéance "
+        "(cron placement.maturity.daily). Si 'false', aucune restitution auto.",
+    ),
+    (
+        "epargne.placement.maturity_date",
+        "01-01",
+        "Date annuelle (format MM-DD) de restitution des placements avec "
+        "intérêts. Défaut 01-01 (1er janvier). Éditable.",
+    ),
+    (
+        "epargne.placement.interest_rate",
+        "0.01",
+        "Taux MENSUEL du placement (ex. '0.01' = 1%/mois). L'intérêt versé à "
+        "l'échéance = taux × montant × (jours depuis le dépôt / 30).",
+    ),
+    # Rappel mensuel du choix de fin de mois collecte (cash vs bascule épargne).
+    (
+        "collecte.eom_reminder.enabled",
+        "true",
+        "Active la notification mensuelle (cron le 25) qui invite les membres "
+        "à choisir cash vs bascule épargne avant la clôture de la collecte.",
     ),
     # LOT 3 — Kill-switch pour la logique 2025 obsolète.
     (

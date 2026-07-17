@@ -151,11 +151,17 @@ class Member(TimestampedModel):
         """Capacité prêtable du membre (refonte 2026 §6 — Épargne-prêteur).
 
         Retourne ``Decimal(0)`` si pas de consentement actif. Sinon :
-          • Mode A (global) : ``solde_epargne_classique - tranches_engagees``
+          • Mode A (global) : ``solde_classique − engagées − gel de garantie``
           • Mode B (tranches) : somme des tranches en statut ``DISPONIBLE``
 
         Note : on lit l'épargne **classique** (``classic_savings_account``),
         pas la collecte journalière (qui est restituée fin de mois).
+
+        Réforme garantie 2026 : ce qui est immobilisé en garantie d'un crédit
+        n'est pas prêtable — sinon le même argent garantirait un crédit tout en
+        en finançant un autre. En mode B les tranches ``GELEE`` sont exclues
+        d'office (on ne somme que ``DISPONIBLE``) ; en mode A, où le pool est le
+        solde brut, il faut soustraire le gel explicitement.
         """
         from decimal import Decimal
 
@@ -176,7 +182,16 @@ class Member(TimestampedModel):
                 member=self,
                 statut=LenderTranche.Statut.ENGAGEE,
             ).aggregate(s=Sum("montant"))["s"] or Decimal("0.00")
-            return max(Decimal("0.00"), solde - Decimal(engaged))
+            # Le gel de garantie porte sur le solde (tranches GELEE + part
+            # libre) : chaque XAF n'est donc soustrait qu'une seule fois.
+            frozen = Decimal("0.00")
+            try:  # import local — évite le cycle members <-> loans.
+                from apps_coop.loans.avaliste_services import member_frozen_guarantee
+
+                frozen = member_frozen_guarantee(self)
+            except Exception:  # noqa: BLE001 — best-effort, ne bloque pas la lecture
+                pass
+            return max(Decimal("0.00"), solde - Decimal(engaged) - frozen)
         # Mode B — somme des tranches disponibles
         dispo = LenderTranche.objects.filter(
             member=self,
@@ -432,6 +447,45 @@ class BookletOrder(TimestampedModel):
         alors non rattachée — c'est toléré).
         """
         return cls.objects.filter(member=member).order_by("-created_at", "-id").first()
+
+    @classmethod
+    def for_member_at(cls, member, at_date) -> "BookletOrder | None":
+        """Carnet **actif à une date passée** (écritures antidatées).
+
+        ``latest_for`` rattache toujours au carnet le PLUS RÉCENT — faux pour
+        une reprise d'historique : une écriture de mars doit se rattacher au
+        carnet que le membre détenait en mars, pas à celui commandé depuis.
+
+        Règle : le carnet le plus récent commandé **au plus tard** à ``at_date``.
+        Si ``at_date`` précède tous les carnets connus (le carnet papier
+        existait avant sa saisie en base), on retombe sur le **plus ancien**
+        carnet plutôt que sur rien. ``None`` seulement si le membre n'a aucun
+        carnet.
+
+        ``at_date`` accepte un ``date`` ou un ``datetime`` (comparé à
+        ``created_at``, tronqué au jour).
+        """
+        from datetime import datetime, time
+
+        from django.utils import timezone as _tz
+
+        if isinstance(at_date, datetime):
+            cutoff = at_date
+        else:
+            cutoff = datetime.combine(at_date, time.max)
+            if _tz.is_naive(cutoff) and _tz.is_aware(_tz.now()):
+                cutoff = _tz.make_aware(cutoff, _tz.get_current_timezone())
+
+        active = (
+            cls.objects.filter(member=member, created_at__lte=cutoff)
+            .order_by("-created_at", "-id")
+            .first()
+        )
+        if active is not None:
+            return active
+        # Date antérieure à tout carnet connu → le plus ancien (le papier
+        # existait déjà). None si le membre n'a jamais eu de carnet.
+        return cls.objects.filter(member=member).order_by("created_at", "id").first()
 
 
 class BRCDocument(TimestampedModel):

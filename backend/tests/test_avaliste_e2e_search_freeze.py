@@ -90,13 +90,61 @@ class TestSearchAvalisteBroadened:
         nums = [x["numero_membre"] for x in r.json()["results"]]
         assert senior.numero_membre in nums
 
-    def test_non_senior_excluded(self, active_member):
+    def test_search_by_full_numero_membre(self, active_member):
+        """Le mobile résout un avaliste tapé (numéro complet collé sans passer
+        par la liste) → la recherche DOIT matcher le numéro exact et exposer
+        une capacité de caution utilisable."""
+        senior = _senior(
+            nom="Ngassa", prenom="Zephirin", classique=Decimal("80000")
+        )
+        r = self._api(active_member).get(
+            self.URL, {"q": senior.numero_membre}
+        )
+        assert r.status_code == 200, r.content
+        row = next(
+            (x for x in r.json()["results"]
+             if x["numero_membre"] == senior.numero_membre),
+            None,
+        )
+        assert row is not None, "numéro exact introuvable dans les résultats"
+        assert Decimal(str(row["capacite_caution"])) > 0
+
+    def test_junior_with_capacity_is_eligible(self, active_member):
+        """Réforme garantie 2026 : l'ancienneté ne filtre plus rien.
+
+        Un membre de la cohorte 2026 (< 12 mois, donc non senior) qui a
+        l'épargne pour immobiliser le montant est un avaliste parfaitement
+        valable. Avant, il était écarté silencieusement de la recherche — le
+        mobile ne renvoyait « aucun résultat » sur un numéro pourtant exact.
+        """
+        junior = _new_member(classique=Decimal("80000"))
+        junior.prenom = "Zephirin"
+        junior.save(update_fields=["prenom"])
+
+        r = self._api(active_member).get(self.URL, {"q": junior.numero_membre})
+        assert r.status_code == 200, r.content
+        row = next(
+            (x for x in r.json()["results"]
+             if x["numero_membre"] == junior.numero_membre),
+            None,
+        )
+        assert row is not None, "un junior solvable doit rester trouvable"
+        assert row["is_senior"] is False, "l'info reste exposée, mais ne filtre plus"
+        assert Decimal(str(row["capacite_caution"])) == Decimal("80000")
+
+    def test_junior_without_savings_has_no_capacity(self, active_member):
+        """Corollaire : ce qui disqualifie, c'est la capacité — pas l'âge."""
         junior = _new_member()
         junior.prenom = "Zephirin"
         junior.save(update_fields=["prenom"])
-        r = self._api(active_member).get(self.URL, {"q": "zeph"})
-        nums = [x["numero_membre"] for x in r.json()["results"]]
-        assert junior.numero_membre not in nums
+        r = self._api(active_member).get(self.URL, {"q": junior.numero_membre})
+        row = next(
+            (x for x in r.json()["results"]
+             if x["numero_membre"] == junior.numero_membre),
+            None,
+        )
+        assert row is not None
+        assert Decimal(str(row["capacite_caution"])) == Decimal("0")
 
     def test_search_hides_other_members_financials(self, active_member):
         """SÉCURITÉ : la recherche n'expose QUE la capacité de caution — pas le

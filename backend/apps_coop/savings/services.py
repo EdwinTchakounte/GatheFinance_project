@@ -372,7 +372,7 @@ def _init_payout_for_withdrawal(wr: WithdrawalRequest, *, decided_by) -> None:
     import uuid
 
     from apps_coop.payments.models import Payment
-    from apps_coop.payments.providers import get_provider
+    from apps_coop.payments.providers import default_provider_code, get_provider
     from apps_coop.payments.providers.base import ProviderError
 
     # 1) Crée le Payment décaissement (atomique court)
@@ -383,7 +383,7 @@ def _init_payout_for_withdrawal(wr: WithdrawalRequest, *, decided_by) -> None:
             type=Payment.Type.DECAISSEMENT,
             source=Payment.Source.MOBILE_MONEY,
             statut=Payment.Statut.EN_ATTENTE,
-            provider_code="tara",
+            provider_code=default_provider_code(),
             validated_by=decided_by,
             date_versement=timezone.now(),
             loan=None,
@@ -393,7 +393,7 @@ def _init_payout_for_withdrawal(wr: WithdrawalRequest, *, decided_by) -> None:
         wr.save(update_fields=["payout_payment", "updated_at"])
 
     # 2) Appel provider hors transaction
-    provider = get_provider("tara")
+    provider = get_provider(payment.provider_code or default_provider_code())
     try:
         result = provider.init_payout(
             payment,

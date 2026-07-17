@@ -72,6 +72,10 @@ class LoansRepositoryImpl implements LoansRepository {
           ),);
 
   @override
+  Future<void> payStudyFeeFromSavings({required int requestId}) =>
+      _run(() => _remote.payStudyFeeFromSavings(requestId: requestId));
+
+  @override
   Future<FormSchema?> getActiveLoanRequestSchema() =>
       _run(_remote.getActiveLoanRequestSchema);
 
