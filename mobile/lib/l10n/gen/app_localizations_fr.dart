@@ -562,7 +562,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String booklet_history_item(String id) {
-    return 'Carnet #$id';
+    return 'Carnet $id';
   }
 
   @override
@@ -1901,4 +1901,380 @@ class AppL10nFr extends AppL10n {
   String lreq_campaign_error(String error) {
     return 'Impossible de charger les campagnes : $error';
   }
+
+  @override
+  String get common_preview => 'Aperçu';
+
+  @override
+  String get nav_annonces => 'Annonces';
+
+  @override
+  String get annonces_tab_news => 'Actualités';
+
+  @override
+  String get annonces_tab_campaigns => 'Campagnes';
+
+  @override
+  String get news_title => 'Actualités';
+
+  @override
+  String get news_load_error => 'Impossible de charger les actualités.';
+
+  @override
+  String get news_read_article => 'Lire l\'article';
+
+  @override
+  String get news_empty_title => 'Aucune actualité pour le moment';
+
+  @override
+  String get feed_refresh_hint =>
+      'Reviens plus tard, ou tire vers le bas pour rafraîchir.';
+
+  @override
+  String get campaigns_title => 'Campagnes en cours';
+
+  @override
+  String get campaigns_load_error => 'Impossible de charger les campagnes.';
+
+  @override
+  String get campaign_closed => 'Clôturée';
+
+  @override
+  String get campaign_last_day => 'Dernier jour';
+
+  @override
+  String campaign_ends_in_days(int days) {
+    return 'Se termine dans ${days}j';
+  }
+
+  @override
+  String campaign_ends_on(String date) {
+    return 'Clôture $date';
+  }
+
+  @override
+  String get campaign_view_apply => 'Voir la campagne & postuler';
+
+  @override
+  String get campaigns_empty_title => 'Aucune campagne active';
+
+  @override
+  String booklet_ordered_on(String date) {
+    return 'Commandé le $date';
+  }
+
+  @override
+  String get booklet_validity_1y => 'Validité 1 an';
+
+  @override
+  String get booklet_docs_title => 'Documents officiels';
+
+  @override
+  String get booklet_doc_reglement => 'Règlement intérieur';
+
+  @override
+  String get booklet_doc_reglement_sub =>
+      'Statuts + droits et devoirs du sociétaire.';
+
+  @override
+  String get booklet_doc_ledger => 'Mes écritures (PDF)';
+
+  @override
+  String get booklet_doc_ledger_sub =>
+      'Toutes les opérations rattachées à ton carnet.';
+
+  @override
+  String get booklet_doc_soon => 'Bientôt disponible';
+
+  @override
+  String get credit_tab_credit => 'Crédit';
+
+  @override
+  String get credit_tab_carnet => 'Carnet';
+
+  @override
+  String get credit_paths_title => 'Vos voies de crédit';
+
+  @override
+  String get credit_mandates_title => 'Mes mandats d\'avaliste';
+
+  @override
+  String get credit_mandates_sub =>
+      'Réponds aux demandes où tu es désigné garant.';
+
+  @override
+  String get credit_path_available => 'Disponible';
+
+  @override
+  String get credit_path_ineligible => 'Non éligible';
+
+  @override
+  String get credit_path_brc_sub_savings => 'Selon épargne';
+
+  @override
+  String get credit_path_avaliste_title => 'Avaliste';
+
+  @override
+  String get credit_path_avaliste_sub => 'Garant désigné';
+
+  @override
+  String get credit_path_campaign_title => 'Campagne';
+
+  @override
+  String get credit_path_campaign_sub => 'Micro-crédit';
+
+  @override
+  String get credit_path_garantie_title => 'Garantie';
+
+  @override
+  String get credit_path_garantie_sub => 'Bien en garantie';
+
+  @override
+  String get credit_status_fee_due => 'Frais d\'étude à payer';
+
+  @override
+  String get credit_status_field_visit => 'Visite terrain à effectuer';
+
+  @override
+  String get credit_status_await_avaliste => 'En attente de l\'avaliste';
+
+  @override
+  String get credit_status_rejected_avaliste => 'Refusée par l\'avaliste';
+
+  @override
+  String get credit_status_campaign_validation =>
+      'En validation activité campagne';
+
+  @override
+  String get credit_status_rejected_campaign => 'Refusée (campagne)';
+
+  @override
+  String get credit_status_await_funding => 'En attente de financement (24h)';
+
+  @override
+  String get credit_step_submitted => 'Demande soumise';
+
+  @override
+  String get credit_step_fee_paid => 'Frais d\'étude réglés';
+
+  @override
+  String get credit_step_committee => 'Instruction du comité';
+
+  @override
+  String get credit_step_decision => 'Décision';
+
+  @override
+  String get credit_step_granted => 'Crédit accordé';
+
+  @override
+  String get credit_step_rejected => 'Demande rejetée';
+
+  @override
+  String get hero_toggle_savings => 'Épargne';
+
+  @override
+  String get hero_toggle_collecte => 'Collectes';
+
+  @override
+  String get home_hero_savings_label => 'Mon épargne';
+
+  @override
+  String get home_hero_savings_cta => 'Verser sur épargne';
+
+  @override
+  String get home_hero_collecte_label => 'Ma collecte';
+
+  @override
+  String get home_hero_collecte_cta => 'Payer ma collecte';
+
+  @override
+  String get account_temporary_title => 'Compte temporaire';
+
+  @override
+  String get account_temporary_sub =>
+      'Paie tes frais d\'inscription pour activer ton compte complet.';
+
+  @override
+  String get account_suspended_title => 'Compte suspendu';
+
+  @override
+  String get account_suspended_sub =>
+      'Contacte la coopérative pour régulariser ta situation.';
+
+  @override
+  String get account_revoked_title => 'Compte radié';
+
+  @override
+  String get account_revoked_sub =>
+      'Tu n\'as plus accès aux services de la coopérative.';
+
+  @override
+  String get account_active_title => 'Compte actif';
+
+  @override
+  String get renewal_suspended_msg =>
+      'Compte suspendu. Paie ton carnet annuel pour réactiver.';
+
+  @override
+  String renewal_overdue_days(int days) {
+    return 'Anniversaire annuel dépassé de $days jour(s).';
+  }
+
+  @override
+  String get renewal_today => 'Anniversaire annuel · renouvelle aujourd\'hui.';
+
+  @override
+  String renewal_in_days(int days) {
+    return 'Renouvellement annuel dans $days jour(s).';
+  }
+
+  @override
+  String get renewal_title_reactivate => 'Réactivation requise';
+
+  @override
+  String get renewal_title_renew => 'Renouvellement d\'adhésion';
+
+  @override
+  String get support_title => 'Support';
+
+  @override
+  String get support_subtitle => 'On te répond dès que possible.';
+
+  @override
+  String get support_empty_title => 'Besoin d\'aide ?';
+
+  @override
+  String get support_empty_sub =>
+      'Écris-nous ici, le support te répondra directement dans ce fil.';
+
+  @override
+  String get support_input_hint => 'Écris un message…';
+
+  @override
+  String get support_sender_you => 'Vous';
+
+  @override
+  String get support_sender_staff => 'Support';
+
+  @override
+  String get support_load_error => 'Impossible de charger la conversation.';
+
+  @override
+  String get profile_tile_support => 'Support en ligne';
+
+  @override
+  String get profile_tile_support_sub =>
+      'Écris au support, réponse dans l\'app.';
+
+  @override
+  String get collecte_eom_title => 'Fin de mois — que faire de ta collecte ?';
+
+  @override
+  String get collecte_eom_sub =>
+      'À la clôture mensuelle, 1 % est retenu par la coopérative.';
+
+  @override
+  String get collecte_eom_cash => 'Retirer en cash';
+
+  @override
+  String get collecte_eom_cash_desc => 'Tu récupères ton solde à l\'agence.';
+
+  @override
+  String get collecte_eom_savings => 'Basculer en épargne';
+
+  @override
+  String get collecte_eom_savings_desc =>
+      'Ta collecte est virée sur ton épargne classique.';
+
+  @override
+  String get home_action_transfer => 'Transfert';
+
+  @override
+  String get transfer_title => 'Transférer vers un crédit';
+
+  @override
+  String get transfer_sub =>
+      'Rembourse un crédit depuis ton épargne disponible (hors placement/gel) + collecte.';
+
+  @override
+  String get transfer_available_label => 'Disponible';
+
+  @override
+  String get transfer_no_loan => 'Aucun crédit en cours à rembourser.';
+
+  @override
+  String get transfer_pick_loan => 'CRÉDIT À REMBOURSER';
+
+  @override
+  String get transfer_amount => 'MONTANT À TRANSFÉRER';
+
+  @override
+  String get transfer_remaining => 'Reste dû';
+
+  @override
+  String get transfer_cta => 'Transférer';
+
+  @override
+  String get transfer_success => 'Transfert effectué.';
+
+  @override
+  String get transfer_insufficient =>
+      'Montant supérieur à ton argent disponible.';
+
+  @override
+  String get fee_paid_success => 'Frais réglé.';
+
+  @override
+  String get fee_from_account => 'Depuis mon compte';
+
+  @override
+  String get fee_from_account_desc => 'Prélevé sur ton épargne disponible.';
+
+  @override
+  String get fee_mobile_money => 'Mobile Money';
+
+  @override
+  String get fee_mobile_money_desc => 'Payer avec MTN / Orange Money.';
+
+  @override
+  String get fee_pay_cta => 'Payer';
+
+  @override
+  String get carousel_pay_adhesion_title => 'Payer mon adhésion';
+
+  @override
+  String get carousel_pay_adhesion_sub => 'Active ton compte membre.';
+
+  @override
+  String get carousel_pay_inscription_title => 'Payer mon inscription';
+
+  @override
+  String get carousel_pay_inscription_sub => 'Frais d\'inscription du cycle.';
+
+  @override
+  String get carousel_pay_cta => 'Payer';
+
+  @override
+  String get notifs_filter_all => 'Tout';
+
+  @override
+  String get notif_kind_savings => 'Épargne';
+
+  @override
+  String get notif_kind_loan => 'Crédit';
+
+  @override
+  String get notif_kind_payment => 'Paiements';
+
+  @override
+  String get notif_kind_lender => 'Prêteur';
+
+  @override
+  String get notif_kind_announcement => 'Annonces';
+
+  @override
+  String get notif_kind_support => 'Support';
+
+  @override
+  String get notif_kind_system => 'Système';
 }

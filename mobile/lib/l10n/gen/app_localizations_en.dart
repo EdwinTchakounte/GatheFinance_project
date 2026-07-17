@@ -560,7 +560,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String booklet_history_item(String id) {
-    return 'Passbook #$id';
+    return 'Passbook $id';
   }
 
   @override
@@ -1886,4 +1886,377 @@ class AppL10nEn extends AppL10n {
   String lreq_campaign_error(String error) {
     return 'Could not load campaigns: $error';
   }
+
+  @override
+  String get common_preview => 'Preview';
+
+  @override
+  String get nav_annonces => 'Updates';
+
+  @override
+  String get annonces_tab_news => 'News';
+
+  @override
+  String get annonces_tab_campaigns => 'Campaigns';
+
+  @override
+  String get news_title => 'News';
+
+  @override
+  String get news_load_error => 'Couldn\'t load the news.';
+
+  @override
+  String get news_read_article => 'Read article';
+
+  @override
+  String get news_empty_title => 'No news yet';
+
+  @override
+  String get feed_refresh_hint => 'Check back later, or pull to refresh.';
+
+  @override
+  String get campaigns_title => 'Active campaigns';
+
+  @override
+  String get campaigns_load_error => 'Couldn\'t load the campaigns.';
+
+  @override
+  String get campaign_closed => 'Closed';
+
+  @override
+  String get campaign_last_day => 'Last day';
+
+  @override
+  String campaign_ends_in_days(int days) {
+    return 'Ends in ${days}d';
+  }
+
+  @override
+  String campaign_ends_on(String date) {
+    return 'Closes $date';
+  }
+
+  @override
+  String get campaign_view_apply => 'View campaign & apply';
+
+  @override
+  String get campaigns_empty_title => 'No active campaigns';
+
+  @override
+  String booklet_ordered_on(String date) {
+    return 'Ordered on $date';
+  }
+
+  @override
+  String get booklet_validity_1y => 'Valid for 1 year';
+
+  @override
+  String get booklet_docs_title => 'Official documents';
+
+  @override
+  String get booklet_doc_reglement => 'Internal regulations';
+
+  @override
+  String get booklet_doc_reglement_sub => 'Bylaws + member rights and duties.';
+
+  @override
+  String get booklet_doc_ledger => 'My entries (PDF)';
+
+  @override
+  String get booklet_doc_ledger_sub =>
+      'All transactions linked to your passbook.';
+
+  @override
+  String get booklet_doc_soon => 'Coming soon';
+
+  @override
+  String get credit_tab_credit => 'Credit';
+
+  @override
+  String get credit_tab_carnet => 'Passbook';
+
+  @override
+  String get credit_paths_title => 'Your credit paths';
+
+  @override
+  String get credit_mandates_title => 'My guarantor mandates';
+
+  @override
+  String get credit_mandates_sub =>
+      'Respond to requests where you\'re named as guarantor.';
+
+  @override
+  String get credit_path_available => 'Available';
+
+  @override
+  String get credit_path_ineligible => 'Not eligible';
+
+  @override
+  String get credit_path_brc_sub_savings => 'Based on savings';
+
+  @override
+  String get credit_path_avaliste_title => 'Guarantor';
+
+  @override
+  String get credit_path_avaliste_sub => 'Named guarantor';
+
+  @override
+  String get credit_path_campaign_title => 'Campaign';
+
+  @override
+  String get credit_path_campaign_sub => 'Micro-loan';
+
+  @override
+  String get credit_path_garantie_title => 'Collateral';
+
+  @override
+  String get credit_path_garantie_sub => 'Asset pledged';
+
+  @override
+  String get credit_status_fee_due => 'Study fee due';
+
+  @override
+  String get credit_status_field_visit => 'Field visit required';
+
+  @override
+  String get credit_status_await_avaliste => 'Awaiting guarantor';
+
+  @override
+  String get credit_status_rejected_avaliste => 'Declined by guarantor';
+
+  @override
+  String get credit_status_campaign_validation =>
+      'Campaign activity under review';
+
+  @override
+  String get credit_status_rejected_campaign => 'Declined (campaign)';
+
+  @override
+  String get credit_status_await_funding => 'Awaiting funding (24h)';
+
+  @override
+  String get credit_step_submitted => 'Request submitted';
+
+  @override
+  String get credit_step_fee_paid => 'Study fee paid';
+
+  @override
+  String get credit_step_committee => 'Committee review';
+
+  @override
+  String get credit_step_decision => 'Decision';
+
+  @override
+  String get credit_step_granted => 'Credit granted';
+
+  @override
+  String get credit_step_rejected => 'Request rejected';
+
+  @override
+  String get hero_toggle_savings => 'Savings';
+
+  @override
+  String get hero_toggle_collecte => 'Collection';
+
+  @override
+  String get home_hero_savings_label => 'My savings';
+
+  @override
+  String get home_hero_savings_cta => 'Deposit to savings';
+
+  @override
+  String get home_hero_collecte_label => 'My collection';
+
+  @override
+  String get home_hero_collecte_cta => 'Pay my collection';
+
+  @override
+  String get account_temporary_title => 'Temporary account';
+
+  @override
+  String get account_temporary_sub =>
+      'Pay your registration fee to activate your full account.';
+
+  @override
+  String get account_suspended_title => 'Suspended account';
+
+  @override
+  String get account_suspended_sub =>
+      'Contact the cooperative to regularize your situation.';
+
+  @override
+  String get account_revoked_title => 'Revoked account';
+
+  @override
+  String get account_revoked_sub =>
+      'You no longer have access to the cooperative\'s services.';
+
+  @override
+  String get account_active_title => 'Active account';
+
+  @override
+  String get renewal_suspended_msg =>
+      'Account suspended. Pay your yearly passbook to reactivate.';
+
+  @override
+  String renewal_overdue_days(int days) {
+    return 'Yearly anniversary overdue by $days day(s).';
+  }
+
+  @override
+  String get renewal_today => 'Yearly anniversary · renew today.';
+
+  @override
+  String renewal_in_days(int days) {
+    return 'Yearly renewal in $days day(s).';
+  }
+
+  @override
+  String get renewal_title_reactivate => 'Reactivation required';
+
+  @override
+  String get renewal_title_renew => 'Membership renewal';
+
+  @override
+  String get support_title => 'Support';
+
+  @override
+  String get support_subtitle => 'We\'ll reply as soon as we can.';
+
+  @override
+  String get support_empty_title => 'Need help?';
+
+  @override
+  String get support_empty_sub =>
+      'Message us here; support will reply right in this thread.';
+
+  @override
+  String get support_input_hint => 'Write a message…';
+
+  @override
+  String get support_sender_you => 'You';
+
+  @override
+  String get support_sender_staff => 'Support';
+
+  @override
+  String get support_load_error => 'Couldn\'t load the conversation.';
+
+  @override
+  String get profile_tile_support => 'Online support';
+
+  @override
+  String get profile_tile_support_sub => 'Message support, reply in the app.';
+
+  @override
+  String get collecte_eom_title =>
+      'Month end — what to do with your collection?';
+
+  @override
+  String get collecte_eom_sub =>
+      'At the monthly close, 1% is kept by the cooperative.';
+
+  @override
+  String get collecte_eom_cash => 'Withdraw as cash';
+
+  @override
+  String get collecte_eom_cash_desc => 'Collect your balance at the branch.';
+
+  @override
+  String get collecte_eom_savings => 'Move to savings';
+
+  @override
+  String get collecte_eom_savings_desc =>
+      'Your collection is transferred to your classic savings.';
+
+  @override
+  String get home_action_transfer => 'Transfer';
+
+  @override
+  String get transfer_title => 'Transfer to a loan';
+
+  @override
+  String get transfer_sub =>
+      'Repay a loan from your available savings (excl. placement/frozen) + collection.';
+
+  @override
+  String get transfer_available_label => 'Available';
+
+  @override
+  String get transfer_no_loan => 'No active loan to repay.';
+
+  @override
+  String get transfer_pick_loan => 'LOAN TO REPAY';
+
+  @override
+  String get transfer_amount => 'AMOUNT TO TRANSFER';
+
+  @override
+  String get transfer_remaining => 'Remaining';
+
+  @override
+  String get transfer_cta => 'Transfer';
+
+  @override
+  String get transfer_success => 'Transfer done.';
+
+  @override
+  String get transfer_insufficient => 'Amount exceeds your available money.';
+
+  @override
+  String get fee_paid_success => 'Fee paid.';
+
+  @override
+  String get fee_from_account => 'From my account';
+
+  @override
+  String get fee_from_account_desc => 'Deducted from your available savings.';
+
+  @override
+  String get fee_mobile_money => 'Mobile Money';
+
+  @override
+  String get fee_mobile_money_desc => 'Pay with MTN / Orange Money.';
+
+  @override
+  String get fee_pay_cta => 'Pay';
+
+  @override
+  String get carousel_pay_adhesion_title => 'Pay my membership';
+
+  @override
+  String get carousel_pay_adhesion_sub => 'Activate your member account.';
+
+  @override
+  String get carousel_pay_inscription_title => 'Pay my registration';
+
+  @override
+  String get carousel_pay_inscription_sub => 'Cycle registration fee.';
+
+  @override
+  String get carousel_pay_cta => 'Pay';
+
+  @override
+  String get notifs_filter_all => 'All';
+
+  @override
+  String get notif_kind_savings => 'Savings';
+
+  @override
+  String get notif_kind_loan => 'Credit';
+
+  @override
+  String get notif_kind_payment => 'Payments';
+
+  @override
+  String get notif_kind_lender => 'Lender';
+
+  @override
+  String get notif_kind_announcement => 'Announcements';
+
+  @override
+  String get notif_kind_support => 'Support';
+
+  @override
+  String get notif_kind_system => 'System';
 }

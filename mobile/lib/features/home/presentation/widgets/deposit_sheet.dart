@@ -44,10 +44,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _amountCtrl = TextEditingController(text: '1000');
-  // En release : champ vide (le membre saisit son vrai numéro MoMo). En debug :
-  // pré-rempli pour tester rapidement les flows Tara.
-  final _phoneCtrl =
-      TextEditingController(text: kReleaseMode ? '' : '699 11 22 33');
+  // Champ toujours vide : le membre saisit son propre numéro MoMo.
+  final _phoneCtrl = TextEditingController();
   // CH-3 . Sous-canal placement (épargne classique uniquement). Reste false
   // pour la cotisation.
   bool _isPlacement = false;
@@ -186,7 +184,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               'Type de dépôt',
               style: TextStyle(
                 color: PaColors.inkPrimary,
-                fontSize: 22,
+                fontSize: 19,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -195,7 +193,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               'Choisissez comment votre argent travaille pour vous.',
               style: TextStyle(color: PaColors.inkMuted, fontSize: 14),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
 
             _KindCard(
               icon: Icons.trending_up_rounded,
@@ -233,7 +231,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                       ? 'Un placement crée une tranche bloquée pendant 12 mois. À maturité, vous récupérez le capital + l\'intérêt sur votre solde épargne.'
                       : 'Un dépôt libre est crédité sur votre solde épargne classique et reste à votre disposition.',
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
 
             PaButton(
               label: 'Continuer',
@@ -262,7 +260,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             l.dep_title,
             style: const TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 22,
+              fontSize: 19,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -271,7 +269,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             l.dep_how,
             style: const TextStyle(color: PaColors.inkMuted, fontSize: 14),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 18),
 
           _ChannelCard(
             icon: Icons.smartphone_outlined,
@@ -404,7 +402,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               widget.classic ? l.classic_dep_title : l.dep_title,
               style: const TextStyle(
                 color: PaColors.inkPrimary,
-                fontSize: 22,
+                fontSize: 19,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -469,7 +467,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               ),
             ],
 
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
 
             // LOT 6 . Sélecteur multi-jours pré-payés (cotisation uniquement).
             // Le membre peut verser pour 1, 3, 5, 7, 15 ou 30 jours d'avance.
@@ -571,7 +569,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               onChanged: (_) => setState(() {}),
               style: const TextStyle(
                 color: PaColors.inkPrimary,
-                fontSize: 44,
+                fontSize: 34,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
                 height: 1.1,
@@ -581,7 +579,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                 hintText: '0',
                 hintStyle: TextStyle(
                   color: PaColors.inkPrimary.withValues(alpha: 0.18),
-                  fontSize: 44,
+                  fontSize: 34,
                   fontWeight: FontWeight.w700,
                 ),
                 border: const UnderlineInputBorder(
@@ -651,7 +649,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             // automatiquement le réseau (MTN/Orange) à partir du préfixe
             // du numéro MoMo saisi. Plus besoin de demander au membre.
 
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
 
             Text(
               l.common_number,
@@ -720,7 +718,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               },
             ),
 
-            const SizedBox(height: 28),
+            const SizedBox(height: 18),
 
             PaButton(label: _ctaLabel(), onPressed: _submit),
             ],
@@ -750,7 +748,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
           const _Grabber(),
           const SizedBox(height: 36),
           const BrandLoader(size: BrandLoaderSize.large),
-          const SizedBox(height: 28),
+          const SizedBox(height: 18),
           Text(
             l.dep_waiting_title,
             style: PaText.heading(size: 17),
@@ -770,7 +768,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 18),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
@@ -809,7 +807,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
         mainAxisSize: MainAxisSize.min,
         children: [
           const _Grabber(),
-          const SizedBox(height: 28),
+          const SizedBox(height: 18),
           // Le paiement N'EST PAS validé tant que le membre n'a pas confirmé
           // avec son PIN MoMo sur la page Tara. On affiche donc un état
           // "en cours" et pas une coche verte qui mentirait sur l'état réel.
@@ -835,7 +833,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             'Paiement en cours',
             style: TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 21,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
           ),

@@ -26,6 +26,7 @@ import '../../features/states/presentation/pages/states_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../../features/onboarding/presentation/state/onboarding_notifier.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/support/presentation/pages/support_page.dart';
 import '../../features/savings/presentation/pages/savings_history_page.dart';
 import '../../features/security/presentation/pages/pin_change_page.dart';
 import '../../features/security/presentation/pages/pin_lock_page.dart';
@@ -201,6 +202,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'help',
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const HelpContactPage()),
+      ),
+
+      // Support en ligne (chat fil unique membre ↔ support) — depuis Profil
+      // et deeplink `/support` des notifications « support.reply ».
+      GoRoute(
+        path: '/support',
+        name: 'support',
+        pageBuilder: (context, state) =>
+            _paSlideFadePage(state, const SupportPage()),
       ),
 
       // Liste in-app des campagnes (Voir plus du carousel Home).

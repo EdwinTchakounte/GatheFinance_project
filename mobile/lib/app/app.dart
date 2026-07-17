@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../core/di/providers.dart';
 import '../core/network/session_expiry.dart';
@@ -136,6 +137,10 @@ class _GatheAppState extends ConsumerState<GatheApp>
   Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
     final locale = ref.watch(localeProvider).valueOrNull ?? const Locale('fr');
+    // Aligne intl (dates, nombres) sur la langue de l'app. `fr` → `fr_FR`
+    // (données chargées au boot) ; tout le reste garde son code (`en`, …).
+    Intl.defaultLocale =
+        locale.languageCode == 'fr' ? 'fr_FR' : locale.languageCode;
 
     return MaterialApp.router(
       title: 'GATHE Finance',

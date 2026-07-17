@@ -142,6 +142,8 @@ void main() {
     // Saisit 10 000 XAF directement (plus stable que le chip qui dépend de
     // l'espace insécable de NumberFormat).
     await tester.enterText(find.byType(TextFormField).first, '10000');
+    // Le numéro n'est plus pré-rempli : le membre saisit le sien.
+    await tester.enterText(find.byType(TextFormField).at(1), '699112233');
     await tester.pump();
 
     await tester.tap(find.byType(PaButton).last);

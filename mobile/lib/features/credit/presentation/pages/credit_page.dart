@@ -175,12 +175,12 @@ class CreditPage extends ConsumerWidget {
               //     côté backend (SENIOR_BRC / AVALISTE / CAMPAGNE). Cette
               //     section les rend visibles au membre avant qu'il ne
               //     soumette une demande, pour qu'il sache laquelle il vise.
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(20, 14, 20, 8),
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
                   child: Text(
-                    'Vos voies de crédit',
-                    style: TextStyle(
+                    l.credit_paths_title,
+                    style: const TextStyle(
                       color: PaColors.inkPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -735,20 +735,18 @@ class _RequestCard extends ConsumerWidget {
       LoanRequestStatus.enAttenteFunding => PaColors.warning,
     };
     final statusLabel = switch (request.statut) {
-      LoanRequestStatus.enAttente => 'Frais d\'étude à payer',
+      LoanRequestStatus.enAttente => l.credit_status_fee_due,
       LoanRequestStatus.enInstruction => l.credit_req_review,
       LoanRequestStatus.enAttenteAcceptationMembre => l.credit_req_counter,
-      LoanRequestStatus.approuveeProvisoire => 'Visite terrain à effectuer',
+      LoanRequestStatus.approuveeProvisoire => l.credit_status_field_visit,
       LoanRequestStatus.approuvee => l.credit_req_approved,
       LoanRequestStatus.rejetee => l.credit_req_rejected,
-      LoanRequestStatus.enAttenteAvaliste =>
-        'En attente de l\'avaliste',
-      LoanRequestStatus.rejeteeAvaliste => 'Refusée par l\'avaliste',
+      LoanRequestStatus.enAttenteAvaliste => l.credit_status_await_avaliste,
+      LoanRequestStatus.rejeteeAvaliste => l.credit_status_rejected_avaliste,
       LoanRequestStatus.enValidationCampagne =>
-        'En validation activité campagne',
-      LoanRequestStatus.rejeteeCampagne => 'Refusée (campagne)',
-      LoanRequestStatus.enAttenteFunding =>
-        'En attente de financement (24h)',
+        l.credit_status_campaign_validation,
+      LoanRequestStatus.rejeteeCampagne => l.credit_status_rejected_campaign,
+      LoanRequestStatus.enAttenteFunding => l.credit_status_await_funding,
     };
 
     return PaCard(
@@ -926,14 +924,6 @@ class _CreditFlowTimeline extends StatelessWidget {
   const _CreditFlowTimeline({required this.status});
   final LoanRequestStatus status;
 
-  static const _steps = [
-    'Demande soumise',
-    'Frais d\'étude réglés',
-    'Instruction du comité',
-    'Décision',
-    'Crédit accordé',
-  ];
-
   bool get _rejected => switch (status) {
         LoanRequestStatus.rejetee ||
         LoanRequestStatus.rejeteeAvaliste ||
@@ -965,15 +955,23 @@ class _CreditFlowTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final steps = [
+      l.credit_step_submitted,
+      l.credit_step_fee_paid,
+      l.credit_step_committee,
+      l.credit_step_decision,
+      l.credit_step_granted,
+    ];
     // Si rejeté, on s'arrête à « Décision » (pas de « Crédit accordé »).
-    final count = _rejected ? 4 : _steps.length;
+    final count = _rejected ? 4 : steps.length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (var i = 0; i < count; i++)
           _VStep(
             index: i + 1,
-            label: (_rejected && i == 3) ? 'Demande rejetée' : _steps[i],
+            label: (_rejected && i == 3) ? l.credit_step_rejected : steps[i],
             done: i < _reached && !(_rejected && i == 3),
             active: i == _reached && !_rejected,
             rejected: _rejected && i == 3,
@@ -1624,6 +1622,7 @@ class _ErrorBox extends StatelessWidget {
 class _AvalisteEntryTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppL10n.of(context);
     final asyncMandats = ref.watch(avalisteProvider);
     final pendingCount = asyncMandats.maybeWhen(
       data: (d) => d.pendingCount,
@@ -1650,22 +1649,22 @@ class _AvalisteEntryTile extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mes mandats d\'avaliste',
-                  style: TextStyle(
+                  l.credit_mandates_title,
+                  style: const TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w700,
                     color: PaColors.inkPrimary,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Réponds aux demandes où tu es désigné garant.',
-                  style: TextStyle(fontSize: 12, color: PaColors.inkMuted),
+                  l.credit_mandates_sub,
+                  style: const TextStyle(fontSize: 12, color: PaColors.inkMuted),
                 ),
               ],
             ),
@@ -1824,6 +1823,7 @@ class _LoanRoutesCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     final elig = eligibility;
     final isEligible = elig != null && elig.eligible;
     final plafond = elig?.plafondMax;
@@ -1845,8 +1845,9 @@ class _LoanRoutesCarousel extends StatelessWidget {
                 title: 'BRC',
                 subtitle: plafond != null && plafond > 0
                     ? '${_formatPlafond(plafond)} XAF'
-                    : 'Selon épargne',
-                statusLabel: isEligible ? 'Disponible' : 'Non éligible',
+                    : l.credit_path_brc_sub_savings,
+                statusLabel:
+                    isEligible ? l.credit_path_available : l.credit_path_ineligible,
                 statusOk: isEligible,
                 onTap: ready && isEligible
                     ? () => onSelect!(LoanRequestVoie.brc)
@@ -1859,9 +1860,9 @@ class _LoanRoutesCarousel extends StatelessWidget {
                 icon: Icons.handshake_rounded,
                 iconColor: PaColors.blue,
                 iconBg: const Color(0xFFE8EEFC),
-                title: 'Avaliste',
-                subtitle: 'Garant désigné',
-                statusLabel: 'Disponible',
+                title: l.credit_path_avaliste_title,
+                subtitle: l.credit_path_avaliste_sub,
+                statusLabel: l.credit_path_available,
                 statusOk: true,
                 onTap: ready ? () => onSelect!(LoanRequestVoie.avaliste) : null,
               ),
@@ -1872,9 +1873,9 @@ class _LoanRoutesCarousel extends StatelessWidget {
                 icon: Icons.campaign_rounded,
                 iconColor: PaColors.warning,
                 iconBg: PaColors.warningSurface,
-                title: 'Campagne',
-                subtitle: 'Micro-crédit',
-                statusLabel: 'Disponible',
+                title: l.credit_path_campaign_title,
+                subtitle: l.credit_path_campaign_sub,
+                statusLabel: l.credit_path_available,
                 statusOk: true,
                 onTap: ready ? () => onSelect!(LoanRequestVoie.campaign) : null,
               ),
@@ -1885,9 +1886,9 @@ class _LoanRoutesCarousel extends StatelessWidget {
                 icon: Icons.home_work_rounded,
                 iconColor: PaColors.blue,
                 iconBg: const Color(0xFFE8EEFC),
-                title: 'Garantie',
-                subtitle: 'Bien en garantie',
-                statusLabel: 'Disponible',
+                title: l.credit_path_garantie_title,
+                subtitle: l.credit_path_garantie_sub,
+                statusLabel: l.credit_path_available,
                 statusOk: true,
                 onTap: ready
                     ? () => onSelect!(LoanRequestVoie.garantieMaterielle)
@@ -2141,6 +2142,7 @@ class _CreditCarnetTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return Container(
       height: 44,
       padding: const EdgeInsets.all(4),
@@ -2168,9 +2170,9 @@ class _CreditCarnetTabs extends StatelessWidget {
         labelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
         unselectedLabelStyle:
             const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
-        tabs: const [
-          Tab(text: 'Crédit'),
-          Tab(text: 'Carnet'),
+        tabs: [
+          Tab(text: l.credit_tab_credit),
+          Tab(text: l.credit_tab_carnet),
         ],
       ),
     );

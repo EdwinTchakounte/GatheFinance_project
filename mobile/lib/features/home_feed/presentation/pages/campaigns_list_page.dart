@@ -9,6 +9,7 @@ import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_empty_state.dart';
 import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/feed_item.dart';
 import '../state/feed_notifier.dart';
 
@@ -31,9 +32,9 @@ class CampaignsListPage extends StatelessWidget {
         scrolledUnderElevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: PaColors.inkPrimary),
-        title: const Text(
-          'Campagnes en cours',
-          style: TextStyle(
+        title: Text(
+          AppL10n.of(context).campaigns_title,
+          style: const TextStyle(
             color: PaColors.inkPrimary,
             fontSize: 17,
             fontWeight: FontWeight.w700,
@@ -77,6 +78,7 @@ class _CampaignsListBodyState extends ConsumerState<CampaignsListBody> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     final feed = ref.watch(homeFeedProvider).valueOrNull;
     final campaigns = feed?.campaigns ?? const <CampaignFlyer>[];
     final loading = feed?.campaignsLoading ?? false;
@@ -88,7 +90,7 @@ class _CampaignsListBodyState extends ConsumerState<CampaignsListBody> {
       child: campaigns.isEmpty && !loading
           ? (hasError
               ? PaErrorState(
-                  message: 'Impossible de charger les campagnes.',
+                  message: l.campaigns_load_error,
                   onRetry: () => ref.read(homeFeedProvider.notifier).refresh(),
                 )
               : const _EmptyState())
@@ -135,16 +137,17 @@ class _CampaignRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     // Urgence : jours restants avant clôture (pastille sur l'image).
     final daysLeft = c.dateFin.difference(DateTime.now()).inDays;
     final urgent = daysLeft >= 0 && daysLeft <= 7;
     final urgencyText = daysLeft < 0
-        ? 'Clôturée'
+        ? l.campaign_closed
         : daysLeft == 0
-            ? 'Dernier jour'
+            ? l.campaign_last_day
             : daysLeft <= 7
-                ? 'Se termine dans ${daysLeft}j'
-                : 'Clôture ${_d(c.dateFin)}';
+                ? l.campaign_ends_in_days(daysLeft)
+                : l.campaign_ends_on(_d(c.dateFin));
 
     return PaCard(
       padding: EdgeInsets.zero,
@@ -264,19 +267,19 @@ class _CampaignRow extends StatelessWidget {
                       color: PaColors.teal,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Voir la campagne & postuler',
-                          style: TextStyle(
+                          l.campaign_view_apply,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13.5,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        SizedBox(width: 4),
-                        Icon(Icons.arrow_forward_rounded,
+                        const SizedBox(width: 4),
+                        const Icon(Icons.arrow_forward_rounded,
                             size: 18, color: Colors.white,),
                       ],
                     ),
@@ -391,14 +394,15 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      children: const [
-        SizedBox(height: 70),
+      children: [
+        const SizedBox(height: 70),
         PaEmptyState(
           icon: Icons.campaign_outlined,
-          title: 'Aucune campagne active',
-          message: 'Reviens plus tard, ou tire vers le bas pour rafraîchir.',
+          title: l.campaigns_empty_title,
+          message: l.feed_refresh_hint,
         ),
       ],
     );

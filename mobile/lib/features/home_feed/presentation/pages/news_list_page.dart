@@ -9,6 +9,7 @@ import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_empty_state.dart';
 import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/feed_item.dart';
 import '../state/feed_notifier.dart';
 
@@ -31,9 +32,9 @@ class NewsListPage extends StatelessWidget {
         scrolledUnderElevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: PaColors.inkPrimary),
-        title: const Text(
-          'Actualités',
-          style: TextStyle(
+        title: Text(
+          AppL10n.of(context).news_title,
+          style: const TextStyle(
             color: PaColors.inkPrimary,
             fontSize: 17,
             fontWeight: FontWeight.w700,
@@ -77,6 +78,7 @@ class _NewsListBodyState extends ConsumerState<NewsListBody> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     final feed = ref.watch(homeFeedProvider).valueOrNull;
     final articles = feed?.articles ?? const <NewsArticle>[];
     final loading = feed?.articlesLoading ?? false;
@@ -88,7 +90,7 @@ class _NewsListBodyState extends ConsumerState<NewsListBody> {
       child: articles.isEmpty && !loading
           ? (hasError
               ? PaErrorState(
-                  message: 'Impossible de charger les actualités.',
+                  message: l.news_load_error,
                   onRetry: () => ref.read(homeFeedProvider.notifier).refresh(),
                 )
               : const _Empty())
@@ -206,18 +208,18 @@ class _ArticleRow extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 12),
-                const Row(
+                Row(
                   children: [
                     Text(
-                      'Lire l\'article',
-                      style: TextStyle(
+                      AppL10n.of(context).news_read_article,
+                      style: const TextStyle(
                         color: PaColors.warning,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    SizedBox(width: 3),
-                    Icon(Icons.arrow_forward_rounded,
+                    const SizedBox(width: 3),
+                    const Icon(Icons.arrow_forward_rounded,
                         size: 17, color: PaColors.warning,),
                   ],
                 ),
@@ -314,15 +316,16 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      children: const [
-        SizedBox(height: 70),
+      children: [
+        const SizedBox(height: 70),
         PaEmptyState(
           icon: Icons.article_outlined,
           tint: PaColors.warning,
-          title: 'Aucune actualité pour le moment',
-          message: 'Reviens plus tard, ou tire vers le bas pour rafraîchir.',
+          title: l.news_empty_title,
+          message: l.feed_refresh_hint,
         ),
       ],
     );

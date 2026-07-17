@@ -1,7 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
@@ -87,75 +89,120 @@ class _AnnouncementTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final date = item.publishedAt;
     return PaCard(
+      padding: EdgeInsets.zero,
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => AnnouncementDetailPage(announcement: item),
         ),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: PaColors.teal.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+          // Couverture affichée directement pour les annonces avec image.
+          if (item.hasImage)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: CachedNetworkImage(
+                  imageUrl: item.imageUrl!,
+                  fit: BoxFit.cover,
+                  memCacheWidth: 720,
+                  placeholder: (_, __) => const _ImgFallback(),
+                  errorWidget: (_, __, ___) => const _ImgFallback(),
+                ),
+              ),
             ),
-            child: const Icon(Icons.campaign_rounded,
-                color: PaColors.teal, size: 22,),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(
+                  children: [
+                    const Icon(Icons.campaign_rounded,
+                        size: 15, color: PaColors.teal,),
+                    const SizedBox(width: 6),
+                    Text(
+                      date != null
+                          ? AppDateFormatter.long(date).toUpperCase()
+                          : 'ANNONCE',
+                      style: const TextStyle(
+                        color: PaColors.inkMuted,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 Text(
                   item.titre,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
+                    height: 1.3,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  item.corps,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: PaColors.inkSecondary,
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
-                ),
-                if (item.hasImage) ...[
+                if (item.corps.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  const Row(
-                    children: [
-                      Icon(Icons.attach_file_rounded,
-                          size: 14, color: PaColors.teal,),
-                      SizedBox(width: 4),
-                      Text(
-                        'Pièce jointe',
-                        style: TextStyle(
-                          color: PaColors.teal,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    item.corps,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: PaColors.inkSecondary,
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
                   ),
                 ],
+                const SizedBox(height: 10),
+                const Row(
+                  children: [
+                    Text(
+                      'Lire l\'annonce',
+                      style: TextStyle(
+                        color: PaColors.teal,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(width: 3),
+                    Icon(Icons.arrow_forward_rounded,
+                        size: 17, color: PaColors.teal,),
+                  ],
+                ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: PaColors.inkMuted),
         ],
       ),
+    );
+  }
+}
+
+/// Fond de repli quand l'image d'annonce est absente / en erreur.
+class _ImgFallback extends StatelessWidget {
+  const _ImgFallback();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [PaColors.tealSurface, Color(0xFFD7EFE5)],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: const Icon(Icons.campaign_rounded, color: PaColors.teal, size: 40),
     );
   }
 }

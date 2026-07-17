@@ -1126,7 +1126,7 @@ abstract class AppL10n {
   /// No description provided for @booklet_history_item.
   ///
   /// In fr, this message translates to:
-  /// **'Carnet #{id}'**
+  /// **'Carnet {id}'**
   String booklet_history_item(String id);
 
   /// No description provided for @booklet_history_delivered_on.
@@ -3522,6 +3522,708 @@ abstract class AppL10n {
   /// In fr, this message translates to:
   /// **'Impossible de charger les campagnes : {error}'**
   String lreq_campaign_error(String error);
+
+  /// No description provided for @common_preview.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aperçu'**
+  String get common_preview;
+
+  /// No description provided for @nav_annonces.
+  ///
+  /// In fr, this message translates to:
+  /// **'Annonces'**
+  String get nav_annonces;
+
+  /// No description provided for @annonces_tab_news.
+  ///
+  /// In fr, this message translates to:
+  /// **'Actualités'**
+  String get annonces_tab_news;
+
+  /// No description provided for @annonces_tab_campaigns.
+  ///
+  /// In fr, this message translates to:
+  /// **'Campagnes'**
+  String get annonces_tab_campaigns;
+
+  /// No description provided for @news_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Actualités'**
+  String get news_title;
+
+  /// No description provided for @news_load_error.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de charger les actualités.'**
+  String get news_load_error;
+
+  /// No description provided for @news_read_article.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lire l\'article'**
+  String get news_read_article;
+
+  /// No description provided for @news_empty_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune actualité pour le moment'**
+  String get news_empty_title;
+
+  /// No description provided for @feed_refresh_hint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reviens plus tard, ou tire vers le bas pour rafraîchir.'**
+  String get feed_refresh_hint;
+
+  /// No description provided for @campaigns_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Campagnes en cours'**
+  String get campaigns_title;
+
+  /// No description provided for @campaigns_load_error.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de charger les campagnes.'**
+  String get campaigns_load_error;
+
+  /// No description provided for @campaign_closed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Clôturée'**
+  String get campaign_closed;
+
+  /// No description provided for @campaign_last_day.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dernier jour'**
+  String get campaign_last_day;
+
+  /// No description provided for @campaign_ends_in_days.
+  ///
+  /// In fr, this message translates to:
+  /// **'Se termine dans {days}j'**
+  String campaign_ends_in_days(int days);
+
+  /// No description provided for @campaign_ends_on.
+  ///
+  /// In fr, this message translates to:
+  /// **'Clôture {date}'**
+  String campaign_ends_on(String date);
+
+  /// No description provided for @campaign_view_apply.
+  ///
+  /// In fr, this message translates to:
+  /// **'Voir la campagne & postuler'**
+  String get campaign_view_apply;
+
+  /// No description provided for @campaigns_empty_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune campagne active'**
+  String get campaigns_empty_title;
+
+  /// No description provided for @booklet_ordered_on.
+  ///
+  /// In fr, this message translates to:
+  /// **'Commandé le {date}'**
+  String booklet_ordered_on(String date);
+
+  /// No description provided for @booklet_validity_1y.
+  ///
+  /// In fr, this message translates to:
+  /// **'Validité 1 an'**
+  String get booklet_validity_1y;
+
+  /// No description provided for @booklet_docs_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Documents officiels'**
+  String get booklet_docs_title;
+
+  /// No description provided for @booklet_doc_reglement.
+  ///
+  /// In fr, this message translates to:
+  /// **'Règlement intérieur'**
+  String get booklet_doc_reglement;
+
+  /// No description provided for @booklet_doc_reglement_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Statuts + droits et devoirs du sociétaire.'**
+  String get booklet_doc_reglement_sub;
+
+  /// No description provided for @booklet_doc_ledger.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mes écritures (PDF)'**
+  String get booklet_doc_ledger;
+
+  /// No description provided for @booklet_doc_ledger_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Toutes les opérations rattachées à ton carnet.'**
+  String get booklet_doc_ledger_sub;
+
+  /// No description provided for @booklet_doc_soon.
+  ///
+  /// In fr, this message translates to:
+  /// **'Bientôt disponible'**
+  String get booklet_doc_soon;
+
+  /// No description provided for @credit_tab_credit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Crédit'**
+  String get credit_tab_credit;
+
+  /// No description provided for @credit_tab_carnet.
+  ///
+  /// In fr, this message translates to:
+  /// **'Carnet'**
+  String get credit_tab_carnet;
+
+  /// No description provided for @credit_paths_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vos voies de crédit'**
+  String get credit_paths_title;
+
+  /// No description provided for @credit_mandates_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mes mandats d\'avaliste'**
+  String get credit_mandates_title;
+
+  /// No description provided for @credit_mandates_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réponds aux demandes où tu es désigné garant.'**
+  String get credit_mandates_sub;
+
+  /// No description provided for @credit_path_available.
+  ///
+  /// In fr, this message translates to:
+  /// **'Disponible'**
+  String get credit_path_available;
+
+  /// No description provided for @credit_path_ineligible.
+  ///
+  /// In fr, this message translates to:
+  /// **'Non éligible'**
+  String get credit_path_ineligible;
+
+  /// No description provided for @credit_path_brc_sub_savings.
+  ///
+  /// In fr, this message translates to:
+  /// **'Selon épargne'**
+  String get credit_path_brc_sub_savings;
+
+  /// No description provided for @credit_path_avaliste_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Avaliste'**
+  String get credit_path_avaliste_title;
+
+  /// No description provided for @credit_path_avaliste_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Garant désigné'**
+  String get credit_path_avaliste_sub;
+
+  /// No description provided for @credit_path_campaign_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Campagne'**
+  String get credit_path_campaign_title;
+
+  /// No description provided for @credit_path_campaign_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Micro-crédit'**
+  String get credit_path_campaign_sub;
+
+  /// No description provided for @credit_path_garantie_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Garantie'**
+  String get credit_path_garantie_title;
+
+  /// No description provided for @credit_path_garantie_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Bien en garantie'**
+  String get credit_path_garantie_sub;
+
+  /// No description provided for @credit_status_fee_due.
+  ///
+  /// In fr, this message translates to:
+  /// **'Frais d\'étude à payer'**
+  String get credit_status_fee_due;
+
+  /// No description provided for @credit_status_field_visit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Visite terrain à effectuer'**
+  String get credit_status_field_visit;
+
+  /// No description provided for @credit_status_await_avaliste.
+  ///
+  /// In fr, this message translates to:
+  /// **'En attente de l\'avaliste'**
+  String get credit_status_await_avaliste;
+
+  /// No description provided for @credit_status_rejected_avaliste.
+  ///
+  /// In fr, this message translates to:
+  /// **'Refusée par l\'avaliste'**
+  String get credit_status_rejected_avaliste;
+
+  /// No description provided for @credit_status_campaign_validation.
+  ///
+  /// In fr, this message translates to:
+  /// **'En validation activité campagne'**
+  String get credit_status_campaign_validation;
+
+  /// No description provided for @credit_status_rejected_campaign.
+  ///
+  /// In fr, this message translates to:
+  /// **'Refusée (campagne)'**
+  String get credit_status_rejected_campaign;
+
+  /// No description provided for @credit_status_await_funding.
+  ///
+  /// In fr, this message translates to:
+  /// **'En attente de financement (24h)'**
+  String get credit_status_await_funding;
+
+  /// No description provided for @credit_step_submitted.
+  ///
+  /// In fr, this message translates to:
+  /// **'Demande soumise'**
+  String get credit_step_submitted;
+
+  /// No description provided for @credit_step_fee_paid.
+  ///
+  /// In fr, this message translates to:
+  /// **'Frais d\'étude réglés'**
+  String get credit_step_fee_paid;
+
+  /// No description provided for @credit_step_committee.
+  ///
+  /// In fr, this message translates to:
+  /// **'Instruction du comité'**
+  String get credit_step_committee;
+
+  /// No description provided for @credit_step_decision.
+  ///
+  /// In fr, this message translates to:
+  /// **'Décision'**
+  String get credit_step_decision;
+
+  /// No description provided for @credit_step_granted.
+  ///
+  /// In fr, this message translates to:
+  /// **'Crédit accordé'**
+  String get credit_step_granted;
+
+  /// No description provided for @credit_step_rejected.
+  ///
+  /// In fr, this message translates to:
+  /// **'Demande rejetée'**
+  String get credit_step_rejected;
+
+  /// No description provided for @hero_toggle_savings.
+  ///
+  /// In fr, this message translates to:
+  /// **'Épargne'**
+  String get hero_toggle_savings;
+
+  /// No description provided for @hero_toggle_collecte.
+  ///
+  /// In fr, this message translates to:
+  /// **'Collectes'**
+  String get hero_toggle_collecte;
+
+  /// No description provided for @home_hero_savings_label.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mon épargne'**
+  String get home_hero_savings_label;
+
+  /// No description provided for @home_hero_savings_cta.
+  ///
+  /// In fr, this message translates to:
+  /// **'Verser sur épargne'**
+  String get home_hero_savings_cta;
+
+  /// No description provided for @home_hero_collecte_label.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ma collecte'**
+  String get home_hero_collecte_label;
+
+  /// No description provided for @home_hero_collecte_cta.
+  ///
+  /// In fr, this message translates to:
+  /// **'Payer ma collecte'**
+  String get home_hero_collecte_cta;
+
+  /// No description provided for @account_temporary_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte temporaire'**
+  String get account_temporary_title;
+
+  /// No description provided for @account_temporary_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Paie tes frais d\'inscription pour activer ton compte complet.'**
+  String get account_temporary_sub;
+
+  /// No description provided for @account_suspended_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte suspendu'**
+  String get account_suspended_title;
+
+  /// No description provided for @account_suspended_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contacte la coopérative pour régulariser ta situation.'**
+  String get account_suspended_sub;
+
+  /// No description provided for @account_revoked_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte radié'**
+  String get account_revoked_title;
+
+  /// No description provided for @account_revoked_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tu n\'as plus accès aux services de la coopérative.'**
+  String get account_revoked_sub;
+
+  /// No description provided for @account_active_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte actif'**
+  String get account_active_title;
+
+  /// No description provided for @renewal_suspended_msg.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte suspendu. Paie ton carnet annuel pour réactiver.'**
+  String get renewal_suspended_msg;
+
+  /// No description provided for @renewal_overdue_days.
+  ///
+  /// In fr, this message translates to:
+  /// **'Anniversaire annuel dépassé de {days} jour(s).'**
+  String renewal_overdue_days(int days);
+
+  /// No description provided for @renewal_today.
+  ///
+  /// In fr, this message translates to:
+  /// **'Anniversaire annuel · renouvelle aujourd\'hui.'**
+  String get renewal_today;
+
+  /// No description provided for @renewal_in_days.
+  ///
+  /// In fr, this message translates to:
+  /// **'Renouvellement annuel dans {days} jour(s).'**
+  String renewal_in_days(int days);
+
+  /// No description provided for @renewal_title_reactivate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réactivation requise'**
+  String get renewal_title_reactivate;
+
+  /// No description provided for @renewal_title_renew.
+  ///
+  /// In fr, this message translates to:
+  /// **'Renouvellement d\'adhésion'**
+  String get renewal_title_renew;
+
+  /// No description provided for @support_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Support'**
+  String get support_title;
+
+  /// No description provided for @support_subtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'On te répond dès que possible.'**
+  String get support_subtitle;
+
+  /// No description provided for @support_empty_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Besoin d\'aide ?'**
+  String get support_empty_title;
+
+  /// No description provided for @support_empty_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écris-nous ici, le support te répondra directement dans ce fil.'**
+  String get support_empty_sub;
+
+  /// No description provided for @support_input_hint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écris un message…'**
+  String get support_input_hint;
+
+  /// No description provided for @support_sender_you.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous'**
+  String get support_sender_you;
+
+  /// No description provided for @support_sender_staff.
+  ///
+  /// In fr, this message translates to:
+  /// **'Support'**
+  String get support_sender_staff;
+
+  /// No description provided for @support_load_error.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de charger la conversation.'**
+  String get support_load_error;
+
+  /// No description provided for @profile_tile_support.
+  ///
+  /// In fr, this message translates to:
+  /// **'Support en ligne'**
+  String get profile_tile_support;
+
+  /// No description provided for @profile_tile_support_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écris au support, réponse dans l\'app.'**
+  String get profile_tile_support_sub;
+
+  /// No description provided for @collecte_eom_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fin de mois — que faire de ta collecte ?'**
+  String get collecte_eom_title;
+
+  /// No description provided for @collecte_eom_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'À la clôture mensuelle, 1 % est retenu par la coopérative.'**
+  String get collecte_eom_sub;
+
+  /// No description provided for @collecte_eom_cash.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer en cash'**
+  String get collecte_eom_cash;
+
+  /// No description provided for @collecte_eom_cash_desc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tu récupères ton solde à l\'agence.'**
+  String get collecte_eom_cash_desc;
+
+  /// No description provided for @collecte_eom_savings.
+  ///
+  /// In fr, this message translates to:
+  /// **'Basculer en épargne'**
+  String get collecte_eom_savings;
+
+  /// No description provided for @collecte_eom_savings_desc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ta collecte est virée sur ton épargne classique.'**
+  String get collecte_eom_savings_desc;
+
+  /// No description provided for @home_action_transfer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Transfert'**
+  String get home_action_transfer;
+
+  /// No description provided for @transfer_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Transférer vers un crédit'**
+  String get transfer_title;
+
+  /// No description provided for @transfer_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rembourse un crédit depuis ton épargne disponible (hors placement/gel) + collecte.'**
+  String get transfer_sub;
+
+  /// No description provided for @transfer_available_label.
+  ///
+  /// In fr, this message translates to:
+  /// **'Disponible'**
+  String get transfer_available_label;
+
+  /// No description provided for @transfer_no_loan.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun crédit en cours à rembourser.'**
+  String get transfer_no_loan;
+
+  /// No description provided for @transfer_pick_loan.
+  ///
+  /// In fr, this message translates to:
+  /// **'CRÉDIT À REMBOURSER'**
+  String get transfer_pick_loan;
+
+  /// No description provided for @transfer_amount.
+  ///
+  /// In fr, this message translates to:
+  /// **'MONTANT À TRANSFÉRER'**
+  String get transfer_amount;
+
+  /// No description provided for @transfer_remaining.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reste dû'**
+  String get transfer_remaining;
+
+  /// No description provided for @transfer_cta.
+  ///
+  /// In fr, this message translates to:
+  /// **'Transférer'**
+  String get transfer_cta;
+
+  /// No description provided for @transfer_success.
+  ///
+  /// In fr, this message translates to:
+  /// **'Transfert effectué.'**
+  String get transfer_success;
+
+  /// No description provided for @transfer_insufficient.
+  ///
+  /// In fr, this message translates to:
+  /// **'Montant supérieur à ton argent disponible.'**
+  String get transfer_insufficient;
+
+  /// No description provided for @fee_paid_success.
+  ///
+  /// In fr, this message translates to:
+  /// **'Frais réglé.'**
+  String get fee_paid_success;
+
+  /// No description provided for @fee_from_account.
+  ///
+  /// In fr, this message translates to:
+  /// **'Depuis mon compte'**
+  String get fee_from_account;
+
+  /// No description provided for @fee_from_account_desc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Prélevé sur ton épargne disponible.'**
+  String get fee_from_account_desc;
+
+  /// No description provided for @fee_mobile_money.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mobile Money'**
+  String get fee_mobile_money;
+
+  /// No description provided for @fee_mobile_money_desc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Payer avec MTN / Orange Money.'**
+  String get fee_mobile_money_desc;
+
+  /// No description provided for @fee_pay_cta.
+  ///
+  /// In fr, this message translates to:
+  /// **'Payer'**
+  String get fee_pay_cta;
+
+  /// No description provided for @carousel_pay_adhesion_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Payer mon adhésion'**
+  String get carousel_pay_adhesion_title;
+
+  /// No description provided for @carousel_pay_adhesion_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Active ton compte membre.'**
+  String get carousel_pay_adhesion_sub;
+
+  /// No description provided for @carousel_pay_inscription_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Payer mon inscription'**
+  String get carousel_pay_inscription_title;
+
+  /// No description provided for @carousel_pay_inscription_sub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Frais d\'inscription du cycle.'**
+  String get carousel_pay_inscription_sub;
+
+  /// No description provided for @carousel_pay_cta.
+  ///
+  /// In fr, this message translates to:
+  /// **'Payer'**
+  String get carousel_pay_cta;
+
+  /// No description provided for @notifs_filter_all.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tout'**
+  String get notifs_filter_all;
+
+  /// No description provided for @notif_kind_savings.
+  ///
+  /// In fr, this message translates to:
+  /// **'Épargne'**
+  String get notif_kind_savings;
+
+  /// No description provided for @notif_kind_loan.
+  ///
+  /// In fr, this message translates to:
+  /// **'Crédit'**
+  String get notif_kind_loan;
+
+  /// No description provided for @notif_kind_payment.
+  ///
+  /// In fr, this message translates to:
+  /// **'Paiements'**
+  String get notif_kind_payment;
+
+  /// No description provided for @notif_kind_lender.
+  ///
+  /// In fr, this message translates to:
+  /// **'Prêteur'**
+  String get notif_kind_lender;
+
+  /// No description provided for @notif_kind_announcement.
+  ///
+  /// In fr, this message translates to:
+  /// **'Annonces'**
+  String get notif_kind_announcement;
+
+  /// No description provided for @notif_kind_support.
+  ///
+  /// In fr, this message translates to:
+  /// **'Support'**
+  String get notif_kind_support;
+
+  /// No description provided for @notif_kind_system.
+  ///
+  /// In fr, this message translates to:
+  /// **'Système'**
+  String get notif_kind_system;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

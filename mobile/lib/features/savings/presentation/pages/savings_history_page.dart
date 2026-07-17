@@ -14,6 +14,7 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/savings_transaction.dart';
 import '../state/classic_savings_notifier.dart';
 import '../state/savings_notifier.dart';
+import '../widgets/collecte_eom_card.dart';
 import '../../../../core/error/error_message.dart';
 
 /// Une transaction + sa provenance (collecte journalière vs épargne classique),
@@ -73,6 +74,12 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
               HapticFeedback.selectionClick();
               setState(() => _type = t);
             },
+          ),
+          // Choix de fin de mois collecte (cash vs bascule épargne) — piloté
+          // par le membre, respecté par le cron mensuel.
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: CollecteEomCard(),
           ),
           Expanded(
             child: RefreshIndicator.adaptive(

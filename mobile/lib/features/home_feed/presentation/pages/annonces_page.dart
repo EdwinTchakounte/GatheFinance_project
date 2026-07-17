@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import 'campaigns_list_page.dart';
 import 'news_list_page.dart';
 
@@ -21,6 +22,7 @@ class AnnoncesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppL10n.of(context);
     return Scaffold(
       backgroundColor: PaColors.canvas,
       body: PaPatternBackground(
@@ -30,7 +32,7 @@ class AnnoncesPage extends ConsumerWidget {
             length: 2,
             child: Column(
               children: [
-                const PaGradientHeaderBand(title: 'Annonces'),
+                PaGradientHeaderBand(title: l.nav_annonces),
                 const Padding(
                   padding: EdgeInsets.fromLTRB(16, 4, 16, 12),
                   child: _SegmentedTabs(),
@@ -58,6 +60,7 @@ class _SegmentedTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return Container(
       height: 44,
       padding: const EdgeInsets.all(4),
@@ -85,9 +88,9 @@ class _SegmentedTabs extends StatelessWidget {
         labelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
         unselectedLabelStyle:
             const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
-        tabs: const [
-          Tab(text: 'Actualités'),
-          Tab(text: 'Campagnes'),
+        tabs: [
+          Tab(text: l.annonces_tab_news),
+          Tab(text: l.annonces_tab_campaigns),
         ],
       ),
     );
