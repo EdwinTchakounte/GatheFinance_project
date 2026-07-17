@@ -212,7 +212,7 @@ function Inner() {
                         })}
                       </time>
                     ) : (
-                      <span className="text-ink-400">—</span>
+                      <span className="text-ink-400"></span>
                     )}
                   </td>
                   <td className="px-4 py-3 align-top">
@@ -275,7 +275,7 @@ function Inner() {
               />
               <p className="mt-1 text-[11px] text-ink-500">
                 Défaut :{" "}
-                <code className="font-mono">{editing.default_cron ?? "—"}</code>
+                <code className="font-mono">{editing.default_cron ?? ""}</code>
               </p>
             </div>
 

@@ -227,7 +227,7 @@ function Inner() {
             </p>
           </div>
         ) : (
-          <span className="text-xs text-ink-400">—</span>
+          <span className="text-xs text-ink-400"></span>
         ),
     },
     {
@@ -524,7 +524,7 @@ function Inner() {
               </div>
             ) : (
               <div className="flex flex-col items-end gap-1.5">
-                <span className="text-xs text-ink-400">—</span>
+                <span className="text-xs text-ink-400"></span>
                 <a
                   href={adminApi.loans.noteUrl(r.id)}
                   target="_blank"
@@ -1205,7 +1205,7 @@ function GuaranteeEvalModal({
  * pour chaque réponse positive, une vignette cliquable qui ouvre la
  * pièce uploadée dans un nouvel onglet (image ou PDF).
  *
- * Les libellés "—" sont utilisés quand la donnée est absente (cas où le
+ * Les libellés "" sont utilisés quand la donnée est absente (cas où le
  * mobile envoyé un build antérieur ou où le seed FormSchema n'a pas été
  * poussé : le compat layer backend met "oui/non" mais le membre peut
  * aussi n'avoir rien rempli).
@@ -1257,7 +1257,7 @@ function ProfilBadge({
     : isYes
       ? "border-emerald/30 bg-emerald/10 text-emerald"
       : "border-line-200 bg-line-100 text-ink-600";
-  const symbol = !value ? "—" : isYes ? "✓" : "✗";
+  const symbol = !value ? "" : isYes ? "✓" : "✗";
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${tone}`}

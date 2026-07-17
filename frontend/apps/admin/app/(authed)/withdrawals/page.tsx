@@ -415,7 +415,7 @@ function Actions({
       </span>
     );
   }
-  return <span className="text-xs text-ink-400">—</span>;
+  return <span className="text-xs text-ink-400"></span>;
 }
 
 

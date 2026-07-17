@@ -33,7 +33,7 @@ function paymentSourceLabel(src: string) {
     case "especes":
       return "Espèces (agence)";
     default:
-      return src || "—";
+      return src || "";
   }
 }
 
@@ -177,7 +177,7 @@ function DetailBody({ data }: { data: AdminLoanDetail }) {
                         {fmtMoney(i.montant_penalite)}
                       </span>
                     ) : (
-                      "—"
+                      ""
                     )}
                   </td>
                   <td className="px-2 py-1.5">

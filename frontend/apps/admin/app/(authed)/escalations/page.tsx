@@ -429,7 +429,7 @@ function InfoTab({ e }: { e: JudicialEscalationRow }) {
 
       <Section title="Motif d'ouverture">
         <p className="rounded-md border border-line-200 bg-paper-soft px-3 py-2 text-sm text-ink-700 whitespace-pre-wrap">
-          {e.motif || "—"}
+          {e.motif || ""}
         </p>
       </Section>
 

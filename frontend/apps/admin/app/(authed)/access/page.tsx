@@ -200,7 +200,7 @@ function UsersTable({
             <tr key={u.id}>
               <td className="font-medium text-ink-900">{u.email}</td>
               <td className="text-ink-700">
-                {`${u.first_name} ${u.last_name}`.trim() || "—"}
+                {`${u.first_name} ${u.last_name}`.trim() || ""}
               </td>
               <td>
                 <div className="flex flex-wrap gap-1">

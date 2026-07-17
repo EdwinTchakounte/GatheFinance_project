@@ -2,9 +2,9 @@
   <!-- Carré paper avec coins arrondis (fond du logo officiel) -->
   <rect width="64" height="64" rx="14" fill="#FBFAF5"/>
   <!-- Liseré cobalt très subtil -->
-  <rect x="0.5" y="0.5" width="63" height="63" rx="13.5" stroke="#0E4D92" stroke-opacity="0.08" stroke-width="1"/>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="13.5" stroke="#0E4D92" stroke-opacity="0.10" stroke-width="1"/>
 
-  <!-- G vert signature (couleur emerald du logo) -->
+  <!-- G bleu du logo (les lettres GAT sont bleues) -->
   <text
     x="32"
     y="42"
@@ -13,18 +13,18 @@
     font-size="38"
     font-weight="800"
     letter-spacing="-1"
-    fill="#3AAA35"
+    fill="#1B4F9C"
   >G</text>
 
-  <!-- Courbe verte sous le G — signature du logo -->
+  <!-- Swoosh vert sous le G — signature du logo (HE vert) -->
   <path
     d="M10 50 C 22 44, 42 44, 54 50"
     stroke="#3AAA35"
-    stroke-width="3"
+    stroke-width="3.2"
     stroke-linecap="round"
     fill="none"
   />
 
-  <!-- Point cobalt côté droit — clin d'œil aux lettres ATHE du logo -->
-  <circle cx="52" cy="18" r="2.5" fill="#0E4D92"/>
+  <!-- Point vert côté droit — clin d'œil aux lettres HE du logo -->
+  <circle cx="52" cy="18" r="2.6" fill="#3AAA35"/>
 </svg>

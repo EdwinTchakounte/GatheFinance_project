@@ -130,7 +130,9 @@ export default function CooperativeAssetPage() {
             </h2>
             <p className="text-sm text-ink-600">
               PDF joint à chaque mail de bienvenue (avec l&apos;attestation
-              d&apos;adhésion).
+              d&apos;adhésion), et consultable par les membres dans
+              l&apos;application mobile et le portail (rubrique Carnet →
+              « Règlement intérieur »).
             </p>
 
             {loading ? (
@@ -151,7 +153,7 @@ export default function CooperativeAssetPage() {
                         dateStyle: "short",
                         timeStyle: "short",
                       })
-                    : "—"}{" "}
+                    : ""}{" "}
                   {r.uploaded_by ? `par ${r.uploaded_by}` : ""}
                 </p>
                 {r.url && (

@@ -489,5 +489,5 @@ function labelForContentType(raw: string): string {
   // On expose des libelles francais pour les 2 types actuels.
   if (raw === "cms.blogpostpage") return "Article";
   if (raw === "loans.microcreditcampaign") return "Campagne";
-  return raw || "—";
+  return raw || "";
 }

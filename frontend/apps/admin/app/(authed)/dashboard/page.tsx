@@ -27,7 +27,7 @@ function formatXAF(amount: string): string {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "";
   try {
     return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
   } catch {

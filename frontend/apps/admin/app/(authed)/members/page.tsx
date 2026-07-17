@@ -2,14 +2,19 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SkeletonList } from "@gathe/ui";
-import { Mail, Phone, Search, FileDown } from "lucide-react";
+import { Mail, Phone, Search, FileDown, ChevronDown, ExternalLink } from "lucide-react";
 
 import { ColumnsMenu } from "@/components/columns-menu";
 import { ExportMenu } from "@/components/export-menu";
 import { Modal } from "@/components/modal";
 import { Pagination } from "@/components/pagination";
 import type { ExportColumn } from "@/lib/export";
-import { adminApi, type ApiError, type Member } from "@/lib/api";
+import {
+  adminApi,
+  type ApiError,
+  type Member,
+  type MemberAdhesion,
+} from "@/lib/api";
 
 
 type StatutFilter = "" | "actif" | "suspendu" | "radie";
@@ -208,6 +213,34 @@ function MemberRecapModal({
   member: Member | null;
   onClose: () => void;
 }) {
+  const [showAdh, setShowAdh] = useState(false);
+  const [adh, setAdh] = useState<MemberAdhesion | null>(null);
+  const [adhLoading, setAdhLoading] = useState(false);
+  const [adhErr, setAdhErr] = useState<string | null>(null);
+
+  async function toggleAdhesion() {
+    if (showAdh) {
+      setShowAdh(false);
+      return;
+    }
+    setShowAdh(true);
+    if (adh || !member) return;
+    setAdhLoading(true);
+    setAdhErr(null);
+    try {
+      setAdh(await adminApi.members.adhesion(member.id));
+    } catch (e) {
+      const err = e as ApiError;
+      setAdhErr(
+        err.status === 404
+          ? "Aucune fiche d'adhésion liée à ce membre (adhésion legacy)."
+          : err.detail ?? "Chargement impossible.",
+      );
+    } finally {
+      setAdhLoading(false);
+    }
+  }
+
   if (!member) return null;
   const collecte = Number(member.epargne_collecte ?? 0);
   const libre = Number(member.epargne_classique_libre ?? 0);
@@ -290,8 +323,142 @@ function MemberRecapModal({
           <FileDown className="size-4" aria-hidden="true" />
           Télécharger le relevé PDF
         </a>
+
+        {/* Voir plus — fiche d'adhésion (infos renseignées à la soumission) */}
+        <button
+          type="button"
+          onClick={toggleAdhesion}
+          className="flex w-full items-center justify-between rounded-md border border-line-200 px-3.5 py-2.5 text-sm font-medium text-ink-800 transition-colors hover:border-blue-400 hover:text-blue-700"
+        >
+          <span>Voir plus — fiche d&apos;adhésion</span>
+          <ChevronDown
+            className={"size-4 transition-transform " + (showAdh ? "rotate-180" : "")}
+            aria-hidden="true"
+          />
+        </button>
+
+        {showAdh ? (
+          adhLoading ? (
+            <p className="text-center text-sm text-ink-500">Chargement…</p>
+          ) : adhErr ? (
+            <p className="rounded-md bg-terra-50 px-3 py-2 text-sm text-terra-700">
+              {adhErr}
+            </p>
+          ) : adh ? (
+            <AdhesionDetails adh={adh} />
+          ) : null
+        ) : null}
       </div>
     </Modal>
+  );
+}
+
+
+function AdhLine({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="flex justify-between gap-4 py-1 text-sm">
+      <span className="text-ink-500">{label}</span>
+      <span className="text-right font-medium text-ink-900">{value}</span>
+    </div>
+  );
+}
+
+
+function AdhesionDetails({ adh }: { adh: MemberAdhesion }) {
+  const pieces = Object.entries(adh.pieces).filter(([, url]) => Boolean(url)) as [
+    string,
+    string,
+  ][];
+  const pieceLabel: Record<string, string> = {
+    cni_recto: "CNI recto",
+    cni_verso: "CNI verso",
+    plan_localisation: "Plan de localisation",
+    photo_identite: "Photo d'identité",
+  };
+  const extraEntries = Object.entries(adh.extra_payload ?? {});
+
+  return (
+    <div className="space-y-4 rounded-md border border-line-200 bg-paper-soft/40 px-4 py-3">
+      <p className="text-xs text-ink-500">
+        Soumise le{" "}
+        {new Date(adh.soumis_le).toLocaleDateString("fr-FR", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })}
+        {adh.form_schema_version != null
+          ? ` · formulaire v${adh.form_schema_version}`
+          : ""}
+      </p>
+
+      <div>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-500">
+          Identité
+        </p>
+        <AdhLine label="Nom" value={adh.identity.nom} />
+        <AdhLine label="Prénom" value={adh.identity.prenom} />
+        <AdhLine label="Email" value={adh.identity.email} />
+        <AdhLine label="Téléphone" value={adh.identity.phone} />
+        <AdhLine label="WhatsApp" value={adh.identity.whatsapp} />
+        <AdhLine label="Ville" value={adh.identity.city} />
+        <AdhLine label="Quartier / localité" value={adh.identity.quartier_localite} />
+        <AdhLine label="Statut pro." value={adh.identity.statut_pro} />
+      </div>
+
+      {adh.urgence.nom || adh.urgence.phone ? (
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-500">
+            Contact d&apos;urgence
+          </p>
+          <AdhLine label="Nom" value={adh.urgence.nom} />
+          <AdhLine label="Lien" value={adh.urgence.lien} />
+          <AdhLine label="Téléphone" value={adh.urgence.phone} />
+        </div>
+      ) : null}
+
+      {adh.motivation ? (
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-500">
+            Motivation
+          </p>
+          <p className="whitespace-pre-wrap text-sm text-ink-800">{adh.motivation}</p>
+        </div>
+      ) : null}
+
+      {extraEntries.length > 0 ? (
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-500">
+            Champs additionnels (formulaire)
+          </p>
+          {extraEntries.map(([k, v]) => (
+            <AdhLine key={k} label={k} value={String(v)} />
+          ))}
+        </div>
+      ) : null}
+
+      {pieces.length > 0 ? (
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-500">
+            Pièces jointes
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {pieces.map(([k, url]) => (
+              <a
+                key={k}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-line-300 bg-white px-2.5 py-1.5 text-xs font-medium text-ink-700 hover:border-blue-400 hover:text-blue-700"
+              >
+                <ExternalLink className="size-3.5" aria-hidden="true" />
+                {pieceLabel[k] ?? k}
+              </a>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
