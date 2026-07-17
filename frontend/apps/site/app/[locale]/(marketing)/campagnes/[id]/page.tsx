@@ -5,12 +5,8 @@ import { setRequestLocale } from "next-intl/server";
 import { Container } from "@gathe/ui";
 import { PageHeader } from "@/components/page-shell";
 import { images } from "@/lib/site-config";
-import {
-  ApplyForm,
-  fmtDate,
-  fmtXAF,
-  type Campaign,
-} from "@/components/campaigns-public";
+import { ApplyForm } from "@/components/campaigns-public";
+import { fmtDate, fmtXAF, type Campaign } from "@/lib/campaign-format";
 
 const BACKEND = (process.env.CMS_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
