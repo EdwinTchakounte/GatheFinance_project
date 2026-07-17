@@ -389,11 +389,33 @@ def _activate_member_if_fees_settled(member, *, trigger_payment: Payment) -> Non
 def _hook_adhesion(payment: Payment, _raw: dict) -> None:
     """UC1 — frais d'adhésion ou d'inscription reçu.
 
-    Depuis CH-2 (chantier juin 2026), le Member ne bascule à ``ACTIF`` QUE
-    lorsque les 3 frais (adhésion + inscription + carnet, 13 000 FCFA cumulés
-    par défaut) sont tous payés. Le paiement isolé d'un seul frais laisse le
-    Member ``SUSPENDU`` — voir ``_activate_member_if_fees_settled``.
+    Deux régimes :
+
+    * **Première activation** (Member ``TEMPORAIRE``) — CH-2 : le Member ne
+      bascule à ``ACTIF`` QUE lorsque les 3 frais (adhésion + inscription +
+      carnet) sont tous payés (cf. ``_activate_member_if_fees_settled``).
+
+    * **Réactivation de cycle** (Member ``SUSPENDU``) — décision 2026-07 (G5) :
+      la réactivation est basée **uniquement sur les frais d'adhésion**. Un
+      membre suspendu (cycle échu) qui re-paie son adhésion redémarre un cycle
+      → ``ACTIF`` (réinscription posée à aujourd'hui), sans exiger inscription
+      ni carnet.
     """
+    from apps_coop.members.models import Member
+
+    member = payment.member
+    # Réactivation de cycle : réservée à un membre DÉJÀ activé une fois (ses 3
+    # frais ont été soldés au moins une fois). Un membre post-approbation, lui
+    # aussi SUSPENDU mais jamais activé, garde le régime CH-2 (3 frais requis).
+    if (
+        member is not None
+        and member.statut == Member.Statut.SUSPENDU
+        and payment.type == Payment.Type.FRAIS_ADHESION
+        and _membership_fees_settled(member)
+    ):
+        _apply_membership_renewal(payment)
+        return
+
     _activate_member_if_fees_settled(payment.member, trigger_payment=payment)
 
 

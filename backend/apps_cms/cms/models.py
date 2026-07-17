@@ -245,6 +245,13 @@ class BlogPostPage(BasePage):
     excerpt = models.TextField("Extrait", blank=True, max_length=400)
     body = StreamField(body_stream_block(), blank=True, verbose_name="Contenu de l'article")
 
+    # --- Correspondance anglaise (i18n) — tous nullables/blank. Éditables
+    # aussi bien via Wagtail que via le dashboard admin. La vitrine rend l'EN
+    # quand la locale = en ET le champ est renseigné, sinon retombe sur le FR.
+    title_en = models.CharField("Titre (EN)", max_length=255, blank=True)
+    excerpt_en = models.TextField("Extrait (EN)", blank=True, max_length=400)
+    body_en = RichTextField("Contenu (EN)", blank=True)
+
     content_panels = Page.content_panels + [
         MultiFieldPanel(
             [
@@ -257,6 +264,14 @@ class BlogPostPage(BasePage):
             heading="Métadonnées",
         ),
         FieldPanel("body"),
+        MultiFieldPanel(
+            [
+                FieldPanel("title_en"),
+                FieldPanel("excerpt_en"),
+                FieldPanel("body_en"),
+            ],
+            heading="Version anglaise (optionnelle)",
+        ),
     ]
 
     search_fields = Page.search_fields + [
@@ -304,6 +319,11 @@ class BlogPostPage(BasePage):
         APIField("cover_image_data"),
         APIField("excerpt"),
         APIField("body"),
+        # Correspondance EN (chaînes vides si non traduit) — le front choisit
+        # selon la locale.
+        APIField("title_en"),
+        APIField("excerpt_en"),
+        APIField("body_en"),
     ]
 
     parent_page_types = ["cms.BlogIndexPage"]

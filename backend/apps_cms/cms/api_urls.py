@@ -15,4 +15,9 @@ urlpatterns = [
         admin_api.blog_set_live,
         name="cms-blog-set-live",
     ),
+    path(
+        "blog/<int:page_id>/i18n/",
+        admin_api.blog_i18n,
+        name="cms-blog-i18n",
+    ),
 ]

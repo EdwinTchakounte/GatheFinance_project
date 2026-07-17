@@ -129,6 +129,32 @@ def public_active_campaigns(request):
 
 @extend_schema(
     tags=["loans"],
+    summary="Détail public d'une campagne (deep-link partage)",
+    description=(
+        "Renvoie une campagne par id, même clôturée (pour ne pas casser un lien "
+        "partagé). Le champ `is_open` indique si les candidatures sont encore "
+        "ouvertes aujourd'hui."
+    ),
+    responses={200: OpenApiResponse(description="Campaign + is_open")},
+)
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def public_campaign_detail(request, pk):
+    from django.shortcuts import get_object_or_404
+
+    today = timezone.localdate()
+    c = get_object_or_404(
+        MicrocreditCampaign.objects.filter(deleted_at__isnull=True), pk=pk
+    )
+    data = _row(c, request)
+    data["is_open"] = bool(
+        c.actif and c.date_debut <= today <= c.date_fin
+    )
+    return Response(data)
+
+
+@extend_schema(
+    tags=["loans"],
     summary="Candidature publique à une campagne (visiteur non-membre)",
     description=(
         "POST public (AllowAny). Enregistre une candidature pour une campagne "

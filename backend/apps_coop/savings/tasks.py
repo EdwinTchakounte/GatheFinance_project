@@ -365,7 +365,9 @@ def collecte_fin_de_mois() -> dict:
                     ClassicSavingsTransaction.objects.create(
                         account=classic_account,
                         payment=None,
-                        type_op=ClassicSavingsTransaction.TypeOp.DEPOT,
+                        # Origine explicite : bascule collecte → épargne (vs
+                        # un dépôt MoMo générique). Cf. G3 fin de mois 2026.
+                        type_op=ClassicSavingsTransaction.TypeOp.BASCULE_COLLECTE,
                         montant=restituable,
                         solde_apres=nouveau_solde_classic,
                         date=now,
@@ -635,4 +637,92 @@ def epargne_anniversary_processing() -> dict:
         details=summary,
     )
     logger.info("epargne_anniversary_processing summary=%s", summary)
+    return summary
+
+
+def collecte_eom_choice_reminder() -> dict:
+    """Rappel AVANT la clôture mensuelle : notifie chaque membre actif ayant un
+    solde de collecte pour qu'il choisisse (cash vs bascule épargne) dans l'app.
+
+    La notification/e-mail utilise le template éditable
+    ``collecte.eom_choice_reminder`` (l'admin peut le personnaliser). Sans
+    action du membre, le retrait cash reste le comportement par défaut.
+
+    Idempotent-safe : émettre plusieurs fois ne fait qu'ajouter une notif ;
+    prévu pour tourner une fois par mois (ex. le 25).
+    """
+    from datetime import date
+
+    from apps_coop.audit.services import get_str_setting
+    from apps_coop.members.models import Member
+    from apps_coop.notifications.events import emit_event
+    from apps_coop.savings.models import SavingsAccount
+
+    enabled = (
+        get_str_setting("collecte.eom_reminder.enabled", "true").lower()
+        in ("1", "true", "yes")
+    )
+    if not enabled:
+        return {"skipped": True, "skipped_reason": "collecte.eom_reminder.enabled=false"}
+
+    sent = 0
+    accounts = (
+        SavingsAccount.objects.select_related("member", "member__user")
+        .filter(member__statut=Member.Statut.ACTIF, solde__gt=Decimal("0"))
+    )
+    for acc in accounts:
+        member = acc.member
+        if getattr(member, "user", None) is None:
+            continue
+        emit_event(
+            "collecte.eom_choice_reminder",
+            member=member,
+            context={
+                "prenom": member.prenom or member.nom,
+                "montant": _q(acc.solde),
+            },
+        )
+        sent += 1
+
+    summary = {"generated_at": date.today().isoformat(), "reminders_sent": sent}
+    record_audit(
+        action="collecte.eom_choice_reminder.run",
+        entite_type="cron",
+        details=summary,
+    )
+    logger.info("collecte_eom_choice_reminder summary=%s", summary)
+    return summary
+
+
+def placement_maturity_processing() -> dict:
+    """Cron quotidien : restitue les placements le jour d'échéance configuré.
+
+    Tourne tous les jours mais n'agit que si `today` == la date de restitution
+    (AppSetting ``epargne.placement.maturity_date``, MM-DD, défaut 01-01). Cela
+    rend la date éditable sans toucher au planning du cron.
+    """
+    from datetime import date
+
+    from apps_coop.audit.services import get_str_setting
+
+    from .placement_maturity import is_maturity_day, process_placement_maturity
+
+    enabled = (
+        get_str_setting("epargne.placement.maturity.enabled", "true").lower()
+        in ("1", "true", "yes")
+    )
+    if not enabled:
+        return {"skipped": True, "skipped_reason": "epargne.placement.maturity.enabled=false"}
+
+    today = date.today()
+    if not is_maturity_day(today):
+        return {"skipped": True, "skipped_reason": "not maturity day"}
+
+    summary = process_placement_maturity(today)
+    record_audit(
+        action="placement.maturity.run",
+        entite_type="cron",
+        details=summary,
+    )
+    logger.info("placement_maturity_processing summary=%s", summary)
     return summary

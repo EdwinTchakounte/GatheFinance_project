@@ -55,6 +55,23 @@ _MOIS_FR = [
 ]
 
 
+# Types d'écriture épargne classique qui CRÉDITENT le solde (sens « + »). Tout
+# le reste (retraits, frais, saisies) débite. Comparé par valeur string pour
+# éviter d'importer le modèle au niveau module.
+_CLASSIC_CREDIT_TYPE_VALUES = frozenset({
+    "depot",
+    "interet",
+    "interet_preteur",
+    "interet_placement",
+    "restitution_maturite",
+    "bascule_collecte",
+})
+
+
+def _classic_sens(type_op_value: str) -> str:
+    return "+" if type_op_value in _CLASSIC_CREDIT_TYPE_VALUES else "−"
+
+
 def _fr_date(d: date | None) -> str:
     if d is None:
         return "—"
@@ -243,7 +260,7 @@ def collect_member_data(member) -> dict:
             "produit": "Classique",
             "type": t.get_type_op_display(),
             "montant": Decimal(t.montant),
-            "sens": "+" if t.type_op == ClassicSavingsTransaction.TypeOp.DEPOT else "−",
+            "sens": _classic_sens(t.type_op),
         })
     ecritures.sort(key=lambda e: e["date"], reverse=True)
     ecritures = ecritures[:14]
@@ -692,7 +709,7 @@ def collect_member_ledger(member) -> dict:
             "produit": "Classique",
             "type": t.get_type_op_display(),
             "montant": Decimal(t.montant),
-            "sens": "+" if t.type_op == ClassicSavingsTransaction.TypeOp.DEPOT else "−",
+            "sens": _classic_sens(t.type_op),
             "carnet": _booklet_label(t),
         })
     entries.sort(key=lambda e: e["date"], reverse=True)
@@ -706,6 +723,18 @@ def collect_member_ledger(member) -> dict:
         "collecte_solde": Decimal(collecte.solde) if collecte else Decimal("0"),
         "classique_solde": Decimal(classique.solde) if classique else Decimal("0"),
     }
+
+
+def _fit(c, text, font, size, max_w):
+    """Tronque `text` à `max_w` (points), avec ellipse propre — jamais en
+    plein milieu d'un mot coupé net. Mesure réelle via les métriques de police.
+    """
+    if c.stringWidth(text, font, size) <= max_w:
+        return text
+    ell = "…"
+    while text and c.stringWidth(text + ell, font, size) > max_w:
+        text = text[:-1]
+    return text.rstrip() + ell
 
 
 def _ledger_table_header(c, margin, width, y):
@@ -771,17 +800,68 @@ def build_member_ledger_pdf(member, data: dict | None = None) -> bytes:
         c.drawString(margin + 26 * mm, y, e["produit"])
         c.setFillColor(MUTED)
         c.setFont("Helvetica", 8.5)
-        c.drawString(margin + 54 * mm, y, e["type"][:38])
+        # Colonne OPÉRATION : largeur = de +54mm jusqu'à CARNET (+120mm),
+        # moins un padding de 4mm pour ne jamais toucher la colonne suivante.
+        c.drawString(margin + 54 * mm, y, _fit(c, e["type"], "Helvetica", 8.5, 62 * mm))
         c.drawString(margin + 120 * mm, y, e["carnet"][:16])
         c.setFillColor(BRAND_GREEN if e["sens"] == "+" else BAD)
         c.setFont("Helvetica-Bold", 9)
-        c.drawRightString(width - margin, y, f"{e['sens']} {_fmt_xaf(e['montant'])}")
+        c.drawRightString(width - margin, y, f"{e['sens']} {_fmt_xaf(e['montant'])} XAF")
         y -= 13
 
     if not data["entries"]:
         c.setFillColor(MUTED)
         c.setFont("Helvetica-Oblique", 9)
         c.drawString(margin + 2, y, "Aucune écriture pour le moment.")
+
+    # ── Totaux par produit (crédité / débité / net) ────────────────────────
+    if data["entries"]:
+        credits: dict[str, Decimal] = {}
+        debits: dict[str, Decimal] = {}
+        for e in data["entries"]:
+            bucket = credits if e["sens"] == "+" else debits
+            bucket[e["produit"]] = bucket.get(e["produit"], Decimal("0")) + e["montant"]
+
+        # Réserve de place pour le bloc (titre + jusqu'à 2 lignes) ; sinon page.
+        if y < 42 * mm:
+            _footer(c, width, margin)
+            c.showPage()
+            y = _brand_header(
+                c, width, height, margin,
+                "RELEVÉ DES ÉCRITURES (SUITE)",
+                f"{member.prenom} {member.nom} · {member.numero_membre}",
+            )
+
+        y -= 6
+        c.setStrokeColor(PANEL_BORDER)
+        c.setLineWidth(0.5)
+        c.line(margin, y, width - margin, y)
+        y -= 14
+        c.setFillColor(MUTED)
+        c.setFont("Helvetica", 7.5)
+        c.drawString(margin + 2, y, "TOTAUX PAR PRODUIT")
+        y -= 14
+        for prod in ("Collecte", "Classique"):
+            cr = credits.get(prod, Decimal("0"))
+            db = debits.get(prod, Decimal("0"))
+            if cr == 0 and db == 0:
+                continue
+            net = cr - db
+            c.setFillColor(INK)
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(margin + 2, y, prod)
+            c.setFillColor(BRAND_GREEN)
+            c.setFont("Helvetica", 8.5)
+            c.drawString(margin + 26 * mm, y, f"Crédité + {_fmt_xaf(cr)} XAF")
+            c.setFillColor(BAD)
+            c.drawString(margin + 78 * mm, y, f"Débité − {_fmt_xaf(db)} XAF")
+            c.setFillColor(BRAND_GREEN if net >= 0 else BAD)
+            c.setFont("Helvetica-Bold", 9)
+            sign = "+" if net >= 0 else "−"
+            c.drawRightString(
+                width - margin, y, f"Net {sign} {_fmt_xaf(abs(net))} XAF",
+            )
+            y -= 13
 
     _footer(c, width, margin)
     c.showPage()

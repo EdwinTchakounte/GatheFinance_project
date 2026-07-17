@@ -117,6 +117,7 @@ INSTALLED_APPS = [
     "apps_coop.audit",
     "apps_coop.forms",
     "apps_coop.social",
+    "apps_coop.support",
     # Wagtail
     "wagtail.contrib.forms",
     "wagtail.contrib.redirects",

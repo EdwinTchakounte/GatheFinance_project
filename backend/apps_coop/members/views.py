@@ -1097,6 +1097,121 @@ def admin_coop_report_pdf(request):
 )
 @api_view(["GET"])
 @permission_classes([IsStaff])
+def admin_member_adhesion(request, pk: int):
+    """Fiche d'adhésion d'un membre — les informations qu'il a renseignées au
+    moment de la soumission de sa demande (colonnes Article 2 + champs
+    dynamiques FormSchema `extra_payload` + pièces téléversées).
+
+    404 si le membre n'a pas de demande liée (adhésion legacy / créé
+    manuellement).
+    """
+    member = get_object_or_404(Member, pk=pk)
+    req = getattr(member, "adhesion_request", None)
+    if req is None:
+        return Response(
+            {"detail": "Aucune fiche d'adhésion liée à ce membre."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    def _url(f):
+        if not f:
+            return None
+        try:
+            return request.build_absolute_uri(f.url)
+        except Exception:  # noqa: BLE001 - storage absent en dev
+            return None
+
+    return Response(
+        {
+            "id": req.id,
+            "statut": req.statut,
+            "soumis_le": req.created_at,
+            "identity": {
+                "nom": req.nom,
+                "prenom": req.prenom,
+                "email": req.email,
+                "phone": req.phone,
+                "whatsapp": req.whatsapp,
+                "city": req.city,
+                "quartier_localite": req.quartier_localite,
+                "statut_pro": req.get_statut_pro_display() if req.statut_pro else "",
+                "language": req.language,
+            },
+            "urgence": {
+                "nom": req.urgence_nom,
+                "lien": req.urgence_lien,
+                "phone": req.urgence_phone,
+            },
+            "motivation": req.motivation,
+            # Champs ajoutés par l'admin via le FormSchema dynamique (id → valeur).
+            "extra_payload": req.extra_payload or {},
+            "form_schema_version": req.form_schema_version,
+            "pieces": {
+                "cni_recto": _url(req.cni_recto),
+                "cni_verso": _url(req.cni_verso),
+                "plan_localisation": _url(req.plan_localisation),
+                "photo_identite": _url(req.photo_identite),
+            },
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# Frais membre (adhésion / inscription) — statut + paiement depuis le compte
+# (G7 carrousel + G5 réactivation, refonte 2026-07)
+# ---------------------------------------------------------------------------
+
+
+@api_view(["GET"])
+@permission_classes([IsMember])
+def my_membership_fees(request):
+    """Statut des frais adhésion/inscription : montants + solvabilité compte."""
+    from .fee_from_savings_services import available_for_fees, membership_fee_amount
+
+    member = request.user.member
+    dispo = available_for_fees(member)
+    fees = {}
+    for code in ("ADHESION", "INSCRIPTION"):
+        montant = membership_fee_amount(code)
+        fees[code] = {
+            "montant": str(montant),
+            "solvable": bool(montant > 0 and dispo >= montant),
+        }
+    return Response(
+        {
+            "statut": member.statut,
+            "available": str(dispo),
+            "fees": fees,
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsMember])
+def pay_membership_fee(request, code: str):
+    """Règle un frais (ADHESION|INSCRIPTION) depuis l'épargne du membre."""
+    from .fee_from_savings_services import (
+        FeePaymentError,
+        pay_membership_fee_from_savings,
+    )
+
+    member = request.user.member
+    try:
+        payment = pay_membership_fee_from_savings(member, code.upper())
+    except FeePaymentError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    member.refresh_from_db()
+    return Response(
+        {
+            "payment_id": payment.id,
+            "montant": str(payment.montant),
+            "statut": member.statut,
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsStaff])
 def admin_member_statement_pdf(request, pk: int):
     from django.http import HttpResponse
 

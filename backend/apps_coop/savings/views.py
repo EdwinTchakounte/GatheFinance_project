@@ -262,6 +262,85 @@ def classic_savings_config(request):
     return Response(ClassicSavingsConfigSerializer(cfg).data)
 
 
+# ── Collecte : choix de fin de mois (cash vs bascule épargne) ───────────────
+
+@extend_schema(
+    tags=["savings"],
+    summary="Choix de fin de mois du membre (collecte)",
+    description=(
+        "GET : renvoie le choix courant. POST {preference: 'cash'|'epargne'} : "
+        "le membre décide, pour la prochaine clôture mensuelle, de récupérer sa "
+        "collecte en cash (après commission 1%) ou de la basculer vers son "
+        "épargne classique."
+    ),
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsActiveMember])
+def collecte_end_of_month_preference(request):
+    account = request.user.member.savings_account
+    if request.method == "GET":
+        return Response({"preference": account.end_of_month_preference})
+
+    pref = (request.data.get("preference") or "").strip()
+    valid = {c for c, _ in SavingsAccount.EndOfMonthPreference.choices}
+    if pref not in valid:
+        return Response(
+            {"detail": "preference doit valoir 'cash' ou 'epargne'."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    account.end_of_month_preference = pref
+    account.save(update_fields=["end_of_month_preference"])
+    record_audit(
+        action="collecte.end_of_month_preference.set",
+        entite_type="SavingsAccount",
+        entite_id=account.pk,
+        user=request.user,
+        details={"preference": pref},
+        ip=client_ip(request),
+    )
+    return Response({"preference": account.end_of_month_preference})
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="Admin — choix de fin de mois des membres (collecte)",
+    description=(
+        "Vue de pilotage : pour chaque membre ayant un solde de collecte, son "
+        "choix de fin de mois (cash / bascule épargne) et son solde courant. "
+        "Sert l'onglet admin « Fin de mois collecte »."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_collecte_preferences(request):
+    only_active = (request.query_params.get("only_active") or "").lower() in (
+        "1", "true", "yes",
+    )
+    qs = (
+        SavingsAccount.objects.select_related("member")
+        .order_by("-solde", "member__numero_membre")
+    )
+    if only_active:
+        qs = qs.filter(solde__gt=0)
+    results = [
+        {
+            "member_id": a.member_id,
+            "numero_membre": a.member.numero_membre,
+            "nom": f"{a.member.prenom} {a.member.nom}".strip(),
+            "solde": str(a.solde),
+            "preference": a.end_of_month_preference,
+        }
+        for a in qs
+    ]
+    # Compteurs récap pour l'en-tête de l'onglet.
+    summary = {
+        "cash": sum(1 for r in results if r["preference"] == "cash"),
+        "epargne": sum(1 for r in results if r["preference"] == "epargne"),
+        "total": len(results),
+    }
+    return Response({"summary": summary, "results": results})
+
+
 # ── Retrait d'épargne ───────────────────────────────────────────────────────
 
 @extend_schema(

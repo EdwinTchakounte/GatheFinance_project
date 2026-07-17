@@ -324,6 +324,13 @@ class ClassicSavingsTransaction(TimestampedModel):
             "interet_placement",
             "Intérêt capitalisé à la maturité d'un dépôt placement (refonte 2026)",
         )
+        # Fin de mois collecte (refonte 2026) — entrée épargne provenant d'une
+        # bascule de la collecte (choix membre). Rend le virement identifiable
+        # sur le relevé épargne (vs un dépôt MoMo classique).
+        BASCULE_COLLECTE = (
+            "bascule_collecte",
+            "Bascule depuis la collecte (fin de mois)",
+        )
 
     account = models.ForeignKey(
         ClassicSavingsAccount,

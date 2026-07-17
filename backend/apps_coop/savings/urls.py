@@ -41,6 +41,17 @@ urlpatterns = [
     path("classic/config/", views.classic_savings_config, name="classic-config"),
     # Relevé PDF des écritures du carnet (membre courant).
     path("me/ledger/", views.my_booklet_ledger_pdf, name="my-booklet-ledger"),
+    # Collecte — choix de fin de mois (cash vs bascule épargne).
+    path(
+        "me/end-of-month-preference/",
+        views.collecte_end_of_month_preference,
+        name="collecte-eom-preference",
+    ),
+    path(
+        "admin/collecte-preferences/",
+        views.admin_collecte_preferences,
+        name="admin-collecte-preferences",
+    ),
     # LOT 7-admin (refonte 2026) — Renouvellements épargne classique.
     path("admin/renewals/", views.admin_list_renewals, name="admin-renewals-list"),
     path(

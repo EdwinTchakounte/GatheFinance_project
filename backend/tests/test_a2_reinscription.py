@@ -320,8 +320,9 @@ class TestSuspensionAutomatique:
 
     def test_membre_dans_la_periode_de_grace_reste_actif(self):
         member = MemberFactory()
-        # Échéance dépassée mais on est encore DANS la grâce (365 + 10 < 365+30).
-        _set_anchor(member, days_ago=365 + 10)
+        # Échéance dépassée mais on est encore DANS la grâce (G5 : grâce = 10 j,
+        # donc J+5 reste actif).
+        _set_anchor(member, days_ago=365 + 5)
 
         rappel_reinscription_annuelle()
 

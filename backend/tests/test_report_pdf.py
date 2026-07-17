@@ -14,10 +14,13 @@ from rest_framework.test import APIClient
 from apps_coop.loans.models import Loan, LoanRequest
 from apps_coop.members.models import Member
 from apps_coop.members.report_pdf import (
+    _fit,
     build_coop_report,
+    build_member_ledger_pdf,
     build_member_statement,
     collect_coop_report_data,
     collect_member_data,
+    collect_member_ledger,
 )
 from apps_coop.savings.antidated_services import record_antidated_entry
 from apps_coop.savings.models import ClassicSavingsAccount, SavingsAccount
@@ -163,6 +166,95 @@ class TestCollectMember:
 
 
 # ---------------------------------------------------------------------------
+# Relevé des écritures (carnet) — membre
+# ---------------------------------------------------------------------------
+
+
+class TestFitHelper:
+    def test_texte_court_intact(self):
+        import io
+
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import mm
+        from reportlab.pdfgen import canvas
+
+        c = canvas.Canvas(io.BytesIO(), pagesize=A4)
+        assert _fit(c, "Retrait", "Helvetica", 8.5, 62 * mm) == "Retrait"
+
+    def test_texte_long_ellipse_et_tient_dans_la_largeur(self):
+        import io
+
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import mm
+        from reportlab.pdfgen import canvas
+
+        c = canvas.Canvas(io.BytesIO(), pagesize=A4)
+        long = "Frais d'étude crédit prélevés sur l'épargne classique du membre"
+        out = _fit(c, long, "Helvetica", 8.5, 62 * mm)
+        assert out.endswith("…")
+        # jamais coupé « en dur » : la sortie tient réellement dans la colonne.
+        assert c.stringWidth(out, "Helvetica", 8.5) <= 62 * mm
+
+
+class TestLedger:
+    def test_fusionne_et_signe_les_ecritures(self):
+        m = MemberFactory()
+        ClassicSavingsAccount.objects.create(
+            member=m, solde=Decimal("0"), date_ouverture=date.today()
+        )
+        record_antidated_entry(
+            member=m, product="collecte", sens="depot",
+            montant=Decimal("20000"), date_op=date.today() - timedelta(days=5),
+        )
+        record_antidated_entry(
+            member=m, product="collecte", sens="retrait",
+            montant=Decimal("5000"), date_op=date.today() - timedelta(days=2),
+        )
+        record_antidated_entry(
+            member=m, product="classique", sens="depot",
+            montant=Decimal("7000"), date_op=date.today() - timedelta(days=3),
+        )
+        data = collect_member_ledger(m)
+        assert len(data["entries"]) == 3
+        produits = {e["produit"] for e in data["entries"]}
+        assert produits == {"Collecte", "Classique"}
+        # tri décroissant par date
+        dates = [e["date"] for e in data["entries"]]
+        assert dates == sorted(dates, reverse=True)
+        # sens dépôt/retrait
+        senses = {(e["produit"], e["type"], e["sens"]) for e in data["entries"]}
+        assert ("Collecte", "Dépôt", "+") in senses
+        assert ("Collecte", "Retrait", "−") in senses
+
+    def test_rendu_pdf_valide(self):
+        m = MemberFactory()
+        record_antidated_entry(
+            member=m, product="collecte", sens="depot",
+            montant=Decimal("20000"), date_op=date.today() - timedelta(days=5),
+        )
+        pdf = build_member_ledger_pdf(m)
+        assert pdf[:5] == b"%PDF-"
+        assert len(pdf) > 1500
+
+    def test_rendu_sans_ecriture_ne_plante_pas(self):
+        m = MemberFactory()
+        pdf = build_member_ledger_pdf(m)
+        assert pdf[:5] == b"%PDF-"
+
+    def test_pagination_et_totaux_avec_beaucoup_d_ecritures(self):
+        """Beaucoup d'écritures → saut de page + bloc totaux ne plante pas."""
+        m = MemberFactory()
+        for i in range(60):
+            record_antidated_entry(
+                member=m, product="collecte", sens="depot",
+                montant=Decimal("1000"),
+                date_op=date.today() - timedelta(days=i + 1),
+            )
+        pdf = build_member_ledger_pdf(m)
+        assert pdf[:5] == b"%PDF-"
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
@@ -196,3 +288,18 @@ class TestEndpoints:
         staff = _staff()
         r = self._api(staff).get("/api/v1/admin/members/99999/statement/")
         assert r.status_code == 404
+
+    def test_ledger_endpoint_membre_renvoie_un_pdf(self):
+        membre = MemberFactory()
+        record_antidated_entry(
+            member=membre, product="collecte", sens="depot",
+            montant=Decimal("2000"), date_op=date.today() - timedelta(days=1),
+        )
+        r = self._api(membre).get("/api/v1/savings/me/ledger/")
+        assert r.status_code == 200
+        assert r["Content-Type"] == "application/pdf"
+        assert r.content[:5] == b"%PDF-"
+
+    def test_ledger_endpoint_anonyme_refuse(self):
+        r = APIClient().get("/api/v1/savings/me/ledger/")
+        assert r.status_code in (401, 403)

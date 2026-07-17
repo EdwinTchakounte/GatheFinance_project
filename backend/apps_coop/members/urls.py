@@ -57,6 +57,18 @@ urlpatterns = [
         views.admin_member_statement_pdf,
         name="admin-member-statement",
     ),
+    path(
+        "admin/members/<int:pk>/adhesion/",
+        views.admin_member_adhesion,
+        name="admin-member-adhesion",
+    ),
+    # Frais membre (adhésion / inscription) — statut + paiement depuis le compte.
+    path("me/fees/", views.my_membership_fees, name="my-membership-fees"),
+    path(
+        "me/fees/<str:code>/pay-from-savings/",
+        views.pay_membership_fee,
+        name="pay-membership-fee",
+    ),
     path("admin/members/", views.admin_list_members, name="admin-members-list"),
     path("admin/membership-requests/", views.admin_list_membership_requests, name="admin-membership-list"),
     path("admin/membership-requests/<int:pk>/approve/", views.admin_approve_membership_request, name="admin-membership-approve"),

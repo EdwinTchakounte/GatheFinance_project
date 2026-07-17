@@ -455,6 +455,66 @@ def loan_request_list(request):
 
 
 # ---------------------------------------------------------------------------
+# Transfert — rembourser un crédit depuis l'épargne (G6, refonte 2026-07)
+# ---------------------------------------------------------------------------
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="Argent disponible pour un transfert (remboursement)",
+    description=(
+        "Somme mobilisable pour rembourser un crédit : épargne classique "
+        "retirable (hors placement/gel) + collecte."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsActiveMember])
+def transfer_available(request):
+    from .transfer_services import available_for_transfer
+
+    data = available_for_transfer(request.user.member)
+    return Response({k: str(v) for k, v in data.items()})
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="Transférer de l'épargne vers un crédit (remboursement)",
+    description=(
+        "Rembourse `montant` sur le crédit `pk` du membre en puisant dans son "
+        "épargne classique retirable puis sa collecte. Transfert interne "
+        "(pas de Mobile Money)."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsActiveMember])
+def loan_repay_from_savings(request, pk: int):
+    from decimal import Decimal, InvalidOperation
+
+    from .transfer_services import TransferError, repay_loan_from_savings
+
+    loan = Loan.objects.filter(pk=pk, member=request.user.member).first()
+    if loan is None:
+        return Response({"detail": "Crédit introuvable."}, status=404)
+    try:
+        montant = Decimal(str(request.data.get("montant")))
+    except (InvalidOperation, TypeError):
+        return Response({"detail": "Montant invalide."}, status=400)
+    try:
+        payment = repay_loan_from_savings(loan, montant)
+    except TransferError as exc:
+        return Response({"detail": str(exc)}, status=400)
+    loan.refresh_from_db()
+    return Response(
+        {
+            "payment_id": payment.id,
+            "montant": str(payment.montant),
+            "solde_restant": str(loan.solde_restant),
+            "statut": loan.statut,
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
 # 4. GET /api/v1/loans/me/active/ — current member's active credits
 # ---------------------------------------------------------------------------
 

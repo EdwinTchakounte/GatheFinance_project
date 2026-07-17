@@ -145,9 +145,11 @@ class TestModeEpargne:
         # 10 000 + (20 000 - 200 commission) = 29 800.
         assert classic.solde == Decimal("29800.00")
 
-        # Une ligne DEPOT sur le ledger épargne classique.
+        # Une ligne BASCULE_COLLECTE sur le ledger épargne classique (origine
+        # explicite : virement depuis la collecte, pas un dépôt MoMo — G3 2026).
         classic_dep = ClassicSavingsTransaction.objects.get(
-            account=classic, type_op=ClassicSavingsTransaction.TypeOp.DEPOT
+            account=classic,
+            type_op=ClassicSavingsTransaction.TypeOp.BASCULE_COLLECTE,
         )
         assert classic_dep.montant == Decimal("19800.00")
         assert classic_dep.solde_apres == Decimal("29800.00")
