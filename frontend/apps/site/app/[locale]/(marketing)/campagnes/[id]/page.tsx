@@ -4,6 +4,7 @@ import { setRequestLocale } from "next-intl/server";
 
 import { Container } from "@gathe/ui";
 import { PageHeader } from "@/components/page-shell";
+import { images } from "@/lib/site-config";
 import {
   ApplyForm,
   fmtDate,
@@ -64,7 +65,7 @@ export default async function CampaignDetailPage({ params }: Params) {
           0,
         )} %.`}
         homeLabel="Accueil"
-        image={c.flyer_url}
+        image={images.brcBusinessFormation}
       />
 
       <section className="section-pad bg-cream">
