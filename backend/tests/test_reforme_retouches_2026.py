@@ -82,7 +82,9 @@ class TestNoMinDurationFloor:
         lr = LoanRequest.objects.get(pk=r.json()["loan_request"]["id"])
         assert lr.duree_mois == 2
 
-    def test_one_month_is_accepted(self, active_member):
+    def test_one_month_is_rejected(self, active_member):
+        """Durée réglementaire = [2, 9] mois (Art. 7) : 1 mois est sous le
+        plancher et doit être refusé au submit."""
         _seed_study_fee()
         _new_member(active_member)
         _seed_classic(active_member, 30000)
@@ -91,7 +93,19 @@ class TestNoMinDurationFloor:
             {"montant_demande": "30000", "duree_mois": 1, "motif": "Test 1 mois"},
             format="json",
         )
-        assert r.status_code == 201, r.content
+        assert r.status_code == 400, r.content
+
+    def test_ten_months_is_rejected(self, active_member):
+        """Plafond réglementaire = 9 mois : 10 dépasse et doit être refusé."""
+        _seed_study_fee()
+        _new_member(active_member)
+        _seed_classic(active_member, 30000)
+        r = _api(active_member.user).post(
+            "/api/v1/loans/requests/",
+            {"montant_demande": "30000", "duree_mois": 10, "motif": "Test 10 mois"},
+            format="json",
+        )
+        assert r.status_code == 400, r.content
 
     def test_zero_month_still_rejected(self, active_member):
         """Plancher technique : une durée nulle reste invalide."""
