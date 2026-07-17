@@ -5,6 +5,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/pdf/gathe_letterhead.dart';
+
 /// Une ligne de détail du reçu : libellé + valeur (déjà formatés/localisés par
 /// la couche présentation — le service ne fait que la mise en page).
 class RecuLine {
@@ -45,10 +47,9 @@ class RecuData {
   final String fileName;
 }
 
-// Palette OFFICIELLE GATHE — identique aux PDF backend (reçu portail, note de
-// crédit, attestation) pour une seule famille de documents.
-const _blue = PdfColor.fromInt(0xFF0E4D92);
-const _green = PdfColor.fromInt(0xFF1B9E5A);
+// Palette OFFICIELLE GATHE — vraies couleurs du logo, identiques aux PDF
+// backend (papier à en-tête) pour une seule famille de documents.
+const _blue = gatheBlue;
 const _ink = PdfColor.fromInt(0xFF1A2230);
 const _muted = PdfColor.fromInt(0xFF5B6472);
 const _panelBorder = PdfColor.fromInt(0xFFD7E0EC);
@@ -64,9 +65,7 @@ Future<Uint8List> buildRecuVersementPdf(RecuData d) async {
   final bold = pw.Font.ttf(soraData);
   final theme = pw.ThemeData.withFont(base: base, bold: bold);
 
-  final logo = pw.MemoryImage(
-    (await rootBundle.load('assets/images/logo_clean.png')).buffer.asUint8List(),
-  );
+  final logo = await loadGatheLogo();
 
   final doc = pw.Document(theme: theme);
 
@@ -123,36 +122,13 @@ Future<Uint8List> buildRecuVersementPdf(RecuData d) async {
       build: (context) => pw.Stack(
         children: [
           // Filigrane logo centré, très atténué (comme les PDF backend).
-          pw.Positioned.fill(
-            child: pw.Center(
-              child: pw.Opacity(
-                opacity: 0.06,
-                child: pw.Image(logo, width: 340),
-              ),
-            ),
-          ),
+          gatheWatermark(logo),
           // Contenu.
           pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // En-tête de marque.
-              pw.Text(
-                'GATHE FINANCE',
-                style: pw.TextStyle(
-                  color: _blue,
-                  fontSize: 22,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.Text(
-                'Coopérative d\'Épargne et de Crédit',
-                style: const pw.TextStyle(color: _muted, fontSize: 10.5),
-              ),
-              pw.SizedBox(height: 8),
-              // Filet bicolore bleu + vert.
-              pw.Container(height: 2, color: _blue),
-              pw.SizedBox(height: 1.5),
-              pw.Container(height: 1, color: _green),
+              // En-tête officiel (papier à en-tête).
+              gatheLetterheadHeader(logo),
               pw.SizedBox(height: 16),
               // Titre centré + référence.
               pw.Center(
@@ -227,22 +203,12 @@ Future<Uint8List> buildRecuVersementPdf(RecuData d) async {
               ...d.lines.map(row),
             ],
           ),
-          // Footer collé en bas de page.
+          // Pied officiel (bandeau bleu de contacts), collé en bas de page.
           pw.Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: pw.Column(
-              children: [
-                pw.Container(height: 0.7, color: _panelBorder),
-                pw.SizedBox(height: 8),
-                pw.Text(
-                  d.footer,
-                  textAlign: pw.TextAlign.center,
-                  style: const pw.TextStyle(color: _muted, fontSize: 8),
-                ),
-              ],
-            ),
+            child: gatheLetterheadFooter(),
           ),
         ],
       ),
