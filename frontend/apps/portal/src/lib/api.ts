@@ -474,6 +474,15 @@ export type PortalNotification = {
   created_at: string;
 };
 
+// Support membre — message d'un fil unique (membre ↔ support coopérative).
+export type PortalSupportMessage = {
+  id: number;
+  sender: "member" | "staff";
+  body: string;
+  read_by_recipient: boolean;
+  created_at: string;
+};
+
 // Annonce broadcast (lecture membre) — corps complet + pièce jointe image.
 export type PortalAnnouncement = {
   id: number;
@@ -853,6 +862,20 @@ export const portalApi = {
       request<{ results: PortalAnnouncement[] }>(
         "/notifications/announcements/",
       ),
+  },
+
+  // Support membre (fil unique membre ↔ support). Parité avec le mobile.
+  support: {
+    thread: () =>
+      request<{ thread_id: number; messages: PortalSupportMessage[] }>(
+        "/support/thread/",
+      ),
+    send: (body: string) =>
+      request<PortalSupportMessage>("/support/messages/", {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      }),
+    unread: () => request<{ count: number }>("/support/unread/"),
   },
 
   // Carnet : liste des commandes du membre (statut : payee / en_impression / delivree).
