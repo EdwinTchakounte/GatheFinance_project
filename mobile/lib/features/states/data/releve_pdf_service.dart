@@ -5,6 +5,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/pdf/gathe_letterhead.dart';
+
 /// Données déjà localisées + formatées par la couche présentation.
 /// Le service ne fait que la mise en page — aucune dépendance métier/i18n.
 class RelevePdfData {
@@ -68,10 +70,8 @@ Future<Uint8List> buildRelevePdf(RelevePdfData d) async {
   final bold = pw.Font.ttf(soraData); // Sora pour l'emphase (gras visuel)
   final theme = pw.ThemeData.withFont(base: base, bold: bold);
 
-  // Logo joint au document (offline, asset bundlé).
-  final logo = pw.MemoryImage(
-    (await rootBundle.load('assets/images/logo_clean.png')).buffer.asUint8List(),
-  );
+  // Logo couleur bundlé (offline).
+  final logo = await loadGatheLogo();
 
   final doc = pw.Document(theme: theme);
 
@@ -92,22 +92,24 @@ Future<Uint8List> buildRelevePdf(RelevePdfData d) async {
   doc.addPage(
     pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.fromLTRB(36, 40, 36, 36),
+      margin: const pw.EdgeInsets.fromLTRB(32, 18, 32, 16),
+      header: (context) => pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 14),
+        child: gatheLetterheadHeader(logo),
+      ),
+      footer: (context) => pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 10),
+        child: gatheLetterheadFooter(),
+      ),
       build: (context) => [
-        // ── En-tête ──────────────────────────────────────────────
+        // ── Titre du document ────────────────────────────────────
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Image(logo, height: 42),
-                pw.SizedBox(height: 8),
-                pw.Text(d.docTitle,
-                    style: const pw.TextStyle(color: _ink, fontSize: 13),),
-              ],
-            ),
+            pw.Text(d.docTitle,
+                style: pw.TextStyle(
+                    color: _ink, fontSize: 14, fontWeight: pw.FontWeight.bold,),),
             pw.Text(d.issuedOn,
                 style: const pw.TextStyle(color: _muted, fontSize: 9),),
           ],
@@ -154,11 +156,6 @@ Future<Uint8List> buildRelevePdf(RelevePdfData d) async {
           ),
         ),
       ],
-      footer: (context) => pw.Padding(
-        padding: const pw.EdgeInsets.only(top: 12),
-        child: pw.Text(d.footer,
-            style: const pw.TextStyle(color: _muted, fontSize: 8),),
-      ),
     ),
   );
 

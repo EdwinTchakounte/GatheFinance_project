@@ -21,14 +21,13 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
+from apps_coop.pdf_letterhead import BRAND_BLUE, draw_header, draw_footer
 from apps_coop.pdf_watermark import draw_watermark
 
 from .models import Payment, RateParam
 from .rates import get_rate
 
 
-BRAND_BLUE = colors.HexColor("#0E4D92")
-BRAND_GREEN = colors.HexColor("#1B9E5A")
 INK = colors.HexColor("#1A2230")
 MUTED = colors.HexColor("#5B6472")
 PANEL_BORDER = colors.HexColor("#D7E0EC")
@@ -98,24 +97,11 @@ def build_payment_receipt(payment: Payment) -> bytes:
     c.setTitle(f"Reçu de versement — {member.numero_membre} — #{payment.id}")
     c.setAuthor("GATHE Finance")
 
-    # --- En-tête de marque -------------------------------------------------
-    top = height - margin
-    c.setFillColor(BRAND_BLUE)
-    c.setFont("Helvetica-Bold", 22)
-    c.drawString(margin, top, "GATHE FINANCE")
-    c.setFillColor(MUTED)
-    c.setFont("Helvetica", 10.5)
-    c.drawString(margin, top - 16, "Coopérative d'Épargne et de Crédit")
+    # --- En-tête + pied officiels (papier à en-tête) -----------------------
+    content_top = draw_header(c, width, height, margin=margin)
+    draw_footer(c, width, margin=margin)
 
-    rule_y = top - 28
-    c.setStrokeColor(BRAND_BLUE)
-    c.setLineWidth(2)
-    c.line(margin, rule_y, width - margin, rule_y)
-    c.setStrokeColor(BRAND_GREEN)
-    c.setLineWidth(1)
-    c.line(margin, rule_y - 3, width - margin, rule_y - 3)
-
-    title_y = rule_y - 24
+    title_y = content_top - 8
     c.setFillColor(INK)
     c.setFont("Helvetica-Bold", 14)
     c.drawCentredString(width / 2, title_y, "REÇU DE VERSEMENT")
@@ -203,17 +189,6 @@ def build_payment_receipt(payment: Payment) -> bytes:
         y = _row("Date de validation", _fr_datetime(payment.date_validation), y)
     if payment.reference_externe:
         y = _row("Référence", payment.reference_externe, y)
-
-    # --- Footer ------------------------------------------------------------
-    c.setStrokeColor(PANEL_BORDER)
-    c.setLineWidth(0.7)
-    c.line(margin, margin + 10 * mm, width - margin, margin + 10 * mm)
-    c.setFillColor(MUTED)
-    c.setFont("Helvetica", 8)
-    c.drawCentredString(
-        width / 2, margin + 6 * mm,
-        "GATHE Finance — Akwa, Douala · Reçu généré automatiquement, à conserver.",
-    )
 
     c.showPage()
     c.save()
