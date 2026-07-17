@@ -146,7 +146,13 @@ export default async function BlogArticlePage({ params }: Params) {
             "[&_ul]:my-4 [&_li]:my-1",
           ].join(" ")}
         >
-          <StreamField blocks={post.body} />
+          {/* En locale EN avec correspondance renseignée : on rend le corps
+              anglais (HTML RichText). Sinon le StreamField FR. */}
+          {post.bodyHtml ? (
+            <div dangerouslySetInnerHTML={{ __html: post.bodyHtml }} />
+          ) : (
+            <StreamField blocks={post.body} />
+          )}
           <div className="mt-14 border-t border-line-200 pt-6">
             <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 hover:text-blue-800 transition-colors">
               <ArrowLeft aria-hidden="true" className="size-4" /> {t("backToBlog")}
