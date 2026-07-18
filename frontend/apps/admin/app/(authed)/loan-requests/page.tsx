@@ -40,8 +40,11 @@ export default function LoanRequestsPage() {
 
 type LoanRequestFilter =
   | "en_attente"
+  | "en_attente_avaliste"
+  | "en_validation_campagne"
   | "en_instruction"
   | "approuvee_provisoire"
+  | "en_attente_funding"
   | "approuvee"
   | "rejetee"
   | "";
@@ -250,6 +253,13 @@ function Inner() {
         ),
     },
     {
+      // Prévisualisation du « mode employé » sur chaque crédit.
+      key: "voie",
+      label: "Voie",
+      text: (r) => r.voie_display ?? "",
+      render: (r) => <VoieBadge r={r} />,
+    },
+    {
       key: "montant",
       label: "Montant",
       numeric: true,
@@ -366,8 +376,11 @@ function Inner() {
         <div className="flex items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
           {[
             { v: "en_attente", l: "Frais à percevoir" },
+            { v: "en_attente_avaliste", l: "Attente avaliste" },
+            { v: "en_validation_campagne", l: "Validation campagne" },
             { v: "en_instruction", l: "En instruction" },
             { v: "approuvee_provisoire", l: "Provisoires" },
+            { v: "en_attente_funding", l: "Attente funding" },
             { v: "approuvee", l: "Approuvées" },
             { v: "rejetee", l: "Rejetées" },
             { v: "", l: "Toutes" },
@@ -1245,6 +1258,37 @@ function GuaranteeEvalModal({
  * poussé : le compat layer backend met "oui/non" mais le membre peut
  * aussi n'avoir rien rempli).
  */
+/** Badge de la voie empruntée + montant que l'avaliste couvre (le cas échéant). */
+function VoieBadge({ r }: { r: LoanRequest }) {
+  const voie = r.voie ?? "senior_brc";
+  const label = r.voie_display ?? "—";
+  const tone: Record<string, string> = {
+    avaliste: "bg-terra-500/15 text-terra-700",
+    campagne: "bg-blue-100 text-blue-800",
+    garantie_materielle: "bg-amber-100 text-amber-800",
+    senior_brc: "bg-emerald-100 text-emerald-800",
+  };
+  const couvre = Number(r.avaliste_montant_a_couvrir ?? 0);
+  return (
+    <div className="min-w-[7rem]">
+      <span
+        className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${tone[voie] ?? "bg-ink-100 text-ink-700"}`}
+      >
+        {label}
+      </span>
+      {voie === "avaliste" && couvre > 0 ? (
+        <p className="mt-1 text-[11px] text-ink-500">
+          Avaliste couvre{" "}
+          <span className="font-mono font-medium text-ink-700">
+            {couvre.toLocaleString("fr-FR")} XAF
+          </span>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+
 function ProfilEmprunteurBadges({ r }: { r: LoanRequest }) {
   const ep = r.extra_payload ?? {};
   const apprenant = String(ep["ancien_apprenant"] ?? "").toLowerCase();

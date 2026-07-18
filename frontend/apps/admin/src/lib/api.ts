@@ -322,6 +322,10 @@ export type LoanRequest = {
   frais_demande_credit_paye?: boolean;
   // Frais de carnet encore dus (bénéficiaire campagne sans carnet). "0" sinon.
   carnet_fee_due?: string;
+  // Voie empruntée (prévisualisation du mode) + montant que l'avaliste couvre.
+  voie?: "senior_brc" | "avaliste" | "campagne" | "garantie_materielle";
+  voie_display?: string;
+  avaliste_montant_a_couvrir?: string;
   // CH-6 — Workflow double approbation : visite terrain entre provisoire et définitive.
   field_visit_outcome?: "" | "favorable" | "defavorable" | "a_revoir";
   field_visit_done_at?: string | null;
