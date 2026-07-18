@@ -885,11 +885,13 @@ class _RequestCard extends ConsumerWidget {
               ),
             ),
           ],
-          // CH-7 . Tant que la demande est en_attente, les frais d'étude n'ont
-          // pas encore été réglés et la demande ne passe pas en instruction.
-          // On propose un CTA visible pour relancer le paiement Tara depuis
-          // la page Crédit (cas du membre qui a fermé le sheet avant de payer).
-          if (request.statut == LoanRequestStatus.enAttente) ...[
+          // CH-7 . Le CTA de paiement des frais d'étude n'apparaît QUE si la
+          // demande est en_attente ET que les frais ne sont pas encore réglés.
+          // Anti double-paiement : une demande peut rester en_attente frais DÉJÀ
+          // payés (bénéficiaire campagne qui attend son carnet) — dans ce cas on
+          // n'affiche plus le bouton (sinon le membre re-paierait), mais une note.
+          if (request.statut == LoanRequestStatus.enAttente &&
+              !request.fraisPaye) ...[
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -910,6 +912,37 @@ class _RequestCard extends ConsumerWidget {
                     fontSize: 13,
                   ),
                 ),
+              ),
+            ),
+          ] else if (request.statut == LoanRequestStatus.enAttente &&
+              request.fraisPaye) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: PaColors.success.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border:
+                    Border.all(color: PaColors.success.withValues(alpha: 0.22)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.check_circle_outline_rounded,
+                      size: 18, color: PaColors.success,),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Frais d\'étude réglés. Votre dossier finalise sa mise en '
+                      'place — aucun autre paiement n\'est requis pour le moment.',
+                      style: AppTypography.bodySmall.copyWith(
+                        color: PaColors.inkMuted,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

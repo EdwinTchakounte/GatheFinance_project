@@ -138,4 +138,19 @@ class LoanRequestEntity {
     final du = fraisEtudeMontant ?? 0;
     return du > 0 && epargneDisponibleFrais >= du;
   }
+
+  /// Empreinte de valeur pour la déduplication du polling (`PollableNotifier`).
+  /// Sans elle, le hash retombe sur `toString()` (« Instance of… ») identique
+  /// quel que soit le statut → un changement d'état de la demande (paiement des
+  /// frais, décision comité) ne se propageait pas à la page Crédit. On expose
+  /// les champs qui évoluent.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'statut': statut.name,
+        'fraisPaye': fraisPaye,
+        'montantRevise': montantRevise,
+        'dureeRevisee': dureeRevisee,
+        'fieldVisitOutcome': fieldVisitOutcome?.name,
+        'loanId': null,
+      };
 }

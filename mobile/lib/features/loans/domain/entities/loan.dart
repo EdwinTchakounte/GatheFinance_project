@@ -108,4 +108,29 @@ class Loan {
   /// échéance en retard (Article 12).
   num penaltyDue(DateTime now) => overdueInstallments(now)
       .fold<num>(0, (s, i) => s + latePenalty(i.montantInterets));
+
+  /// Empreinte de valeur — utilisée par la déduplication du polling
+  /// (`PollableNotifier`). SANS cette méthode, le hash retombait sur
+  /// `toString()` = « Instance of 'Loan' », identique quel que soit le solde :
+  /// un remboursement partiel (transfert, MoMo) ne mettait donc PAS à jour la
+  /// progression du crédit. On expose ici les champs qui évoluent (solde,
+  /// statut, échéances payées) pour que le refresh repousse bien la nouveauté.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'numeroDossier': numeroDossier,
+        'montant': montant,
+        'montantTotalDu': montantTotalDu,
+        'soldeRestant': soldeRestant,
+        'statut': statut.name,
+        'dejaReconduit': dejaReconduit,
+        'installments': [
+          for (final i in installments)
+            {
+              'id': i.id,
+              'statut': i.statut.name,
+              'montantPaye': i.montantPaye,
+              'montantTotal': i.montantTotal,
+            },
+        ],
+      };
 }
