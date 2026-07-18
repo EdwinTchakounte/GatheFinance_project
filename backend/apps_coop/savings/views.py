@@ -279,17 +279,46 @@ def classic_savings_config(request):
 def collecte_end_of_month_preference(request):
     account = request.user.member.savings_account
     if request.method == "GET":
-        return Response({"preference": account.end_of_month_preference})
+        return Response(
+            {
+                "preference": account.end_of_month_preference,
+                "payout_phone": account.payout_phone,
+                "payout_network": account.payout_network,
+            }
+        )
 
     pref = (request.data.get("preference") or "").strip()
     valid = {c for c, _ in SavingsAccount.EndOfMonthPreference.choices}
     if pref not in valid:
         return Response(
-            {"detail": "preference doit valoir 'cash' ou 'epargne'."},
+            {"detail": "preference doit valoir 'cash', 'mobile_money' ou 'epargne'."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+    update_fields = ["end_of_month_preference"]
     account.end_of_month_preference = pref
-    account.save(update_fields=["end_of_month_preference"])
+
+    # Choix « versement Mobile Money » : le membre renseigne sa destination.
+    if pref == SavingsAccount.EndOfMonthPreference.MOBILE_MONEY:
+        from apps_coop.savings.models import WithdrawalRequest
+
+        phone = (request.data.get("payout_phone") or "").strip()
+        network = (request.data.get("payout_network") or "").strip().upper()
+        if not phone:
+            return Response(
+                {"detail": "Le numéro Mobile Money de destination est requis."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if network and network not in WithdrawalRequest.Network.values:
+            return Response(
+                {"detail": f"Réseau Mobile Money invalide : {network!r}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        account.payout_phone = phone
+        account.payout_network = network
+        update_fields += ["payout_phone", "payout_network"]
+
+    account.save(update_fields=update_fields)
     record_audit(
         action="collecte.end_of_month_preference.set",
         entite_type="SavingsAccount",
@@ -298,7 +327,13 @@ def collecte_end_of_month_preference(request):
         details={"preference": pref},
         ip=client_ip(request),
     )
-    return Response({"preference": account.end_of_month_preference})
+    return Response(
+        {
+            "preference": account.end_of_month_preference,
+            "payout_phone": account.payout_phone,
+            "payout_network": account.payout_network,
+        }
+    )
 
 
 @extend_schema(
@@ -335,6 +370,9 @@ def admin_collecte_preferences(request):
     # Compteurs récap pour l'en-tête de l'onglet.
     summary = {
         "cash": sum(1 for r in results if r["preference"] == "cash"),
+        "mobile_money": sum(
+            1 for r in results if r["preference"] == "mobile_money"
+        ),
         "epargne": sum(1 for r in results if r["preference"] == "epargne"),
         "total": len(results),
     }

@@ -55,7 +55,9 @@ class TestSavingsAccountEndOfMonthPreference:
 
     def test_choices_are_locked(self):
         choices = dict(SavingsAccount.EndOfMonthPreference.choices)
-        assert set(choices.keys()) == {"cash", "epargne"}
+        # 3 destinations fin de mois : cash (agence), versement Mobile Money,
+        # bascule épargne classique.
+        assert set(choices.keys()) == {"cash", "mobile_money", "epargne"}
 
 
 # ---------------------------------------------------------------------------

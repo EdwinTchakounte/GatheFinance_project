@@ -207,7 +207,18 @@ export type SavingsSnapshot = {
   solde: string;
   date_ouverture: string;
   taux_interet_applique: string;
+  end_of_month_preference: EomChoice;
+  payout_phone: string;
+  payout_network: string;
   transactions_recentes: SavingsTransaction[];
+};
+
+// Choix de fin de mois de la collecte journalière (parité mobile).
+export type EomChoice = "cash" | "mobile_money" | "epargne";
+export type CollecteEomPreference = {
+  preference: EomChoice;
+  payout_phone: string;
+  payout_network: string;
 };
 
 // Parite mobile : compte epargne classique (libre + placement).
@@ -572,6 +583,18 @@ export const portalApi = {
   savings: () => request<SavingsSnapshot>("/savings/me/"),
   classicSavings: () =>
     request<ClassicSavingsSnapshot>("/savings/classic/me/"),
+  // Choix fin de mois de la collecte : cash (agence) / mobile_money / epargne.
+  collecteEomPreference: () =>
+    request<CollecteEomPreference>("/savings/me/end-of-month-preference/"),
+  setCollecteEomPreference: (body: {
+    preference: EomChoice;
+    payout_phone?: string;
+    payout_network?: string;
+  }) =>
+    request<CollecteEomPreference>("/savings/me/end-of-month-preference/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   // P2 . Historique paginé des transactions epargne (DRF PageNumberPagination 20/page).
   // D3 . Statut renouvellement annuel (banniere + bouton paiement carnet).
   renewalStatus: () =>

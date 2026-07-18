@@ -2163,10 +2163,34 @@ class AppL10nEn extends AppL10n {
       'At the monthly close, 1% is kept by the cooperative.';
 
   @override
-  String get collecte_eom_cash => 'Withdraw as cash';
+  String get collecte_eom_cash => 'Withdraw at the branch';
 
   @override
-  String get collecte_eom_cash_desc => 'Collect your balance at the branch.';
+  String get collecte_eom_cash_desc =>
+      'Collect your balance in cash at the counter.';
+
+  @override
+  String get collecte_eom_momo => 'Send to my account';
+
+  @override
+  String get collecte_eom_momo_desc =>
+      'The cooperative sends your balance via Mobile Money.';
+
+  @override
+  String get collecte_eom_momo_phone => 'Mobile Money number';
+
+  @override
+  String get collecte_eom_momo_phone_hint => 'e.g. 690 00 00 00';
+
+  @override
+  String get collecte_eom_momo_network => 'Network';
+
+  @override
+  String get collecte_eom_momo_save => 'Save my destination';
+
+  @override
+  String get collecte_eom_momo_phone_required =>
+      'Enter your Mobile Money number.';
 
   @override
   String get collecte_eom_savings => 'Move to savings';

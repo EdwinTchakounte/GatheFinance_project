@@ -739,8 +739,15 @@
 
   "collecte_eom_title": "Month end — what to do with your collection?",
   "collecte_eom_sub": "At the monthly close, 1% is kept by the cooperative.",
-  "collecte_eom_cash": "Withdraw as cash",
-  "collecte_eom_cash_desc": "Collect your balance at the branch.",
+  "collecte_eom_cash": "Withdraw at the branch",
+  "collecte_eom_cash_desc": "Collect your balance in cash at the counter.",
+  "collecte_eom_momo": "Send to my account",
+  "collecte_eom_momo_desc": "The cooperative sends your balance via Mobile Money.",
+  "collecte_eom_momo_phone": "Mobile Money number",
+  "collecte_eom_momo_phone_hint": "e.g. 690 00 00 00",
+  "collecte_eom_momo_network": "Network",
+  "collecte_eom_momo_save": "Save my destination",
+  "collecte_eom_momo_phone_required": "Enter your Mobile Money number.",
   "collecte_eom_savings": "Move to savings",
   "collecte_eom_savings_desc": "Your collection is transferred to your classic savings.",
 

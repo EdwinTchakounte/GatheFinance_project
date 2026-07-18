@@ -2180,10 +2180,34 @@ class AppL10nFr extends AppL10n {
       'À la clôture mensuelle, 1 % est retenu par la coopérative.';
 
   @override
-  String get collecte_eom_cash => 'Retirer en cash';
+  String get collecte_eom_cash => 'Retirer à l\'agence';
 
   @override
-  String get collecte_eom_cash_desc => 'Tu récupères ton solde à l\'agence.';
+  String get collecte_eom_cash_desc =>
+      'Tu récupères ton solde en espèces au guichet.';
+
+  @override
+  String get collecte_eom_momo => 'Verser sur mon compte';
+
+  @override
+  String get collecte_eom_momo_desc =>
+      'La coopérative t\'envoie ton solde par Mobile Money.';
+
+  @override
+  String get collecte_eom_momo_phone => 'Numéro Mobile Money';
+
+  @override
+  String get collecte_eom_momo_phone_hint => 'Ex : 690 00 00 00';
+
+  @override
+  String get collecte_eom_momo_network => 'Réseau';
+
+  @override
+  String get collecte_eom_momo_save => 'Enregistrer ma destination';
+
+  @override
+  String get collecte_eom_momo_phone_required =>
+      'Saisis ton numéro Mobile Money.';
 
   @override
   String get collecte_eom_savings => 'Basculer en épargne';

@@ -8,6 +8,8 @@ import { Wallet } from "lucide-react";
 
 import { Container, buttonClasses, EmptyState, Skeleton, SkeletonList } from "@gathe/ui";
 
+import { CollecteEomChoice } from "@/components/collecte-eom-choice";
+
 import {
   portalApi,
   type ApiError,
@@ -254,6 +256,15 @@ export default function EpargneIndexPage() {
             </button>
           </article>
         </section>
+
+        {/* Fin de mois — que faire de la collecte (parité mobile) */}
+        {savings ? (
+          <CollecteEomChoice
+            initialPreference={savings.end_of_month_preference}
+            initialPhone={savings.payout_phone}
+            initialNetwork={savings.payout_network}
+          />
+        ) : null}
 
         {/* Actions secondaires : placement + retrait */}
         <section className="mt-5 grid gap-5 md:grid-cols-2">

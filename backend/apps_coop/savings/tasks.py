@@ -381,7 +381,11 @@ def collecte_fin_de_mois() -> dict:
                     total_bascule_epargne += restituable
                     event_code = "collecte.balance_swept_to_savings"
                 else:
-                    # CASH par défaut.
+                    # CASH (agence) OU MOBILE_MONEY : dans les deux cas le solde
+                    # quitte la collecte via une ligne RESTITUTION_CASH. La
+                    # différence se joue APRÈS commit (hors transaction) : cash =
+                    # retrait au guichet (rien de plus) ; mobile_money = mise en
+                    # file de payout (versement manuel coop, ou Tara si activé).
                     cash_txn = SavingsTransaction.objects.create(
                         account=locked,
                         payment=None,
@@ -428,21 +432,25 @@ def collecte_fin_de_mois() -> dict:
             except Exception:  # noqa: BLE001
                 logger.warning("emit_event %s failed", event_code, exc_info=True)
 
-            # Restitution « cash » → décaissement Mobile Money automatique
-            # (Tara) si activé via AppSetting. Hors transaction : un échec de
-            # payout ne rollback pas la clôture déjà commitée.
-            if preference == SavingsAccount.EndOfMonthPreference.CASH:
+            # Préférence « versement Mobile Money » → mise en file de payout.
+            # Par défaut (automatisation Tara OFF) : on crée une demande de
+            # payout APPROUVÉE que la coopérative exécute MANUELLEMENT depuis la
+            # file admin (le membre a renseigné sa destination). Si l'admin a
+            # activé ``collecte.monthly.cash_payout``, le décaissement Tara part
+            # automatiquement. Hors transaction : un échec ne rollback pas la
+            # clôture déjà commitée.
+            if preference == SavingsAccount.EndOfMonthPreference.MOBILE_MONEY:
                 try:
                     from apps_coop.savings.services import (
-                        initiate_collecte_cash_payout,
+                        initiate_collecte_mobile_money_restitution,
                     )
 
-                    initiate_collecte_cash_payout(
-                        member, cash_txn, montant=restituable
+                    initiate_collecte_mobile_money_restitution(
+                        account, cash_txn, montant=restituable
                     )
                 except Exception:  # noqa: BLE001
                     logger.warning(
-                        "collecte cash payout échoué (account=%s)",
+                        "collecte payout Mobile Money échoué (account=%s)",
                         account.pk,
                         exc_info=True,
                     )

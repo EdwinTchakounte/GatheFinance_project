@@ -860,8 +860,15 @@
 
   "collecte_eom_title": "Fin de mois — que faire de ta collecte ?",
   "collecte_eom_sub": "À la clôture mensuelle, 1 % est retenu par la coopérative.",
-  "collecte_eom_cash": "Retirer en cash",
-  "collecte_eom_cash_desc": "Tu récupères ton solde à l'agence.",
+  "collecte_eom_cash": "Retirer à l'agence",
+  "collecte_eom_cash_desc": "Tu récupères ton solde en espèces au guichet.",
+  "collecte_eom_momo": "Verser sur mon compte",
+  "collecte_eom_momo_desc": "La coopérative t'envoie ton solde par Mobile Money.",
+  "collecte_eom_momo_phone": "Numéro Mobile Money",
+  "collecte_eom_momo_phone_hint": "Ex : 690 00 00 00",
+  "collecte_eom_momo_network": "Réseau",
+  "collecte_eom_momo_save": "Enregistrer ma destination",
+  "collecte_eom_momo_phone_required": "Saisis ton numéro Mobile Money.",
   "collecte_eom_savings": "Basculer en épargne",
   "collecte_eom_savings_desc": "Ta collecte est virée sur ton épargne classique.",
 
