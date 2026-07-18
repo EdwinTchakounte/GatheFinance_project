@@ -91,15 +91,15 @@ Future<Uint8List> buildRelevePdf(RelevePdfData d) async {
 
   doc.addPage(
     pw.MultiPage(
-      pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.fromLTRB(32, 18, 32, 16),
-      header: (context) => pw.Padding(
-        padding: const pw.EdgeInsets.only(bottom: 14),
-        child: gatheLetterheadHeader(logo),
-      ),
-      footer: (context) => pw.Padding(
-        padding: const pw.EdgeInsets.only(top: 10),
-        child: gatheLetterheadFooter(),
+      pageTheme: pw.PageTheme(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.only(
+          left: 32,
+          right: 32,
+          top: gatheHeaderMargin + 12,
+          bottom: gatheFooterMargin + 12,
+        ),
+        buildBackground: (context) => gatheLetterheadBackground(logo),
       ),
       build: (context) => [
         // ── Titre du document ────────────────────────────────────
@@ -114,8 +114,6 @@ Future<Uint8List> buildRelevePdf(RelevePdfData d) async {
                 style: const pw.TextStyle(color: _muted, fontSize: 9),),
           ],
         ),
-        pw.SizedBox(height: 6),
-        pw.Divider(color: _line, thickness: 1),
         pw.SizedBox(height: 14),
 
         // ── Membre + résumé ──────────────────────────────────────

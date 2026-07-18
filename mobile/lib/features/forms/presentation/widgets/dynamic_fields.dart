@@ -449,10 +449,10 @@ class _FileInput extends StatelessWidget {
       }
       final size = File(path).lengthSync();
       onChange(PickedFile(path: path, name: picked.name, sizeBytes: size));
-    } catch (e) {
+    } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sélection annulée : $e')),
+          const SnackBar(content: Text('Sélection du fichier impossible.')),
         );
       }
     }

@@ -322,3 +322,22 @@ class DeviceToken(TimestampedModel):
 
     def __str__(self) -> str:  # pragma: no cover — debug only
         return f"DeviceToken({self.user_id}, {self.platform})"
+
+
+class NotificationPreference(TimestampedModel):
+    """Préférences de notification **push** par catégorie, pour un utilisateur.
+
+    Modèle opt-out : une catégorie absente de ``push_categories`` est considérée
+    ACTIVE. Seul le canal *push* est piloté ici (email/sms retirés côté mobile).
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notification_preference",
+    )
+    # Map { "epargne": true, "credit": false, ... }. Absent ⇒ activé (opt-out).
+    push_categories = models.JSONField(default=dict, blank=True)
+
+    def __str__(self) -> str:  # pragma: no cover — debug only
+        return f"NotificationPreference({self.user_id})"

@@ -3547,6 +3547,18 @@ abstract class AppL10n {
   /// **'Campagnes'**
   String get annonces_tab_campaigns;
 
+  /// No description provided for @annonces_tab_official.
+  ///
+  /// In fr, this message translates to:
+  /// **'Coopérative'**
+  String get annonces_tab_official;
+
+  /// No description provided for @booklet_page_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mon carnet'**
+  String get booklet_page_title;
+
   /// No description provided for @news_title.
   ///
   /// In fr, this message translates to:

@@ -54,6 +54,13 @@ class _ScriptedNotifsDs implements NotificationsRemoteDataSource {
 
   @override
   Future<void> unregisterDevice(String token) async {}
+
+  @override
+  Future<Map<String, bool>> getPushPrefs() async => const {};
+
+  @override
+  Future<Map<String, bool>> setPushPrefs(Map<String, bool> updates) async =>
+      updates;
 }
 
 void main() {

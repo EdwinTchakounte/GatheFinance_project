@@ -19,8 +19,23 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:go_router/go_router.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+
+import 'global_nav.dart';
+
+/// Tap sur une notification système → route l'app.
+/// Payload : un chemin absolu (`/support`) est suivi tel quel ; sinon
+/// (ex. `notif:<id>`) on ouvre la liste des notifications. Best-effort : no-op
+/// si le routeur n'est pas encore attaché (app lancée à froid).
+void _onNotifResponse(NotificationResponse response) {
+  final ctx = rootNavigatorKey.currentContext;
+  if (ctx == null) return;
+  final payload = response.payload ?? '';
+  final target = payload.startsWith('/') ? payload : '/notifications';
+  GoRouter.of(ctx).go(target);
+}
 
 class LocalNotifService {
   LocalNotifService._();
@@ -74,6 +89,7 @@ class LocalNotifService {
 
     await _plugin.initialize(
       const InitializationSettings(android: androidInit, iOS: iosInit),
+      onDidReceiveNotificationResponse: _onNotifResponse,
     );
 
     // Cree les canaux Android (no-op si deja crees).

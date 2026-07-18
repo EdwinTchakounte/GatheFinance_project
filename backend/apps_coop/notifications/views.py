@@ -181,3 +181,27 @@ def unregister_device(request):
     if token:
         DeviceToken.objects.filter(user=request.user, token=token).update(active=False)
     return Response({"unregistered": True})
+
+
+@extend_schema(
+    tags=["notifications"],
+    summary="Préférences de notification push par catégorie",
+    description=(
+        "GET renvoie la map { catégorie: bool } (opt-out, défaut tout activé). "
+        "POST fusionne une mise à jour partielle : corps `{\"push\": {\"credit\": "
+        "false}}` (ou directement `{\"credit\": false}`)."
+    ),
+    responses={200: None},
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def notification_preferences(request):
+    from .preferences import get_push_categories, set_push_categories
+
+    if request.method == "POST":
+        payload = request.data or {}
+        inner = payload.get("push")
+        updates = inner if isinstance(inner, dict) else payload
+        result = set_push_categories(request.user, updates or {})
+        return Response({"push": result})
+    return Response({"push": get_push_categories(request.user)})

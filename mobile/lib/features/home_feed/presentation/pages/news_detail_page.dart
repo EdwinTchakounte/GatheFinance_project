@@ -224,7 +224,6 @@ class _NewsDetailPageState extends ConsumerState<NewsDetailPage> {
                   ],
                   // --- Interactions sociales (like + commentaires) -------
                   const SizedBox(height: 28),
-                  const Divider(color: PaColors.line, height: 1),
                   const SizedBox(height: 16),
                   LikeButton(
                     target: SocialTarget(

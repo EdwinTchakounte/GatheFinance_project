@@ -642,6 +642,8 @@
   "nav_annonces": "Updates",
   "annonces_tab_news": "News",
   "annonces_tab_campaigns": "Campaigns",
+  "annonces_tab_official": "Cooperative",
+  "booklet_page_title": "My booklet",
 
   "news_title": "News",
   "news_load_error": "Couldn't load the news.",

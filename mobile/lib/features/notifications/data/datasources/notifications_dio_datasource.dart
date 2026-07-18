@@ -70,6 +70,41 @@ class NotificationsDioDataSource implements NotificationsRemoteDataSource {
       throw mapDioError(e);
     }
   }
+
+  @override
+  Future<Map<String, bool>> getPushPrefs() async {
+    try {
+      final res =
+          await _dio.get<Map<String, dynamic>>('/notifications/preferences/');
+      return _parsePush(res.data);
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
+  Future<Map<String, bool>> setPushPrefs(Map<String, bool> updates) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/notifications/preferences/',
+        data: {'push': updates},
+      );
+      return _parsePush(res.data);
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+}
+
+Map<String, bool> _parsePush(Map<String, dynamic>? data) {
+  final push = data?['push'];
+  if (push is Map) {
+    return {
+      for (final entry in push.entries)
+        entry.key.toString(): entry.value == true,
+    };
+  }
+  return const {};
 }
 
 AppNotification _parseNotification(Map<String, dynamic> json) {

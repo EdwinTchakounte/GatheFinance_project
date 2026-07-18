@@ -314,11 +314,7 @@ class _MonthSection extends StatelessWidget {
                     amount: group.entries[i].tx.montant,
                   ),
                   if (i < group.entries.length - 1)
-                    const Divider(
-                      height: 1,
-                      thickness: 0.6,
-                      color: PaColors.line,
-                    ),
+                    const SizedBox(height: 6),
                 ],
               ],
             ),

@@ -11,8 +11,8 @@ import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/notification_prefs.dart';
 import '../state/notification_prefs_notifier.dart';
 
-/// Préférences de notifications . style **Paysika**. Une carte par catégorie,
-/// 3 canaux (push / email / sms) togglables.
+/// Préférences de notifications — style **Paysika**. Une carte par catégorie
+/// avec un unique interrupteur **push** (email/sms retirés : non implémentés).
 class NotificationsPreferencesPage extends ConsumerWidget {
   const NotificationsPreferencesPage({super.key});
 
@@ -35,19 +35,25 @@ class NotificationsPreferencesPage extends ConsumerWidget {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_rounded,
-                          color: PaColors.inkPrimary,),
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: PaColors.inkPrimary,
+                      ),
                       tooltip: l.common_back,
                     ),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(l.notifprefs_eyebrow.toUpperCase(),
-                              style: PaText.eyebrow(),),
+                          Text(
+                            l.notifprefs_eyebrow.toUpperCase(),
+                            style: PaText.eyebrow(),
+                          ),
                           const SizedBox(height: 3),
-                          Text(l.notifprefs_title,
-                              style: PaText.heading(size: 22),),
+                          Text(
+                            l.notifprefs_title,
+                            style: PaText.heading(size: 22),
+                          ),
                         ],
                       ),
                     ),
@@ -67,12 +73,12 @@ class NotificationsPreferencesPage extends ConsumerWidget {
                           for (final cat in NotifCategory.values)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 12),
-                              child: _CategoryCard(
+                              child: _CategoryToggleCard(
                                 category: cat,
-                                prefs: prefs,
-                                onToggle: (chan, value) => ref
+                                enabled: prefs.isEnabled(cat),
+                                onChanged: (value) => ref
                                     .read(notificationPrefsProvider.notifier)
-                                    .toggle(cat, chan, value),
+                                    .toggle(cat, value),
                               ),
                             ),
                         ],
@@ -117,15 +123,6 @@ String _catSubtitle(BuildContext context, NotifCategory c) {
     NotifCategory.carnet => l.notifprefs_cat_carnet_sub,
     NotifCategory.reconduction => l.notifprefs_cat_reconduction_sub,
     NotifCategory.securite => l.notifprefs_cat_securite_sub,
-  };
-}
-
-String _chanLabel(BuildContext context, NotifChannel c) {
-  final l = AppL10n.of(context);
-  return switch (c) {
-    NotifChannel.push => l.notifprefs_chan_push,
-    NotifChannel.email => l.notifprefs_chan_email,
-    NotifChannel.sms => l.notifprefs_chan_sms,
   };
 }
 
@@ -175,66 +172,60 @@ class _IntroCard extends StatelessWidget {
 }
 
 
-class _CategoryCard extends StatelessWidget {
-  const _CategoryCard({
+/// Une catégorie = une carte avec un unique interrupteur **push**.
+class _CategoryToggleCard extends StatelessWidget {
+  const _CategoryToggleCard({
     required this.category,
-    required this.prefs,
-    required this.onToggle,
+    required this.enabled,
+    required this.onChanged,
   });
 
   final NotifCategory category;
-  final NotificationPrefs prefs;
-  final void Function(NotifChannel chan, bool value) onToggle;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final meta = _metaFor(category);
 
     return PaCard(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: meta.tint.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(meta.icon, color: meta.tint, size: 20),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_catLabel(context, category),
-                        style: PaText.label(size: 14),),
-                    const SizedBox(height: 2),
-                    Text(
-                      _catSubtitle(context, category),
-                      style: PaText.body(
-                          size: 12.5, color: PaColors.inkSecondary,),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: meta.tint.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(meta.icon, color: meta.tint, size: 20),
           ),
-          const SizedBox(height: 14),
-          const Divider(height: 1, color: PaColors.line),
-          ...NotifChannel.values.map((chan) {
-            final enabled = prefs.isEnabled(category, chan);
-            return _ChannelRow(
-              channel: chan,
-              enabled: enabled,
-              onChanged: (v) => onToggle(chan, v),
-            );
-          }),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _catLabel(context, category),
+                  style: PaText.label(size: 14),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _catSubtitle(context, category),
+                  style: PaText.body(size: 12.5, color: PaColors.inkSecondary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Switch.adaptive(
+            value: enabled,
+            onChanged: onChanged,
+            activeThumbColor: PaColors.teal,
+            activeTrackColor: PaColors.tealSurface,
+          ),
         ],
       ),
     );
@@ -263,54 +254,5 @@ class _CategoryCard extends StatelessWidget {
           tint: PaColors.danger,
         ),
     };
-  }
-}
-
-
-class _ChannelRow extends StatelessWidget {
-  const _ChannelRow({
-    required this.channel,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final NotifChannel channel;
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final icon = switch (channel) {
-      NotifChannel.push => Icons.notifications_outlined,
-      NotifChannel.email => Icons.mail_outline_rounded,
-      NotifChannel.sms => Icons.sms_outlined,
-    };
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon,
-              size: 18, color: enabled ? PaColors.teal : PaColors.inkMuted,),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              _chanLabel(context, channel),
-              style: PaText.body(
-                size: 14,
-                weight: enabled ? FontWeight.w600 : FontWeight.w500,
-                color: enabled ? PaColors.inkPrimary : PaColors.inkSecondary,
-              ),
-            ),
-          ),
-          Switch.adaptive(
-            value: enabled,
-            onChanged: onChanged,
-            activeThumbColor: PaColors.teal,
-            activeTrackColor: PaColors.tealSurface,
-          ),
-        ],
-      ),
-    );
   }
 }

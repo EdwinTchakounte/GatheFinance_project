@@ -220,7 +220,7 @@ class HomePage extends ConsumerWidget {
                             subtitle: l.carousel_booklet_sub,
                             accent: PaColors.warning,
                             ctaLabel: l.carousel_booklet_cta,
-                            onTap: () => context.go('/booklet'),
+                            onTap: () => context.push('/booklet'),
                           ),
                           // Slide support en ligne (chat membre ↔ coop).
                           PaInfoSlide(
@@ -599,12 +599,7 @@ class _RecentList extends StatelessWidget {
               time: AppDateFormatter.withTime(entries[i].tx.date),
               amount: entries[i].tx.montant,
             ),
-            if (i < entries.length - 1)
-              const Divider(
-                height: 1,
-                thickness: 0.6,
-                color: PaColors.line,
-              ),
+            if (i < entries.length - 1) const SizedBox(height: 6),
           ],
         ],
       ),

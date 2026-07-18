@@ -111,10 +111,12 @@ class PaTransactionTile extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    // Tonalité réduite : le libellé d'opération est un rappel
+                    // secondaire, le montant reste le point focal.
                     style: const TextStyle(
-                      color: PaColors.inkPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                      color: PaColors.inkSecondary,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 2),

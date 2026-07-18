@@ -1,27 +1,59 @@
 import 'failures.dart';
 
 /// Message d'erreur **présentable à l'utilisateur** — jamais de détail
-/// technique (Dio, stacktrace, « Exception: … »).
-///
-/// - `Failure` → son message métier (déjà lisible).
-/// - Exception brute → préfixe technique retiré ; si ça ressemble à du bruit
-///   réseau/technique, on renvoie un message générique.
+/// technique (Dio, stacktrace, « Exception: … »). Les problèmes de connexion
+/// sont distingués (hors-ligne vs lenteur/serveur) pour rassurer l'utilisateur.
+
+const _kOffline = 'Pas de connexion internet. Vérifie ton réseau et réessaie.';
+const _kTimeout =
+    'La connexion est lente ou le serveur tarde à répondre. Réessaie dans un '
+    'instant.';
+const _kServer =
+    'Nos serveurs rencontrent un souci. Réessaie dans quelques instants.';
+
+bool _looksOffline(String lower) =>
+    lower.contains('socketexception') ||
+    lower.contains('dioexception') ||
+    lower.contains('connection') ||
+    lower.contains('handshake') ||
+    lower.contains('network') ||
+    lower.contains('failed host') ||
+    lower.startsWith('null');
+
 String friendlyError(
   Object? e, {
   String fallback = 'Une erreur est survenue. Réessaie.',
 }) {
-  if (e is Failure) return e.message;
+  // Réseau : on soigne le message selon hors-ligne vs lenteur.
+  if (e is NetworkFailure) {
+    final lower = e.message.toLowerCase();
+    if (lower.contains('timeout') || lower.contains('lente')) return _kTimeout;
+    if (lower.contains('certificat')) return e.message;
+    // Message générique par défaut → on renvoie le libellé hors-ligne soigné.
+    return e.message == 'Connexion impossible.' ? _kOffline : e.message;
+  }
+  if (e is Failure) return e.message; // déjà lisible (métier)
   if (e == null) return fallback;
+
   final s = e.toString().replaceFirst('Exception: ', '').trim();
   if (s.isEmpty) return fallback;
   final lower = s.toLowerCase();
-  if (lower.contains('dioexception') ||
-      lower.contains('socketexception') ||
-      lower.contains('connection') ||
-      lower.contains('timeout') ||
-      lower.contains('handshake') ||
-      lower.startsWith('null')) {
-    return 'Connexion impossible. Vérifie ta connexion et réessaie.';
+  if (lower.contains('timeout')) return _kTimeout;
+  if (_looksOffline(lower)) return _kOffline;
+  if (lower.contains('http 5') ||
+      lower.contains(' 500') ||
+      lower.contains('server')) {
+    return _kServer;
   }
+  // Reste technique (« exception », très long…) → message générique.
+  if (lower.contains('exception') || s.length > 140) return fallback;
   return s;
+}
+
+/// Vrai si l'erreur est un problème de connectivité (réseau/timeout) — sert à
+/// afficher une variante « Pas de connexion » dans les états d'erreur.
+bool isConnectivityError(Object? e) {
+  if (e is NetworkFailure) return true;
+  final lower = e?.toString().toLowerCase() ?? '';
+  return lower.contains('timeout') || _looksOffline(lower);
 }

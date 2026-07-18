@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
@@ -15,6 +14,7 @@ import '../../../../core/network/api_config.dart';
 import '../../../../core/services/transaction_fee_provider.dart';
 import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/payment_fee_breakdown.dart';
+import '../../../../core/widgets/pdf_preview_page.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
@@ -1709,23 +1709,17 @@ String _formatDateShort(DateTime d) {
 }
 
 
-// CH-9 . Ouvre la note PDF d'une demande de crédit dans le navigateur
-// système (la session cookie du backend est partagée avec le webview/Chrome
-// Custom Tab, donc l'auth fonctionne pour les membres déjà connectés).
+// CH-9 . Ouvre la note PDF d'une demande de crédit dans le viewer interne.
+// IMPORTANT : on passe par PdfPreviewPage (qui récupère le binaire via le Dio
+// de l'app, cookie de session inclus) et NON par le navigateur système —
+// celui-ci a son propre magasin de cookies, la requête arriverait donc non
+// authentifiée et le backend renverrait un 403 (page vide).
 Future<void> _openLoanNote(BuildContext context, int requestId) async {
-  final url = Uri.parse(
-    '${ApiConfig.apiBase}/loans/requests/$requestId/note/',
+  await PdfPreviewPage.open(
+    context,
+    url: '${ApiConfig.apiBase}/loans/requests/$requestId/note/',
+    title: 'Ma note de crédit',
   );
-  final ok = await launchUrl(
-    url,
-    mode: LaunchMode.externalApplication,
-  );
-  if (!context.mounted) return;
-  if (!ok) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Impossible d\'ouvrir la note PDF.')),
-    );
-  }
 }
 
 

@@ -308,11 +308,17 @@ def create_notification(*, user, type: str, message: str, lien: str = "") -> Not
         lien=lien,
     )
     try:
+        from .preferences import push_allowed
         from .push import send_push_to_user
 
-        send_push_to_user(
-            user, title="GATHE Finance", body=message, data={"type": type, "lien": lien}
-        )
+        # Respecte la préférence push par catégorie du membre (opt-out).
+        if push_allowed(user, type):
+            send_push_to_user(
+                user,
+                title="GATHE Finance",
+                body=message,
+                data={"type": type, "lien": lien},
+            )
     except Exception:  # noqa: BLE001 — le push ne doit jamais casser le flux
         pass
     return notif

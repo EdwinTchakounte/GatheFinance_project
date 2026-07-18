@@ -1,8 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-/// Catégories d'événements pour lesquels l'utilisateur peut être notifié.
-/// Alignées avec les hooks backend (apps_coop) : adhésion, épargne,
-/// crédit, carnet, reconduction, sécurité.
+/// Catégories d'événements pour lesquelles l'utilisateur peut recevoir un
+/// **push**. Alignées 1-1 avec le backend (`NotifCategory.name` == clé serveur).
 enum NotifCategory {
   epargne,
   credit,
@@ -32,51 +31,33 @@ extension NotifCategoryLabel on NotifCategory {
       };
 }
 
-/// Canaux de notification disponibles.
-enum NotifChannel { push, email, sms }
-
-extension NotifChannelLabel on NotifChannel {
-  String get label => switch (this) {
-        NotifChannel.push => 'Push',
-        NotifChannel.email => 'Email',
-        NotifChannel.sms => 'SMS',
-      };
-}
-
-/// État global des préférences — une matrice Catégorie × Canal en bool.
-/// Persisté localement via SharedPreferences (clé `notif_pref_<cat>_<chan>`).
+/// Préférences de notification **push** par catégorie (opt-out). Miroir de
+/// l'endpoint backend `/notifications/preferences/` — une catégorie absente
+/// est considérée activée.
 @immutable
 class NotificationPrefs {
-  const NotificationPrefs(this.matrix);
+  const NotificationPrefs(this.push);
 
-  final Map<NotifCategory, Map<NotifChannel, bool>> matrix;
+  final Map<NotifCategory, bool> push;
 
-  /// Préférences par défaut — push partout, email pour les événements
-  /// importants seulement, SMS uniquement sécurité.
-  factory NotificationPrefs.defaults() {
-    return NotificationPrefs({
-      for (final cat in NotifCategory.values)
-        cat: {
-          NotifChannel.push: true,
-          NotifChannel.email:
-              cat == NotifCategory.credit || cat == NotifCategory.securite,
-          NotifChannel.sms: cat == NotifCategory.securite,
-        },
-    });
-  }
+  /// Tout activé (défaut opt-out).
+  factory NotificationPrefs.defaults() =>
+      NotificationPrefs({for (final c in NotifCategory.values) c: true});
 
-  bool isEnabled(NotifCategory cat, NotifChannel chan) =>
-      matrix[cat]?[chan] ?? false;
+  /// Depuis la map serveur `{ "epargne": true, ... }`.
+  factory NotificationPrefs.fromApi(Map<String, bool> map) => NotificationPrefs(
+        {for (final c in NotifCategory.values) c: map[c.name] ?? true},
+      );
 
-  NotificationPrefs setEnabled(
-    NotifCategory cat,
-    NotifChannel chan,
-    bool value,
-  ) {
-    final next = {
-      for (final entry in matrix.entries) entry.key: {...entry.value},
-    };
-    next[cat]![chan] = value;
+  bool isEnabled(NotifCategory cat) => push[cat] ?? true;
+
+  /// Vers la map serveur `{ "epargne": true, ... }`.
+  Map<String, bool> toApi() =>
+      {for (final e in push.entries) e.key.name: e.value};
+
+  NotificationPrefs setEnabled(NotifCategory cat, bool value) {
+    final next = {...push};
+    next[cat] = value;
     return NotificationPrefs(next);
   }
 }

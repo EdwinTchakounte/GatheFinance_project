@@ -763,6 +763,8 @@
   "nav_annonces": "Annonces",
   "annonces_tab_news": "Actualités",
   "annonces_tab_campaigns": "Campagnes",
+  "annonces_tab_official": "Coopérative",
+  "booklet_page_title": "Mon carnet",
 
   "news_title": "Actualités",
   "news_load_error": "Impossible de charger les actualités.",
