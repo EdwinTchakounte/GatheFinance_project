@@ -423,7 +423,7 @@ class _ReleveCard extends StatelessWidget {
           ),
           if (dateAdhesion != null) ...[
             const SizedBox(height: 14),
-            const Divider(height: 1, color: PaColors.line),
+            const SizedBox(height: 8),
             const SizedBox(height: 14),
             Text(
               l.states_member_since(
@@ -629,7 +629,7 @@ class _PlacementTranchesSection extends ConsumerWidget {
               for (var i = 0; i < sorted.length; i++) ...[
                 _TrancheRow(tranche: sorted[i]),
                 if (i < sorted.length - 1)
-                  const Divider(height: 1, color: PaColors.line),
+                  const SizedBox(height: 8),
               ],
             ],
           ),
@@ -735,7 +735,7 @@ class _DetailCard extends StatelessWidget {
               ),
             ),
             if (i < lines.length - 1)
-              const Divider(height: 1, color: PaColors.line),
+              const SizedBox(height: 8),
           ],
         ],
       ),
@@ -838,7 +838,7 @@ class _WithdrawalsSection extends ConsumerWidget {
                 children: [
                   for (var i = 0; i < recent.length; i++) ...[
                     if (i > 0)
-                      const Divider(height: 1, color: PaColors.line),
+                      const SizedBox(height: 8),
                     _WithdrawalRow(w: recent[i]),
                   ],
                 ],

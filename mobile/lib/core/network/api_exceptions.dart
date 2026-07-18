@@ -12,8 +12,9 @@ Object mapDioError(DioException e) {
     case DioExceptionType.connectionTimeout:
     case DioExceptionType.sendTimeout:
     case DioExceptionType.receiveTimeout:
+      return const NetworkException('Connexion trop lente.');
     case DioExceptionType.connectionError:
-      return NetworkException(e.message ?? 'Connexion impossible.');
+      return const NetworkException('Connexion impossible.');
     case DioExceptionType.badCertificate:
       return const NetworkException('Certificat HTTPS invalide.');
     case DioExceptionType.cancel:

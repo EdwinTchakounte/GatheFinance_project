@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/error/error_message.dart';
 import '../../../../core/network/api_config.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/widgets/live_poller.dart';
@@ -105,7 +106,7 @@ class _BookletBodyState extends ConsumerState<BookletBody> {
                       padding: EdgeInsets.all(20),
                       child: SkeletonList(lines: 4),
                     ),
-                    error: (e, _) => _ErrorBox(message: e.toString()),
+                    error: (e, _) => _ErrorBox(message: friendlyError(e)),
                   ),
                 ),
               ),

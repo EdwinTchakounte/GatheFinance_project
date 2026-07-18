@@ -109,7 +109,7 @@ class HelpContactPage extends StatelessWidget {
                           for (int i = 0; i < faq.length; i++) ...[
                             _FaqTile(item: faq[i]),
                             if (i != faq.length - 1)
-                              const Divider(height: 1, color: PaColors.line),
+                              const Divider(height: 1, indent: 16, endIndent: 16, color: PaColors.line),
                           ],
                         ],
                       ),
@@ -128,7 +128,7 @@ class HelpContactPage extends StatelessWidget {
                             value: _whatsapp,
                             copyLabel: l.help_copied_whatsapp,
                           ),
-                          const Divider(height: 1, color: PaColors.line),
+                          const Divider(height: 1, indent: 16, endIndent: 16, color: PaColors.line),
                           _ContactTile(
                             icon: Icons.call_outlined,
                             tint: PaColors.blue,
@@ -136,7 +136,7 @@ class HelpContactPage extends StatelessWidget {
                             value: _phone,
                             copyLabel: l.help_copied_phone,
                           ),
-                          const Divider(height: 1, color: PaColors.line),
+                          const Divider(height: 1, indent: 16, endIndent: 16, color: PaColors.line),
                           _ContactTile(
                             icon: Icons.phone_in_talk_outlined,
                             tint: PaColors.navy,
@@ -144,7 +144,7 @@ class HelpContactPage extends StatelessWidget {
                             value: _landline,
                             copyLabel: l.help_copied_landline,
                           ),
-                          const Divider(height: 1, color: PaColors.line),
+                          const Divider(height: 1, indent: 16, endIndent: 16, color: PaColors.line),
                           _ContactTile(
                             icon: Icons.mail_outline_rounded,
                             tint: PaColors.teal,
@@ -152,7 +152,7 @@ class HelpContactPage extends StatelessWidget {
                             value: _email,
                             copyLabel: l.help_copied_email,
                           ),
-                          const Divider(height: 1, color: PaColors.line),
+                          const Divider(height: 1, indent: 16, endIndent: 16, color: PaColors.line),
                           _ContactTile(
                             icon: Icons.location_on_outlined,
                             tint: PaColors.warning,
@@ -161,7 +161,7 @@ class HelpContactPage extends StatelessWidget {
                             copyLabel: l.help_copied_agency,
                             multiline: true,
                           ),
-                          const Divider(height: 1, color: PaColors.line),
+                          const Divider(height: 1, indent: 16, endIndent: 16, color: PaColors.line),
                           _ContactTile(
                             icon: Icons.schedule_outlined,
                             tint: PaColors.inkMuted,

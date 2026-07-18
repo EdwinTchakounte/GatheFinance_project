@@ -40,7 +40,7 @@ class PaymentFeeBreakdown extends StatelessWidget {
           _row(context, 'Montant', XAFFormatter.format(montant)),
           const SizedBox(height: 4),
           _row(context, 'Frais ($pctLabel %)', '+ ${XAFFormatter.format(frais)}'),
-          const Divider(height: 14),
+          const SizedBox(height: 10),
           _row(context, 'Total à payer', XAFFormatter.format(total), bold: true),
         ],
       ),

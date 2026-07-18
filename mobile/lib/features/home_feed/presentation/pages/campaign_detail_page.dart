@@ -496,7 +496,7 @@ class _SectionDivider extends StatelessWidget {
   const _SectionDivider();
   @override
   Widget build(BuildContext context) {
-    return const Divider(color: PaColors.line, height: 1);
+    return const SizedBox(height: 18);
   }
 }
 

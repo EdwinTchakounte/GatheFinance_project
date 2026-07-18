@@ -599,12 +599,7 @@ class _RecentList extends StatelessWidget {
               time: AppDateFormatter.withTime(entries[i].tx.date),
               amount: entries[i].tx.montant,
             ),
-            if (i < entries.length - 1)
-              const Divider(
-                height: 1,
-                thickness: 0.6,
-                color: PaColors.line,
-              ),
+            if (i < entries.length - 1) const SizedBox(height: 6),
           ],
         ],
       ),

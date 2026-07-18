@@ -117,99 +117,90 @@ Future<Uint8List> buildRecuVersementPdf(RecuData d) async {
 
   doc.addPage(
     pw.Page(
-      pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.fromLTRB(40, 44, 40, 40),
-      build: (context) => pw.Stack(
+      pageTheme: pw.PageTheme(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.only(
+          left: 40,
+          right: 40,
+          top: gatheHeaderMargin + 14,
+          bottom: gatheFooterMargin + 14,
+        ),
+        buildBackground: (context) => gatheLetterheadBackground(logo),
+      ),
+      build: (context) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          // Filigrane logo centré, très atténué (comme les PDF backend).
-          gatheWatermark(logo),
-          // Contenu.
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // En-tête officiel (papier à en-tête).
-              gatheLetterheadHeader(logo),
-              pw.SizedBox(height: 16),
-              // Titre centré + référence.
-              pw.Center(
-                child: pw.Text(
-                  d.title.toUpperCase(),
-                  style: pw.TextStyle(
-                    color: _ink,
-                    fontSize: 14,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
+          // Titre centré + référence.
+          pw.Center(
+            child: pw.Text(
+              d.title.toUpperCase(),
+              style: pw.TextStyle(
+                color: _ink,
+                fontSize: 14,
+                fontWeight: pw.FontWeight.bold,
               ),
-              pw.SizedBox(height: 3),
-              pw.Center(
-                child: pw.Text(
-                  '${d.receiptRef} · ${d.issuedOn}',
-                  style: const pw.TextStyle(color: _muted, fontSize: 9.5),
-                ),
-              ),
-              pw.SizedBox(height: 6),
-              // Bloc MEMBRE.
-              sectionHeader('Membre'),
-              row(RecuLine('Nom complet', d.memberName, emphasize: true)),
-              row(RecuLine('N° membre', d.memberNumber)),
-              pw.SizedBox(height: 14),
-              // Panneau MONTANT mis en valeur.
-              pw.Container(
-                width: double.infinity,
-                padding:
-                    const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: pw.BoxDecoration(
-                  color: _panelBg,
-                  borderRadius: pw.BorderRadius.circular(8),
-                  border: pw.Border.all(color: _blue, width: 0.8),
-                ),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            ),
+          ),
+          pw.SizedBox(height: 3),
+          pw.Center(
+            child: pw.Text(
+              '${d.receiptRef} · ${d.issuedOn}',
+              style: const pw.TextStyle(color: _muted, fontSize: 9.5),
+            ),
+          ),
+          pw.SizedBox(height: 6),
+          // Bloc MEMBRE.
+          sectionHeader('Membre'),
+          row(RecuLine('Nom complet', d.memberName, emphasize: true)),
+          row(RecuLine('N° membre', d.memberNumber)),
+          pw.SizedBox(height: 14),
+          // Panneau MONTANT mis en valeur.
+          pw.Container(
+            width: double.infinity,
+            padding:
+                const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: pw.BoxDecoration(
+              color: _panelBg,
+              borderRadius: pw.BorderRadius.circular(8),
+              border: pw.Border.all(color: _blue, width: 0.8),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          d.operationLabel.toUpperCase(),
-                          style: pw.TextStyle(
-                            color: _blue,
-                            fontSize: 9,
-                            fontWeight: pw.FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        pw.SizedBox(height: 6),
-                        pw.Text(
-                          d.amountValue,
-                          style: pw.TextStyle(
-                            color: _ink,
-                            fontSize: 23,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
                     pw.Text(
-                      'Statut : ${d.statusLabel}',
-                      style: const pw.TextStyle(color: _muted, fontSize: 9.5),
+                      d.operationLabel.toUpperCase(),
+                      style: pw.TextStyle(
+                        color: _blue,
+                        fontSize: 9,
+                        fontWeight: pw.FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    pw.SizedBox(height: 6),
+                    pw.Text(
+                      d.amountValue,
+                      style: pw.TextStyle(
+                        color: _ink,
+                        fontSize: 23,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
-              ),
-              // Bloc DÉTAILS.
-              sectionHeader('Détails de l\'opération'),
-              ...d.lines.map(row),
-            ],
+                pw.Text(
+                  'Statut : ${d.statusLabel}',
+                  style: const pw.TextStyle(color: _muted, fontSize: 9.5),
+                ),
+              ],
+            ),
           ),
-          // Pied officiel (bandeau bleu de contacts), collé en bas de page.
-          pw.Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: gatheLetterheadFooter(),
-          ),
+          // Bloc DÉTAILS.
+          sectionHeader('Détails de l\'opération'),
+          ...d.lines.map(row),
         ],
       ),
     ),

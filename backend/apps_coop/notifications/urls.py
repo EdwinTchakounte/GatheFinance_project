@@ -17,6 +17,8 @@ urlpatterns = [
     # Push — enregistrement du jeton d'appareil (bases FCM/APNs).
     path("devices/register/", views.register_device, name="device-register"),
     path("devices/unregister/", views.unregister_device, name="device-unregister"),
+    # Préférences push par catégorie (opt-out).
+    path("preferences/", views.notification_preferences, name="preferences"),
     # Admin — gestion des annonces broadcast.
     path(
         "admin/announcements/",

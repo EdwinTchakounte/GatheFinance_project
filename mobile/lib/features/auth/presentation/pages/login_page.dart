@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
+import '../../../../core/error/error_message.dart';
 import '../../../../core/widgets/paysika/pa_brand_hero.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../l10n/gen/app_localizations.dart';
@@ -85,8 +86,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         } else {
           // signIn() a réussi côté HTTP mais le payload n'a pas de Member.
           // Le serveur a renvoyé un compte staff/sans profil membre.
-          setState(() =>
-              _loginError = 'Ce compte n\'a pas de profil membre.');
+          setState(
+            () => _loginError = 'Ce compte n\'a pas de profil membre.',
+          );
         }
       },
     );
@@ -126,33 +128,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   /// Traduit les exceptions internes en messages parlants pour le sociétaire.
+  /// Cas d'auth spécifique d'abord, puis délègue au socle commun
+  /// [friendlyError] (réseau/lenteur/serveur soignés, jamais de brut).
   String _humanizeError(Object err) {
     final s = err.toString().toLowerCase();
     if (s.contains('credentials') ||
         s.contains('identifiants invalides') ||
+        s.contains('mot de passe') ||
         s.contains('401')) {
       return 'Email ou mot de passe incorrect.';
     }
-    if (s.contains('failed host lookup') ||
-        s.contains('socket') ||
-        s.contains('connection') ||
-        s.contains('réseau') ||
-        s.contains('network')) {
-      return 'Pas de connexion . vérifie ton réseau et réessaie.';
-    }
-    if (s.contains('timeout') || s.contains('délai')) {
-      return 'Le serveur met trop de temps à répondre. Réessaie.';
-    }
-    if (s.contains('certificat') || s.contains('certificate')) {
-      return 'Connexion sécurisée impossible (certificat).';
-    }
-    if (s.contains('500') || s.contains('serveur')) {
-      return 'Erreur serveur. Réessaie dans un instant.';
-    }
-    // Fallback : afficher le message brut s'il est court, sinon générique.
-    final raw = err.toString().replaceFirst('Exception: ', '');
-    if (raw.length <= 90) return raw;
-    return 'Connexion impossible. Réessaie.';
+    return friendlyError(err);
   }
 
   @override
@@ -678,8 +664,11 @@ class _ErrorBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.error_outline_rounded,
-              color: PaColors.danger, size: 19),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: PaColors.danger,
+            size: 19,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

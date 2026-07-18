@@ -34,4 +34,11 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   @override
   Future<void> unregisterDevice(String token) =>
       _run(() => _remote.unregisterDevice(token));
+
+  @override
+  Future<Map<String, bool>> getPushPrefs() => _run(_remote.getPushPrefs);
+
+  @override
+  Future<Map<String, bool>> setPushPrefs(Map<String, bool> updates) =>
+      _run(() => _remote.setPushPrefs(updates));
 }

@@ -15,6 +15,7 @@ import 'package:printing/printing.dart';
 
 import '../../app/theme/paysika/pa_colors.dart';
 import '../di/providers.dart';
+import '../error/error_message.dart';
 
 class PdfPreviewPage extends ConsumerStatefulWidget {
   const PdfPreviewPage({
@@ -82,7 +83,7 @@ class _PdfPreviewPageState extends ConsumerState<PdfPreviewPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e);
       });
     }
   }
