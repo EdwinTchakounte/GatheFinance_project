@@ -1372,6 +1372,19 @@ def loan_request_record_study_fee(request, pk: int):
             {"detail": "Les frais d'étude ne se règlent que sur une demande « en attente (frais à payer) »."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+    # Anti double-facturation : une demande peut rester EN_ATTENTE frais DÉJÀ
+    # réglés (bénéficiaire campagne qui attend son carnet). On refuse alors un
+    # 2e encaissement de frais d'étude (seul le carnet reste dû → type carnet).
+    if lr.frais_demande_credit_paye:
+        return Response(
+            {
+                "detail": (
+                    "Les frais d'étude de cette demande sont déjà réglés. "
+                    "S'il reste des frais de carnet dus, utilise le type « frais de carnet »."
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     montant = study_fee_for(getattr(lr, "microcampaign", None))
     payment = Payment.objects.create(

@@ -45,20 +45,25 @@ TEMPLATES = [
         "code": "member.welcome",
         "objet": "Bienvenue chez GATHE Finance, {prenom} !",
         "corps_html": _join(
-            hi("{prenom} {nom}"),
+            hi("{nom_complet}"),
             title("Ta demande d'adhésion est approuvée"),
             lead(
                 "Bonne nouvelle - le comité a validé ton dossier. Avant tout, "
                 "définis ton mot de passe pour accéder à ton espace membre, "
-                "puis règle tes frais d'adhésion pour activer ton compte."
+                "puis règle tes frais d'activation pour ouvrir ton compte."
             ),
             info_card([
                 ("Numéro membre", "<strong>{numero_membre}</strong>"),
-                ("Frais d'adhésion", "<strong>{frais_montant} XAF</strong>"),
+                ("Frais d'adhésion", "<strong>{frais_adhesion} XAF</strong>"),
+                ("Frais d'inscription", "<strong>{frais_inscription} XAF</strong>"),
+                ("Frais de carnet", "<strong>{frais_carnet} XAF</strong>"),
+                ("Total à régler", "<strong>{frais_montant} XAF</strong>"),
                 ("Validité", "Activation immédiate après paiement"),
             ], tone="success"),
             cta("Définir mon mot de passe", "{password_setup_url}"),
             p(
+                "Ces trois frais (adhésion, inscription et carnet) sont "
+                "distincts et exigés une seule fois pour activer ton compte. "
                 "Ce lien est valable <strong>72 heures</strong>. Après avoir "
                 "défini ton mot de passe, tu pourras te connecter au portail ou "
                 "à l'application mobile, puis régler tes frais par Mobile Money "
@@ -68,7 +73,8 @@ TEMPLATES = [
             closing(),
         ),
         "variables": [
-            "prenom", "nom", "numero_membre", "frais_montant",
+            "prenom", "nom", "nom_complet", "numero_membre", "frais_montant",
+            "frais_adhesion", "frais_inscription", "frais_carnet",
             "portal_url", "password_setup_url",
         ],
     },

@@ -203,6 +203,10 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "nom": getattr(m, "nom", "") or "",
             "prenom": getattr(m, "prenom", "") or "",
             "telephone": getattr(m, "phone", "") or "",
+            # Email de l'adhérent (via le User lié) — sert la colonne « E-mail »
+            # de la liste admin (masquée par défaut, activable au besoin) et le
+            # contact direct depuis le cash-in.
+            "email": getattr(getattr(m, "user", None), "email", "") or "",
         }
 
     def get_attachments(self, obj):

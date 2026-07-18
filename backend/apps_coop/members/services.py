@@ -269,13 +269,48 @@ def _send_welcome_email(member: Member, to_email: str) -> None:
             )
             password_setup_url = ""
 
-        # « Première cotisation » = frais d'adhésion + frais d'inscription
-        # (montants exacts du Règlement, lus en base — jamais codés en dur).
-        fees = FeeType.objects.filter(
-            code__in=[FeeType.Code.ADHESION, FeeType.Code.INSCRIPTION]
-        )
-        total = sum((f.montant for f in fees), Decimal("0"))
-        frais_montant = f"{int(total):,}".replace(",", " ")
+        # Frais d'activation = adhésion + inscription + carnet (montants exacts
+        # du Règlement, lus en base — jamais codés en dur). On expose le DÉTAIL
+        # (et pas un total agrégé mal étiqueté « frais d'adhésion ») : le membre
+        # doit comprendre qu'il paie 3 lignes distinctes.
+        def _fee(code) -> Decimal:
+            m = (
+                FeeType.objects.filter(code=code, actif=True)
+                .values_list("montant", flat=True)
+                .first()
+            )
+            return Decimal(m) if m is not None else Decimal("0")
+
+        def _xaf(v: Decimal) -> str:
+            return f"{int(v):,}".replace(",", " ")
+
+        frais_adhesion = _fee(FeeType.Code.ADHESION)
+        frais_inscription = _fee(FeeType.Code.INSCRIPTION)
+        frais_carnet = _fee(FeeType.Code.CARNET)
+        total = frais_adhesion + frais_inscription + frais_carnet
+        # Rétro-compat : `frais_montant` reste le total d'activation (désormais
+        # les 3 lignes, plus seulement adhésion + inscription).
+        frais_montant = _xaf(total)
+        frais_adhesion_txt = _xaf(frais_adhesion)
+        frais_inscription_txt = _xaf(frais_inscription)
+        frais_carnet_txt = _xaf(frais_carnet)
+
+        # Nom d'affichage dédoublonné : le formulaire public ne capture qu'un
+        # champ « nom complet » (stocké dans `nom`) ; l'admin renseigne `prenom`
+        # à l'instruction. Résultat fréquent : `nom` contient déjà le prénom, si
+        # bien que « {prenom} {nom} » duplique le prénom (« Jean Jean Dupont »).
+        # On construit ici un nom propre, affiché une seule fois.
+        _prenom = (member.prenom or "").strip()
+        _nom = (member.nom or "").strip()
+        if _prenom and _nom.lower().startswith(_prenom.lower()):
+            nom_complet = _nom
+        elif _prenom and _nom:
+            nom_complet = f"{_prenom} {_nom}"
+        else:
+            nom_complet = _nom or _prenom
+        # Prénom d'affichage (sujet de l'e-mail) : le 1er mot du nom si `prenom`
+        # est vide (cas nominal du formulaire public).
+        prenom_affiche = _prenom or (nom_complet.split()[0] if nom_complet else "")
 
         # Attestation d'adhésion (PDF) — jointe si la génération réussit, sinon
         # on n'empêche pas l'envoi de l'e-mail.
@@ -322,10 +357,14 @@ def _send_welcome_email(member: Member, to_email: str) -> None:
             member=member,
             to_email=to_email,  # adresse de l'inscription, pas forcément user.email
             context={
-                "prenom": member.prenom,
+                "prenom": prenom_affiche,
                 "nom": member.nom,
+                "nom_complet": nom_complet,
                 "numero_membre": member.numero_membre,
                 "frais_montant": frais_montant,
+                "frais_adhesion": frais_adhesion_txt,
+                "frais_inscription": frais_inscription_txt,
+                "frais_carnet": frais_carnet_txt,
                 "portal_url": build_portal_url(),
                 "password_setup_url": password_setup_url,
             },

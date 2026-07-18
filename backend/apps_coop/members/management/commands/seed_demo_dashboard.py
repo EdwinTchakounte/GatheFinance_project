@@ -563,7 +563,7 @@ class Command(BaseCommand):
             loan_request=lr,
             numero_dossier=f"GF-CR-DEMO-{suffix}",
             montant=montant,
-            taux_interet=Decimal("0.12"),
+            taux_interet=Decimal("0.10"),
             taux_penalite=Decimal("0.50"),
             duree_mois=12,
             date_decaissement=date.today() - timedelta(days=days_since_disbursement),
