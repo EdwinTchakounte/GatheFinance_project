@@ -185,19 +185,17 @@ export function Sidebar({
           open ? "translate-x-0 shadow-xl" : "-translate-x-full lg:shadow-none",
         ].join(" ")}
       >
-        {/* Header — logo + wordmark */}
-        <div className="flex items-center gap-3 px-5 py-5">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm">
-            G
-          </span>
-          <div className="min-w-0">
-            <p className="truncate font-display text-sm font-semibold leading-tight text-ink-900">
-              GATHE Finance
-            </p>
-            <p className="text-[0.68rem] font-medium uppercase tracking-[0.16em] text-terra-600">
-              Administration
-            </p>
-          </div>
+        {/* Header — logo officiel + libellé back-office */}
+        <div className="px-5 py-5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/logo.png"
+            alt="GATHE Finance"
+            className="h-8 w-auto"
+          />
+          <p className="mt-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-terra-600">
+            Administration
+          </p>
         </div>
 
         {/* Nav — sections thématiques */}
