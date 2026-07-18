@@ -95,6 +95,9 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
+      // Densité 2026 : UI resserrée (boutons, list tiles, champs) — moins
+      // « grotesque », plus de contenu à l'écran, sans nuire à la lisibilité.
+      visualDensity: VisualDensity.compact,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: cream,
       canvasColor: cream,
