@@ -858,6 +858,35 @@ def _hook_carnet_fees(payment: Payment, raw: dict) -> None:
     if not is_renewal:
         _activate_member_if_fees_settled(payment.member, trigger_payment=payment)
 
+    # Bénéficiaire campagne : le carnet obligatoire vient d'être créé. Si sa
+    # demande de crédit attendait UNIQUEMENT le carnet (frais d'étude déjà
+    # réglés), on ouvre maintenant l'instruction.
+    if created:
+        try:
+            from apps_coop.loans.models import LoanRequest
+            from apps_coop.loans.study_fee_services import (
+                open_instruction_after_fees,
+            )
+
+            pending = (
+                LoanRequest.objects.filter(
+                    member=payment.member,
+                    statut=LoanRequest.Statut.EN_ATTENTE,
+                    frais_demande_credit_paye=True,
+                    microcampaign__isnull=False,
+                )
+                .order_by("-id")
+                .first()
+            )
+            if pending is not None:
+                open_instruction_after_fees(pending)
+        except Exception:  # noqa: BLE001 — best-effort, ne casse pas le hook carnet
+            logger.warning(
+                "Ouverture instruction post-carnet échouée (member=%s)",
+                payment.member_id,
+                exc_info=True,
+            )
+
 
 # ---------------------------------------------------------------------------
 # D1 . Renouvellement annuel d'adhesion (chantier 2026-06)

@@ -334,22 +334,30 @@ def accept_campaign_application(application, *, decided_by):
     )
 
     # L'acceptation de la candidature FAIT office de validation campagne
-    # (pas de 2e porte). Restent les frais d'étude : porte « en_attente » si des
-    # frais (propres à la campagne) sont dus, sinon directement en instruction.
-    from .services import study_fee_for
+    # (pas de 2e porte). Restent les frais à régler à la demande de crédit :
+    #   • frais d'étude (propres à la campagne ou standard)
+    #   • frais de CARNET — obligatoire pour un membre créé via campagne
+    #     (les versements collecte s'imputent au carnet). Facturé + payé ici.
+    # La demande reste EN_ATTENTE tant que ces frais ne sont pas soldés.
+    from .services import campaign_member_needs_carnet, study_fee_for
 
-    _lr_status = (
-        LoanRequest.Statut.EN_ATTENTE
-        if study_fee_for(campaign) > 0
-        else LoanRequest.Statut.EN_INSTRUCTION
-    )
+    _study_fee = study_fee_for(campaign)
+    _needs_carnet = campaign_member_needs_carnet(member)
+    _en_attente = _study_fee > 0 or _needs_carnet
     lr = LoanRequest.objects.create(
         member=member,
         montant_demande=montant,
         duree_mois=duration_months_for(montant),
         motif=application.motif or f"Candidature campagne {campaign.nom}",
         microcampaign=campaign,
-        statut=_lr_status,
+        statut=(
+            LoanRequest.Statut.EN_ATTENTE
+            if _en_attente
+            else LoanRequest.Statut.EN_INSTRUCTION
+        ),
+        # Rien à payer côté étude → marqué payé (le carnet reste, lui, dû et
+        # ouvrira l'instruction à son règlement via _hook_carnet_fees).
+        frais_demande_credit_paye=(_study_fee <= 0),
     )
 
     application.statut = CampaignApplication.Statut.ACCEPTEE
