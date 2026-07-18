@@ -59,13 +59,16 @@ export default function AdminLoginPage() {
           aria-hidden
           className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-white/5 blur-2xl"
         />
-        <div className="relative z-10 flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl bg-white/95 text-base font-bold text-blue-800 shadow-sm">
-            G
+        <div className="relative z-10">
+          {/* Logo officiel sur pastille claire (contraste sur le fond bleu). */}
+          <span className="inline-flex items-center rounded-2xl bg-paper px-4 py-2.5 shadow-sm">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/logo.png"
+              alt="GATHE Finance"
+              className="h-8 w-auto"
+            />
           </span>
-          <p className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-white/90">
-            GATHE Finance
-          </p>
         </div>
         <div className="relative z-10 max-w-md">
           <h2 className="font-editorial text-3xl font-medium leading-tight text-white">
@@ -102,9 +105,9 @@ export default function AdminLoginPage() {
             <div className="mb-8 flex flex-col items-center lg:items-start">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/images/logo.jpg"
+                src="/images/logo.png"
                 alt="GATHE Finance"
-                className="h-12 w-auto rounded-xl ring-1 ring-ink-900/5 lg:hidden"
+                className="h-11 w-auto lg:hidden"
               />
               <p className="mt-3 font-display text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-terra-600 lg:mt-0">
                 Back-office
