@@ -389,6 +389,25 @@ class AppL10nFr extends AppL10n {
   String get credit_status_closed => 'Clôturé';
 
   @override
+  String get credit_closed_section_title => 'Crédits clôturés';
+
+  @override
+  String get credit_hide_action => 'Supprimer';
+
+  @override
+  String get credit_hide_confirm_title => 'Masquer ce crédit ?';
+
+  @override
+  String get credit_hide_confirm_body =>
+      'Il disparaîtra de ta liste. Rien n\'est supprimé côté coopérative.';
+
+  @override
+  String get credit_hide_cancel => 'Annuler';
+
+  @override
+  String get credit_hide_done => 'Crédit masqué.';
+
+  @override
   String get credit_remaining_balance => 'Solde restant';
 
   @override

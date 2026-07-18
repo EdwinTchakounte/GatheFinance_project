@@ -147,6 +147,12 @@
   "credit_status_active": "Actif",
   "credit_status_late": "En retard",
   "credit_status_closed": "Clôturé",
+  "credit_closed_section_title": "Crédits clôturés",
+  "credit_hide_action": "Supprimer",
+  "credit_hide_confirm_title": "Masquer ce crédit ?",
+  "credit_hide_confirm_body": "Il disparaîtra de ta liste. Rien n'est supprimé côté coopérative.",
+  "credit_hide_cancel": "Annuler",
+  "credit_hide_done": "Crédit masqué.",
   "credit_remaining_balance": "Solde restant",
   "credit_installments_count": "{paid} / {total} échéances",
   "@credit_installments_count": {

@@ -823,6 +823,42 @@ abstract class AppL10n {
   /// **'Clôturé'**
   String get credit_status_closed;
 
+  /// No description provided for @credit_closed_section_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Crédits clôturés'**
+  String get credit_closed_section_title;
+
+  /// No description provided for @credit_hide_action.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer'**
+  String get credit_hide_action;
+
+  /// No description provided for @credit_hide_confirm_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Masquer ce crédit ?'**
+  String get credit_hide_confirm_title;
+
+  /// No description provided for @credit_hide_confirm_body.
+  ///
+  /// In fr, this message translates to:
+  /// **'Il disparaîtra de ta liste. Rien n\'est supprimé côté coopérative.'**
+  String get credit_hide_confirm_body;
+
+  /// No description provided for @credit_hide_cancel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Annuler'**
+  String get credit_hide_cancel;
+
+  /// No description provided for @credit_hide_done.
+  ///
+  /// In fr, this message translates to:
+  /// **'Crédit masqué.'**
+  String get credit_hide_done;
+
   /// No description provided for @credit_remaining_balance.
   ///
   /// In fr, this message translates to:

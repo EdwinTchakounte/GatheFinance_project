@@ -628,6 +628,18 @@ class Loan(TimestampedModel):
         ),
     )
 
+    # Le membre a masqué ce crédit CLÔTURÉ de sa vue (mobile/portail). Soft-hide
+    # côté membre uniquement — RIEN n'est supprimé en base (audit, admin, compta
+    # restent intacts). Seul un crédit clôturé peut être masqué.
+    masque_par_membre = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text=(
+            "True = crédit clôturé masqué de la vue du membre. Aucune "
+            "suppression en base ; l'admin le voit toujours."
+        ),
+    )
+
     # CH-8 — Date butoire formelle (échéancier souple, date butoire stricte).
     # Posée à la création du Loan = date_premiere_echeance + duree_mois.
     # Modifiable par l'admin (extension exceptionnelle à la demande du membre).

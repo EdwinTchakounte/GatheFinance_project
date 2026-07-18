@@ -387,6 +387,25 @@ class AppL10nEn extends AppL10n {
   String get credit_status_closed => 'Closed';
 
   @override
+  String get credit_closed_section_title => 'Closed credits';
+
+  @override
+  String get credit_hide_action => 'Remove';
+
+  @override
+  String get credit_hide_confirm_title => 'Hide this credit?';
+
+  @override
+  String get credit_hide_confirm_body =>
+      'It will disappear from your list. Nothing is deleted on the cooperative side.';
+
+  @override
+  String get credit_hide_cancel => 'Cancel';
+
+  @override
+  String get credit_hide_done => 'Credit hidden.';
+
+  @override
   String get credit_remaining_balance => 'Remaining balance';
 
   @override

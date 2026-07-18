@@ -724,10 +724,53 @@ def loans_me_closed(request):
             member=request.user.member,
             statut=Loan.Statut.CLOTURE,
         )
+        # Le membre a pu masquer certains crédits clôturés de sa vue.
+        .exclude(masque_par_membre=True)
         .prefetch_related("installments")
         .order_by("-date_decaissement")
     )
     return Response(LoanReadSerializer(qs, many=True).data)
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="Masquer un crédit clôturé de sa vue (soft-hide membre)",
+    description=(
+        "Le membre retire un crédit CLÔTURÉ de sa liste (mobile/portail). "
+        "RIEN n'est supprimé en base : l'admin, l'audit et la compta le voient "
+        "toujours. Idempotent. Seul un crédit clôturé peut être masqué."
+    ),
+    responses={
+        200: OpenApiResponse(description="Crédit masqué"),
+        400: OpenApiResponse(description="Le crédit n'est pas clôturé"),
+        404: OpenApiResponse(description="Crédit introuvable"),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsMember])
+def loan_me_hide(request, pk: int):
+    loan = Loan.objects.filter(pk=pk, member=request.user.member).first()
+    if loan is None:
+        return Response(
+            {"detail": "Crédit introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+    if loan.statut != Loan.Statut.CLOTURE:
+        return Response(
+            {"detail": "Seul un crédit clôturé peut être masqué."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not loan.masque_par_membre:
+        loan.masque_par_membre = True
+        loan.save(update_fields=["masque_par_membre", "updated_at"])
+        record_audit(
+            action="loan.hidden_by_member",
+            entite_type="Loan",
+            entite_id=loan.id,
+            user=request.user,
+            details={"numero_dossier": loan.numero_dossier},
+            ip=client_ip(request),
+        )
+    return Response({"ok": True, "id": loan.id})
 
 
 @extend_schema(

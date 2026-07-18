@@ -66,6 +66,7 @@ from .views import (
     loans_me_active,
     transfer_available,
     loans_me_closed,
+    loan_me_hide,
     me_lender_payouts,
 )
 
@@ -85,6 +86,8 @@ urlpatterns = [
     ),
     # P3 . Historique credits cloturees (parite portail web).
     path("me/closed/", loans_me_closed, name="my-closed-loans"),
+    # Le membre masque un crédit clôturé de sa vue (soft-hide, rien en base).
+    path("me/loans/<int:pk>/hide/", loan_me_hide, name="loan-me-hide"),
     # CH-12 — Versements d'intérêts reçus en tant que prêteur.
     path("me/lender-payouts/", me_lender_payouts, name="my-lender-payouts"),
     # LOT 11 — Liste publique des campagnes micro-crédit actives (mobile +
