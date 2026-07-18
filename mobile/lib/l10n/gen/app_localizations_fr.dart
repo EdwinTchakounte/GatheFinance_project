@@ -1915,6 +1915,12 @@ class AppL10nFr extends AppL10n {
   String get annonces_tab_campaigns => 'Campagnes';
 
   @override
+  String get annonces_tab_official => 'Coopérative';
+
+  @override
+  String get booklet_page_title => 'Mon carnet';
+
+  @override
   String get news_title => 'Actualités';
 
   @override

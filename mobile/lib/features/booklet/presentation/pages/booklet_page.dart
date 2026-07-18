@@ -24,6 +24,40 @@ import '../widgets/order_booklet_sheet.dart';
 /// Corps « Carnet » réutilisable, sans chrome (ni Scaffold, ni header) : il est
 /// affiché comme onglet segmenté « Carnet » à l'intérieur de la page Crédit
 /// (refonte nav 2026). Le polling est rattaché à la branche Crédit (index 1).
+/// Page « Carnet » autonome — poussée depuis le carrousel Home (`/booklet`).
+/// Réutilise le corps [BookletBody] (le même onglet que dans la page Crédit).
+class BookletPage extends StatelessWidget {
+  const BookletPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    return Scaffold(
+      backgroundColor: PaColors.canvas,
+      appBar: AppBar(
+        backgroundColor: PaColors.canvas,
+        surfaceTintColor: PaColors.canvas,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon:
+              const Icon(Icons.arrow_back_rounded, color: PaColors.inkPrimary),
+        ),
+        title: Text(
+          l.booklet_page_title,
+          style: const TextStyle(
+            color: PaColors.inkPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      body: const SafeArea(top: false, child: BookletBody()),
+    );
+  }
+}
+
 class BookletBody extends ConsumerStatefulWidget {
   const BookletBody({super.key});
 

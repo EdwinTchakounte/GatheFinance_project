@@ -200,10 +200,20 @@ class _Composer extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        decoration: const BoxDecoration(
-          color: PaColors.canvas,
-          border: Border(top: BorderSide(color: PaColors.line, width: 0.8)),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: PaColors.paper,
+          border: const Border(
+            top: BorderSide(color: PaColors.line, width: 0.8),
+          ),
+          // Léger relief : la barre « flotte » au-dessus du fil.
+          boxShadow: [
+            BoxShadow(
+              color: PaColors.navy.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, -3),
+            ),
+          ],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -220,51 +230,113 @@ class _Composer extends StatelessWidget {
                   hintText: hint,
                   hintStyle: const TextStyle(color: PaColors.inkFaint),
                   filled: true,
-                  fillColor: PaColors.paper,
+                  fillColor: PaColors.canvas,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(24),
                     borderSide: const BorderSide(color: PaColors.line, width: 0.8),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(24),
                     borderSide: const BorderSide(color: PaColors.teal, width: 1.4),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: sending ? null : onSend,
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: sending ? PaColors.inkFaint : PaColors.teal,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: sending
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.send_rounded,
-                        color: Colors.white, size: 20,),
-              ),
-            ),
+            const SizedBox(width: 10),
+            _SendButton(ctrl: ctrl, sending: sending, onSend: onSend),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Bouton d'envoi soigné : dégradé teal→bleu, ombre douce, micro-animation au
+/// tap, et désactivé (grisé) tant que le champ est vide ou pendant l'envoi.
+class _SendButton extends StatefulWidget {
+  const _SendButton({
+    required this.ctrl,
+    required this.sending,
+    required this.onSend,
+  });
+  final TextEditingController ctrl;
+  final bool sending;
+  final VoidCallback onSend;
+
+  @override
+  State<_SendButton> createState() => _SendButtonState();
+}
+
+class _SendButtonState extends State<_SendButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: widget.ctrl,
+      builder: (context, value, _) {
+        final enabled = value.text.trim().isNotEmpty && !widget.sending;
+        return GestureDetector(
+          onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+          onTapUp: enabled
+              ? (_) {
+                  setState(() => _pressed = false);
+                  widget.onSend();
+                }
+              : null,
+          onTapCancel: () => setState(() => _pressed = false),
+          child: AnimatedScale(
+            scale: _pressed ? 0.92 : 1,
+            duration: const Duration(milliseconds: 120),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: enabled
+                    ? const LinearGradient(
+                        colors: [PaColors.teal, PaColors.blue],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: enabled ? null : PaColors.line,
+                boxShadow: enabled
+                    ? [
+                        BoxShadow(
+                          color: PaColors.teal.withValues(alpha: 0.28),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
+              ),
+              alignment: Alignment.center,
+              child: widget.sending
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(
+                      Icons.send_rounded,
+                      color: enabled ? Colors.white : PaColors.inkFaint,
+                      size: 20,
+                    ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

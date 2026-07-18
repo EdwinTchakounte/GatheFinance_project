@@ -5,6 +5,7 @@ import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../notifications/presentation/pages/announcements_page.dart';
 import 'campaigns_list_page.dart';
 import 'news_list_page.dart';
 
@@ -29,7 +30,7 @@ class AnnoncesPage extends ConsumerWidget {
         child: SafeArea(
           bottom: false,
           child: DefaultTabController(
-            length: 2,
+            length: 3,
             child: Column(
               children: [
                 PaGradientHeaderBand(title: l.nav_annonces),
@@ -42,6 +43,7 @@ class AnnoncesPage extends ConsumerWidget {
                     children: [
                       NewsListBody(),
                       CampaignsListBody(),
+                      AnnouncementsBody(),
                     ],
                   ),
                 ),
@@ -91,6 +93,7 @@ class _SegmentedTabs extends StatelessWidget {
         tabs: [
           Tab(text: l.annonces_tab_news),
           Tab(text: l.annonces_tab_campaigns),
+          Tab(text: l.annonces_tab_official),
         ],
       ),
     );

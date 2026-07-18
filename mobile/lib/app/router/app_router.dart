@@ -9,6 +9,7 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/setup_password_page.dart';
 import '../../features/auth/presentation/state/auth_notifier.dart';
 import '../../features/avaliste/presentation/pages/avaliste_mandats_page.dart';
+import '../../features/booklet/presentation/pages/booklet_page.dart';
 import '../../features/contributions/presentation/pages/contributions_page.dart';
 import '../../features/credit/presentation/pages/credit_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
@@ -170,6 +171,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'savings-history',
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const SavingsHistoryPage()),
+      ),
+
+      // Carnet — pushé par-dessus le shell depuis le carrousel Home.
+      GoRoute(
+        path: '/booklet',
+        name: 'booklet',
+        pageBuilder: (context, state) =>
+            _paSlideFadePage(state, const BookletPage()),
       ),
 
       // Cotisations (chronologie des frais payés) — pushée depuis Profil.

@@ -18,7 +18,6 @@ class AnnouncementsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(announcementsProvider);
     return Scaffold(
       backgroundColor: PaColors.canvas,
       appBar: AppBar(
@@ -40,43 +39,53 @@ class AnnouncementsPage extends ConsumerWidget {
           ),
         ),
       ),
-      body: PaPatternBackground(
-        child: RefreshIndicator(
-          color: PaColors.teal,
-          onRefresh: () async => ref.refresh(announcementsProvider.future),
-          child: async.when(
-            loading: () => ListView(
-              padding: const EdgeInsets.all(16),
-              children: List.generate(
-                4,
-                (_) => const Padding(
-                  padding: EdgeInsets.only(bottom: 12),
-                  child: Skeleton(height: 92, borderRadius: 18),
-                ),
-              ),
+      body: const PaPatternBackground(child: AnnouncementsBody()),
+    );
+  }
+}
+
+/// Corps réutilisable de la liste des annonces (sans Scaffold/AppBar) — utilisé
+/// tel quel comme onglet dans la page « Annonces » et par [AnnouncementsPage].
+class AnnouncementsBody extends ConsumerWidget {
+  const AnnouncementsBody({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(announcementsProvider);
+    return RefreshIndicator(
+      color: PaColors.teal,
+      onRefresh: () async => ref.refresh(announcementsProvider.future),
+      child: async.when(
+        loading: () => ListView(
+          padding: const EdgeInsets.all(16),
+          children: List.generate(
+            4,
+            (_) => const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Skeleton(height: 92, borderRadius: 18),
             ),
-            error: (_, __) => _CenteredMessage(
-              icon: Icons.wifi_off_rounded,
-              text: 'Impossible de charger les annonces.',
-              onRetry: () => ref.invalidate(announcementsProvider),
-            ),
-            data: (items) {
-              if (items.isEmpty) {
-                return const _CenteredMessage(
-                  icon: Icons.campaign_outlined,
-                  text: 'Aucune annonce pour le moment.',
-                );
-              }
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (_, i) => _AnnouncementTile(item: items[i]),
-              );
-            },
           ),
         ),
+        error: (_, __) => _CenteredMessage(
+          icon: Icons.wifi_off_rounded,
+          text: 'Impossible de charger les annonces.',
+          onRetry: () => ref.invalidate(announcementsProvider),
+        ),
+        data: (items) {
+          if (items.isEmpty) {
+            return const _CenteredMessage(
+              icon: Icons.campaign_outlined,
+              text: 'Aucune annonce pour le moment.',
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            physics: const AlwaysScrollableScrollPhysics(),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (_, i) => _AnnouncementTile(item: items[i]),
+          );
+        },
       ),
     );
   }

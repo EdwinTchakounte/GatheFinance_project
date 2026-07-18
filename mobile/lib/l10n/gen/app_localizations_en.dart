@@ -1900,6 +1900,12 @@ class AppL10nEn extends AppL10n {
   String get annonces_tab_campaigns => 'Campaigns';
 
   @override
+  String get annonces_tab_official => 'Cooperative';
+
+  @override
+  String get booklet_page_title => 'My booklet';
+
+  @override
   String get news_title => 'News';
 
   @override
