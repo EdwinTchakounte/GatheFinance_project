@@ -136,6 +136,66 @@ class TestVoieSeniorBrc:
 
 
 # ---------------------------------------------------------------------------
+# Voie 1 (chemin 2) — ANCIEN + BRC, sous-couverture jugée par le comité
+# Un membre établi (ancienneté ≥ seuil) au statut BRC validé peut demander un
+# crédit SANS avaliste et avec une épargne INFÉRIEURE : la demande passe en
+# instruction, c'est le comité qui tranche.
+# ---------------------------------------------------------------------------
+
+
+class TestVoieAncienBrcSousCouverture:
+    def test_ancient_brc_undercovered_matches(self):
+        m = _ancient_brc(MemberFactory())  # senior + BRC
+        _add_savings(m, Decimal("30000"))  # < montant
+        result = evaluate_routes(m, montant=Decimal("100000"))
+        assert result.route == EligibilityRoute.SENIOR_BRC
+        assert result.eligible is True
+        assert result.details["senior_brc"] is True
+        assert result.details["sous_couverture"] is True
+        assert Decimal(result.details["manque"]) == Decimal("70000")
+
+    def test_ancient_brc_no_savings_matches_full_manque(self):
+        m = _ancient_brc(MemberFactory())
+        result = evaluate_routes(m, montant=Decimal("100000"))
+        assert result.route == EligibilityRoute.SENIOR_BRC
+        assert Decimal(result.details["manque"]) == Decimal("100000")
+
+    def test_senior_without_brc_undercovered_rejected_by_default(self):
+        # require_brc_for_senior = true (défaut) → l'ancienneté seule ne suffit pas.
+        m = _ancient_brc(MemberFactory(), brc=False)
+        _add_savings(m, Decimal("10000"))
+        result = evaluate_routes(m, montant=Decimal("100000"))
+        assert result.route == EligibilityRoute.NONE
+        assert any("BRC" in mo for mo in result.motifs)
+
+    def test_senior_without_brc_matches_when_require_brc_false(self):
+        _setting("loans.eligibility.require_brc_for_senior", "false")
+        m = _ancient_brc(MemberFactory(), brc=False)
+        _add_savings(m, Decimal("10000"))
+        result = evaluate_routes(m, montant=Decimal("100000"))
+        assert result.route == EligibilityRoute.SENIOR_BRC
+        assert result.details["sous_couverture"] is True
+
+    def test_new_member_with_brc_flag_still_rejected_not_senior(self):
+        # Nouvel adhérent (2 mois) même avec le flag BRC → pas "ancien".
+        m = _new_member(MemberFactory(), months_ago=2)
+        m.is_brc_member = True
+        m.save(update_fields=["is_brc_member"])
+        result = evaluate_routes(m, montant=Decimal("100000"))
+        assert result.route == EligibilityRoute.NONE
+        assert any("Ancienneté insuffisante" in mo for mo in result.motifs)
+
+    def test_auto_coverage_takes_precedence_over_senior_path(self):
+        # Ancien + BRC MAIS couvert → chemin 1 (auto-couverture), pas sous-couverture.
+        m = _ancient_brc(MemberFactory())
+        _add_savings(m, Decimal("100000"))
+        result = evaluate_routes(m, montant=Decimal("100000"))
+        assert result.route == EligibilityRoute.SENIOR_BRC
+        assert result.details.get("auto_couverture") is True
+        assert "sous_couverture" not in result.details
+
+
+# ---------------------------------------------------------------------------
 # Voie 2 — AVALISTE
 # ---------------------------------------------------------------------------
 

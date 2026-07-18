@@ -294,13 +294,18 @@ def loan_request_create(request):
             if val in ("oui", "non") and compat_key not in extra_payload:
                 extra_payload[compat_key] = val
 
-        # Auto-couverture : le demandeur gèle sa propre épargne (= montant).
+        # Voie 1 (SENIOR_BRC) : le demandeur gèle sa propre épargne à hauteur de
+        # ``min(montant, épargne disponible)``. En auto-couverture c'est = montant ;
+        # pour un ANCIEN+BRC sous-couvert c'est son épargne dispo (il immobilise
+        # ce qu'il a, le reste est un crédit de confiance jugé par le comité).
         # Voie avaliste : posé par request_avaliste_consent (le manque). Campagne : 0.
-        gel_demandeur_initial = (
-            data["montant_demande"]
-            if route_eval.route == EligibilityRoute.SENIOR_BRC
-            else 0
-        )
+        if route_eval.route == EligibilityRoute.SENIOR_BRC:
+            from .avaliste_services import _member_available_savings
+
+            _dispo = _member_available_savings(member)
+            gel_demandeur_initial = min(data["montant_demande"], _dispo)
+        else:
+            gel_demandeur_initial = 0
 
         is_garantie_mat = route_eval.route == EligibilityRoute.GARANTIE_MATERIELLE
 
