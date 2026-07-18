@@ -24,7 +24,7 @@ class PaCard extends StatelessWidget {
   const PaCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(13),
     this.background,
     this.gradient,
     this.onTap,

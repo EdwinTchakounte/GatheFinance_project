@@ -157,7 +157,7 @@ class _GatheAppState extends ConsumerState<GatheApp>
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         final userFactor = mq.textScaler.scale(1.0); // facteur système effectif
-        final dense = (userFactor * 0.92).clamp(0.84, 1.05);
+        final dense = (userFactor * 0.90).clamp(0.82, 1.05);
         return MediaQuery(
           data: mq.copyWith(textScaler: TextScaler.linear(dense)),
           child: child!,

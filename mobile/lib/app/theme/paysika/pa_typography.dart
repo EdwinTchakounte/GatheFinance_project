@@ -93,7 +93,9 @@ class PaText {
     double size = 14,
     FontWeight weight = FontWeight.w400,
     Color color = PaColors.inkSecondary,
-    double height = 1.45,
+    // Interligne resserré (densité 2026) — moins d'air entre les lignes dans
+    // les cards, tout en restant confortable à lire.
+    double height = 1.35,
   }) =>
       _styled(
         family: _inter,
