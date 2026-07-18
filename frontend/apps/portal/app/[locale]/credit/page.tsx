@@ -154,11 +154,22 @@ export default function PortalCreditPage() {
     );
   }
 
-  const hasPending = requests?.some(
-    (r) =>
-      r.statut === "en_attente"
-      || r.statut === "en_instruction"
-      || r.statut === "en_attente_acceptation_membre",
+  // Une demande « en cours » (quel que soit son stade tant qu'elle n'est pas
+  // terminale) bloque une nouvelle demande — parité avec le garde mobile
+  // `LoanRequestStatusX.blocksNewLoanRequest`. Statuts TERMINAUX exclus :
+  // approuvee (devient un crédit → géré par l'éligibilité), rejetee,
+  // rejetee_avaliste, rejetee_campagne.
+  const kBlockingRequestStatuts = [
+    "en_attente",
+    "en_instruction",
+    "en_attente_acceptation_membre",
+    "approuvee_provisoire",
+    "en_attente_avaliste",
+    "en_validation_campagne",
+    "en_attente_funding",
+  ];
+  const hasPending = requests?.some((r) =>
+    kBlockingRequestStatuts.includes(r.statut),
   );
 
   return (
