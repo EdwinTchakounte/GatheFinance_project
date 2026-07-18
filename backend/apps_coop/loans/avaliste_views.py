@@ -16,7 +16,7 @@ from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from apps_coop.members.permissions import IsMember
+from apps_coop.members.permissions import IsMember, IsStaff
 
 from .avaliste_services import respond_to_avaliste_consent
 from .models import AvalisteConsent
@@ -111,6 +111,65 @@ def avaliste_mandats_list(request):
     return Response(
         {"count": len(rows), "pending": pending_count, "results": rows}
     )
+
+
+def _admin_row(c: AvalisteConsent) -> dict:
+    """Ligne admin : la ligne membre + l'identité de l'avaliste (garant)."""
+    row = _row(c)
+    av = c.avaliste
+    row["avaliste"] = {
+        "id": av.id,
+        "numero_membre": av.numero_membre,
+        "prenom": av.prenom,
+        "nom": av.nom,
+    }
+    return row
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Staff — tous les mandats d'avaliste (supervision)",
+    description=(
+        "Liste TOUS les `AvalisteConsent` (demandeur + garant + caution gelée + "
+        "statut). Filtres : `?statut=pending|accepted|refused`, `?q=` (numéro/nom "
+        "du demandeur OU de l'avaliste). Onglet admin « Avalistes / cautions »."
+    ),
+    responses={200: OpenApiResponse(description="`{ count, counts, results: Mandat[] }`")},
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_avaliste_consents_list(request):
+    from django.db.models import Q
+
+    qs = (
+        AvalisteConsent.objects
+        .select_related("loan_request", "loan_request__member", "avaliste")
+        .order_by("-created_at")
+    )
+
+    statut = (request.query_params.get("statut") or "").strip()
+    if statut:
+        qs = qs.filter(statut=statut)
+
+    q = (request.query_params.get("q") or "").strip()
+    if q:
+        qs = qs.filter(
+            Q(avaliste__numero_membre__icontains=q)
+            | Q(avaliste__nom__icontains=q)
+            | Q(loan_request__member__numero_membre__icontains=q)
+            | Q(loan_request__member__nom__icontains=q)
+        )
+
+    counts = {
+        s: AvalisteConsent.objects.filter(statut=s).count()
+        for s in (
+            AvalisteConsent.Statut.PENDING,
+            AvalisteConsent.Statut.ACCEPTED,
+            AvalisteConsent.Statut.REFUSED,
+        )
+    }
+    rows = [_admin_row(c) for c in qs[:200]]
+    return Response({"count": len(rows), "counts": counts, "results": rows})
 
 
 @extend_schema(

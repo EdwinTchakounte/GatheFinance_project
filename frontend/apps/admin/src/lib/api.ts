@@ -428,6 +428,29 @@ export type AdminLoanRepayment = {
   date: string;
 };
 
+// Mandat d'avaliste vu par l'admin (onglet « Avalistes / cautions »).
+export type AvalisteConsentRow = {
+  id: number;
+  statut: "pending" | "accepted" | "refused";
+  statut_display: string;
+  created_at: string;
+  montant_gele: string;
+  demandeur: { id: number; numero_membre: string; prenom: string; nom: string };
+  avaliste: { id: number; numero_membre: string; prenom: string; nom: string };
+  loan_request: {
+    id: number;
+    montant_demande: string;
+    duree_mois: number;
+    statut: string;
+    date_soumission: string;
+  };
+  couverture: {
+    epargne_borrower: string;
+    epargne_avaliste: string;
+    ratio: string;
+  };
+};
+
 export type AdminLoanDetail = {
   loan: {
     id: number;
@@ -1220,6 +1243,21 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify({ motif }),
       }),
+  },
+
+  // Onglet « Avalistes / cautions » — supervision de tous les mandats.
+  avaliste: {
+    list: (opts?: { statut?: string; q?: string }) => {
+      const sp = new URLSearchParams();
+      if (opts?.statut) sp.set("statut", opts.statut);
+      if (opts?.q) sp.set("q", opts.q);
+      const qs = sp.toString();
+      return request<{
+        count: number;
+        counts: Record<string, number>;
+        results: AvalisteConsentRow[];
+      }>(`/loans/admin/avaliste-consents/${qs ? `?${qs}` : ""}`);
+    },
   },
 
   loanRequests: {

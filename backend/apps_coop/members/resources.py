@@ -20,6 +20,7 @@ ADMIN_RESOURCES: list[tuple[str, str]] = [
     ("loan-requests", "Demandes de crédit"),
     ("loans", "Crédits"),
     ("loan-renewals", "Reconductions"),
+    ("avaliste", "Avalistes / cautions"),
     ("lender-tranches", "Pool prêteurs"),
     ("payments", "Paiements"),
     ("withdrawals", "Retraits épargne"),
