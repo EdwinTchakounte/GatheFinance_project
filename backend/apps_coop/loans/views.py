@@ -1930,7 +1930,9 @@ def me_lender_payouts(request):
 @api_view(["GET"])
 @permission_classes([IsStaff])
 def admin_loan_detail(request, pk: int):
-    from .models import LoanInstallment, LoanRepayment
+    from decimal import Decimal
+
+    from .models import AvalisteConsent, LoanInstallment, LoanRepayment
 
     try:
         loan = Loan.objects.select_related("member", "loan_request").get(pk=pk)
@@ -1947,7 +1949,106 @@ def admin_loan_detail(request, pk: int):
         .order_by("-date", "-id")
     )
 
+    # --- État complet de l'abonné sur ce crédit (bouton « check » dashboard) ---
+    member = loan.member
+    lr = loan.loan_request
+
+    # Voie d'obtention (dérivée : la LoanRequest ne stocke pas la route en clair).
+    voie = None
+    if lr is not None:
+        if lr.microcampaign_id:
+            voie = "campaign"
+        elif lr.garantie_materielle:
+            voie = "garantie_materielle"
+        elif lr.avaliste_id:
+            voie = "avaliste"
+        else:
+            voie = "senior_brc"
+
+    gel_demandeur = Decimal(getattr(lr, "montant_gele_demandeur", 0) or 0) if lr else Decimal("0")
+    montant_demande = Decimal(getattr(lr, "montant_demande", 0) or 0) if lr else Decimal("0")
+    sous_couverture = bool(
+        lr is not None and voie == "senior_brc" and gel_demandeur < montant_demande
+    )
+
+    # Avaliste (garant) + caution engagée.
+    avaliste_block = None
+    if lr is not None and lr.avaliste_id:
+        consent = (
+            AvalisteConsent.objects.filter(loan_request=lr)
+            .order_by("-id")
+            .first()
+        )
+        av = lr.avaliste
+        avaliste_block = {
+            "numero_membre": av.numero_membre,
+            "nom": av.nom,
+            "prenom": av.prenom,
+            "caution": str(consent.montant_caution) if consent else None,
+        }
+
+    # Garantie matérielle éventuelle.
+    garantie_materielle_block = None
+    if lr is not None and lr.garantie_materielle:
+        garantie_materielle_block = {
+            "description": lr.garantie_description or "",
+            "valeur_estimee": str(lr.garantie_valeur_estimee or 0),
+        }
+
+    # Épargne du membre : collecte + classique (libre / placement / gelé / dispo).
+    from apps_coop.savings.models import ClassicSavingsAccount, SavingsAccount
+
+    collecte = SavingsAccount.objects.filter(member=member).first()
+    classic = ClassicSavingsAccount.objects.filter(member=member).first()
+    classic_block = None
+    if classic is not None:
+        from apps_coop.savings.services import classic_withdrawable
+
+        from .avaliste_services import member_frozen_guarantee
+
+        classic_block = {
+            "solde": str(classic.solde),
+            "placement_actif": str(classic.solde_placement_actif),
+            "gele_credit": str(member_frozen_guarantee(member)),
+            "dispo_retrait": str(classic_withdrawable(classic)),
+        }
+
+    member_state = {
+        "voie": voie,
+        "sous_couverture": sous_couverture,
+        "gel_demandeur": str(gel_demandeur),
+        "montant_demande": str(montant_demande),
+        "frais_etude_paye": bool(getattr(lr, "frais_demande_credit_paye", False)) if lr else None,
+        "issu_reconduction": bool(loan.issu_reconduction),
+        "date_butoire": loan.date_butoire.isoformat() if loan.date_butoire else None,
+        "montant_decaisse_net": str(loan.montant_decaisse_net),
+        "interets_retenus_source": str(loan.interets_retenus_source),
+        "avaliste": avaliste_block,
+        "garantie_materielle": garantie_materielle_block,
+        "epargne": {
+            "collecte_solde": str(collecte.solde) if collecte else "0",
+            "classique": classic_block,
+        },
+        "contentieux": {
+            "epargne_saisie_montant": str(loan.epargne_saisie_montant or 0),
+            "epargne_saisie_at": (
+                loan.epargne_saisie_at.isoformat() if loan.epargne_saisie_at else None
+            ),
+            "poursuite_judiciaire_at": (
+                loan.poursuite_judiciaire_at.isoformat()
+                if loan.poursuite_judiciaire_at
+                else None
+            ),
+            "penalite_globale_appliquee_at": (
+                loan.penalite_globale_appliquee_at.isoformat()
+                if loan.penalite_globale_appliquee_at
+                else None
+            ),
+        },
+    }
+
     return Response({
+        "member_state": member_state,
         "loan": {
             "id": loan.id,
             "numero_dossier": loan.numero_dossier,

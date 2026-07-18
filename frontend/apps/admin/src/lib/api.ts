@@ -441,6 +441,8 @@ export type AdminLoanDetail = {
       prenom: string;
     };
   };
+  // État complet de l'abonné sur ce crédit (bouton « check » du dashboard).
+  member_state?: AdminLoanMemberState;
   installments: AdminLoanInstallment[];
   repayments: AdminLoanRepayment[];
   totaux: {
@@ -448,6 +450,43 @@ export type AdminLoanDetail = {
     nb_repayments: number;
     nb_installments_payees: number;
     nb_installments_total: number;
+  };
+};
+
+export type AdminLoanMemberState = {
+  voie: "senior_brc" | "avaliste" | "campaign" | "garantie_materielle" | null;
+  sous_couverture: boolean;
+  gel_demandeur: string;
+  montant_demande: string;
+  frais_etude_paye: boolean | null;
+  issu_reconduction: boolean;
+  date_butoire: string | null;
+  montant_decaisse_net: string;
+  interets_retenus_source: string;
+  avaliste: {
+    numero_membre: string;
+    nom: string;
+    prenom: string;
+    caution: string | null;
+  } | null;
+  garantie_materielle: {
+    description: string;
+    valeur_estimee: string;
+  } | null;
+  epargne: {
+    collecte_solde: string;
+    classique: {
+      solde: string;
+      placement_actif: string;
+      gele_credit: string;
+      dispo_retrait: string;
+    } | null;
+  };
+  contentieux: {
+    epargne_saisie_montant: string;
+    epargne_saisie_at: string | null;
+    poursuite_judiciaire_at: string | null;
+    penalite_globale_appliquee_at: string | null;
   };
 };
 
