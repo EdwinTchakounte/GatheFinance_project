@@ -90,6 +90,7 @@ class LoanRequestEntity {
     this.fraisEtudeMontant,
     this.fraisPaye = false,
     this.epargneDisponibleFrais = 0,
+    this.avalisteMontantACouvrir,
   });
 
   final int id;
@@ -130,6 +131,10 @@ class LoanRequestEntity {
   // RETIRABLE, hors placement et hors épargne gelée en garantie. Décide si le
   // canal « déduction » — proposé par défaut — est tenable, sans second appel.
   final num epargneDisponibleFrais;
+
+  // Montant que l'avaliste doit couvrir sur ce crédit (le manque). Null hors
+  // voie avaliste. Affiché au demandeur pour transparence sur l'engagement.
+  final num? avalisteMontantACouvrir;
 
   /// La déduction sur épargne couvre-t-elle les frais dus ?
   /// Faux si l'étude est gratuite (rien à régler) ou si le retirable ne suffit

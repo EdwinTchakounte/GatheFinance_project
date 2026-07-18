@@ -439,11 +439,18 @@ LoanRequestEntity _parseRequest(Map<String, dynamic> json) {
       json['field_visit_outcome'] as String?,
     ),
     // §6 LOT 12 . Voie d'eligibilite (BRC / avaliste / campagne).
-    // Backend renvoie `route` ou `eligibility_route` selon le serializer.
+    // Backend renvoie `voie` (liste/détail), ou `route`/`eligibility_route`
+    // (réponse de création). On prend le premier disponible.
     route: _loanRoute(
-      (json['route'] as String?) ??
+      (json['voie'] as String?) ??
+          (json['route'] as String?) ??
           (json['eligibility_route'] as String?),
     ),
+    // Montant que l'AVALISTE doit couvrir sur ce crédit (le manque). Exposé au
+    // demandeur pour qu'il connaisse l'engagement demandé à son garant.
+    avalisteMontantACouvrir: json['avaliste_montant_a_couvrir'] != null
+        ? _num(json['avaliste_montant_a_couvrir'])
+        : null,
     // L6 — Échéance indicative d'étude (soumission + ~1 mois). Nullable pour
     // les demandes legacy sans date calculée côté backend.
     dateLimiteEtude: _dateOrNull(json['date_limite_etude']),

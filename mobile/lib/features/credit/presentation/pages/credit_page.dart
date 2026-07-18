@@ -805,6 +805,32 @@ class _RequestCard extends ConsumerWidget {
             const SizedBox(height: 6),
             _RouteBadge(route: request.route!),
           ],
+          // Voie avaliste : le demandeur doit connaître le montant que son
+          // garant s'engage à couvrir (le manque = montant − son épargne dispo).
+          if (request.route == LoanRoute.avaliste &&
+              (request.avalisteMontantACouvrir ?? 0) > 0) ...[
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.handshake_outlined,
+                    size: 14, color: PaColors.teal,),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'Votre avaliste doit couvrir '
+                    '${XAFFormatter.format(request.avalisteMontantACouvrir!)} '
+                    'sur ce crédit.',
+                    style: const TextStyle(
+                      color: PaColors.inkSecondary,
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (request.motif.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
