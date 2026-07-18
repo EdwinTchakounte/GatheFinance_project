@@ -317,6 +317,10 @@ export type LoanRequest = {
   // Frais d'étude applicables (piloté admin / campagne) — pour préremplir le
   // montant du cash-in « Encaisser frais ». Null si non configuré.
   frais_etude_montant?: string | null;
+  // Frais d'étude déjà réglés ? (porte des frais 2026)
+  frais_demande_credit_paye?: boolean;
+  // Frais de carnet encore dus (bénéficiaire campagne sans carnet). "0" sinon.
+  carnet_fee_due?: string;
   // CH-6 — Workflow double approbation : visite terrain entre provisoire et définitive.
   field_visit_outcome?: "" | "favorable" | "defavorable" | "a_revoir";
   field_visit_done_at?: string | null;
@@ -1219,10 +1223,15 @@ export const adminApi = {
   },
 
   loanRequests: {
-    list: (statut?: string) =>
-      request<LoanRequest[]>(
-        `/loans/admin/requests/${statut ? `?statut=${statut}` : ""}`,
-      ),
+    list: (statut?: string, opts?: { member?: number }) => {
+      const sp = new URLSearchParams();
+      if (statut) sp.set("statut", statut);
+      if (opts?.member) sp.set("member", String(opts.member));
+      const qs = sp.toString();
+      return request<LoanRequest[]>(
+        `/loans/admin/requests/${qs ? `?${qs}` : ""}`,
+      );
+    },
     decide: (
       id: number,
       payload:

@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 
 import { Modal, ModalField, modalInputClass, buttonClasses } from "./modal";
-import { adminApi, type ApiError, type Member } from "@/lib/api";
+import {
+  adminApi,
+  type ApiError,
+  type LoanRequest,
+  type Member,
+} from "@/lib/api";
 
 
 type CashInType =
@@ -91,6 +96,13 @@ export function CashInModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Frais de crédit : demande(s) en attente du membre sélectionné (le « crédit
+  // demandé » à afficher/confirmer à la sélection).
+  const [pendingRequests, setPendingRequests] = useState<LoanRequest[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const isCreditFee =
+    paymentType === "frais_demande_credit" || paymentType === "frais_carnet";
+
   // Tarifs officiels des frais fixes (FeeType) → verrouillage du montant.
   const [feeAmounts, setFeeAmounts] = useState<Record<string, number>>({});
   const fixedFeeCode = FIXED_FEE_CODE[paymentType];
@@ -110,6 +122,7 @@ export function CashInModal({
     setNbJours("1");
     setIsPlacement(false);
     setIsRenewal(false);
+    setPendingRequests([]);
     setError(null);
   }
 
@@ -196,10 +209,50 @@ export function CashInModal({
     return () => clearTimeout(handle);
   }, [memberQuery, open, selectedMember]);
 
+  // Frais de crédit : charge la (les) demande(s) en attente du membre pour
+  // afficher/confirmer le « crédit demandé » à la sélection.
+  useEffect(() => {
+    if (!open || !selectedMember || !isCreditFee) {
+      setPendingRequests([]);
+      return;
+    }
+    let cancelled = false;
+    setPendingLoading(true);
+    adminApi.loanRequests
+      .list("en_attente", { member: selectedMember.id })
+      .then((rows) => {
+        if (cancelled) return;
+        setPendingRequests(rows);
+        // Montant autoritaire : frais d'étude propres à la demande (campagne
+        // incluse) ; carnet = tarif fixe déjà géré par montantLocked.
+        if (
+          paymentType === "frais_demande_credit" &&
+          rows[0]?.frais_etude_montant
+        ) {
+          setMontant(String(rows[0].frais_etude_montant));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPendingRequests([]);
+      })
+      .finally(() => {
+        if (!cancelled) setPendingLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, selectedMember, isCreditFee, paymentType]);
+
   async function handleSubmit() {
     setError(null);
     if (!selectedMember) {
       setError("Sélectionne un membre.");
+      return;
+    }
+    if (isCreditFee && pendingRequests.length === 0) {
+      setError(
+        "Ce membre n'a pas de demande de crédit en attente de paiement.",
+      );
       return;
     }
     const montantNum = Number(montant);
@@ -357,6 +410,64 @@ export function CashInModal({
             ))}
           </select>
         </ModalField>
+
+        {/* Crédit demandé (frais de crédit) — sélection/confirmation. */}
+        {isCreditFee && selectedMember ? (
+          <ModalField
+            label="Crédit demandé"
+            hint="Frais rattachés à la demande de crédit en attente de ce membre."
+          >
+            {pendingLoading ? (
+              <p className="text-[11px] text-ink-500">Recherche du crédit…</p>
+            ) : pendingRequests.length === 0 ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-700">
+                Aucune demande de crédit en attente pour ce membre.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {pendingRequests.map((r) => (
+                  <li
+                    key={r.id}
+                    className="rounded-md border border-blue-200 bg-blue-50/40 px-3 py-2 text-xs"
+                  >
+                    <p className="font-medium text-ink-900">
+                      Demande #{r.id} ·{" "}
+                      {Number(r.montant_demande).toLocaleString("fr-FR")} XAF
+                    </p>
+                    <p className="mt-0.5 text-ink-600">
+                      Frais d'étude :{" "}
+                      <span
+                        className={
+                          r.frais_demande_credit_paye
+                            ? "text-emerald-700"
+                            : "font-medium text-ink-900"
+                        }
+                      >
+                        {r.frais_demande_credit_paye
+                          ? "réglés"
+                          : `${Number(r.frais_etude_montant ?? 0).toLocaleString("fr-FR")} XAF dus`}
+                      </span>
+                      {Number(r.carnet_fee_due ?? 0) > 0 ? (
+                        <>
+                          {" · "}Carnet :{" "}
+                          <span className="font-medium text-amber-700">
+                            {Number(r.carnet_fee_due).toLocaleString("fr-FR")} XAF dus
+                          </span>
+                        </>
+                      ) : null}
+                    </p>
+                  </li>
+                ))}
+                {Number(pendingRequests[0]?.carnet_fee_due ?? 0) > 0 ? (
+                  <p className="text-[11px] text-ink-500">
+                    Bénéficiaire campagne : encaisse l'étude ET le carnet (2
+                    versements distincts) pour ouvrir l'instruction.
+                  </p>
+                ) : null}
+              </ul>
+            )}
+          </ModalField>
+        ) : null}
 
         {/* Montant */}
         <ModalField

@@ -537,6 +537,11 @@ def admin_list_loan_requests(request):
     statut = request.query_params.get("statut")
     if statut:
         qs = qs.filter(statut=statut)
+    # Filtre membre — utilisé par la saisie de versement (cash-in) pour
+    # retrouver la demande de crédit d'un adhérent et encaisser ses frais.
+    member_id = request.query_params.get("member")
+    if member_id:
+        qs = qs.filter(member_id=member_id)
     # Admin/staff : serializer étendu (visite terrain incluse).
     return Response(AdminLoanRequestReadSerializer(qs, many=True).data)
 

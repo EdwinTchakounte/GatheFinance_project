@@ -150,3 +150,30 @@ def test_study_fee_paid_alone_does_not_open_instruction(admin_user):
 def test_non_campaign_member_never_needs_carnet(active_member):
     # Un membre ordinaire (pas d'origine campagne) n'est pas concerné.
     assert campaign_member_needs_carnet(active_member) is False
+
+
+def test_admin_list_requests_member_filter_and_carnet_due(admin_user):
+    from rest_framework.test import APIClient
+
+    _seed_carnet_fee("2000")
+    campaign = _campaign(frais_etude=Decimal("0"))
+    app = _application(campaign)
+    accept_campaign_application(app, decided_by=admin_user)
+    app.refresh_from_db()
+    member = app.member
+
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+    r = client.get(f"/api/v1/loans/admin/requests/?member={member.id}&statut=en_attente")
+    assert r.status_code == 200, r.content
+    rows = r.json()
+    assert len(rows) == 1  # filtre membre respecté
+    row = rows[0]
+    # Le carnet est dû → exposé pour l'encaissement manuel (étude + carnet).
+    assert Decimal(row["carnet_fee_due"]) == Decimal("2000")
+
+    # Une fois le carnet payé, plus rien de dû côté carnet.
+    _pay_carnet(member, montant="2000")
+    r2 = client.get(f"/api/v1/loans/admin/requests/?member={member.id}")
+    row2 = r2.json()[0]
+    assert Decimal(row2["carnet_fee_due"]) == Decimal("0")

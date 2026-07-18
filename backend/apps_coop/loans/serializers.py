@@ -117,6 +117,10 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
     # elle n'est proposable que si le retirable couvre les frais (ni le
     # placement ni l'épargne gelée en garantie ne sont ponctionnables).
     epargne_disponible_frais = serializers.SerializerMethodField()
+    # Frais de carnet encore dus pour cette demande (bénéficiaire campagne sans
+    # carnet). "0" sinon. Permet à l'admin d'encaisser étude + carnet à la
+    # demande de crédit (2 paiements distincts, même étape).
+    carnet_fee_due = serializers.SerializerMethodField()
 
     class Meta:
         model = LoanRequest
@@ -138,6 +142,7 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "frais_etude_montant",
             "frais_demande_credit_paye",
             "epargne_disponible_frais",
+            "carnet_fee_due",
             "loan",
             "extra_payload",
             "attachments",
@@ -161,6 +166,15 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             .first()
         )
         return str(montant) if montant is not None else None
+
+    def get_carnet_fee_due(self, obj):
+        """Frais de carnet dus (bénéficiaire campagne sans carnet), sinon "0"."""
+        from .services import campaign_member_needs_carnet, carnet_fee_amount
+
+        member = getattr(obj, "member", None)
+        if member is not None and campaign_member_needs_carnet(member):
+            return str(carnet_fee_amount())
+        return "0"
 
     def get_epargne_disponible_frais(self, obj):
         """Part de l'épargne classique réellement ponctionnable pour les frais.
