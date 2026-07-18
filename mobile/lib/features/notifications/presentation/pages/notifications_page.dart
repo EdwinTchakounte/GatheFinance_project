@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/formatters/date_formatter.dart';
@@ -43,6 +44,34 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         ref.read(notificationsProvider.notifier).markAllRead();
       }
     });
+  }
+
+  /// Tap sur une notification → marque lue puis navigue vers la ressource
+  /// correspondant à sa catégorie (kind).
+  void _openNotif(BuildContext context, AppNotification n) {
+    ref.read(notificationsProvider.notifier).markRead(n.id);
+    if (n.kind == NotifKind.announcement) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const AnnouncementsPage()),
+      );
+      return;
+    }
+    final route = switch (n.kind) {
+      NotifKind.loan => '/credit',
+      NotifKind.savings => '/savings/history',
+      NotifKind.payment => '/states',
+      NotifKind.lender => '/me/lender-payouts',
+      NotifKind.support => '/support',
+      NotifKind.announcement => null,
+      NotifKind.system => null,
+    };
+    if (route == null) return;
+    // /credit est une branche du shell (bascule d'onglet), le reste se pousse.
+    if (route == '/credit') {
+      context.go(route);
+    } else {
+      context.push(route);
+    }
   }
 
   @override
@@ -144,9 +173,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (_, i) => _NotifCard(
                         notif: visible[i],
-                        onTap: () => ref
-                            .read(notificationsProvider.notifier)
-                            .markRead(visible[i].id),
+                        onTap: () => _openNotif(context, visible[i]),
                       ),
                     ),
                   ),
