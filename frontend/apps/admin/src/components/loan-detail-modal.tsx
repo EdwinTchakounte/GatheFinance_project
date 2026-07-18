@@ -144,6 +144,9 @@ function MemberStateSection({ ms }: { ms: AdminLoanMemberState }) {
           label="Voie d'obtention"
           value={ms.voie ? (VOIE_LABEL[ms.voie] ?? ms.voie) : "—"}
         />
+        {ms.en_attente_decaissement ? (
+          <Row label="Décaissement" value="En attente — argent pas encore versé" accent="warning" />
+        ) : null}
         {ms.sous_couverture ? (
           <Row label="Couverture" value="Sous-couvert — jugé par le comité" accent="warning" />
         ) : null}

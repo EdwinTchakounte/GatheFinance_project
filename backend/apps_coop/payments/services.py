@@ -1026,7 +1026,17 @@ def _hook_decaissement(payment: Payment, _raw: dict) -> None:
     loan = Loan.objects.select_for_update().get(pk=payment.loan_id)
     loan.date_decaissement = timezone.localdate()
     loan.statut = Loan.Statut.ACTIF
-    loan.save(update_fields=["date_decaissement", "statut", "updated_at"])
+    # Argent réellement versé → on lève le filet de sécurité : le crédit devient
+    # sujet aux pénalités / contentieux du cron de retards.
+    loan.en_attente_decaissement = False
+    loan.save(
+        update_fields=[
+            "date_decaissement",
+            "statut",
+            "en_attente_decaissement",
+            "updated_at",
+        ]
+    )
 
     # CH-12 — Si mode source + prêteurs, distribue immédiatement leur part
     # 50 % des intérêts retenus. Idempotent : ne s'exécute qu'une fois par

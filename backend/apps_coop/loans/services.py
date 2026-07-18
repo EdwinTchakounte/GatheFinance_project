@@ -390,6 +390,10 @@ def approve_loan_request(
         montant_total_du=montant_total_du,
         solde_restant=montant_total_du,
         statut=Loan.Statut.ACTIF,
+        # Filet de sécurité : le crédit est ACTIF mais l'argent n'est pas encore
+        # versé. Le décaissement réel (disburse) lèvera ce flag ; d'ici là, le
+        # cron de retards l'ignore (pas de pénalité/saisie avant décaissement).
+        en_attente_decaissement=True,
         mode_retenue_interets=mode_retenue,
         montant_decaisse_net=montant_decaisse_net,
         interets_retenus_source=interets_retenus_source,

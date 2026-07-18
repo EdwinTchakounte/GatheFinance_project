@@ -2019,6 +2019,7 @@ def admin_loan_detail(request, pk: int):
         "gel_demandeur": str(gel_demandeur),
         "montant_demande": str(montant_demande),
         "frais_etude_paye": bool(getattr(lr, "frais_demande_credit_paye", False)) if lr else None,
+        "en_attente_decaissement": bool(loan.en_attente_decaissement),
         "issu_reconduction": bool(loan.issu_reconduction),
         "date_butoire": loan.date_butoire.isoformat() if loan.date_butoire else None,
         "montant_decaisse_net": str(loan.montant_decaisse_net),

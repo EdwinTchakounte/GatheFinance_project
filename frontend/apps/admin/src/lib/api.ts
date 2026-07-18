@@ -459,6 +459,7 @@ export type AdminLoanMemberState = {
   gel_demandeur: string;
   montant_demande: string;
   frais_etude_paye: boolean | null;
+  en_attente_decaissement: boolean;
   issu_reconduction: boolean;
   date_butoire: string | null;
   montant_decaisse_net: string;
