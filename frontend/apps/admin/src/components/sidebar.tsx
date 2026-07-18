@@ -49,60 +49,72 @@ type NavItem = {
   queueKey?: QueueKey;
 };
 
-const NAV: NavItem[] = [
-  { href: "/dashboard", label: "Vue d'ensemble", icon: LayoutDashboard },
-  // Pipeline adhesion . funnel KPIs + membres SUSPENDU avec progression frais.
-  { href: "/adhesions", label: "Pipeline adhésion", icon: GitBranch },
-  { href: "/membership-requests", label: "Adhésions", icon: UserPlus, queueKey: "adhesions_en_attente" },
-  { href: "/loan-requests", label: "Demandes de crédit", icon: HandCoins, queueKey: "credits_en_instruction" },
-  { href: "/loans", label: "Crédits", icon: Wallet },
-  { href: "/loan-renewals", label: "Reconductions", icon: RefreshCw },
-  { href: "/avaliste", label: "Avalistes / cautions", icon: Handshake },
-  // LA-1 . Pool de tranches preteur (epargne placement) . admin pilote
-  // manuellement le funding d'un credit.
-  { href: "/lender-tranches", label: "Pool prêteurs", icon: Coins },
-  { href: "/payments", label: "Paiements", icon: Receipt },
-  { href: "/withdrawals", label: "Retraits épargne", icon: ArrowDownToLine },
-  { href: "/booklet-orders", label: "Commandes carnet", icon: Notebook },
-  { href: "/antidated-entries", label: "Saisies antidatées", icon: CalendarClock },
-  { href: "/collecte-preferences", label: "Fin de mois collecte", icon: CalendarClock },
-  { href: "/members", label: "Membres", icon: Users },
-  // Refonte 2026 — LOT 1 + LOT 5 + LOT 16.
-  { href: "/brc", label: "Justificatifs BRC", icon: FileCheck },
-  { href: "/renewals", label: "Renouvellements épargne", icon: RefreshCw },
+type NavSection = {
+  title: string;
+  items: NavItem[];
+};
+
+// Refonte 2026 — la barre latérale passe d'une liste plate de ~29 onglets à des
+// SECTIONS thématiques (purement visuel : la logique RBAC filtre toujours item
+// par item via `hrefResource`). Aucun onglet n'est retiré ni renommé.
+const NAV_SECTIONS: NavSection[] = [
   {
-    href: "/campaigns",
-    label: "Campagnes micro-crédit",
-    icon: Megaphone,
-    queueKey: "campaign_validation_pending",
+    title: "Pilotage",
+    items: [{ href: "/dashboard", label: "Vue d'ensemble", icon: LayoutDashboard }],
   },
   {
-    href: "/escalations",
-    label: "Escalades judiciaires",
-    icon: Gavel,
-    queueKey: "escalades_ouvertes",
+    title: "Adhésions & membres",
+    items: [
+      { href: "/adhesions", label: "Pipeline adhésion", icon: GitBranch },
+      { href: "/membership-requests", label: "Adhésions", icon: UserPlus, queueKey: "adhesions_en_attente" },
+      { href: "/members", label: "Membres", icon: Users },
+      { href: "/brc", label: "Justificatifs BRC", icon: FileCheck },
+      { href: "/access", label: "Utilisateurs & accès", icon: ShieldCheck },
+    ],
   },
-  { href: "/costs", label: "Coûts", icon: SlidersHorizontal },
-  // P2 — Tunables règlement 2026 (BRC, ancienneté, collecte, épargne,
-  // lender, funding, eligibility, seizure, judicial, campagne).
-  { href: "/app-settings", label: "Paramètres", icon: Settings2 },
-  // Recette — éditer la cadence des cron + run-now (django-q schedules).
-  { href: "/cron-schedules", label: "Planification (cron)", icon: Clock },
-  // Documents officiels (règlement intérieur PDF joint au mail de bienvenue).
-  { href: "/cooperative-asset", label: "Documents officiels", icon: FileText },
-  // Annonces broadcast — message libre admin → membres (Notification in-app).
-  { href: "/announcements", label: "Annonces", icon: BellRing },
-  // Articles de blog vitrine (Wagtail) . liste + lien vers Wagtail admin.
-  { href: "/blog", label: "Articles vitrine", icon: Newspaper },
-  // CH-4 — Moteur de formulaires dynamiques (adhésion, crédit, reconduction).
-  { href: "/forms", label: "Formulaires", icon: FileEdit },
-  // Journal d'audit — toutes les actions tracées (mutations API + events métier).
-  { href: "/audit", label: "Journal d'audit", icon: ScrollText },
-  // Modération des commentaires (articles + campagnes).
-  { href: "/comments", label: "Commentaires", icon: MessageSquareText },
-  { href: "/support", label: "Support membres", icon: LifeBuoy },
-  // RBAC — gestion des utilisateurs staff + rôles/accès par ressource.
-  { href: "/access", label: "Utilisateurs & accès", icon: ShieldCheck },
+  {
+    title: "Crédit",
+    items: [
+      { href: "/loan-requests", label: "Demandes de crédit", icon: HandCoins, queueKey: "credits_en_instruction" },
+      { href: "/loans", label: "Crédits", icon: Wallet },
+      { href: "/loan-renewals", label: "Reconductions", icon: RefreshCw },
+      { href: "/avaliste", label: "Avalistes / cautions", icon: Handshake },
+      { href: "/lender-tranches", label: "Pool prêteurs", icon: Coins },
+      { href: "/escalations", label: "Escalades judiciaires", icon: Gavel, queueKey: "escalades_ouvertes" },
+    ],
+  },
+  {
+    title: "Épargne & versements",
+    items: [
+      { href: "/payments", label: "Paiements", icon: Receipt },
+      { href: "/withdrawals", label: "Retraits épargne", icon: ArrowDownToLine },
+      { href: "/booklet-orders", label: "Commandes carnet", icon: Notebook },
+      { href: "/antidated-entries", label: "Saisies antidatées", icon: CalendarClock },
+      { href: "/collecte-preferences", label: "Fin de mois collecte", icon: CalendarClock },
+      { href: "/renewals", label: "Renouvellements épargne", icon: RefreshCw },
+    ],
+  },
+  {
+    title: "Campagnes & contenu",
+    items: [
+      { href: "/campaigns", label: "Campagnes micro-crédit", icon: Megaphone, queueKey: "campaign_validation_pending" },
+      { href: "/announcements", label: "Annonces", icon: BellRing },
+      { href: "/blog", label: "Articles vitrine", icon: Newspaper },
+      { href: "/comments", label: "Commentaires", icon: MessageSquareText },
+      { href: "/support", label: "Support membres", icon: LifeBuoy },
+    ],
+  },
+  {
+    title: "Configuration",
+    items: [
+      { href: "/costs", label: "Coûts", icon: SlidersHorizontal },
+      { href: "/app-settings", label: "Paramètres", icon: Settings2 },
+      { href: "/cron-schedules", label: "Planification (cron)", icon: Clock },
+      { href: "/cooperative-asset", label: "Documents officiels", icon: FileText },
+      { href: "/forms", label: "Formulaires", icon: FileEdit },
+      { href: "/audit", label: "Journal d'audit", icon: ScrollText },
+    ],
+  },
 ];
 
 
@@ -123,6 +135,8 @@ export function canAccessResource(identity: Identity | null, key: string): boole
 export function Sidebar({
   identity,
   queues,
+  open = false,
+  onClose,
 }: {
   identity: Identity | null;
   queues?: {
@@ -131,6 +145,9 @@ export function Sidebar({
     campaign_validation_pending?: number;
     escalades_ouvertes?: number;
   };
+  /** Ouvert en drawer sur mobile (ignoré sur ≥ lg où la barre est statique). */
+  open?: boolean;
+  onClose?: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -140,85 +157,128 @@ export function Sidebar({
     router.replace("/login");
   }
 
-  // RBAC — on ne montre que les onglets autorisés (accès total → tous).
-  const navItems = NAV.filter((item) =>
-    canAccessResource(identity, hrefResource(item.href)),
-  );
+  // RBAC — on ne garde que les sections dont au moins un onglet est autorisé.
+  const sections = NAV_SECTIONS.map((s) => ({
+    ...s,
+    items: s.items.filter((item) =>
+      canAccessResource(identity, hrefResource(item.href)),
+    ),
+  })).filter((s) => s.items.length > 0);
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-line-200 bg-paper">
-      {/* Header */}
-      <div className="border-b border-line-200 px-5 py-4">
-        <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-          GATHE Finance
-        </p>
-        <p className="mt-1 font-editorial text-lg font-medium text-ink-900">Administration</p>
-      </div>
+    <>
+      {/* Voile mobile — ferme le drawer au tap (invisible ≥ lg). */}
+      <div
+        aria-hidden={!open}
+        onClick={onClose}
+        className={[
+          "fixed inset-0 z-30 bg-ink-950/40 backdrop-blur-sm transition-opacity duration-300 lg:hidden",
+          open ? "opacity-100" : "pointer-events-none opacity-0",
+        ].join(" ")}
+      />
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="space-y-0.5">
-          {navItems.map(({ href, label, icon: Icon, queueKey }) => {
-            // Match exact ou descendance par segment — évite que `/members`
-            // s'active sur `/membership-requests` (cas où un href est préfixe
-            // textuel d'un autre).
-            const active = pathname === href || pathname.startsWith(href + "/");
-            const count = queueKey && queues ? queues[queueKey] : undefined;
-            return (
-              <li key={href}>
-                <Link
-                  href={href}
-                  className={[
-                    "group flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-blue-700 text-white"
-                      : "text-ink-700 hover:bg-cream hover:text-blue-700",
-                  ].join(" ")}
-                >
-                  <Icon className="size-4 shrink-0" aria-hidden="true" />
-                  <span className="flex-1">{label}</span>
-                  {count && count > 0 ? (
-                    <span
-                      className={[
-                        "rounded-full px-1.5 py-0.5 font-mono text-xs",
-                        active
-                          ? "bg-white/20 text-white"
-                          : "bg-terra-500/15 text-terra-700",
-                      ].join(" ")}
-                    >
-                      {count}
-                    </span>
-                  ) : null}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
-
-      {/* User */}
-      <div className="border-t border-line-200 p-3">
-        {identity ? (
-          <div className="rounded-md bg-cream px-3 py-2.5">
-            <p className="font-medium text-sm text-ink-900 truncate">{identity.email}</p>
-            <p className="mt-0.5 text-xs text-ink-600">
-              {identity.is_superuser
-                ? "Superuser"
-                : identity.groups.length
-                  ? identity.groups.join(", ")
-                  : "Staff"}
+      <aside
+        className={[
+          "fixed inset-y-0 left-0 z-40 flex w-[17rem] shrink-0 flex-col border-r border-line-100 bg-paper",
+          "transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          "lg:static lg:z-auto lg:w-64 lg:translate-x-0",
+          open ? "translate-x-0 shadow-xl" : "-translate-x-full lg:shadow-none",
+        ].join(" ")}
+      >
+        {/* Header — logo + wordmark */}
+        <div className="flex items-center gap-3 px-5 py-5">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm">
+            G
+          </span>
+          <div className="min-w-0">
+            <p className="truncate font-display text-sm font-semibold leading-tight text-ink-900">
+              GATHE Finance
             </p>
-            <button
-              type="button"
-              onClick={onLogout}
-              className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-terra-700 hover:text-terra-800 transition-colors"
-            >
-              <LogOut className="size-3.5" aria-hidden="true" />
-              Se déconnecter
-            </button>
+            <p className="text-[0.68rem] font-medium uppercase tracking-[0.16em] text-terra-600">
+              Administration
+            </p>
           </div>
-        ) : null}
-      </div>
-    </aside>
+        </div>
+
+        {/* Nav — sections thématiques */}
+        <nav className="flex-1 overflow-y-auto px-3 pb-4">
+          {sections.map((section) => (
+            <div key={section.title} className="mb-4">
+              <p className="px-3 pb-1.5 pt-2 text-[0.64rem] font-semibold uppercase tracking-[0.14em] text-ink-400">
+                {section.title}
+              </p>
+              <ul className="space-y-0.5">
+                {section.items.map(({ href, label, icon: Icon, queueKey }) => {
+                  // Match exact ou descendance par segment — évite que `/members`
+                  // s'active sur `/membership-requests`.
+                  const active = pathname === href || pathname.startsWith(href + "/");
+                  const count = queueKey && queues ? queues[queueKey] : undefined;
+                  return (
+                    <li key={href}>
+                      <Link
+                        href={href}
+                        onClick={onClose}
+                        aria-current={active ? "page" : undefined}
+                        className={[
+                          "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                          active
+                            ? "bg-blue-50 font-semibold text-blue-800"
+                            : "font-medium text-ink-600 hover:bg-cream hover:text-ink-900",
+                        ].join(" ")}
+                      >
+                        <Icon
+                          className={[
+                            "size-[1.05rem] shrink-0",
+                            active ? "text-blue-700" : "text-ink-400 group-hover:text-ink-600",
+                          ].join(" ")}
+                          aria-hidden="true"
+                        />
+                        <span className="flex-1 truncate">{label}</span>
+                        {count && count > 0 ? (
+                          <span
+                            className={[
+                              "rounded-full px-1.5 py-0.5 font-mono text-[0.68rem] font-semibold",
+                              active
+                                ? "bg-blue-700 text-white"
+                                : "bg-terra-500/15 text-terra-700",
+                            ].join(" ")}
+                          >
+                            {count}
+                          </span>
+                        ) : null}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
+
+        {/* User */}
+        <div className="border-t border-line-100 p-3">
+          {identity ? (
+            <div className="rounded-xl bg-cream px-3 py-2.5">
+              <p className="truncate text-sm font-medium text-ink-900">{identity.email}</p>
+              <p className="mt-0.5 text-xs text-ink-500">
+                {identity.is_superuser
+                  ? "Superuser"
+                  : identity.groups.length
+                    ? identity.groups.join(", ")
+                    : "Staff"}
+              </p>
+              <button
+                type="button"
+                onClick={onLogout}
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-terra-700 transition-colors hover:text-terra-800"
+              >
+                <LogOut className="size-3.5" aria-hidden="true" />
+                Se déconnecter
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </aside>
+    </>
   );
 }

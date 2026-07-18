@@ -349,7 +349,7 @@ function Inner() {
   ];
 
   return (
-    <div className="px-8 py-8 lg:px-12 lg:py-10">
+    <div className="space-y-6">
       <header className="mb-8 flex items-end justify-between gap-4">
         <div>
           <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">

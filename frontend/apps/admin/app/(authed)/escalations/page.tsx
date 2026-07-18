@@ -102,7 +102,7 @@ function Inner() {
   }, [filter]);
 
   return (
-    <main className="space-y-6 p-8">
+    <section className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
           <h1 className="font-display text-2xl text-ink-900">
@@ -195,7 +195,7 @@ function Inner() {
           onError={(text) => setMessage({ tone: "err", text })}
         />
       )}
-    </main>
+    </section>
   );
 }
 
@@ -315,7 +315,7 @@ function DetailModal({
       onClose={onClose}
       title={`Escalade — ${escalation.member_nom} (${escalation.loan_numero_dossier})`}
     >
-      <div className="mb-3 flex flex-wrap gap-2 border-b border-line-200 pb-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         <TabButton active={tab === "info"} onClick={() => setTab("info")}>
           Info
         </TabButton>

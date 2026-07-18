@@ -195,7 +195,7 @@ function Inner() {
   ];
 
   return (
-    <main className="space-y-6 p-8">
+    <section className="space-y-6">
       <header>
         <h1 className="font-editorial text-3xl font-medium tracking-tight text-ink-900">
           Demandes de retrait
@@ -263,7 +263,7 @@ function Inner() {
           />
         )}
       </Modal>
-    </main>
+    </section>
   );
 }
 

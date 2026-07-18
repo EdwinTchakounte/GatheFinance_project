@@ -36,6 +36,12 @@ export default function AuthedLayout({
   const [kpis, setKpis] = useState<DashboardKpis | null>(null);
   const [loading, setLoading] = useState(true);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Ferme le drawer mobile à chaque navigation (le contenu change).
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
 
   // Raccourci global Cmd+K / Ctrl+K — toujours actif tant que le layout est monté.
   useEffect(() => {
@@ -128,10 +134,12 @@ export default function AuthedLayout({
   if (!identity) return null;
 
   return (
-    <div className="flex h-svh bg-cream overflow-hidden">
-      {/* Sidebar persistant : monté une seule fois, scroll interne si besoin. */}
+    <div className="flex h-svh overflow-hidden bg-cream">
+      {/* Sidebar persistant : monté une seule fois (drawer sur mobile). */}
       <Sidebar
         identity={identity}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
         queues={
           kpis
             ? {
@@ -144,17 +152,23 @@ export default function AuthedLayout({
 
       {/* Zone de contenu : seule cette partie scroll + change à la nav. */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden">
-        {/* Top bar persistante : déclencheur recherche + ⌘K */}
-        <SearchTrigger onOpen={() => setPaletteOpen(true)} />
+        {/* Top bar persistante : hamburger (mobile) + recherche ⌘K */}
+        <Topbar
+          onMenu={() => setSidebarOpen(true)}
+          onOpenSearch={() => setPaletteOpen(true)}
+        />
 
+        {/* Conteneur unique : padding responsive cohérent pour TOUTES les vues
+            (les pages ne gèrent plus leur propre marge → fini le contenu collé
+            au sidebar). Largeur bornée sur très grands écrans, remplie sinon. */}
         <div
           key={pathname}
-          className="animate-[fadein_180ms_ease-out] motion-reduce:animate-none"
+          className="mx-auto w-full max-w-[112rem] animate-[fadein_180ms_ease-out] px-4 py-6 motion-reduce:animate-none sm:px-6 lg:px-10 lg:py-8"
         >
           {currentAllowed ? (
             children
           ) : (
-            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 px-8 text-center">
+            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 text-center">
               <p className="font-editorial text-xl font-medium text-ink-900">
                 Accès non autorisé
               </p>
@@ -180,10 +194,17 @@ export default function AuthedLayout({
 
 
 /**
- * Barre supérieure persistante avec le déclencheur de recherche.
- * Affiche le raccourci clavier `⌘K` (ou `Ctrl K` sous Windows/Linux).
+ * Barre supérieure persistante : bouton menu (mobile) à gauche + déclencheur de
+ * recherche à droite. Fond translucide « soft » (léger voile + ombre discrète)
+ * au lieu d'un filet plein largeur.
  */
-function SearchTrigger({ onOpen }: { onOpen: () => void }) {
+function Topbar({
+  onMenu,
+  onOpenSearch,
+}: {
+  onMenu: () => void;
+  onOpenSearch: () => void;
+}) {
   const [isMac, setIsMac] = useState(true);
 
   useEffect(() => {
@@ -192,11 +213,32 @@ function SearchTrigger({ onOpen }: { onOpen: () => void }) {
   }, []);
 
   return (
-    <div className="sticky top-0 z-10 flex items-center justify-end gap-3 border-b border-line-200 bg-paper/85 px-6 py-3 backdrop-blur-md">
+    <div className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-cream/80 px-4 py-3 backdrop-blur-md sm:px-6 lg:px-10">
+      {/* Menu (mobile uniquement) */}
       <button
         type="button"
-        onClick={onOpen}
-        className="group inline-flex items-center gap-3 rounded-md border border-line-200 bg-cream px-3 py-1.5 text-sm text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
+        onClick={onMenu}
+        aria-label="Ouvrir le menu"
+        className="grid size-9 place-items-center rounded-lg border border-line-200 bg-paper text-ink-700 transition-colors hover:border-blue-700 hover:text-blue-700 lg:hidden"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="size-5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 12h18M3 6h18M3 18h18" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        onClick={onOpenSearch}
+        className="group ml-auto inline-flex items-center gap-3 rounded-lg border border-line-200 bg-paper px-3 py-1.5 text-sm text-ink-500 shadow-xs transition-colors hover:border-blue-700 hover:text-blue-700"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -211,8 +253,8 @@ function SearchTrigger({ onOpen }: { onOpen: () => void }) {
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.3-4.3" />
         </svg>
-        <span>Recherche</span>
-        <kbd className="ml-2 inline-flex items-center gap-0.5 rounded border border-line-200 bg-paper px-1.5 py-0.5 text-[10px] font-medium tracking-tight text-ink-600">
+        <span className="hidden sm:inline">Recherche</span>
+        <kbd className="ml-1 hidden items-center gap-0.5 rounded border border-line-200 bg-cream px-1.5 py-0.5 text-[10px] font-medium tracking-tight text-ink-500 sm:inline-flex">
           {isMac ? "⌘" : "Ctrl"} K
         </kbd>
       </button>

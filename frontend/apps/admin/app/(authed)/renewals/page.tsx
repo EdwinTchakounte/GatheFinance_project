@@ -76,7 +76,7 @@ function Inner() {
   }
 
   return (
-    <main className="space-y-6 p-8">
+    <section className="space-y-6">
       <header className="space-y-1">
         <h1 className="font-display text-2xl text-ink-900">
           Renouvellements épargne
@@ -201,7 +201,7 @@ function Inner() {
           submitting={actingId === confirmTarget.id}
         />
       )}
-    </main>
+    </section>
   );
 }
 

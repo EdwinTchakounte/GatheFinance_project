@@ -128,7 +128,7 @@ function Inner() {
   }
 
   return (
-    <main className="space-y-6 p-8">
+    <section className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
           <h1 className="font-display text-2xl text-ink-900">
@@ -170,7 +170,7 @@ function Inner() {
           Chargement…
         </div>
       ) : (
-        <div className="overflow-hidden rounded-md border border-line-200 bg-paper">
+        <div className="overflow-x-auto rounded-xl border border-line-100 bg-paper shadow-xs">
           <table className="w-full text-left text-sm">
             <thead className="bg-cream text-[11px] font-semibold uppercase tracking-wider text-ink-600">
               <tr>
@@ -319,6 +319,6 @@ function Inner() {
           </div>
         )}
       </Modal>
-    </main>
+    </section>
   );
 }

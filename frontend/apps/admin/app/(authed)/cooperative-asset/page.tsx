@@ -96,7 +96,7 @@ export default function CooperativeAssetPage() {
   const r = state?.reglement_interieur;
 
   return (
-    <main className="space-y-6 p-8">
+    <section className="space-y-6">
       <header className="space-y-1">
         <h1 className="font-display text-2xl text-ink-900">
           Documents officiels
@@ -218,6 +218,6 @@ export default function CooperativeAssetPage() {
           onClose={() => setPreviewOpen(false)}
         />
       )}
-    </main>
+    </section>
   );
 }

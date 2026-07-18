@@ -113,7 +113,7 @@ export default function AdminForgotPasswordPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-line-200/80 bg-paper p-7 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.08)] sm:p-9">
+          <div className="rounded-2xl border border-line-100 bg-paper p-7 shadow-md sm:p-9">
             {step === "email" ? (
               <>
                 <header className="mb-7">
@@ -159,7 +159,7 @@ export default function AdminForgotPasswordPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-ink-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-ink-800 focus:outline-none focus:ring-2 focus:ring-ink-900/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {submitting ? "Envoi…" : "Recevoir le code"}
                   </button>
@@ -250,7 +250,7 @@ export default function AdminForgotPasswordPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-ink-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-ink-800 focus:outline-none focus:ring-2 focus:ring-ink-900/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {submitting ? "Validation…" : "Réinitialiser le mot de passe"}
                   </button>
@@ -297,7 +297,7 @@ export default function AdminForgotPasswordPage() {
                 <button
                   type="button"
                   onClick={() => router.push("/login")}
-                  className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-ink-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-ink-800"
+                  className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-800"
                 >
                   Aller à la connexion
                 </button>

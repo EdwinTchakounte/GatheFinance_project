@@ -137,7 +137,7 @@ export function DataTable<T>({
       {rows.length === 0 ? (
         <EmptyState icon={Inbox} title={emptyLabel} tone="neutral" />
       ) : (
-        <div className="overflow-x-auto rounded-md border border-line-200 bg-paper">
+        <div className="overflow-x-auto rounded-xl border border-line-100 bg-paper shadow-xs">
           <table className="table-admin min-w-full">
             <thead>
               <tr>

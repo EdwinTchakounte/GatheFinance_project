@@ -123,7 +123,7 @@ function Inner() {
   ];
 
   return (
-    <main className="space-y-6 p-8">
+    <section className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="font-display text-2xl text-ink-900">
@@ -254,7 +254,7 @@ function Inner() {
           onClose={() => setFlyerPreview(null)}
         />
       )}
-    </main>
+    </section>
   );
 }
 
@@ -870,7 +870,7 @@ function ApplicationsSection({ campaignId }: { campaignId: number }) {
               ) : null}
             </div>
             {a.documents.length > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-2 border-t border-line-100 pt-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 {a.documents.map((d, i) =>
                   d.url ? (
                     <a

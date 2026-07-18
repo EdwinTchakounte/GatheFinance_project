@@ -105,7 +105,7 @@ export default function FormSchemasListPage() {
   }
 
   return (
-    <main className="space-y-6 p-8">
+    <section className="space-y-6">
       <header className="space-y-1">
         <h1 className="font-display text-2xl text-ink-900">Formulaires dynamiques</h1>
         <p className="max-w-3xl text-sm text-ink-500">
@@ -196,7 +196,7 @@ export default function FormSchemasListPage() {
           })}
         </div>
       )}
-    </main>
+    </section>
   );
 }
 
