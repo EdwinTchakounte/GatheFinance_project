@@ -299,6 +299,7 @@ def collecte_fin_de_mois() -> dict:
 
     for account in qs:
         try:
+            cash_txn = None
             with transaction.atomic():
                 locked = (
                     SavingsAccount.objects
@@ -381,7 +382,7 @@ def collecte_fin_de_mois() -> dict:
                     event_code = "collecte.balance_swept_to_savings"
                 else:
                     # CASH par défaut.
-                    SavingsTransaction.objects.create(
+                    cash_txn = SavingsTransaction.objects.create(
                         account=locked,
                         payment=None,
                         type_op=SavingsTransaction.TypeOp.RESTITUTION_CASH,
@@ -426,6 +427,25 @@ def collecte_fin_de_mois() -> dict:
                 )
             except Exception:  # noqa: BLE001
                 logger.warning("emit_event %s failed", event_code, exc_info=True)
+
+            # Restitution « cash » → décaissement Mobile Money automatique
+            # (Tara) si activé via AppSetting. Hors transaction : un échec de
+            # payout ne rollback pas la clôture déjà commitée.
+            if preference == SavingsAccount.EndOfMonthPreference.CASH:
+                try:
+                    from apps_coop.savings.services import (
+                        initiate_collecte_cash_payout,
+                    )
+
+                    initiate_collecte_cash_payout(
+                        member, cash_txn, montant=restituable
+                    )
+                except Exception:  # noqa: BLE001
+                    logger.warning(
+                        "collecte cash payout échoué (account=%s)",
+                        account.pk,
+                        exc_info=True,
+                    )
 
         except Exception:  # noqa: BLE001
             erreurs += 1

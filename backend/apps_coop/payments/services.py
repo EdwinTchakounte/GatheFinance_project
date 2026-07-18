@@ -996,6 +996,27 @@ def _hook_decaissement(payment: Payment, _raw: dict) -> None:
         return
 
     if payment.loan_id is None:
+        # Cas 3 : restitution « cash » d'une clôture de collecte journalière —
+        # payout auto reconnu via la SavingsTransaction RESTITUTION_CASH liée.
+        # Le ledger collecte est déjà soldé à la clôture ; on trace juste la
+        # complétion du décaissement (aucune écriture métier supplémentaire).
+        from apps_coop.savings.models import SavingsTransaction
+
+        if SavingsTransaction.objects.filter(
+            payment_id=payment.id,
+            type_op=SavingsTransaction.TypeOp.RESTITUTION_CASH,
+        ).exists():
+            record_audit(
+                action="collecte.cash_payout_completed",
+                entite_type="Payment",
+                entite_id=payment.id,
+                details={
+                    "montant": str(payment.montant),
+                    "reference_externe": payment.reference_externe,
+                },
+            )
+            return
+
         logger.error(
             "Payment #%s (decaissement) sans loan_id ni withdrawal_request — orphelin.",
             payment.id,

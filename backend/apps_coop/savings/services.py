@@ -461,6 +461,125 @@ def _init_payout_for_withdrawal(wr: WithdrawalRequest, *, decided_by) -> None:
         )
 
 
+def _collecte_cash_payout_enabled() -> bool:
+    """True si la restitution « cash » de la clôture collecte doit être
+    décaissée automatiquement en Mobile Money (Tara).
+
+    Défaut **FALSE** : tant que la coopérative ne l'active pas, la restitution
+    reste une écriture au grand livre (retrait manuel au guichet, comportement
+    historique). Piloté par l'AppSetting ``collecte.monthly.cash_payout``.
+    """
+    raw = get_str_setting("collecte.monthly.cash_payout", "false") or "false"
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+def initiate_collecte_cash_payout(member, cash_txn, *, montant) -> None:
+    """Décaisse en Mobile Money (Tara) la restitution cash d'une clôture de
+    collecte journalière — best-effort, jamais bloquant.
+
+    - Gated par ``collecte.monthly.cash_payout`` (défaut OFF).
+    - Idempotent au niveau du mois via la garde ``already_closed`` du cron
+      (une seule ``RESTITUTION_CASH`` par compte/mois ⇒ un seul payout).
+    - Lie le ``Payment`` à la ``SavingsTransaction`` RESTITUTION_CASH afin que
+      le webhook de confirmation soit finalisé proprement (cf.
+      ``payments.services._hook_decaissement``) — pas de « payout orphelin ».
+    - Sans numéro Mobile Money (``member.phone`` vide) : on saute et on trace,
+      la restitution reste alors à faire manuellement.
+    """
+    import uuid
+
+    from django.conf import settings as dj_settings
+
+    from apps_coop.payments.models import Payment
+    from apps_coop.payments.providers import default_provider_code, get_provider
+    from apps_coop.payments.providers.base import ProviderError
+
+    if not _collecte_cash_payout_enabled():
+        return
+
+    phone = (getattr(member, "phone", "") or "").strip()
+    if not phone:
+        record_audit(
+            action="collecte.cash_payout_skipped",
+            entite_type="Member",
+            entite_id=member.id,
+            details={"reason": "no_phone", "montant": str(montant)},
+        )
+        return
+
+    # 1) Payment décaissement (le montant net 99 % restitué au membre).
+    payment = Payment.objects.create(
+        member=member,
+        montant=montant,
+        type=Payment.Type.DECAISSEMENT,
+        source=Payment.Source.MOBILE_MONEY,
+        statut=Payment.Statut.EN_ATTENTE,
+        provider_code=default_provider_code(),
+        date_versement=timezone.now(),
+        loan=None,
+        idempotency_key=uuid.uuid4(),
+    )
+    if cash_txn is not None:
+        try:
+            cash_txn.payment = payment
+            cash_txn.save(update_fields=["payment"])
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "collecte cash payout : lien restitution↔payment échoué",
+                exc_info=True,
+            )
+
+    # 2) Appel provider HORS de toute transaction du cron (échec = pas de
+    #    rollback de la commission/restitution déjà commitées).
+    provider = get_provider(payment.provider_code or default_provider_code())
+    phone_masked = phone[:4] + "***" + phone[-2:] if len(phone) >= 6 else "***"
+    try:
+        result = provider.init_payout(payment, recipient_phone=phone, network="")
+    except ProviderError as exc:
+        payment.statut = Payment.Statut.REJETE
+        payment.motif_rejet = str(exc)[:500]
+        payment.save(update_fields=["statut", "motif_rejet", "updated_at"])
+        record_audit(
+            action="collecte.cash_payout_failed",
+            entite_type="Member",
+            entite_id=member.id,
+            details={
+                "payment_id": payment.id,
+                "reason": str(exc),
+                "retryable": exc.retryable,
+            },
+        )
+        return
+
+    payment.reference_externe = result.provider_reference or ""
+    payment.gateway_initiated_at = timezone.now()
+    payment.save(
+        update_fields=["reference_externe", "gateway_initiated_at", "updated_at"]
+    )
+    record_audit(
+        action="collecte.cash_payout_initiated",
+        entite_type="Member",
+        entite_id=member.id,
+        details={
+            "payment_id": payment.id,
+            "reference_externe": payment.reference_externe,
+            "montant": str(montant),
+            "phone_masked": phone_masked,
+        },
+    )
+
+    # Mode recette : joue le webhook « valide » immédiatement.
+    if getattr(dj_settings, "PAYMENTS_TEST_AUTO_VALIDATE", False):
+        from apps_coop.payments.services import handle_webhook_event
+
+        handle_webhook_event(
+            payment.idempotency_key,
+            "valide",
+            provider_reference=payment.reference_externe,
+            raw_payload={"auto_validate": True, "mode": "test", "kind": "collecte_payout"},
+        )
+
+
 @transaction.atomic
 def mark_withdrawal_paid(
     wr: WithdrawalRequest,
