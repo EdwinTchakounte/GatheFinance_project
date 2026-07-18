@@ -102,6 +102,13 @@ export function CashInModal({
   const [pendingLoading, setPendingLoading] = useState(false);
   const isCreditFee =
     paymentType === "frais_demande_credit" || paymentType === "frais_carnet";
+  // Anti double-facturation : si on est sur « frais de demande de crédit » et
+  // que la demande en attente a déjà ses frais d'étude réglés (cas campagne :
+  // seul le carnet reste dû), on bloque la saisie — sinon on re-facturerait.
+  const studyFeeAlreadyPaid =
+    paymentType === "frais_demande_credit" &&
+    pendingRequests.length > 0 &&
+    pendingRequests.every((r) => r.frais_demande_credit_paye);
 
   // Tarifs officiels des frais fixes (FeeType) → verrouillage du montant.
   const [feeAmounts, setFeeAmounts] = useState<Record<string, number>>({});
@@ -318,7 +325,9 @@ export function CashInModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitting || !selectedMember || !montant}
+            disabled={
+              submitting || !selectedMember || !montant || studyFeeAlreadyPaid
+            }
             className={buttonClasses({ variant: "primary", size: "sm" })}
           >
             {submitting ? "Enregistrement…" : "Enregistrer le versement"}
@@ -462,6 +471,22 @@ export function CashInModal({
                   <p className="text-[11px] text-ink-500">
                     Bénéficiaire campagne : encaisse l'étude ET le carnet (2
                     versements distincts) pour ouvrir l'instruction.
+                  </p>
+                ) : null}
+                {studyFeeAlreadyPaid ? (
+                  <p className="rounded-md border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-[11px] text-emerald-700">
+                    Frais d'étude déjà réglés pour cette demande.
+                    {Number(pendingRequests[0]?.carnet_fee_due ?? 0) > 0
+                      ? " Il reste le carnet à encaisser → choisis le type « frais de carnet »."
+                      : " Aucun frais d'étude supplémentaire n'est dû."}
+                  </p>
+                ) : !studyFeeAlreadyPaid && pendingRequests[0] ? (
+                  <p className="rounded-md border border-blue-200 bg-blue-50/60 px-3 py-2 text-[11px] text-blue-800">
+                    Ce versement sera{" "}
+                    <strong>rattaché à la demande de crédit #
+                    {pendingRequests[0].id}</strong>{" "}
+                    de {selectedMember.prenom} {selectedMember.nom} et fera
+                    avancer son instruction. Il n'impacte aucun autre compte.
                   </p>
                 ) : null}
               </ul>
