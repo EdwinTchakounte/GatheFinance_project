@@ -7,7 +7,8 @@ pleine largeur, et bandeau bleu de contacts **pleine largeur** avec icônes en
 pied de page.
 
 Couleurs RÉELLES relevées sur la référence (source de vérité) :
-    bleu #0747FF · vert foncé #13820E · vert vif #33FF00 · fond gris #F0F4F3.
+    bleu logo #004CA4 · vert foncé logo #13820E · fond gris #F0F4F3.
+    (Plus aucun bleu vif ni vert vif — décision cliente.)
 
 Auto-contenu : aucune I/O réseau, le logo est lu depuis les assets locaux
 (le même que le filigrane). Utilisé par tous les générateurs (reçu, note de
@@ -25,10 +26,10 @@ from reportlab.lib.units import mm
 logger = logging.getLogger(__name__)
 
 # --- Couleurs de marque (RÉELLES, relevées PIL sur le papier en-tête) -----
-BRAND_BLUE = colors.HexColor("#0747FF")        # bleu du logo + bandeau pied
-BRAND_GREEN = colors.HexColor("#33FF00")       # vert vif (segment droit filet)
+BRAND_BLUE = colors.HexColor("#004CA4")        # bleu du logo + bandeau pied
+BRAND_GREEN = colors.HexColor("#13820E")       # vert foncé du logo (plus de vif)
 BRAND_GREEN_DARK = colors.HexColor("#13820E")  # vert foncé (segment central)
-PILL_GREEN = colors.HexColor("#33CC00")        # pastille immatriculation
+PILL_GREEN = colors.HexColor("#13820E")        # pastille immatriculation (vert foncé)
 HEADER_BG = colors.HexColor("#F0F4F3")         # fond très clair de l'en-tête
 WHITE = colors.white
 

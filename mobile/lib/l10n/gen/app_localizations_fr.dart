@@ -389,6 +389,25 @@ class AppL10nFr extends AppL10n {
   String get credit_status_closed => 'Clôturé';
 
   @override
+  String get credit_closed_section_title => 'Crédits clôturés';
+
+  @override
+  String get credit_hide_action => 'Supprimer';
+
+  @override
+  String get credit_hide_confirm_title => 'Masquer ce crédit ?';
+
+  @override
+  String get credit_hide_confirm_body =>
+      'Il disparaîtra de ta liste. Rien n\'est supprimé côté coopérative.';
+
+  @override
+  String get credit_hide_cancel => 'Annuler';
+
+  @override
+  String get credit_hide_done => 'Crédit masqué.';
+
+  @override
   String get credit_remaining_balance => 'Solde restant';
 
   @override
@@ -2180,10 +2199,34 @@ class AppL10nFr extends AppL10n {
       'À la clôture mensuelle, 1 % est retenu par la coopérative.';
 
   @override
-  String get collecte_eom_cash => 'Retirer en cash';
+  String get collecte_eom_cash => 'Retirer à l\'agence';
 
   @override
-  String get collecte_eom_cash_desc => 'Tu récupères ton solde à l\'agence.';
+  String get collecte_eom_cash_desc =>
+      'Tu récupères ton solde en espèces au guichet.';
+
+  @override
+  String get collecte_eom_momo => 'Verser sur mon compte';
+
+  @override
+  String get collecte_eom_momo_desc =>
+      'La coopérative t\'envoie ton solde par Mobile Money.';
+
+  @override
+  String get collecte_eom_momo_phone => 'Numéro Mobile Money';
+
+  @override
+  String get collecte_eom_momo_phone_hint => 'Ex : 690 00 00 00';
+
+  @override
+  String get collecte_eom_momo_network => 'Réseau';
+
+  @override
+  String get collecte_eom_momo_save => 'Enregistrer ma destination';
+
+  @override
+  String get collecte_eom_momo_phone_required =>
+      'Saisis ton numéro Mobile Money.';
 
   @override
   String get collecte_eom_savings => 'Basculer en épargne';

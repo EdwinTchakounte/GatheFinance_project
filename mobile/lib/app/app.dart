@@ -150,9 +150,12 @@ class _GatheAppState extends ConsumerState<GatheApp>
       theme: AppTheme.light,
       themeMode: ThemeMode.light,
       routerConfig: router,
-      // Borne le grossissement de police système : au-delà de 1.15 les layouts
-      // denses (hero, montants 44pt, sheets) débordent. Accessibilité préservée
-      // (jusqu'à +15 %) sans casser le rendu.
+      // Standard international (WCAG / Material / HIG) : on RESPECTE le réglage
+      // de police du membre — on ne force JAMAIS le texte plus petit que son
+      // choix. On borne seulement pour éviter les débordements des layouts
+      // denses (hero, montants, sheets). La densité « moins grotesque » vient
+      // des tokens de design réduits + visualDensity.compact, pas d'un
+      // rapetissement imposé.
       builder: (context, child) => MediaQuery.withClampedTextScaling(
         minScaleFactor: 0.9,
         maxScaleFactor: 1.15,

@@ -87,9 +87,9 @@ class _SegmentedTabs extends StatelessWidget {
         splashBorderRadius: BorderRadius.circular(999),
         labelColor: Colors.white,
         unselectedLabelColor: PaColors.inkSecondary,
-        labelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         unselectedLabelStyle:
-            const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+            const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         tabs: [
           Tab(text: l.annonces_tab_news),
           Tab(text: l.annonces_tab_campaigns),

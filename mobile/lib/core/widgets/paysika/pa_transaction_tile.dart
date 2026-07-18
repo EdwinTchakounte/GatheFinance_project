@@ -115,7 +115,7 @@ class PaTransactionTile extends StatelessWidget {
                     // secondaire, le montant reste le point focal.
                     style: const TextStyle(
                       color: PaColors.inkSecondary,
-                      fontSize: 14.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -124,7 +124,7 @@ class PaTransactionTile extends StatelessWidget {
                     time,
                     style: const TextStyle(
                       color: PaColors.inkMuted,
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -138,7 +138,7 @@ class PaTransactionTile extends StatelessWidget {
               amountText,
               style: TextStyle(
                 color: amountColor,
-                fontSize: 15.5,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),

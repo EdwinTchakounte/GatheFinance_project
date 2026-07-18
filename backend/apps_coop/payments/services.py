@@ -858,6 +858,35 @@ def _hook_carnet_fees(payment: Payment, raw: dict) -> None:
     if not is_renewal:
         _activate_member_if_fees_settled(payment.member, trigger_payment=payment)
 
+    # Bénéficiaire campagne : le carnet obligatoire vient d'être créé. Si sa
+    # demande de crédit attendait UNIQUEMENT le carnet (frais d'étude déjà
+    # réglés), on ouvre maintenant l'instruction.
+    if created:
+        try:
+            from apps_coop.loans.models import LoanRequest
+            from apps_coop.loans.study_fee_services import (
+                open_instruction_after_fees,
+            )
+
+            pending = (
+                LoanRequest.objects.filter(
+                    member=payment.member,
+                    statut=LoanRequest.Statut.EN_ATTENTE,
+                    frais_demande_credit_paye=True,
+                    microcampaign__isnull=False,
+                )
+                .order_by("-id")
+                .first()
+            )
+            if pending is not None:
+                open_instruction_after_fees(pending)
+        except Exception:  # noqa: BLE001 — best-effort, ne casse pas le hook carnet
+            logger.warning(
+                "Ouverture instruction post-carnet échouée (member=%s)",
+                payment.member_id,
+                exc_info=True,
+            )
+
 
 # ---------------------------------------------------------------------------
 # D1 . Renouvellement annuel d'adhesion (chantier 2026-06)
@@ -996,6 +1025,27 @@ def _hook_decaissement(payment: Payment, _raw: dict) -> None:
         return
 
     if payment.loan_id is None:
+        # Cas 3 : restitution « cash » d'une clôture de collecte journalière —
+        # payout auto reconnu via la SavingsTransaction RESTITUTION_CASH liée.
+        # Le ledger collecte est déjà soldé à la clôture ; on trace juste la
+        # complétion du décaissement (aucune écriture métier supplémentaire).
+        from apps_coop.savings.models import SavingsTransaction
+
+        if SavingsTransaction.objects.filter(
+            payment_id=payment.id,
+            type_op=SavingsTransaction.TypeOp.RESTITUTION_CASH,
+        ).exists():
+            record_audit(
+                action="collecte.cash_payout_completed",
+                entite_type="Payment",
+                entite_id=payment.id,
+                details={
+                    "montant": str(payment.montant),
+                    "reference_externe": payment.reference_externe,
+                },
+            )
+            return
+
         logger.error(
             "Payment #%s (decaissement) sans loan_id ni withdrawal_request — orphelin.",
             payment.id,
@@ -1005,7 +1055,17 @@ def _hook_decaissement(payment: Payment, _raw: dict) -> None:
     loan = Loan.objects.select_for_update().get(pk=payment.loan_id)
     loan.date_decaissement = timezone.localdate()
     loan.statut = Loan.Statut.ACTIF
-    loan.save(update_fields=["date_decaissement", "statut", "updated_at"])
+    # Argent réellement versé → on lève le filet de sécurité : le crédit devient
+    # sujet aux pénalités / contentieux du cron de retards.
+    loan.en_attente_decaissement = False
+    loan.save(
+        update_fields=[
+            "date_decaissement",
+            "statut",
+            "en_attente_decaissement",
+            "updated_at",
+        ]
+    )
 
     # CH-12 — Si mode source + prêteurs, distribue immédiatement leur part
     # 50 % des intérêts retenus. Idempotent : ne s'exécute qu'une fois par

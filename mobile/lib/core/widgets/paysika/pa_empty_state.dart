@@ -55,7 +55,7 @@ class PaEmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: PaColors.inkPrimary,
-                fontSize: 17,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
             ),

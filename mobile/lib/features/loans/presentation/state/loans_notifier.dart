@@ -72,6 +72,34 @@ final loansProvider =
     AsyncNotifierProvider<LoansNotifier, List<Loan>>(LoansNotifier.new);
 
 
+/// Crédits CLÔTURÉS du membre (non masqués). Sert la section « Clôturés » :
+/// un crédit dont les remboursements sont finis y apparaît en « Clôturé », et
+/// le membre peut le masquer de sa vue (soft-hide, rien n'est supprimé en base).
+class ClosedLoansNotifier extends AsyncNotifier<List<Loan>> {
+  @override
+  Future<List<Loan>> build() =>
+      ref.read(loansRepositoryProvider).myClosedLoans();
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => ref.read(loansRepositoryProvider).myClosedLoans(),
+    );
+  }
+
+  /// Masque un crédit clôturé de la vue du membre puis rafraîchit la liste.
+  Future<void> hide(int loanId) async {
+    await ref.read(loansRepositoryProvider).hideLoan(loanId);
+    await refresh();
+  }
+}
+
+final closedLoansProvider =
+    AsyncNotifierProvider<ClosedLoansNotifier, List<Loan>>(
+  ClosedLoansNotifier.new,
+);
+
+
 /// Liste des demandes de crédit du membre.
 class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>>
     with PollableAsyncNotifier<List<LoanRequestEntity>> {

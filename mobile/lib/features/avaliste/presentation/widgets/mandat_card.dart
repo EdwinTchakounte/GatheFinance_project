@@ -217,7 +217,7 @@ class _Stat extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: PaText.eyebrow().copyWith(fontSize: 10),
+          style: PaText.eyebrow().copyWith(fontSize: 11),
         ),
         const SizedBox(height: 2),
         Text(

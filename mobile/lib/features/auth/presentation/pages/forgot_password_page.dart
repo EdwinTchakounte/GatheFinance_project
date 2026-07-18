@@ -171,7 +171,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             'Mot de passe oublié ?',
             style: TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 24,
+              fontSize: 22,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -188,7 +188,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
           const Text('Adresse e-mail',
               style: TextStyle(
                   color: PaColors.inkSecondary,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.2,),),
           const SizedBox(height: 8),
@@ -246,7 +246,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             'Vérifie ta boîte e-mail',
             style: TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 24,
+              fontSize: 22,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -263,7 +263,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
           const Text('Code à 6 chiffres',
               style: TextStyle(
                   color: PaColors.inkSecondary,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.2,),),
           const SizedBox(height: 8),
@@ -292,7 +292,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
           const Text('Nouveau mot de passe',
               style: TextStyle(
                   color: PaColors.inkSecondary,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.2,),),
           const SizedBox(height: 8),

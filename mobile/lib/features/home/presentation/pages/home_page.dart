@@ -549,7 +549,7 @@ class _NotifBell extends StatelessWidget {
                     unread > 9 ? '9+' : '$unread',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 8.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                       height: 1.1,
                     ),
@@ -756,7 +756,7 @@ class _StatusBannerBody extends StatelessWidget {
                   title,
                   style: TextStyle(
                     color: fg,
-                    fontSize: 13.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

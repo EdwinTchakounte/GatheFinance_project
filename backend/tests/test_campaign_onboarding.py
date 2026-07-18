@@ -118,10 +118,14 @@ class TestAcceptOnboarding:
         assert member.microcampaign_id == camp.id
         # Mail de définition de mot de passe : token émis.
         assert PasswordSetupToken.objects.filter(user=member.user).exists()
-        # LoanRequest ouvert directement en instruction standard.
+        # Carnet obligatoire (règle 2026) : la demande reste EN_ATTENTE tant que
+        # le carnet — facturé et réglé à la demande de crédit — n'est pas créé.
+        from apps_coop.members.models import BookletOrder
+
         lr = app.loan_request
         assert lr is not None
-        assert lr.statut == LoanRequest.Statut.EN_INSTRUCTION
+        assert lr.statut == LoanRequest.Statut.EN_ATTENTE
+        assert not BookletOrder.objects.filter(member=member).exists()
         assert lr.microcampaign_id == camp.id
         assert Decimal(lr.montant_demande) == Decimal("20000")
 

@@ -195,7 +195,7 @@ class _PdfOrUnknownView extends StatelessWidget {
                     : 'Format non pris en charge directement . on tente une ouverture externe.',
                 style: const TextStyle(
                   color: PaColors.inkMuted,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   height: 1.4,
                 ),
               ),

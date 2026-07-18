@@ -143,7 +143,7 @@ class _State extends ConsumerState<MembershipFeeSheet> {
                 widget.title,
                 style: const TextStyle(
                   color: PaColors.inkPrimary,
-                  fontSize: 19,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -175,12 +175,12 @@ class _State extends ConsumerState<MembershipFeeSheet> {
                             Text(l.fee_from_account,
                                 style: const TextStyle(
                                     color: PaColors.inkPrimary,
-                                    fontSize: 14.5,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w700,),),
                             const SizedBox(height: 2),
                             Text(l.fee_from_account_desc,
                                 style: const TextStyle(
-                                    color: PaColors.inkMuted, fontSize: 12.5,),),
+                                    color: PaColors.inkMuted, fontSize: 12,),),
                           ],
                         ),
                       ),
@@ -209,12 +209,12 @@ class _State extends ConsumerState<MembershipFeeSheet> {
                             Text(l.fee_mobile_money,
                                 style: const TextStyle(
                                     color: PaColors.inkPrimary,
-                                    fontSize: 14.5,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w700,),),
                             const SizedBox(height: 2),
                             Text(l.fee_mobile_money_desc,
                                 style: const TextStyle(
-                                    color: PaColors.inkMuted, fontSize: 12.5,),),
+                                    color: PaColors.inkMuted, fontSize: 12,),),
                           ],
                         ),
                       ),

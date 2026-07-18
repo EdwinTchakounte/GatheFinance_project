@@ -47,6 +47,7 @@ PREFIX_RULES: list[tuple[str, str]] = [
     ("loans/admin/escalations/", "escalations"),
     ("loans/admin/lender-tranches/", "lender-tranches"),
     ("loans/admin/renewals/", "loan-renewals"),
+    ("loans/admin/avaliste-consents/", "avaliste"),
     ("loans/admin/requests/", "loan-requests"),
     ("loans/admin/loans/", "loans"),
     ("loans/admin/list/", "loans"),

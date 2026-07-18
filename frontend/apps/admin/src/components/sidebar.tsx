@@ -30,6 +30,7 @@ import {
   GitBranch,
   Coins,
   ShieldCheck,
+  Handshake,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
@@ -56,6 +57,7 @@ const NAV: NavItem[] = [
   { href: "/loan-requests", label: "Demandes de crédit", icon: HandCoins, queueKey: "credits_en_instruction" },
   { href: "/loans", label: "Crédits", icon: Wallet },
   { href: "/loan-renewals", label: "Reconductions", icon: RefreshCw },
+  { href: "/avaliste", label: "Avalistes / cautions", icon: Handshake },
   // LA-1 . Pool de tranches preteur (epargne placement) . admin pilote
   // manuellement le funding d'un credit.
   { href: "/lender-tranches", label: "Pool prêteurs", icon: Coins },

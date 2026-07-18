@@ -120,10 +120,13 @@ def suivi_retards_quotidien() -> dict:
     notifs_retard: list[tuple[int, int, Decimal, Decimal]] = []
 
     # 1) Marquer les installments dont la date_echeance est dépassée.
+    # Filet de sécurité : on EXCLUT les crédits pas encore décaissés — on ne
+    # marque pas en retard (ni ne pénalise) une échéance dont l'argent n'a
+    # jamais été versé au membre.
     overdue_qs = LoanInstallment.objects.filter(
         date_echeance__lt=today,
         statut__in=[LoanInstallment.Statut.A_VENIR, LoanInstallment.Statut.PARTIELLE],
-    ).select_related("loan")
+    ).exclude(loan__en_attente_decaissement=True).select_related("loan")
 
     for inst in overdue_qs:
         installments_examinees += 1
@@ -467,6 +470,8 @@ def _phase_penalite_globale(today) -> tuple[int, int]:
         Loan.objects.filter(
             statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD],
             solde_restant__gt=0,
+            # Filet de sécurité : pas de pénalité globale sur un crédit non décaissé.
+            en_attente_decaissement=False,
             penalite_globale_appliquee_at__isnull=True,
         )
         .annotate(date_limite=Max("installments__date_echeance"))
@@ -541,6 +546,8 @@ def _phase_contentieux_et_saisie(today) -> tuple[int, int, int]:
         penalite_globale_appliquee_at__lte=cutoff_dt,
         solde_restant__gt=0,
         epargne_saisie_at__isnull=True,
+        # Filet de sécurité : pas de contentieux/saisie sur un crédit non décaissé.
+        en_attente_decaissement=False,
     ).select_related("member__user")
 
     basculs = 0

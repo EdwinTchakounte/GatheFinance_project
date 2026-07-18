@@ -10,6 +10,12 @@ abstract class LoansRepository {
   /// Crédits en cours du membre (statut != cloture).
   Future<List<Loan>> myActiveLoans();
 
+  /// Crédits CLÔTURÉS du membre non masqués (statut = cloture).
+  Future<List<Loan>> myClosedLoans();
+
+  /// Masque un crédit clôturé de la vue du membre (soft-hide, rien en base).
+  Future<void> hideLoan(int loanId);
+
   /// Demandes de crédit du membre (toutes statuts confondus).
   Future<List<LoanRequestEntity>> myRequests();
 

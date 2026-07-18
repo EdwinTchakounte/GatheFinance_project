@@ -34,7 +34,7 @@ from apps_coop.pdf_watermark import draw_watermark
 
 # Couleurs de marque réelles (logo GATHE) ; vert foncé pour rester lisible
 # sur fond blanc dans le corps (montants, graphiques, légendes).
-BRAND_BLUE = colors.HexColor("#0747FF")
+BRAND_BLUE = colors.HexColor("#004CA4")
 BRAND_GREEN = colors.HexColor("#14820E")
 INK = colors.HexColor("#1A2230")
 MUTED = colors.HexColor("#5B6472")

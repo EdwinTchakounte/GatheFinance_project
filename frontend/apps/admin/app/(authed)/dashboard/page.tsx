@@ -15,9 +15,11 @@ import {
   Gavel,
   UserCheck,
   FileDown,
+  Search,
 } from "lucide-react";
 
 import { adminApi, type AdminInstallmentRow, type DashboardKpis } from "@/lib/api";
+import { LoanDetailModal } from "@/components/loan-detail-modal";
 
 
 function formatXAF(amount: string): string {
@@ -360,6 +362,8 @@ function UpcomingRepayments() {
   const [rows, setRows] = useState<AdminInstallmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"" | "en_retard" | "a_venir,partielle">("");
+  // Bouton « check » : ouvre l'état complet de l'abonné sur ce crédit.
+  const [checkLoanId, setCheckLoanId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -431,6 +435,7 @@ function UpcomingRepayments() {
                 <th>Dossier</th>
                 <th className="text-right">Montant restant</th>
                 <th>Statut</th>
+                <th className="text-right">État</th>
               </tr>
             </thead>
             <tbody>
@@ -482,12 +487,27 @@ function UpcomingRepayments() {
                       {r.statut_display}
                     </span>
                   </td>
+                  <td className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => setCheckLoanId(r.loan.id)}
+                      title="Voir l'état complet de l'abonné sur ce crédit"
+                      className="inline-flex items-center gap-1 rounded-md border border-line-200 px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-50"
+                    >
+                      <Search className="h-3.5 w-3.5" />
+                      Check
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+      <LoanDetailModal
+        loanId={checkLoanId}
+        onClose={() => setCheckLoanId(null)}
+      />
     </section>
   );
 }

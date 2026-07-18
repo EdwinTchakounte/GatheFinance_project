@@ -137,7 +137,7 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
                 l.transfer_title,
                 style: const TextStyle(
                   color: PaColors.inkPrimary,
-                  fontSize: 19,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -168,7 +168,7 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
                           : '${XAFFormatter.format(_available)} XAF',
                       style: const TextStyle(
                         color: PaColors.inkPrimary,
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -183,7 +183,7 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
                   child: Text(
                     l.transfer_no_loan,
                     style: const TextStyle(
-                        color: PaColors.inkMuted, fontSize: 13.5,),
+                        color: PaColors.inkMuted, fontSize: 13,),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -229,7 +229,7 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
                   cursorColor: PaColors.teal,
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 30,
+                    fontSize: 29,
                     fontWeight: FontWeight.w700,
                   ),
                   decoration: const InputDecoration(
@@ -299,7 +299,7 @@ class _LoanRow extends StatelessWidget {
                       loan.numeroDossier,
                       style: const TextStyle(
                         color: PaColors.inkPrimary,
-                        fontSize: 13.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

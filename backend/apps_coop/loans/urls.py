@@ -6,6 +6,7 @@ the Next.js admin dashboard is built. Until then, staff use ``/django-admin/``.
 from django.urls import path
 
 from .avaliste_views import (
+    admin_avaliste_consents_list,
     avaliste_mandat_detail,
     avaliste_mandat_respond,
     avaliste_mandats_list,
@@ -66,6 +67,7 @@ from .views import (
     loans_me_active,
     transfer_available,
     loans_me_closed,
+    loan_me_hide,
     me_lender_payouts,
 )
 
@@ -85,6 +87,8 @@ urlpatterns = [
     ),
     # P3 . Historique credits cloturees (parite portail web).
     path("me/closed/", loans_me_closed, name="my-closed-loans"),
+    # Le membre masque un crédit clôturé de sa vue (soft-hide, rien en base).
+    path("me/loans/<int:pk>/hide/", loan_me_hide, name="loan-me-hide"),
     # CH-12 — Versements d'intérêts reçus en tant que prêteur.
     path("me/lender-payouts/", me_lender_payouts, name="my-lender-payouts"),
     # LOT 11 — Liste publique des campagnes micro-crédit actives (mobile +
@@ -118,6 +122,11 @@ urlpatterns = [
     # Reconduction (renewal) — membre actif
     path("<int:pk>/renewal/", loan_renewal_request, name="renewal-request"),
     # Admin/comité
+    path(
+        "admin/avaliste-consents/",
+        admin_avaliste_consents_list,
+        name="admin-avaliste-consents",
+    ),
     path("admin/requests/", admin_list_loan_requests, name="admin-list-requests"),
     path("admin/list/", admin_list_loans, name="admin-list-loans"),
     # A1 . Detail credit (echeances + remboursements) pour drawer admin.

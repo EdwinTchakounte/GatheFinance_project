@@ -119,9 +119,35 @@ class TestVoieSeniorBrc:
         lr = LoanRequest.objects.get(pk=body["loan_request"]["id"])
         assert lr.montant_gele_demandeur == Decimal("100000")
 
+    def test_ancient_brc_undercovered_creates_lr_with_partial_gel(
+        self, active_member
+    ):
+        # Ancien + BRC, épargne classique < montant : dossier accepté en voie 1
+        # (le comité jugera), SANS avaliste. Le gel = son épargne dispo (min),
+        # pas le montant plein — il immobilise ce qu'il a.
+        _seed_fee()
+        _ancient_brc(active_member)
+        _seed_classic(active_member, 30000)
+        client = _api(active_member)
+        r = client.post(
+            "/api/v1/loans/requests/",
+            {
+                "montant_demande": "100000",
+                "duree_mois": 6,
+                "motif": "Crédit de confiance ancien BRC",
+            },
+            format="json",
+        )
+        assert r.status_code == 201, r.content
+        body = r.json()
+        assert body["route"] == "senior_brc"
+        lr = LoanRequest.objects.get(pk=body["loan_request"]["id"])
+        # Gel partiel = min(montant, épargne dispo) = 30 000, pas 100 000.
+        assert lr.montant_gele_demandeur == Decimal("30000")
+
     def test_above_self_coverage_without_avaliste_rejects(self, active_member):
-        # Plus de plafond ×10 : mais sans avaliste on ne peut pas dépasser sa
-        # propre épargne → aucune voie applicable (403), pas une erreur 400.
+        # Plus de plafond ×10 : un NOUVEL adhérent (non ancien) sans avaliste ne
+        # peut pas dépasser sa propre épargne → aucune voie applicable (403).
         _seed_fee()
         _new_member(active_member)
         _seed_classic(active_member, 10000)

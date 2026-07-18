@@ -191,6 +191,27 @@ class LoansDioDataSource implements LoansRemoteDataSource {
   }
 
   @override
+  Future<List<Loan>> myClosedLoans() async {
+    try {
+      final res = await _dio.get<List<dynamic>>('/loans/me/closed/');
+      return (res.data ?? const [])
+          .map((l) => _parseLoan(l as Map<String, dynamic>))
+          .toList(growable: false);
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
+  Future<void> hideLoan(int loanId) async {
+    try {
+      await _dio.post<Map<String, dynamic>>('/loans/me/loans/$loanId/hide/');
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
   Future<List<LenderPayout>> myLenderPayouts() async {
     try {
       final res =

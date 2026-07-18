@@ -36,7 +36,7 @@ class NewsListPage extends StatelessWidget {
           AppL10n.of(context).news_title,
           style: const TextStyle(
             color: PaColors.inkPrimary,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -189,7 +189,7 @@ class _ArticleRow extends StatelessWidget {
                   a.title,
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 16.5,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     height: 1.3,
                   ),
@@ -277,7 +277,7 @@ class _Pill extends StatelessWidget {
             text,
             style: TextStyle(
               color: fg,
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.5,
             ),

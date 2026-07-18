@@ -35,7 +35,7 @@ class AnnouncementDetailPage extends StatelessWidget {
           'Annonce',
           style: TextStyle(
             color: PaColors.inkPrimary,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -72,7 +72,7 @@ class AnnouncementDetailPage extends StatelessWidget {
             announcement.corps,
             style: const TextStyle(
               color: PaColors.inkSecondary,
-              fontSize: 15.5,
+              fontSize: 16,
               height: 1.55,
             ),
           ),

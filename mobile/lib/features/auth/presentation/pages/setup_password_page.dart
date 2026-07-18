@@ -141,7 +141,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
         ),
         title: const Text(
           'Definir mon mot de passe',
-          style: TextStyle(color: PaColors.inkPrimary, fontSize: 17, fontWeight: FontWeight.w600),
+          style: TextStyle(color: PaColors.inkPrimary, fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
       body: SafeArea(
@@ -187,7 +187,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
         const SizedBox(height: 12),
         const Text(
           "Plus pratique : ouvre le lien directement depuis ton email — il t'amenera sur la page web qui fait la meme chose.",
-          style: TextStyle(color: PaColors.inkSecondary, fontSize: 12.5, height: 1.4),
+          style: TextStyle(color: PaColors.inkSecondary, fontSize: 12, height: 1.4),
         ),
       ],
     );
@@ -262,7 +262,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
         const Text(
           'Tu peux maintenant te connecter avec ton email et ton nouveau mot de passe.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: PaColors.inkSecondary, fontSize: 14.5, height: 1.45),
+          style: TextStyle(color: PaColors.inkSecondary, fontSize: 14, height: 1.45),
         ),
         const SizedBox(height: 28),
         PaButton(
@@ -307,7 +307,7 @@ class _StepHeader extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           subtitle,
-          style: const TextStyle(color: PaColors.inkSecondary, fontSize: 13.5, height: 1.45),
+          style: const TextStyle(color: PaColors.inkSecondary, fontSize: 13, height: 1.45),
         ),
       ],
     );

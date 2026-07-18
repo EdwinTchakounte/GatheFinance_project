@@ -9,30 +9,30 @@
    ============================================================================ */
 
 @theme {
-  /* ---- Brand blue (primary — kept, tied to logo) ----------------------- */
-  --color-blue-50:  #f1f7fd;
-  --color-blue-100: #e3f0fb;
-  --color-blue-200: #c2dcf4;
-  --color-blue-300: #8fc0e9;
-  --color-blue-400: #549fdb;
-  --color-blue-500: #2b7fc9;   /* interactive */
-  --color-blue-600: #1660b0;
-  --color-blue-700: #0e4d92;   /* PRIMARY — logo blue */
-  --color-blue-800: #0b3d74;
-  --color-blue-900: #082e58;
-  --color-blue-950: #051d3a;   /* deep navy — dark sections, footer */
+  /* ---- Brand blue (primary — LOGO #004CA4, aucun bleu vif) ------------- */
+  --color-blue-50:  #eef4fc;
+  --color-blue-100: #d5e5f7;
+  --color-blue-200: #adccef;
+  --color-blue-300: #7aabe1;
+  --color-blue-400: #3f83cc;
+  --color-blue-500: #1663b5;   /* interactive */
+  --color-blue-600: #0556ab;
+  --color-blue-700: #004ca4;   /* PRIMARY — logo blue #004CA4 */
+  --color-blue-800: #003c81;
+  --color-blue-900: #002c5e;
+  --color-blue-950: #001c3d;   /* deep navy — dark sections, footer */
 
-  /* ---- Brand green (accent / success — kept) -------------------------- */
-  --color-green-50:  #ecf8eb;
-  --color-green-100: #d8f1d6;
-  --color-green-200: #b3e3af;
-  --color-green-300: #84d07e;
-  --color-green-400: #59c052;
-  --color-green-500: #3aaa35;   /* ACCENT — logo green */
-  --color-green-600: #2f8e2b;
-  --color-green-700: #267323;
-  --color-green-800: #1f5a1d;
-  --color-green-900: #163f15;
+  /* ---- Brand green (accent / success — vert foncé logo, AUCUN vif) ----- */
+  --color-green-50:  #eaf5e9;
+  --color-green-100: #d1ead0;
+  --color-green-200: #a5d4a2;
+  --color-green-300: #6eb869;
+  --color-green-400: #3f9c39;
+  --color-green-500: #13820e;   /* ACCENT — vert foncé du logo (non vif) */
+  --color-green-600: #106e0b;
+  --color-green-700: #0d5809;
+  --color-green-800: #0a4507;
+  --color-green-900: #063104;
 
   /* ---- Terra (ocre, NEW — institutional accent, used RARE) ------------ */
   /* Used only for pull quotes, eyebrow micro-rules on key editorial pages,
@@ -70,12 +70,12 @@
   /* "night" surface set, kept for the rare dark immersive band. */
   --color-midnight: #06121f;
   --color-deep:     #0a1e33;
-  --color-cobalt:   #1f76ce;
-  --color-emerald:  #46c145;
+  --color-cobalt:   #0a56ab;    /* aligné bleu logo (plus de bleu vif) */
+  --color-emerald:  #13820e;    /* vert foncé logo (plus de vert vif) */
 
   /* ---- Semantic ------------------------------------------------------- */
-  --color-success: #2f8e2b;
-  --color-info:    #0e4d92;
+  --color-success: #13820e;
+  --color-info:    #004ca4;
   --color-warning: #b7791f;
   --color-error:   #c5221f;
 

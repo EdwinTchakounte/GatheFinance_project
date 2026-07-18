@@ -184,7 +184,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               'Type de dépôt',
               style: TextStyle(
                 color: PaColors.inkPrimary,
-                fontSize: 19,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -260,7 +260,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             l.dep_title,
             style: const TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 19,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -326,7 +326,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             l.dep_agency_title,
             style: const TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 19,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -402,14 +402,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               widget.classic ? l.classic_dep_title : l.dep_title,
               style: const TextStyle(
                 color: PaColors.inkPrimary,
-                fontSize: 19,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               widget.classic ? l.classic_dep_sub : l.dep_suggestion,
-              style: const TextStyle(color: PaColors.inkMuted, fontSize: 13.5),
+              style: const TextStyle(color: PaColors.inkMuted, fontSize: 13),
             ),
             // CH-3 . Badge rappelant le sous-canal choisi à l'étape kindChoice.
             if (widget.classic) ...[
@@ -569,7 +569,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               onChanged: (_) => setState(() {}),
               style: const TextStyle(
                 color: PaColors.inkPrimary,
-                fontSize: 34,
+                fontSize: 29,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
                 height: 1.1,
@@ -579,7 +579,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                 hintText: '0',
                 hintStyle: TextStyle(
                   color: PaColors.inkPrimary.withValues(alpha: 0.18),
-                  fontSize: 34,
+                  fontSize: 29,
                   fontWeight: FontWeight.w700,
                 ),
                 border: const UnderlineInputBorder(
@@ -764,7 +764,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: PaColors.inkMuted,
-              fontSize: 13.5,
+              fontSize: 13,
               height: 1.5,
             ),
           ),
@@ -892,7 +892,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                       '(${LastTaraResponse.message})',
                       style: const TextStyle(
                         color: PaColors.inkMuted,
-                        fontSize: 11.5,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -991,7 +991,7 @@ class _ChannelCard extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1000,7 +1000,7 @@ class _ChannelCard extends StatelessWidget {
                   subtitle,
                   style: const TextStyle(
                     color: PaColors.inkMuted,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     height: 1.3,
                   ),
                 ),
@@ -1064,7 +1064,7 @@ class _AgencyRow extends StatelessWidget {
             label,
             style: const TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 13.5,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1224,7 +1224,7 @@ class _KindCard extends StatelessWidget {
                         title,
                         style: const TextStyle(
                           color: PaColors.inkPrimary,
-                          fontSize: 15.5,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -1239,7 +1239,7 @@ class _KindCard extends StatelessWidget {
                   subtitle,
                   style: const TextStyle(
                     color: PaColors.inkSecondary,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     height: 1.4,
                   ),
                 ),
@@ -1256,7 +1256,7 @@ class _KindCard extends StatelessWidget {
                     pill,
                     style: TextStyle(
                       color: accent,
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

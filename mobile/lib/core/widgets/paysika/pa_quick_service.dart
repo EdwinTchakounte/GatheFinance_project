@@ -58,7 +58,7 @@ class PaQuickService extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 14.5,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),

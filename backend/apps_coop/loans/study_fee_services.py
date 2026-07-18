@@ -155,6 +155,24 @@ def open_instruction_after_fees(loan_request: LoanRequest) -> LoanRequest:
 
     loan_request.frais_demande_credit_paye = True
 
+    # Carnet obligatoire (bénéficiaire campagne) : les frais d'étude sont payés,
+    # mais tant que le carnet n'est pas réglé/créé la demande RESTE en attente.
+    # L'instruction s'ouvrira à la validation du paiement carnet (cf.
+    # ``payments.services._hook_carnet_fees`` qui rappelle cette fonction).
+    from .services import campaign_member_needs_carnet
+
+    if campaign_member_needs_carnet(loan_request.member):
+        loan_request.save(
+            update_fields=["frais_demande_credit_paye", "updated_at"]
+        )
+        record_audit(
+            action="loan_request.awaiting_carnet",
+            entite_type="LoanRequest",
+            entite_id=loan_request.id,
+            details={"member_id": loan_request.member_id},
+        )
+        return loan_request
+
     numero = (loan_request.avaliste_numero_saisi or "").strip()
     nom = (loan_request.avaliste_nom_saisi or "").strip()
 

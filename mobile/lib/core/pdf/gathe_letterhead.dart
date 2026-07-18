@@ -19,10 +19,10 @@ import 'package:pdf/widgets.dart' as pw;
 /// [gatheFooterMargin] pour les hauteurs à réserver.
 
 // --- Couleurs de marque RÉELLES (relevées PIL sur le papier en-tête) --------
-const gatheBlue = PdfColor.fromInt(0xFF0747FF); // bleu du logo + bandeau pied
-const gatheGreen = PdfColor.fromInt(0xFF33FF00); // vert vif (segment droit)
+const gatheBlue = PdfColor.fromInt(0xFF004CA4); // bleu du logo + bandeau pied
+const gatheGreen = PdfColor.fromInt(0xFF13820E); // vert foncé du logo (plus de vif)
 const gatheGreenDark = PdfColor.fromInt(0xFF13820E); // vert foncé (segment central)
-const gathePillGreen = PdfColor.fromInt(0xFF33CC00); // pastille immatriculation
+const gathePillGreen = PdfColor.fromInt(0xFF13820E); // pastille immatriculation (vert foncé)
 const gatheHeaderBg = PdfColor.fromInt(0xFFF0F4F3); // fond très clair en-tête
 
 // Hauteurs à réserver dans les marges de page pour ne pas chevaucher les bandes.

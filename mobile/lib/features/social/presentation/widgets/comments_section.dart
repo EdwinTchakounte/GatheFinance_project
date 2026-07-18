@@ -190,7 +190,7 @@ class _Header extends StatelessWidget {
           'Commentaires',
           style: TextStyle(
             color: PaColors.inkPrimary,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.3,
           ),
@@ -207,7 +207,7 @@ class _Header extends StatelessWidget {
               '$count',
               style: const TextStyle(
                 color: PaColors.tealDark,
-                fontSize: 11.5,
+                fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.1,
               ),
@@ -272,7 +272,7 @@ class _Composer extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: PaColors.tealDark,
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -317,7 +317,7 @@ class _Composer extends StatelessWidget {
                 hintText: 'Partage ton avis…',
                 hintStyle: TextStyle(
                   color: PaColors.inkMuted,
-                  fontSize: 14.5,
+                  fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
                 isCollapsed: true,
@@ -327,7 +327,7 @@ class _Composer extends StatelessWidget {
               ),
               style: const TextStyle(
                 color: PaColors.inkPrimary,
-                fontSize: 14.5,
+                fontSize: 14,
                 height: 1.45,
               ),
             ),
@@ -785,7 +785,7 @@ class _EmptyBlock extends StatelessWidget {
             'Lance la conversation',
             style: TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),

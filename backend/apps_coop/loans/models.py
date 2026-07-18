@@ -612,6 +612,34 @@ class Loan(TimestampedModel):
     date_decaissement = models.DateField()
     date_premiere_echeance = models.DateField()
 
+    # Filet de sécurité décaissement : un crédit approuvé est créé ACTIF avec un
+    # échéancier, mais l'argent n'est versé qu'à une étape admin séparée
+    # (disburse). Tant que ce flag est True (posé à l'approbation, levé au
+    # décaissement réel via ``_hook_decaissement``), le cron de retards NE doit
+    # NI pénaliser NI passer en contentieux/saisie : on ne peut pas sanctionner
+    # un membre pour un argent qu'il n'a pas encore reçu. Défaut False → les
+    # crédits existants (prod + legacy) restent traités normalement.
+    en_attente_decaissement = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text=(
+            "True = crédit approuvé mais argent pas encore versé. Exclut le "
+            "crédit des pénalités et de la saisie tant qu'il n'est pas décaissé."
+        ),
+    )
+
+    # Le membre a masqué ce crédit CLÔTURÉ de sa vue (mobile/portail). Soft-hide
+    # côté membre uniquement — RIEN n'est supprimé en base (audit, admin, compta
+    # restent intacts). Seul un crédit clôturé peut être masqué.
+    masque_par_membre = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text=(
+            "True = crédit clôturé masqué de la vue du membre. Aucune "
+            "suppression en base ; l'admin le voit toujours."
+        ),
+    )
+
     # CH-8 — Date butoire formelle (échéancier souple, date butoire stricte).
     # Posée à la création du Loan = date_premiere_echeance + duree_mois.
     # Modifiable par l'admin (extension exceptionnelle à la demande du membre).

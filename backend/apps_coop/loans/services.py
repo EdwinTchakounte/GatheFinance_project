@@ -390,6 +390,10 @@ def approve_loan_request(
         montant_total_du=montant_total_du,
         solde_restant=montant_total_du,
         statut=Loan.Statut.ACTIF,
+        # Filet de sécurité : le crédit est ACTIF mais l'argent n'est pas encore
+        # versé. Le décaissement réel (disburse) lèvera ce flag ; d'ici là, le
+        # cron de retards l'ignore (pas de pénalité/saisie avant décaissement).
+        en_attente_decaissement=True,
         mode_retenue_interets=mode_retenue,
         montant_decaisse_net=montant_decaisse_net,
         interets_retenus_source=interets_retenus_source,
@@ -684,6 +688,35 @@ def tara_payout_enabled() -> bool:
         "yes",
         "on",
     )
+
+
+def carnet_fee_amount() -> Decimal:
+    """Montant des frais de carnet (``FeeType.CARNET``). 0 si non configuré."""
+    from apps_coop.payments.models import FeeType
+
+    fee = (
+        FeeType.objects.filter(code=FeeType.Code.CARNET, actif=True)
+        .values_list("montant", flat=True)
+        .first()
+    )
+    return Decimal(fee) if fee is not None else Decimal("0")
+
+
+def campaign_member_needs_carnet(member) -> bool:
+    """True si ``member`` est un bénéficiaire CRÉÉ via campagne
+    (``member.microcampaign`` posé) qui n'a encore AUCUN carnet.
+
+    Règle métier 2026 : un membre créé via campagne doit obligatoirement
+    posséder un carnet — les versements/écritures de collecte s'imputent au
+    carnet (``booklet_order``). Tant qu'il n'en a pas, sa demande de crédit
+    reste bloquée à la porte des frais (le carnet est facturé et réglé à la
+    demande de crédit, en même temps que les frais d'étude).
+    """
+    if getattr(member, "microcampaign_id", None) is None:
+        return False
+    from apps_coop.members.models import BookletOrder
+
+    return not BookletOrder.objects.filter(member=member).exists()
 
 
 def study_fee_for(campaign=None) -> Decimal:

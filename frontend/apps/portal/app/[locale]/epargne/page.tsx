@@ -8,6 +8,8 @@ import { Wallet } from "lucide-react";
 
 import { Container, buttonClasses, EmptyState, Skeleton, SkeletonList } from "@gathe/ui";
 
+import { CollecteEomChoice } from "@/components/collecte-eom-choice";
+
 import {
   portalApi,
   type ApiError,
@@ -201,6 +203,42 @@ export default function EpargneIndexPage() {
                 ? `Compte ouvert le ${formatDate(classic.date_ouverture)}`
                 : "Aucun dépôt classique pour le moment."}
             </p>
+
+            {/* Détail de consultation (parité mobile — onglet « États ») :
+                part placée / libre / gelée en garantie crédit / réellement
+                retirable. Le gelé est dérivé côté backend (jamais stocké). */}
+            {classic ? (
+              <dl className="mt-4 space-y-1.5 border-t border-emerald/20 pt-3 text-sm">
+                {Number(classic.solde_placement_actif) > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-ink-600">En placement</dt>
+                    <dd className="font-medium text-ink-900">
+                      {formatXAF(classic.solde_placement_actif)}
+                    </dd>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between">
+                  <dt className="text-ink-600">Libre</dt>
+                  <dd className="font-medium text-ink-900">
+                    {formatXAF(classic.solde_libre)}
+                  </dd>
+                </div>
+                {Number(classic.montant_gele_credit) > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-amber-700">Gelé en garantie</dt>
+                    <dd className="font-medium text-amber-700">
+                      {formatXAF(classic.montant_gele_credit)}
+                    </dd>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between">
+                  <dt className="text-ink-700">Disponible au retrait</dt>
+                  <dd className="font-semibold text-emerald">
+                    {formatXAF(classic.solde_disponible_retrait)}
+                  </dd>
+                </div>
+              </dl>
+            ) : null}
           </article>
         </section>
 
@@ -254,6 +292,15 @@ export default function EpargneIndexPage() {
             </button>
           </article>
         </section>
+
+        {/* Fin de mois — que faire de la collecte (parité mobile) */}
+        {savings ? (
+          <CollecteEomChoice
+            initialPreference={savings.end_of_month_preference}
+            initialPhone={savings.payout_phone}
+            initialNetwork={savings.payout_network}
+          />
+        ) : null}
 
         {/* Actions secondaires : placement + retrait */}
         <section className="mt-5 grid gap-5 md:grid-cols-2">

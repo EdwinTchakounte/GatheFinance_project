@@ -42,6 +42,8 @@ class SavingsAccountReadSerializer(serializers.ModelSerializer):
             "date_ouverture",
             "taux_interet_applique",
             "end_of_month_preference",
+            "payout_phone",
+            "payout_network",
             "transactions_recentes",
         )
         read_only_fields = fields

@@ -73,7 +73,7 @@ class PaButton extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: fg,
-                    fontSize: 14.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

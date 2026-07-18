@@ -28,7 +28,8 @@ class SavingsAccount(TimestampedModel):
     """
 
     class EndOfMonthPreference(models.TextChoices):
-        CASH = "cash", "Retrait en cash"
+        CASH = "cash", "Retrait en cash (à l'agence)"
+        MOBILE_MONEY = "mobile_money", "Versement Mobile Money"
         EPARGNE = "epargne", "Bascule vers épargne classique"
 
     member = models.OneToOneField(
@@ -50,13 +51,31 @@ class SavingsAccount(TimestampedModel):
 
     # LOT 2 (refonte 2026) — comportement fin de mois.
     end_of_month_preference = models.CharField(
-        max_length=8,
+        max_length=16,
         choices=EndOfMonthPreference.choices,
         default=EndOfMonthPreference.CASH,
         help_text=(
-            "Choix du membre en fin de mois : récupérer en cash le solde "
-            "(après commission 1%) ou le faire basculer vers l'épargne classique."
+            "Choix du membre en fin de mois pour le solde restituable (après "
+            "commission) : récupérer en cash à l'agence, se le faire verser en "
+            "Mobile Money, ou le basculer vers l'épargne classique."
         ),
+    )
+
+    # Destination du versement Mobile Money (préférence ``mobile_money``). Le
+    # membre renseigne son numéro + réseau ; le transfert est exécuté
+    # manuellement par la coopérative depuis la file de payout admin (sauf si
+    # l'automatisation Tara ``collecte.monthly.cash_payout`` est activée).
+    payout_phone = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        help_text="Numéro Mobile Money de destination (préférence mobile_money).",
+    )
+    payout_network = models.CharField(
+        max_length=16,
+        blank=True,
+        default="",
+        help_text="Réseau Mobile Money de destination (MTN, ORANGE…).",
     )
 
     class Meta:

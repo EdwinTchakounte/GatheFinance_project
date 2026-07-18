@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 
 import { Modal } from "./modal";
-import { adminApi, type AdminLoanDetail, type ApiError } from "@/lib/api";
+import {
+  adminApi,
+  type AdminLoanDetail,
+  type AdminLoanMemberState,
+  type ApiError,
+} from "@/lib/api";
 
 
 function fmtMoney(value: string | number) {
@@ -100,9 +105,159 @@ export function LoanDetailModal({
 }
 
 
+const VOIE_LABEL: Record<string, string> = {
+  senior_brc: "Ancien / auto-couverture",
+  avaliste: "Avaliste",
+  campaign: "Campagne",
+  garantie_materielle: "Garantie matérielle",
+};
+
+
+function Row({ label, value, accent }: { label: string; value: string; accent?: "danger" | "warning" | "ok" }) {
+  const color =
+    accent === "danger"
+      ? "text-rose-700"
+      : accent === "warning"
+        ? "text-amber-700"
+        : accent === "ok"
+          ? "text-emerald-700"
+          : "text-ink-900";
+  return (
+    <div className="flex items-center justify-between gap-3 py-1">
+      <dt className="text-ink-500">{label}</dt>
+      <dd className={"font-mono font-medium " + color}>{value}</dd>
+    </div>
+  );
+}
+
+
+function MemberStateSection({ ms }: { ms: AdminLoanMemberState }) {
+  const classique = ms.epargne.classique;
+  const saisie = Number(ms.contentieux.epargne_saisie_montant) > 0;
+  return (
+    <section className="space-y-4 rounded-md border border-blue-200 bg-blue-50/30 p-3">
+      <h3 className="font-medium text-ink-900">État de l'abonné sur ce crédit</h3>
+
+      {/* Voie + couverture */}
+      <dl className="text-xs">
+        <Row
+          label="Voie d'obtention"
+          value={ms.voie ? (VOIE_LABEL[ms.voie] ?? ms.voie) : "—"}
+        />
+        {ms.en_attente_decaissement ? (
+          <Row label="Décaissement" value="En attente — argent pas encore versé" accent="warning" />
+        ) : null}
+        {ms.sous_couverture ? (
+          <Row label="Couverture" value="Sous-couvert — jugé par le comité" accent="warning" />
+        ) : null}
+        <Row label="Gelé (demandeur)" value={`${fmtMoney(ms.gel_demandeur)} XAF`} />
+        <Row label="Montant demandé" value={`${fmtMoney(ms.montant_demande)} XAF`} />
+        {ms.frais_etude_paye !== null ? (
+          <Row
+            label="Frais d'étude"
+            value={ms.frais_etude_paye ? "Payés" : "En attente"}
+            accent={ms.frais_etude_paye ? "ok" : "warning"}
+          />
+        ) : null}
+        {ms.issu_reconduction ? <Row label="Origine" value="Reconduction" /> : null}
+        <Row label="Net décaissé" value={`${fmtMoney(ms.montant_decaisse_net)} XAF`} />
+        <Row
+          label="Intérêts retenus à la source"
+          value={`${fmtMoney(ms.interets_retenus_source)} XAF`}
+        />
+      </dl>
+
+      {/* Avaliste */}
+      {ms.avaliste ? (
+        <div className="rounded-md border border-line-200 bg-paper p-2.5 text-xs">
+          <p className="mb-1 font-medium text-ink-800">Avaliste (garant)</p>
+          <Row
+            label={`${ms.avaliste.prenom} ${ms.avaliste.nom} · ${ms.avaliste.numero_membre}`}
+            value={
+              ms.avaliste.caution ? `${fmtMoney(ms.avaliste.caution)} XAF` : "—"
+            }
+          />
+        </div>
+      ) : null}
+
+      {/* Garantie matérielle */}
+      {ms.garantie_materielle ? (
+        <div className="rounded-md border border-line-200 bg-paper p-2.5 text-xs">
+          <p className="mb-1 font-medium text-ink-800">Garantie matérielle</p>
+          <p className="text-ink-600">{ms.garantie_materielle.description || "—"}</p>
+          <Row
+            label="Valeur estimée"
+            value={`${fmtMoney(ms.garantie_materielle.valeur_estimee)} XAF`}
+          />
+        </div>
+      ) : null}
+
+      {/* Épargne */}
+      <div className="rounded-md border border-line-200 bg-paper p-2.5 text-xs">
+        <p className="mb-1 font-medium text-ink-800">Épargne du membre</p>
+        <Row label="Collecte journalière" value={`${fmtMoney(ms.epargne.collecte_solde)} XAF`} />
+        {classique ? (
+          <>
+            <Row label="Épargne classique" value={`${fmtMoney(classique.solde)} XAF`} />
+            <Row label="· en placement" value={`${fmtMoney(classique.placement_actif)} XAF`} />
+            <Row
+              label="· gelé en garantie"
+              value={`${fmtMoney(classique.gele_credit)} XAF`}
+              accent={Number(classique.gele_credit) > 0 ? "warning" : undefined}
+            />
+            <Row
+              label="· disponible au retrait"
+              value={`${fmtMoney(classique.dispo_retrait)} XAF`}
+              accent="ok"
+            />
+          </>
+        ) : (
+          <p className="text-ink-500">Aucun compte d'épargne classique.</p>
+        )}
+      </div>
+
+      {/* Contentieux */}
+      {saisie ||
+      ms.contentieux.poursuite_judiciaire_at ||
+      ms.contentieux.penalite_globale_appliquee_at ? (
+        <div className="rounded-md border border-rose-200 bg-rose-50/50 p-2.5 text-xs">
+          <p className="mb-1 font-medium text-rose-700">Contentieux</p>
+          {saisie ? (
+            <Row
+              label="Épargne saisie"
+              value={`${fmtMoney(ms.contentieux.epargne_saisie_montant)} XAF`}
+              accent="danger"
+            />
+          ) : null}
+          {ms.contentieux.penalite_globale_appliquee_at ? (
+            <Row
+              label="Pénalité globale appliquée"
+              value={new Date(
+                ms.contentieux.penalite_globale_appliquee_at,
+              ).toLocaleDateString("fr-FR")}
+              accent="danger"
+            />
+          ) : null}
+          {ms.contentieux.poursuite_judiciaire_at ? (
+            <Row
+              label="Poursuite judiciaire"
+              value={new Date(
+                ms.contentieux.poursuite_judiciaire_at,
+              ).toLocaleDateString("fr-FR")}
+              accent="danger"
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+
 function DetailBody({ data }: { data: AdminLoanDetail }) {
   return (
     <div className="space-y-6 text-sm">
+      {data.member_state ? <MemberStateSection ms={data.member_state} /> : null}
       <section className="grid grid-cols-2 gap-3 rounded-md border border-line-200 bg-line-100/40 p-3">
         <div>
           <p className="text-[10px] uppercase tracking-wider text-ink-500">Montant</p>

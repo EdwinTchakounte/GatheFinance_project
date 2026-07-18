@@ -823,6 +823,42 @@ abstract class AppL10n {
   /// **'Clôturé'**
   String get credit_status_closed;
 
+  /// No description provided for @credit_closed_section_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Crédits clôturés'**
+  String get credit_closed_section_title;
+
+  /// No description provided for @credit_hide_action.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer'**
+  String get credit_hide_action;
+
+  /// No description provided for @credit_hide_confirm_title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Masquer ce crédit ?'**
+  String get credit_hide_confirm_title;
+
+  /// No description provided for @credit_hide_confirm_body.
+  ///
+  /// In fr, this message translates to:
+  /// **'Il disparaîtra de ta liste. Rien n\'est supprimé côté coopérative.'**
+  String get credit_hide_confirm_body;
+
+  /// No description provided for @credit_hide_cancel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Annuler'**
+  String get credit_hide_cancel;
+
+  /// No description provided for @credit_hide_done.
+  ///
+  /// In fr, this message translates to:
+  /// **'Crédit masqué.'**
+  String get credit_hide_done;
+
   /// No description provided for @credit_remaining_balance.
   ///
   /// In fr, this message translates to:
@@ -4036,14 +4072,56 @@ abstract class AppL10n {
   /// No description provided for @collecte_eom_cash.
   ///
   /// In fr, this message translates to:
-  /// **'Retirer en cash'**
+  /// **'Retirer à l\'agence'**
   String get collecte_eom_cash;
 
   /// No description provided for @collecte_eom_cash_desc.
   ///
   /// In fr, this message translates to:
-  /// **'Tu récupères ton solde à l\'agence.'**
+  /// **'Tu récupères ton solde en espèces au guichet.'**
   String get collecte_eom_cash_desc;
+
+  /// No description provided for @collecte_eom_momo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Verser sur mon compte'**
+  String get collecte_eom_momo;
+
+  /// No description provided for @collecte_eom_momo_desc.
+  ///
+  /// In fr, this message translates to:
+  /// **'La coopérative t\'envoie ton solde par Mobile Money.'**
+  String get collecte_eom_momo_desc;
+
+  /// No description provided for @collecte_eom_momo_phone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Numéro Mobile Money'**
+  String get collecte_eom_momo_phone;
+
+  /// No description provided for @collecte_eom_momo_phone_hint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ex : 690 00 00 00'**
+  String get collecte_eom_momo_phone_hint;
+
+  /// No description provided for @collecte_eom_momo_network.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réseau'**
+  String get collecte_eom_momo_network;
+
+  /// No description provided for @collecte_eom_momo_save.
+  ///
+  /// In fr, this message translates to:
+  /// **'Enregistrer ma destination'**
+  String get collecte_eom_momo_save;
+
+  /// No description provided for @collecte_eom_momo_phone_required.
+  ///
+  /// In fr, this message translates to:
+  /// **'Saisis ton numéro Mobile Money.'**
+  String get collecte_eom_momo_phone_required;
 
   /// No description provided for @collecte_eom_savings.
   ///

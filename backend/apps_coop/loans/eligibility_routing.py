@@ -2,8 +2,11 @@
 
 Décide quelle **voie** s'applique à une demande de crédit :
 
-  * **Voie 1 — SENIOR_BRC** : Ancien (≥ ``seniority.threshold_months``) ET
-    statut BRC validé. Approbation directe (sous réserve plafond).
+  * **Voie 1 — SENIOR_BRC** : deux chemins directs (sans avaliste) —
+    (a) **auto-couverture** : épargne classique disponible ≥ montant ; ou
+    (b) **ancien + BRC** : ancienneté ≥ ``seniority.threshold_months`` ET statut
+    BRC validé → passe en instruction **même sous-couvert**, c'est le comité qui
+    juge (crédit de confiance).
   * **Voie 2 — AVALISTE** : nouvel adhérent avec un avaliste senior désigné
     et couverture épargne ≥ ``loans.avaliste.min_coverage_ratio``.
   * **Voie 3 — MICROCAMPAIGN** : non-adhérent dans une campagne ouverte au
@@ -135,24 +138,34 @@ def _eval_senior_brc(
     *,
     extra_payload: Optional[dict] = None,
 ) -> _VoieResult:
-    """Voie 1 — AUTO-COUVERTURE (ex-SENIOR_BRC).
+    """Voie 1 — AUTO-COUVERTURE **ou** ANCIEN + BRC (jugé par le comité).
 
-    Réforme garantie 2026 : l'avaliste n'est PAS nécessaire lorsque l'épargne
-    ordinaire (classique) DISPONIBLE du demandeur couvre le crédit demandé
-    (Règlement, condition 2). Cette voie directe matche donc dès que :
+    Deux chemins directs, **sans avaliste** :
 
-        épargne classique disponible du demandeur ≥ montant demandé
+      1. **Auto-couverture** — l'épargne classique DISPONIBLE du demandeur couvre
+         le montant : ``épargne disponible ≥ montant``. Le placement en cours
+         compte dans l'épargne (il sera gelé en garantie). Un nouvel adhérent qui
+         se couvre lui-même n'a pas besoin d'avaliste.
 
-    Plus de plafond ×10, plus d'exigence d'ancienneté ni de lien BRC : un
-    nouvel adhérent qui se couvre lui-même n'a pas besoin d'avaliste
-    (arbitrage « auto-couverture l'emporte »). Les déclarations BRC restent
-    stockées pour information admin mais ne conditionnent plus l'éligibilité.
+      2. **Ancien + BRC** — membre établi (``seniority_months ≥
+         seniority.threshold_months``) au statut BRC validé (``is_brc_member``).
+         La demande passe en instruction **même sous-couverte** : c'est le COMITÉ
+         DES PRÊTS qui juge la validité (crédit de confiance, comme la garantie
+         matérielle et la campagne). Le réglage
+         ``loans.eligibility.require_brc_for_senior`` (défaut true) : si false,
+         l'ancienneté seule suffit (contournement admin temporaire du BRC).
+
+    Le montant réellement gelé côté demandeur est décidé à la création
+    (``min(montant, épargne disponible)``) : un ancien sous-couvert immobilise ce
+    qu'il a, pas plus — le reste est un pari de confiance tranché par le comité.
     """
     if not _bool_setting("loans.eligibility.allow_senior_brc", True):
         return _VoieResult(
             matched=False,
-            motifs=["Voie auto-couverture désactivée par l'admin."],
+            motifs=["Voie auto-couverture / ancien désactivée par l'admin."],
         )
+
+    from apps_coop.audit.services import get_int_setting
 
     from .avaliste_services import _member_available_savings
 
@@ -160,30 +173,66 @@ def _eval_senior_brc(
     if montant_d <= 0:
         return _VoieResult(
             matched=False,
-            motifs=["Montant demandé invalide pour la voie auto-couverture."],
+            motifs=["Montant demandé invalide pour la voie auto-couverture / ancien."],
         )
 
     epargne = _member_available_savings(member)
-    if epargne < montant_d:
+
+    # Chemin 1 — auto-couverture (l'épargne dispo suffit).
+    if epargne >= montant_d:
         return _VoieResult(
-            matched=False,
-            motifs=[
-                f"Épargne classique disponible insuffisante pour se couvrir "
-                f"soi-même : {epargne} XAF < {montant_d} XAF. Désigne un "
-                f"avaliste ancien pour compléter, ou baisse le montant."
-            ],
+            matched=True,
             details={
                 "epargne_disponible": str(epargne),
                 "montant": str(montant_d),
+                "auto_couverture": True,
             },
         )
 
+    # Chemin 2 — ancien (+ BRC) : la couverture n'est PAS exigée, le comité juge.
+    threshold = get_int_setting("seniority.threshold_months", 12)
+    require_brc = _bool_setting("loans.eligibility.require_brc_for_senior", True)
+    seniority = int(getattr(member, "seniority_months", 0) or 0)
+    has_brc = bool(getattr(member, "is_brc_member", False))
+    is_senior = seniority >= threshold
+
+    if is_senior and (has_brc or not require_brc):
+        return _VoieResult(
+            matched=True,
+            details={
+                "epargne_disponible": str(epargne),
+                "montant": str(montant_d),
+                "senior_brc": True,
+                # Signalé au comité : dossier sous-couvert, accordé sur confiance.
+                "sous_couverture": True,
+                "manque": str(montant_d - epargne),
+                "seniority_months": seniority,
+                "brc_valide": has_brc,
+            },
+        )
+
+    # Ni couvert, ni ancien+BRC éligible.
+    motifs = [
+        f"Épargne classique disponible insuffisante pour se couvrir soi-même : "
+        f"{epargne} XAF < {montant_d} XAF."
+    ]
+    if not is_senior:
+        motifs.append(
+            f"Ancienneté insuffisante pour un crédit de confiance sans garantie "
+            f"({seniority} mois < {threshold})."
+        )
+    elif require_brc and not has_brc:
+        motifs.append(
+            "Statut BRC non validé — requis pour un crédit de confiance sans "
+            "couverture épargne."
+        )
+    motifs.append("Désigne un avaliste ancien pour compléter, ou baisse le montant.")
     return _VoieResult(
-        matched=True,
+        matched=False,
+        motifs=motifs,
         details={
             "epargne_disponible": str(epargne),
             "montant": str(montant_d),
-            "auto_couverture": True,
         },
     )
 

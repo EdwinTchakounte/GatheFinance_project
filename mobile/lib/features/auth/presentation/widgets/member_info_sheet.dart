@@ -68,7 +68,7 @@ class MemberInfoSheet extends StatelessWidget {
                           l.mi_eyebrow.toUpperCase(),
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 11.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1.6,
                           ),
@@ -316,7 +316,7 @@ class _Step extends StatelessWidget {
               num,
               style: const TextStyle(
                 color: PaColors.blue,
-                fontSize: 11.5,
+                fontSize: 11,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -383,7 +383,7 @@ class _BlueCta extends StatelessWidget {
                     label,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 14.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.2,
                     ),

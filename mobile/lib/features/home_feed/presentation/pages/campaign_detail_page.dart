@@ -127,7 +127,7 @@ class CampaignDetailPage extends ConsumerWidget {
           'Campagne',
           style: TextStyle(
             color: PaColors.inkPrimary,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -236,7 +236,7 @@ class CampaignDetailPage extends ConsumerWidget {
                     'Sans frais de dossier',
                     style: TextStyle(
                       color: PaColors.success,
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -331,7 +331,7 @@ class CampaignDetailPage extends ConsumerWidget {
                     'Voie campagne : pas d\'épargne préalable ni d\'avaliste requis . la coopérative assume le risque.',
                     style: TextStyle(
                       color: PaColors.tealDark,
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       height: 1.4,
                     ),
@@ -405,7 +405,7 @@ class _ApplyButton extends StatelessWidget {
                 'Postuler maintenant',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 15.5,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.1,
                 ),
@@ -617,7 +617,7 @@ class _DocBullet extends StatelessWidget {
               text,
               style: const TextStyle(
                 color: PaColors.inkPrimary,
-                fontSize: 13.5,
+                fontSize: 13,
                 height: 1.45,
                 fontWeight: FontWeight.w500,
               ),

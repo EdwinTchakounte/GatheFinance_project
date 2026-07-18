@@ -209,13 +209,13 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
               keyboardType: const TextInputType.numberWithOptions(decimal: false),
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               style: AppTypography.displayLarge.copyWith(
-                fontSize: 32,
+                fontSize: 29,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
               decoration: InputDecoration(
                 hintText: '0',
                 hintStyle: AppTypography.displayLarge.copyWith(
-                  fontSize: 32,
+                  fontSize: 29,
                   color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
                 ),
                 suffixIcon: Padding(

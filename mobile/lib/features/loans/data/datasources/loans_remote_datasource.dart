@@ -9,6 +9,10 @@ import '../../domain/entities/loan_request_submission.dart';
 abstract class LoansRemoteDataSource {
   Future<List<Loan>> myActiveLoans();
 
+  Future<List<Loan>> myClosedLoans();
+
+  Future<void> hideLoan(int loanId);
+
   Future<List<LoanRequestEntity>> myRequests();
 
   Future<Eligibility> eligibility();

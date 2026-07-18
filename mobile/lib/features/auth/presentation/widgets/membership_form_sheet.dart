@@ -421,7 +421,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
                     l.mf_pieces_intro,
                     style: const TextStyle(
                       color: PaColors.inkMuted,
-                      fontSize: 12.5,
+                      fontSize: 12,
                       height: 1.45,
                     ),
                   ),
@@ -575,7 +575,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
         controller: ctrl,
         keyboardType: keyboard,
         maxLines: maxLines,
-        style: const TextStyle(color: PaColors.inkPrimary, fontSize: 15),
+        style: const TextStyle(color: PaColors.inkPrimary, fontSize: 14),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(color: PaColors.inkMuted, fontSize: 14),
@@ -671,7 +671,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
               l.mf_fees_note,
               style: const TextStyle(
                 color: PaColors.inkSecondary,
-                fontSize: 12.5,
+                fontSize: 12,
                 height: 1.45,
               ),
             ),
@@ -707,7 +707,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
             l.mf_sending,
             style: const TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 17,
+              fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -745,7 +745,7 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
             l.mf_sent_title,
             style: const TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 21,
+              fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -929,7 +929,7 @@ class _PrimaryButton extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: PaColors.onTeal,
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),

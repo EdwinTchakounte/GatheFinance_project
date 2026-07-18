@@ -32,6 +32,12 @@ class LoansRepositoryImpl implements LoansRepository {
   Future<List<Loan>> myActiveLoans() => _run(_remote.myActiveLoans);
 
   @override
+  Future<List<Loan>> myClosedLoans() => _run(_remote.myClosedLoans);
+
+  @override
+  Future<void> hideLoan(int loanId) => _run(() => _remote.hideLoan(loanId));
+
+  @override
   Future<List<LoanRequestEntity>> myRequests() => _run(_remote.myRequests);
 
   @override

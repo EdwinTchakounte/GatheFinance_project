@@ -198,7 +198,7 @@ class _PaDualHeroBalanceState extends State<PaDualHeroBalance> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.78),
-                              fontSize: 11.5,
+                              fontSize: 11,
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.4,
                             ),
@@ -310,7 +310,7 @@ class _Pill extends StatelessWidget {
           label,
           style: TextStyle(
             color: selected ? PaColors.navy : Colors.white.withValues(alpha: 0.9),
-            fontSize: 11.5,
+            fontSize: 11,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -373,7 +373,7 @@ class _DeltaChip extends StatelessWidget {
             label,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),

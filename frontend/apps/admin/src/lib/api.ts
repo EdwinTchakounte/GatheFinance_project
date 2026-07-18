@@ -317,6 +317,10 @@ export type LoanRequest = {
   // Frais d'étude applicables (piloté admin / campagne) — pour préremplir le
   // montant du cash-in « Encaisser frais ». Null si non configuré.
   frais_etude_montant?: string | null;
+  // Frais d'étude déjà réglés ? (porte des frais 2026)
+  frais_demande_credit_paye?: boolean;
+  // Frais de carnet encore dus (bénéficiaire campagne sans carnet). "0" sinon.
+  carnet_fee_due?: string;
   // CH-6 — Workflow double approbation : visite terrain entre provisoire et définitive.
   field_visit_outcome?: "" | "favorable" | "defavorable" | "a_revoir";
   field_visit_done_at?: string | null;
@@ -424,6 +428,29 @@ export type AdminLoanRepayment = {
   date: string;
 };
 
+// Mandat d'avaliste vu par l'admin (onglet « Avalistes / cautions »).
+export type AvalisteConsentRow = {
+  id: number;
+  statut: "pending" | "accepted" | "refused";
+  statut_display: string;
+  created_at: string;
+  montant_gele: string;
+  demandeur: { id: number; numero_membre: string; prenom: string; nom: string };
+  avaliste: { id: number; numero_membre: string; prenom: string; nom: string };
+  loan_request: {
+    id: number;
+    montant_demande: string;
+    duree_mois: number;
+    statut: string;
+    date_soumission: string;
+  };
+  couverture: {
+    epargne_borrower: string;
+    epargne_avaliste: string;
+    ratio: string;
+  };
+};
+
 export type AdminLoanDetail = {
   loan: {
     id: number;
@@ -441,6 +468,8 @@ export type AdminLoanDetail = {
       prenom: string;
     };
   };
+  // État complet de l'abonné sur ce crédit (bouton « check » du dashboard).
+  member_state?: AdminLoanMemberState;
   installments: AdminLoanInstallment[];
   repayments: AdminLoanRepayment[];
   totaux: {
@@ -448,6 +477,44 @@ export type AdminLoanDetail = {
     nb_repayments: number;
     nb_installments_payees: number;
     nb_installments_total: number;
+  };
+};
+
+export type AdminLoanMemberState = {
+  voie: "senior_brc" | "avaliste" | "campaign" | "garantie_materielle" | null;
+  sous_couverture: boolean;
+  gel_demandeur: string;
+  montant_demande: string;
+  frais_etude_paye: boolean | null;
+  en_attente_decaissement: boolean;
+  issu_reconduction: boolean;
+  date_butoire: string | null;
+  montant_decaisse_net: string;
+  interets_retenus_source: string;
+  avaliste: {
+    numero_membre: string;
+    nom: string;
+    prenom: string;
+    caution: string | null;
+  } | null;
+  garantie_materielle: {
+    description: string;
+    valeur_estimee: string;
+  } | null;
+  epargne: {
+    collecte_solde: string;
+    classique: {
+      solde: string;
+      placement_actif: string;
+      gele_credit: string;
+      dispo_retrait: string;
+    } | null;
+  };
+  contentieux: {
+    epargne_saisie_montant: string;
+    epargne_saisie_at: string | null;
+    poursuite_judiciaire_at: string | null;
+    penalite_globale_appliquee_at: string | null;
   };
 };
 
@@ -1178,11 +1245,31 @@ export const adminApi = {
       }),
   },
 
+  // Onglet « Avalistes / cautions » — supervision de tous les mandats.
+  avaliste: {
+    list: (opts?: { statut?: string; q?: string }) => {
+      const sp = new URLSearchParams();
+      if (opts?.statut) sp.set("statut", opts.statut);
+      if (opts?.q) sp.set("q", opts.q);
+      const qs = sp.toString();
+      return request<{
+        count: number;
+        counts: Record<string, number>;
+        results: AvalisteConsentRow[];
+      }>(`/loans/admin/avaliste-consents/${qs ? `?${qs}` : ""}`);
+    },
+  },
+
   loanRequests: {
-    list: (statut?: string) =>
-      request<LoanRequest[]>(
-        `/loans/admin/requests/${statut ? `?statut=${statut}` : ""}`,
-      ),
+    list: (statut?: string, opts?: { member?: number }) => {
+      const sp = new URLSearchParams();
+      if (statut) sp.set("statut", statut);
+      if (opts?.member) sp.set("member", String(opts.member));
+      const qs = sp.toString();
+      return request<LoanRequest[]>(
+        `/loans/admin/requests/${qs ? `?${qs}` : ""}`,
+      );
+    },
     decide: (
       id: number,
       payload:
