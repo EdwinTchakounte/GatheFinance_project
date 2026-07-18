@@ -59,7 +59,7 @@ function Inner() {
   );
 
   return (
-    <div className="px-8 py-8 lg:px-12 lg:py-10">
+    <div className="space-y-6">
       <header className="mb-6">
         <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
           Administration
@@ -184,7 +184,7 @@ function UsersTable({
       </p>
     );
   return (
-    <div className="overflow-x-auto rounded-md border border-line-200 bg-paper">
+    <div className="overflow-x-auto rounded-xl border border-line-100 bg-paper shadow-xs">
       <table className="table-admin min-w-full">
         <thead>
           <tr>
@@ -271,7 +271,7 @@ function RolesTable({
       </p>
     );
   return (
-    <div className="overflow-x-auto rounded-md border border-line-200 bg-paper">
+    <div className="overflow-x-auto rounded-xl border border-line-100 bg-paper shadow-xs">
       <table className="table-admin min-w-full">
         <thead>
           <tr>

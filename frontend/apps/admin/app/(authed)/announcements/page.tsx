@@ -89,7 +89,7 @@ export default function AnnouncementsPage() {
   }
 
   return (
-    <main className="space-y-6 p-8">
+    <section className="space-y-6">
       <header className="space-y-1">
         <h1 className="font-display text-2xl text-ink-900">
           Annonces broadcast
@@ -152,7 +152,7 @@ export default function AnnouncementsPage() {
           </ul>
         )}
       </section>
-    </main>
+    </section>
   );
 }
 
@@ -371,7 +371,7 @@ function CreateForm({
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-ink-100 pt-4">
+      <div className="flex items-center justify-between gap-3 pt-3">
         <p className="text-xs text-ink-500">
           La diffusion est immédiate et matérialise une notification mobile +
           portail pour chaque membre ciblé.

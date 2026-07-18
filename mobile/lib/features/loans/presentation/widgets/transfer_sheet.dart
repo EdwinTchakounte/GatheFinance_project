@@ -11,6 +11,8 @@ import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../savings/presentation/state/classic_savings_notifier.dart';
+import '../../../savings/presentation/state/savings_notifier.dart';
 import '../../domain/entities/loan.dart';
 import '../state/loans_notifier.dart';
 
@@ -85,7 +87,17 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
         data: {'montant': amount},
       );
       unawaited(HapticFeedback.mediumImpact());
-      await ref.read(loansProvider.notifier).refresh();
+      // Un transfert = remboursement du crédit depuis l'épargne. Il touche à la
+      // fois le crédit (solde/progression) ET l'épargne débitée. On force un
+      // rebuild dur (`invalidate`) de toutes les vues concernées — le simple
+      // `refresh()` ne suffisait pas (dédup de polling) et l'épargne n'était pas
+      // rafraîchie du tout, d'où « l'argent part mais le crédit ne bouge pas ».
+      ref
+        ..invalidate(loansProvider)
+        ..invalidate(closedLoansProvider)
+        ..invalidate(eligibilityProvider)
+        ..invalidate(savingsProvider)
+        ..invalidate(classicSavingsProvider);
       if (!mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(

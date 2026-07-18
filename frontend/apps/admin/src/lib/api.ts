@@ -302,6 +302,7 @@ export type LoanRequest = {
     nom: string;
     prenom: string;
     telephone: string;
+    email?: string;
   } | null;
   montant_demande: string;
   duree_mois: number;

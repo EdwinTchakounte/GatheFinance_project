@@ -35,7 +35,7 @@ export function Pagination({
   const canNext = end < count;
 
   return (
-    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line-200 pt-4 text-xs text-ink-600">
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-ink-600">
       <p>
         <span className="font-mono text-ink-900 font-medium">
           {start}–{end}

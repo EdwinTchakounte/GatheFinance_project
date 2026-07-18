@@ -231,6 +231,25 @@ function Inner() {
         ),
     },
     {
+      // E-mail de l'adhérent — masqué par défaut, activable via le menu
+      // « Colonnes » (utile pour contacter / vérifier l'identité au versement).
+      key: "email",
+      label: "E-mail",
+      defaultVisible: false,
+      text: (r) => r.member?.email ?? "",
+      render: (r) =>
+        r.member?.email ? (
+          <a
+            href={`mailto:${r.member.email}`}
+            className="text-xs text-blue-700 hover:underline"
+          >
+            {r.member.email}
+          </a>
+        ) : (
+          <span className="text-xs text-ink-400">—</span>
+        ),
+    },
+    {
       key: "montant",
       label: "Montant",
       numeric: true,
@@ -330,7 +349,7 @@ function Inner() {
   ];
 
   return (
-    <div className="px-8 py-8 lg:px-12 lg:py-10">
+    <div className="space-y-6">
       <header className="mb-8 flex items-end justify-between gap-4">
         <div>
           <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
@@ -870,16 +889,32 @@ function ApproveLoanModal({
   onSubmit: (payload: { taux_annuel: number; date_premiere_echeance: string }) => void;
   submitting: boolean;
 }) {
-  const [tauxStr, setTauxStr] = useState("0.12");
+  // Taux par défaut = le taux d'intérêt crédit CONFIGURÉ par l'admin (Paramètres
+  // → Frais & taux, RateParam LOAN_INTEREST). On ne code plus 0.12 en dur : le
+  // taux est piloté depuis une source unique. Fallback réglementaire : 0.10.
+  const [tauxStr, setTauxStr] = useState("0.10");
   const [dateStr, setDateStr] = useState(defaultFirstDueDate());
   const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (target) {
-      setTauxStr("0.12");
-      setDateStr(defaultFirstDueDate());
-      setLocalError(null);
-    }
+    if (!target) return;
+    setDateStr(defaultFirstDueDate());
+    setLocalError(null);
+    let cancelled = false;
+    // Pré-remplit avec le taux configuré (une seule source de vérité).
+    adminApi.costs
+      .config()
+      .then((cfg) => {
+        if (cancelled) return;
+        const rate = cfg.rates.find((r) => r.code === "LOAN_INTEREST");
+        if (rate?.valeur != null) setTauxStr(String(Number(rate.valeur)));
+      })
+      .catch(() => {
+        /* garde le fallback réglementaire 0.10 */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [target]);
 
   const open = target !== null;
@@ -912,7 +947,7 @@ function ApproveLoanModal({
             type="button"
             onClick={() => {
               if (!tauxValid) {
-                setLocalError("Taux invalide (attendu entre 0 et 1 — ex. 0.12 pour 12%).");
+                setLocalError("Taux invalide (attendu entre 0 et 1 — ex. 0.10 pour 10%).");
                 return;
               }
               if (!dateValid) {
@@ -933,7 +968,7 @@ function ApproveLoanModal({
       <div className="space-y-4">
         <ModalField
           label="Taux d'intérêt annuel"
-          hint="Décimal entre 0 et 1 (ex. 0.12 = 12% par an)."
+          hint="Pré-rempli avec le taux configuré (Paramètres → Frais & taux). Décimal entre 0 et 1 (ex. 0.10 = 10% par an)."
         >
           <input
             type="number"

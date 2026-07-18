@@ -737,8 +737,17 @@ def _hook_loan_request_fees(payment: Payment, _raw: dict) -> None:
     """
     from apps_coop.loans.models import LoanRequest  # local — avoid cycles
 
+    # Garde-fou anti double-facturation : on ne rapproche QUE les demandes dont
+    # les frais d'étude ne sont pas encore réglés. Une demande peut rester
+    # ``EN_ATTENTE`` alors que ``frais_demande_credit_paye=True`` (bénéficiaire
+    # campagne qui attend encore son carnet) — un 2e paiement de frais d'étude
+    # ne doit RIEN re-déclencher (ni re-solliciter l'avaliste, ni ré-ouvrir
+    # l'instruction). Ce filtre le neutralise (le Payment reste tracé, mais sans
+    # effet métier), et l'appel devient un no-op loggé côté « orphelin ».
     candidates_qs = LoanRequest.objects.select_for_update().filter(
-        member=payment.member, statut=LoanRequest.Statut.EN_ATTENTE,
+        member=payment.member,
+        statut=LoanRequest.Statut.EN_ATTENTE,
+        frais_demande_credit_paye=False,
     )
     candidates_count = candidates_qs.count()
     pending = candidates_qs.order_by("-date_soumission").first()

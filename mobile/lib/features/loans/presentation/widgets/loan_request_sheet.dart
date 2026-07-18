@@ -126,6 +126,11 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   bool _withAvaliste = false;
   final _avalisteNumeroCtrl = TextEditingController();
   final _avalisteNomCtrl = TextEditingController();
+  // Texte brut tapé dans le champ de recherche du picker. Détenu par le
+  // parent (et non par _AvalistePicker) pour qu'au submit on puisse RÉSOUDRE
+  // un numéro/nom tapé sans que l'utilisateur ait eu à taper une ligne du
+  // dropdown — sinon « le champ est rempli mais l'app dit qu'il est vide ».
+  final _avalisteSearchCtrl = TextEditingController();
   // §6 / LOT 11 . Voie campagne : si une campagne est sélectionnée, le
   // backend route vers EligibilityRoute.CAMPAGNE et applique les paramètres
   // (taux, recouvrement) de la campagne. Mutuellement exclusif avec
@@ -265,8 +270,63 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     _avalisteNomCtrl.dispose();
     _garantieDescCtrl.dispose();
     _checkCtrl.dispose();
+    _avalisteSearchCtrl.dispose();
     super.dispose();
   }
+
+  /// Résout un avaliste à partir du texte tapé dans le champ de recherche
+  /// quand aucune ligne du dropdown n'a été explicitement sélectionnée.
+  ///
+  /// Comportement attendu par l'utilisateur : taper le numéro complet d'un
+  /// membre (ex. « GF-2026-1013 ») puis valider DOIT fonctionner, même sans
+  /// toucher la liste. On interroge `/members/search-avaliste/` et on retient :
+  ///   1. la correspondance EXACTE sur le numéro de membre (insensible à la
+  ///      casse / aux espaces) si elle a de la capacité, sinon
+  ///   2. l'unique résultat éligible s'il n'y en a qu'un.
+  /// Renvoie `true` si un avaliste a été fixé (numéro + nom), `false` sinon —
+  /// auquel cas [error] contient le message à afficher.
+  Future<bool> _resolveAvalisteFromSearch() async {
+    final raw = _avalisteSearchCtrl.text.trim();
+    if (raw.length < 2) {
+      _avalisteResolveError =
+          "Recherche puis sélectionne l'avaliste dans la liste.";
+      return false;
+    }
+    List<AvalisteCandidate> results;
+    try {
+      final ds = ref.read(avalisteDataSourceProvider);
+      results = await ds.searchEligible(query: raw);
+    } catch (_) {
+      _avalisteResolveError =
+          "Impossible de vérifier l'avaliste. Réessaie.";
+      return false;
+    }
+    final eligible =
+        results.where((c) => c.capaciteCaution > 0).toList(growable: false);
+    String norm(String s) => s.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+    AvalisteCandidate? match;
+    for (final c in eligible) {
+      if (norm(c.numeroMembre) == norm(raw)) {
+        match = c;
+        break;
+      }
+    }
+    match ??= eligible.length == 1 ? eligible.first : null;
+    if (match == null) {
+      final saturated = results.isNotEmpty && eligible.isEmpty;
+      _avalisteResolveError = saturated
+          ? "Cet avaliste n'a plus de capacité de garantie."
+          : 'Aucun avaliste éligible pour « $raw ». Vérifie le numéro.';
+      return false;
+    }
+    _avalisteNumeroCtrl.text = match.numeroMembre;
+    _avalisteNomCtrl.text = match.nom;
+    return true;
+  }
+
+  // Message d'erreur produit par [_resolveAvalisteFromSearch] (évite de
+  // retourner un tuple).
+  String? _avalisteResolveError;
 
   Future<void> _submit() async {
     if (_motifCtrl.text.trim().length < 10) {
@@ -296,19 +356,30 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       return;
     }
     // BUSINESS_RULES §7.2 . Si avaliste activé, les 2 champs sont requis.
+    // L'utilisateur peut soit avoir tapé une ligne du dropdown (numéro/nom
+    // déjà fixés), soit simplement tapé un numéro/nom dans le champ sans
+    // sélectionner : dans ce dernier cas on RÉSOUT le texte tapé pour éviter
+    // le faux « champ vide » alors que le numéro est bien saisi.
+    if (_withAvaliste &&
+        (_avalisteNumeroCtrl.text.trim().length < 4 ||
+            _avalisteNomCtrl.text.trim().length < 2)) {
+      final ok = await _resolveAvalisteFromSearch();
+      if (!mounted) return;
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _avalisteResolveError ??
+                  "Renseigne le numéro et le nom de l'avaliste (ou décoche).",
+            ),
+          ),
+        );
+        return;
+      }
+      setState(() {}); // reflète le candidat résolu dans le résumé.
+    }
     final avalisteNumero = _avalisteNumeroCtrl.text.trim();
     final avalisteNom = _avalisteNomCtrl.text.trim();
-    if (_withAvaliste &&
-        (avalisteNumero.length < 4 || avalisteNom.length < 2)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Renseigne le numéro et le nom de l'avaliste (ou décoche).",
-          ),
-        ),
-      );
-      return;
-    }
     // §7.1 Voie BRC . si tu coches CGA BRC ou CFP BRC, il faut joindre
     // le justificatif correspondant (sinon snackbar + return).
     if (_cgaBrcMember && _cgaBrcProof == null) {
@@ -734,7 +805,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                       'Voie BRC . si tu es membre du CGA BRC ou ancien apprenant CFP BRC, joins ton justificatif pour beneficier de la voie privilegiee.',
                       style: TextStyle(
                         color: Color(0xFF1E3A8A),
-                        fontSize: 12.5,
+                        fontSize: 12,
                         height: 1.4,
                       ),
                     ),
@@ -840,6 +911,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
             if (_withAvaliste) ...[
               const SizedBox(height: AppSpacing.s),
               _AvalistePicker(
+                controller: _avalisteSearchCtrl,
                 onPicked: (c) {
                   _avalisteNumeroCtrl.text = c.numeroMembre;
                   _avalisteNomCtrl.text = c.nom;
@@ -1074,7 +1146,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                       l.lreq_fees_note,
                       style: const TextStyle(
                         color: PaColors.warning,
-                        fontSize: 12.5,
+                        fontSize: 12,
                         height: 1.45,
                       ),
                     ),
@@ -1129,7 +1201,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                       child: Text(
                         AppL10n.of(context).lreq_campaign_required,
                         style: const TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           color: Color(0xFF92400E),
                           height: 1.4,
                         ),
@@ -1228,7 +1300,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 child: const Text(
                   'Payer plus tard',
                   style:
-                      TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                      TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               ),
             ] else ...[
@@ -1302,7 +1374,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                       'ce numéro pour valider le paiement.',
                       style: TextStyle(
                         color: PaColors.navy,
-                        fontSize: 12.5,
+                        fontSize: 12,
                         height: 1.4,
                       ),
                     ),
@@ -1443,7 +1515,7 @@ class _StudyFeeCard extends StatelessWidget {
               notice,
               style: TextStyle(
                 color: PaColors.warning.withValues(alpha: 0.95),
-                fontSize: 12.5,
+                fontSize: 12,
                 height: 1.45,
               ),
             ),
@@ -1529,7 +1601,7 @@ class _RepaymentRecap extends StatelessWidget {
             strong: true,
             accent: true,
           ),
-          const Divider(height: 18, color: PaColors.line),
+          const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1663,20 +1735,27 @@ class _ChannelPicker extends StatelessWidget {
 /// tape un préfixe de numéro ou un fragment de nom et choisit dans la liste .
 /// remplace la saisie texte libre du numéro+nom qui était sujette aux fautes.
 class _AvalistePicker extends ConsumerStatefulWidget {
-  const _AvalistePicker({required this.onPicked});
+  const _AvalistePicker({required this.onPicked, required this.controller});
 
   final ValueChanged<AvalisteCandidate> onPicked;
+
+  /// Contrôleur DÉTENU par le parent : il garde le texte tapé accessible au
+  /// submit pour résoudre un numéro saisi mais non sélectionné dans la liste.
+  final TextEditingController controller;
 
   @override
   ConsumerState<_AvalistePicker> createState() => _AvalistePickerState();
 }
 
 class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
-  final _ctrl = TextEditingController();
+  TextEditingController get _ctrl => widget.controller;
   List<AvalisteCandidate> _results = const [];
   bool _loading = false;
   String? _error;
   int _debounceToken = 0;
+
+  static String _norm(String s) =>
+      s.toLowerCase().replaceAll(RegExp(r'\s+'), '');
 
   Future<void> _search(String q) async {
     final token = ++_debounceToken;
@@ -1697,6 +1776,21 @@ class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
       final ds = ref.read(avalisteDataSourceProvider);
       final list = await ds.searchEligible(query: q);
       if (token != _debounceToken) return;
+      // Confort : si le texte tapé correspond EXACTEMENT au numéro d'un
+      // candidat éligible, on le sélectionne d'office — l'utilisateur qui
+      // colle un numéro complet n'a plus besoin de toucher la liste.
+      final exact = list.where(
+        (c) => c.capaciteCaution > 0 && _norm(c.numeroMembre) == _norm(q),
+      );
+      if (exact.isNotEmpty) {
+        widget.onPicked(exact.first);
+        _ctrl.clear(); // comme un tap manuel : le résumé prend le relais.
+        setState(() {
+          _results = const [];
+          _loading = false;
+        });
+        return;
+      }
       setState(() {
         _results = list;
         _loading = false;
@@ -1709,12 +1803,6 @@ class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
         _error = e.toString().replaceFirst('Exception: ', '');
       });
     }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
   }
 
   @override
@@ -1762,18 +1850,17 @@ class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
             child: ListView.separated(
               shrinkWrap: true,
               itemCount: _results.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, color: PaColors.line),
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (_, i) {
                 final c = _results[i];
                 // memory avaliste-cap-solde . capacite_caution = solde -
                 // cautions engagées. Si 0, on désactive le tap : ce membre
                 // est plein, désigner serait refusé par le backend.
                 final saturated = c.capaciteCaution <= 0;
-                final capacityLabel = AppL10n.of(context).lreq_avaliste_capacity(
-                  XAFFormatter.formatCompact(c.capaciteCaution),
-                  c.numeroMembre,
-                );
+                // On n'affiche PLUS le montant de capacité de garantie : le
+                // membre n'a pas à connaître le solde de l'avaliste. On se
+                // contente de « Possible » / « Impossible » + le n° membre pour
+                // identifier sans ambiguïté.
                 return ListTile(
                   dense: true,
                   enabled: !saturated,
@@ -1796,13 +1883,14 @@ class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
                   ),
                   subtitle: Text(
                     saturated
-                        ? 'Capacité de garantie épuisée'
-                        : capacityLabel,
+                        ? 'Impossible · ${c.numeroMembre}'
+                        : 'Possible · ${c.numeroMembre}',
                     style: TextStyle(
                       color: saturated
                           ? const Color(0xFFB3261E)
-                          : PaColors.inkMuted,
+                          : PaColors.teal,
                       fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   trailing: saturated

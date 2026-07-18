@@ -28,6 +28,7 @@ import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
 import '../../../savings/presentation/state/classic_savings_notifier.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
+import '../../../savings/presentation/widgets/withdraw_sheet.dart';
 import '../widgets/deposit_sheet.dart';
 import '../widgets/membership_fee_sheet.dart';
 import '../state/membership_fees_notifier.dart';
@@ -110,35 +111,53 @@ class HomePage extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // ── Pills dissociés épargne vs cotisation ─────────
-                      // Le pill "Verser" générique brouillait la distinction
-                      // backend (épargne classique vs cotisation journalière) :
-                      // remplacé par 2 pills dédiés ouvrant chacun la sheet
-                      // appropriée. Carnet retiré (déjà dans le bottom nav).
-                      PaActionPill(
-                        icon: Icons.savings_outlined,
-                        label: l.home_action_savings,
-                        onTap: () => _openClassicDeposit(context),
-                      ),
-                      PaActionPill(
-                        icon: Icons.calendar_today_outlined,
-                        label: l.home_action_cotisation,
-                        onTap: () => _openDeposit(context),
-                      ),
-                      PaActionPill(
-                        icon: Icons.swap_horiz_rounded,
-                        label: l.home_action_transfer,
-                        onTap: () => TransferSheet.show(context),
-                      ),
-                      PaActionPill(
-                        icon: Icons.history_rounded,
-                        label: l.home_action_history,
-                        onTap: () => context.push('/savings/history'),
-                      ),
-                    ],
+                  // 5 actions ne tiennent plus en `spaceBetween` (chaque pill
+                  // fait 78px) → rangée scrollable horizontalement, « Retirer »
+                  // placé en 3e position pour rester visible sans défiler.
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: [
+                        // ── Pills dissociés épargne vs cotisation ─────────
+                        // Le pill "Verser" générique brouillait la distinction
+                        // backend (épargne classique vs cotisation journalière) :
+                        // remplacé par 2 pills dédiés ouvrant chacun la sheet
+                        // appropriée. Carnet retiré (déjà dans le bottom nav).
+                        PaActionPill(
+                          icon: Icons.savings_outlined,
+                          label: l.home_action_savings,
+                          onTap: () => _openClassicDeposit(context),
+                        ),
+                        const SizedBox(width: 6),
+                        PaActionPill(
+                          icon: Icons.calendar_today_outlined,
+                          label: l.home_action_cotisation,
+                          onTap: () => _openDeposit(context),
+                        ),
+                        const SizedBox(width: 6),
+                        // Retrait de l'argent disponible (collecte + épargne
+                        // classique libre). Le CTA était enterré dans la page
+                        // « États » ; on le rend accessible dès l'accueil.
+                        PaActionPill(
+                          icon: Icons.account_balance_wallet_outlined,
+                          label: l.wd_action,
+                          onTap: () => WithdrawSheet.show(context, ref),
+                        ),
+                        const SizedBox(width: 6),
+                        PaActionPill(
+                          icon: Icons.swap_horiz_rounded,
+                          label: l.home_action_transfer,
+                          onTap: () => TransferSheet.show(context),
+                        ),
+                        const SizedBox(width: 6),
+                        PaActionPill(
+                          icon: Icons.history_rounded,
+                          label: l.home_action_history,
+                          onTap: () => context.push('/savings/history'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

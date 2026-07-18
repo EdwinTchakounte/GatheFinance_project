@@ -266,7 +266,7 @@ function MemberRecapModal({
             <RecapLine label="Collecte (journalière)" value={collecte} />
             <RecapLine label="Classique libre" value={libre} />
             <RecapLine label="Placement" value={placement} />
-            <div className="mt-1 border-t border-line-200 pt-1.5">
+            <div className="mt-1.5">
               <RecapLine label="Épargne totale" value={epargneTotal} strong />
             </div>
           </div>
@@ -563,7 +563,7 @@ function Inner() {
   }));
 
   return (
-    <div className="px-8 py-8 lg:px-12 lg:py-10">
+    <div className="space-y-6">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
@@ -676,7 +676,7 @@ function Inner() {
           Aucun membre ne correspond à ces filtres.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-line-200 bg-paper">
+        <div className="overflow-x-auto rounded-xl border border-line-100 bg-paper shadow-xs">
           <table className="table-admin min-w-full">
             <thead>
               <tr>

@@ -68,7 +68,7 @@ export function Modal({
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className={
-          "flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-md bg-paper shadow-xl outline-none " +
+          "flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-paper shadow-xl outline-none " +
           accent
         }
       >

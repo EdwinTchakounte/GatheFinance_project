@@ -58,6 +58,35 @@ class WithdrawSheet extends ConsumerStatefulWidget {
   /// la mobilise.
   final num montantGeleClassique;
 
+  /// Ouvre la modale de retrait en lisant les soldes courants (collecte +
+  /// épargne classique libre + gelé) depuis les providers. Centralise
+  /// l'ouverture pour tous les points d'entrée (accueil, page États…).
+  static Future<void> show(BuildContext context, WidgetRef ref) {
+    final collecte = ref.read(savingsProvider).valueOrNull;
+    final classic = ref.read(classicSavingsProvider).valueOrNull;
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+      ),
+      backgroundColor: PaColors.paper,
+      barrierColor: PaColors.navyDeep.withValues(alpha: 0.55),
+      enableDrag: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(28),
+        ),
+      ),
+      builder: (_) => WithdrawSheet(
+        soldeCollecte: collecte?.solde ?? 0,
+        soldeClassiqueLibre: classic?.soldeRetirable ?? 0,
+        montantGeleClassique: classic?.montantGeleCredit ?? 0,
+      ),
+    );
+  }
+
   @override
   ConsumerState<WithdrawSheet> createState() => _WithdrawSheetState();
 }

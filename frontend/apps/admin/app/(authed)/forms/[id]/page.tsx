@@ -232,14 +232,14 @@ export default function FormSchemaEditorPage({
   }
 
   if (loading) {
-    return <main className="p-8 text-sm text-ink-500">Chargement…</main>;
+    return <section className="text-sm text-ink-500">Chargement…</section>;
   }
   if (!schema || !draft) {
-    return <main className="p-8 text-sm text-ink-500">Schéma introuvable.</main>;
+    return <section className="text-sm text-ink-500">Schéma introuvable.</section>;
   }
 
   return (
-    <main className="space-y-6 p-8">
+    <section className="space-y-6">
       <header className="space-y-2">
         <button
           onClick={() => router.push("/forms")}
@@ -447,7 +447,7 @@ export default function FormSchemaEditorPage({
         pour dupliquer la version active si tu veux la modifier (les actifs sont
         gelés).
       </p>
-    </main>
+    </section>
   );
 }
 

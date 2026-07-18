@@ -32,8 +32,11 @@ class SubmitLoanRequest
   const SubmitLoanRequest(this._repo);
   final LoansRepository _repo;
 
-  static const int _dureeMin = 3;
-  static const int _dureeMax = 36;
+  // Durée de remboursement (Article 7) : bornée [2, 9] mois. La durée est
+  // dérivée du montant via `durationMonthsFor` (paliers), qui ne produit
+  // jamais hors de cet intervalle — ces bornes en sont le garde-fou.
+  static const int _dureeMin = 2;
+  static const int _dureeMax = 9;
   static const num _montantMin = 50000;
 
   @override

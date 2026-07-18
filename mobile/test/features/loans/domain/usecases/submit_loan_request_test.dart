@@ -23,7 +23,7 @@ void main() {
       expect(
         () => useCase.call(const SubmitLoanRequestParams(
           montantDemande: 40000,
-          dureeMois: 12,
+          dureeMois: 3,
           motif: 'Achat outillage pro pour ma boutique',
         ),),
         throwsA(isA<ValidationFailure>()
@@ -31,11 +31,11 @@ void main() {
       );
     });
 
-    test('refuse une durée < 3 mois', () {
+    test('refuse une durée < 2 mois (Art. 7 : plancher 2 mois)', () {
       expect(
         () => useCase.call(const SubmitLoanRequestParams(
           montantDemande: 200000,
-          dureeMois: 2,
+          dureeMois: 1,
           motif: 'Achat outillage pro pour ma boutique',
         ),),
         throwsA(isA<ValidationFailure>()
@@ -43,14 +43,30 @@ void main() {
       );
     });
 
-    test('refuse une durée > 36 mois', () {
+    test('accepte une durée = 2 mois (borne basse)', () async {
+      final created = LoanRequestSubmission(request: Fixtures.loanRequest());
+      when(() => repo.submitRequest(
+            montantDemande: 200000,
+            dureeMois: 2,
+            motif: 'Achat outillage pro pour ma boutique',
+          ),).thenAnswer((_) async => created);
+      final result = await useCase.call(const SubmitLoanRequestParams(
+        montantDemande: 200000,
+        dureeMois: 2,
+        motif: 'Achat outillage pro pour ma boutique',
+      ),);
+      expect(result, created);
+    });
+
+    test('refuse une durée > 9 mois (Art. 7 : plafond 9 mois)', () {
       expect(
         () => useCase.call(const SubmitLoanRequestParams(
           montantDemande: 200000,
-          dureeMois: 40,
+          dureeMois: 10,
           motif: 'Achat outillage pro pour ma boutique',
         ),),
-        throwsA(isA<ValidationFailure>()),
+        throwsA(isA<ValidationFailure>()
+            .having((f) => f.field, 'field', 'duree'),),
       );
     });
 
@@ -58,7 +74,7 @@ void main() {
       expect(
         () => useCase.call(const SubmitLoanRequestParams(
           montantDemande: 200000,
-          dureeMois: 12,
+          dureeMois: 3,
           motif: '   short  ',
         ),),
         throwsA(isA<ValidationFailure>()
@@ -70,20 +86,20 @@ void main() {
       final created = LoanRequestSubmission(request: Fixtures.loanRequest());
       when(() => repo.submitRequest(
             montantDemande: 200000,
-            dureeMois: 12,
+            dureeMois: 3,
             motif: 'Achat outillage pro',
           ),).thenAnswer((_) async => created);
 
       final result = await useCase.call(const SubmitLoanRequestParams(
         montantDemande: 200000,
-        dureeMois: 12,
+        dureeMois: 3,
         motif: '  Achat outillage pro  ',
       ),);
 
       expect(result, created);
       verify(() => repo.submitRequest(
             montantDemande: 200000,
-            dureeMois: 12,
+            dureeMois: 3,
             motif: 'Achat outillage pro',
           ),).called(1);
     });

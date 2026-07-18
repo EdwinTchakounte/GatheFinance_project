@@ -256,7 +256,7 @@ class Command(BaseCommand):
             loan_request=loan_request,
             numero_dossier="GF-CR-2026-0001",
             montant=Decimal("500000"),
-            taux_interet=Decimal("0.12"),
+            taux_interet=Decimal("0.10"),
             duree_mois=12,
             date_decaissement=date.today() - timedelta(days=30),
             date_premiere_echeance=date.today() + timedelta(days=1),

@@ -120,6 +120,29 @@ def init_payment(request):
         if official is not None and official > 0:
             data["montant"] = official
 
+        # Anti double-facturation : si le membre a une demande EN_ATTENTE dont
+        # les frais d'étude sont DÉJÀ réglés (cas campagne : la demande reste
+        # EN_ATTENTE le temps du carnet) et AUCUNE demande n'attend encore de
+        # frais, on bloque — sinon on re-prélèverait pour rien (le hook le
+        # neutralise, mais on refuse en amont pour un message clair).
+        from apps_coop.loans.models import LoanRequest  # local — avoid cycle
+
+        en_attente = LoanRequest.objects.filter(
+            member=member, statut=LoanRequest.Statut.EN_ATTENTE,
+        )
+        if (
+            en_attente.exists()
+            and not en_attente.filter(frais_demande_credit_paye=False).exists()
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "Les frais d'étude de votre demande sont déjà réglés."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
     # For repayments, the Loan must exist, belong to the member, and the
     # amount must not exceed what's still owed (anti-surplus).
     if data["type"] == Payment.Type.REMBOURSEMENT:
@@ -1129,6 +1152,31 @@ def admin_cash_in_payment(request):
             )
     elif payment_type == Payment.Type.EPARGNE_CLASSIQUE:
         is_placement = bool(data.get("is_placement", False))
+    elif payment_type == Payment.Type.FRAIS_DEMANDE_CREDIT:
+        # Anti double-facturation : si le membre a une (ou des) demande(s)
+        # EN_ATTENTE et qu'AUCUNE n'attend plus de frais d'étude (elles sont
+        # toutes réglées — cas campagne : la demande reste EN_ATTENTE le temps
+        # du carnet), on REFUSE une 2e saisie de frais d'étude. Sans demande du
+        # tout, on laisse passer (cas dégénéré → Payment tracé, hook no-op).
+        from apps_coop.loans.models import LoanRequest
+
+        en_attente = LoanRequest.objects.filter(
+            member=member, statut=LoanRequest.Statut.EN_ATTENTE,
+        )
+        if (
+            en_attente.exists()
+            and not en_attente.filter(frais_demande_credit_paye=False).exists()
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "Les frais d'étude de cette demande sont déjà réglés. "
+                        "S'il reste des frais de carnet dus, saisis le type "
+                        "« frais de carnet »."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     reference_externe = (data.get("reference_externe") or "").strip()[:64]
     note = (data.get("note") or "").strip()[:500]
