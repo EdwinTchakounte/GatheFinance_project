@@ -128,7 +128,7 @@ class _PinPromptSheetState extends ConsumerState<PinPromptSheet> {
               widget.title ?? l.pin_reveal_title,
               style: const TextStyle(
                 color: PaColors.inkPrimary,
-                fontSize: 19,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -137,7 +137,7 @@ class _PinPromptSheetState extends ConsumerState<PinPromptSheet> {
               _error ? l.pin_wrong : l.pin_reveal_sub,
               style: TextStyle(
                 color: _error ? PaColors.danger : PaColors.inkMuted,
-                fontSize: 13.5,
+                fontSize: 13,
               ),
               textAlign: TextAlign.center,
             ),

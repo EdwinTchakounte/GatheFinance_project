@@ -57,7 +57,7 @@ class PaActionPill extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: PaColors.inkSecondary,
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   height: 1.25,
                 ),

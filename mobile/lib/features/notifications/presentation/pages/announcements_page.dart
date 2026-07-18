@@ -34,7 +34,7 @@ class AnnouncementsPage extends ConsumerWidget {
           'Annonces',
           style: TextStyle(
             color: PaColors.inkPrimary,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -140,7 +140,7 @@ class _AnnouncementTile extends StatelessWidget {
                           : 'ANNONCE',
                       style: const TextStyle(
                         color: PaColors.inkMuted,
-                        fontSize: 10.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.6,
                       ),

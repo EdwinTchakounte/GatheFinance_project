@@ -48,7 +48,7 @@ class BookletPage extends StatelessWidget {
           l.booklet_page_title,
           style: const TextStyle(
             color: PaColors.inkPrimary,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -282,7 +282,7 @@ class _PendingOrderCard extends StatelessWidget {
                       ),
                       style: const TextStyle(
                         color: PaColors.inkPrimary,
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -317,7 +317,7 @@ class _PendingOrderCard extends StatelessWidget {
                     hint,
                     style: const TextStyle(
                       color: PaColors.inkSecondary,
-                      fontSize: 12.5,
+                      fontSize: 12,
                       height: 1.5,
                     ),
                   ),
@@ -456,7 +456,7 @@ class _TimelineStep extends StatelessWidget {
           label,
           style: TextStyle(
             color: labelColor,
-            fontSize: 11.5,
+            fontSize: 11,
             fontWeight: active ? FontWeight.w700 : FontWeight.w600,
           ),
         ),
@@ -514,7 +514,7 @@ class _ActiveBookletCard extends StatelessWidget {
                       l.booklet_active_title,
                       style: const TextStyle(
                         color: PaColors.inkPrimary,
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -523,7 +523,7 @@ class _ActiveBookletCard extends StatelessWidget {
                       l.booklet_active_subtitle(date),
                       style: const TextStyle(
                         color: PaColors.inkSecondary,
-                        fontSize: 12.5,
+                        fontSize: 12,
                         height: 1.35,
                       ),
                     ),
@@ -611,7 +611,7 @@ class _OrderNewCard extends StatelessWidget {
                       l.booklet_new_title,
                       style: const TextStyle(
                         color: PaColors.inkPrimary,
-                        fontSize: 17,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -667,7 +667,7 @@ class _OrderNewCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: PaColors.onTeal,
-                      fontSize: 14.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -717,7 +717,7 @@ class _Step extends StatelessWidget {
               title,
               style: const TextStyle(
                 color: PaColors.inkSecondary,
-                fontSize: 13.5,
+                fontSize: 13,
                 height: 1.4,
               ),
             ),
@@ -766,7 +766,7 @@ class _HistoryTile extends StatelessWidget {
                   l.booklet_history_item('${order.id}'),
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -779,7 +779,7 @@ class _HistoryTile extends StatelessWidget {
                   ),
                   style: const TextStyle(
                     color: PaColors.inkMuted,
-                    fontSize: 10.5,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -823,7 +823,7 @@ class _StatusChip extends StatelessWidget {
             label,
             style: TextStyle(
               color: color,
-              fontSize: 11.5,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -859,7 +859,7 @@ class _ErrorBox extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             message,
-            style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
+            style: const TextStyle(color: PaColors.inkMuted, fontSize: 12),
           ),
         ],
       ),
@@ -897,7 +897,7 @@ class _OfficialDocsSection extends StatelessWidget {
                 l.booklet_docs_title,
                 style: const TextStyle(
                   color: PaColors.inkPrimary,
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -991,7 +991,7 @@ class _OfficialDocTile extends StatelessWidget {
                         label,
                         style: const TextStyle(
                           color: PaColors.inkPrimary,
-                          fontSize: 14.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -1002,7 +1002,7 @@ class _OfficialDocTile extends StatelessWidget {
                             : (_available ? sub : l.booklet_doc_soon),
                         style: const TextStyle(
                           color: PaColors.inkMuted,
-                          fontSize: 12.5,
+                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -1026,7 +1026,7 @@ class _OfficialDocTile extends StatelessWidget {
                           l.common_preview,
                           style: TextStyle(
                             color: accent,
-                            fontSize: 11.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                           ),
                         ),

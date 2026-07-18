@@ -368,7 +368,7 @@ class _DepositPill extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   color: PaColors.onTeal,
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
               ),

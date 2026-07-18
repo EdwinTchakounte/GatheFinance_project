@@ -36,7 +36,7 @@ class CampaignsListPage extends StatelessWidget {
           AppL10n.of(context).campaigns_title,
           style: const TextStyle(
             color: PaColors.inkPrimary,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -217,7 +217,7 @@ class _CampaignRow extends StatelessWidget {
                   c.nom,
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 16.5,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     height: 1.25,
                   ),
@@ -241,7 +241,7 @@ class _CampaignRow extends StatelessWidget {
                           '${XAFFormatter.formatCompact(c.montantMin)}  →  ${XAFFormatter.formatCompact(c.montantMax)}',
                           style: const TextStyle(
                             color: PaColors.inkPrimary,
-                            fontSize: 13.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -250,7 +250,7 @@ class _CampaignRow extends StatelessWidget {
                         '${(c.tauxInteret * 100).toStringAsFixed(0)} % / crédit',
                         style: const TextStyle(
                           color: PaColors.teal,
-                          fontSize: 12.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -274,7 +274,7 @@ class _CampaignRow extends StatelessWidget {
                           l.campaign_view_apply,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 13.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -342,7 +342,7 @@ class _Pill extends StatelessWidget {
             text,
             style: TextStyle(
               color: fg,
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.5,
             ),

@@ -90,7 +90,7 @@ class _CollecteEomCardState extends ConsumerState<CollecteEomCard> {
                   l.collecte_eom_title,
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 14.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -100,7 +100,7 @@ class _CollecteEomCardState extends ConsumerState<CollecteEomCard> {
           const SizedBox(height: 4),
           Text(
             l.collecte_eom_sub,
-            style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
+            style: const TextStyle(color: PaColors.inkMuted, fontSize: 12),
           ),
           const SizedBox(height: 14),
           _Option(
@@ -255,7 +255,7 @@ class _Option extends StatelessWidget {
                     title,
                     style: TextStyle(
                       color: selected ? PaColors.tealDark : PaColors.inkPrimary,
-                      fontSize: 13.5,
+                      fontSize: 13,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

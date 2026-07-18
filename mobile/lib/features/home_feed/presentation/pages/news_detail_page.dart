@@ -176,7 +176,7 @@ class _NewsDetailPageState extends ConsumerState<NewsDetailPage> {
                     a.title,
                     style: const TextStyle(
                       color: PaColors.inkPrimary,
-                      fontSize: 24,
+                      fontSize: 22,
                       fontWeight: FontWeight.w800,
                       height: 1.2,
                       letterSpacing: -0.3,
@@ -205,7 +205,7 @@ class _NewsDetailPageState extends ConsumerState<NewsDetailPage> {
                       body,
                       style: const TextStyle(
                         color: PaColors.inkPrimary,
-                        fontSize: 15,
+                        fontSize: 14,
                         height: 1.65,
                       ),
                     ),
@@ -371,7 +371,7 @@ class _CoverPlaceholder extends StatelessWidget {
                   'GATHE',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 9.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 2.0,
                   ),

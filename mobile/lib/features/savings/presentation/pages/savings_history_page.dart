@@ -59,7 +59,7 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
           l.savings_history_title,
           style: const TextStyle(
             color: PaColors.inkPrimary,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -289,7 +289,7 @@ class _MonthSection extends StatelessWidget {
                   '${positive ? '+' : '−'} ${XAFFormatter.formatNumber(net.abs())}',
                   style: TextStyle(
                     color: netColor,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
@@ -390,7 +390,7 @@ class _EmptyState extends StatelessWidget {
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: PaColors.inkPrimary,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -400,7 +400,7 @@ class _EmptyState extends StatelessWidget {
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: PaColors.inkMuted,
-            fontSize: 13.5,
+            fontSize: 13,
           ),
         ),
       ],
@@ -431,7 +431,7 @@ class _ErrorState extends StatelessWidget {
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: PaColors.danger,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -439,7 +439,7 @@ class _ErrorState extends StatelessWidget {
         Text(
           message,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
+          style: const TextStyle(color: PaColors.inkMuted, fontSize: 12),
         ),
       ],
     );

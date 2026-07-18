@@ -122,7 +122,7 @@ class _PaNavItem extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: selected ? PaColors.inkPrimary : PaColors.inkMuted,
-                fontSize: 11.5,
+                fontSize: 11,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),

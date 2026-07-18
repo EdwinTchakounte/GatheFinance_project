@@ -67,7 +67,7 @@ class AppPill extends StatelessWidget {
             label,
             style: AppTypography.labelMedium.copyWith(
               color: p.fg,
-              fontSize: 11.5,
+              fontSize: 11,
               letterSpacing: 0.4,
             ),
           ),

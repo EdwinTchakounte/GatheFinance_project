@@ -84,13 +84,13 @@ class _SupportPageState extends ConsumerState<SupportPage> {
               l.support_title,
               style: const TextStyle(
                 color: PaColors.inkPrimary,
-                fontSize: 16.5,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
             ),
             Text(
               l.support_subtitle,
-              style: const TextStyle(color: PaColors.inkMuted, fontSize: 11.5),
+              style: const TextStyle(color: PaColors.inkMuted, fontSize: 11),
             ),
           ],
         ),
@@ -175,7 +175,7 @@ class _Bubble extends StatelessWidget {
           Text(
             '${mine ? l.support_sender_you : l.support_sender_staff} · '
             '${AppDateFormatter.withTime(msg.createdAt)}',
-            style: const TextStyle(color: PaColors.inkMuted, fontSize: 10.5),
+            style: const TextStyle(color: PaColors.inkMuted, fontSize: 11),
           ),
         ],
       ),
@@ -369,7 +369,7 @@ class _Empty extends StatelessWidget {
             l.support_empty_title,
             style: const TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 17,
+              fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -380,7 +380,7 @@ class _Empty extends StatelessWidget {
           child: Text(
             l.support_empty_sub,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: PaColors.inkMuted, fontSize: 13.5),
+            style: const TextStyle(color: PaColors.inkMuted, fontSize: 13),
           ),
         ),
       ],
@@ -400,7 +400,7 @@ class _ErrorBox extends StatelessWidget {
         child: Text(
           message,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: PaColors.inkMuted, fontSize: 13.5),
+          style: const TextStyle(color: PaColors.inkMuted, fontSize: 13),
         ),
       ),
     );

@@ -219,7 +219,7 @@ class _BlueHero extends StatelessWidget {
                     '${current + 1} / $total',
                     style: const TextStyle(
                       color: Colors.white70,
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1.2,
                     ),

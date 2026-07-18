@@ -127,7 +127,7 @@ class NbTransactionRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.bodyLarge.copyWith(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: scheme.onSurface,
                     ),
@@ -138,7 +138,7 @@ class NbTransactionRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.bodySmall.copyWith(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       color: muted,
                     ),
                   ),

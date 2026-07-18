@@ -105,7 +105,7 @@ class _LenderBody extends ConsumerWidget {
                 'Espace prêteur',
                 style: TextStyle(
                   color: PaColors.inkPrimary,
-                  fontSize: 19,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -234,7 +234,7 @@ class _LenderBody extends ConsumerWidget {
                   'Nouvelle tranche prêtable',
                   style: TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 17,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -244,7 +244,7 @@ class _LenderBody extends ConsumerWidget {
                   'sollicite. La récupération est ensuite gérée par la '
                   'coopérative.',
                   style:
-                      TextStyle(color: PaColors.inkSecondary, fontSize: 12.5),
+                      TextStyle(color: PaColors.inkSecondary, fontSize: 12),
                 ),
                 const SizedBox(height: 14),
                 TextField(
@@ -366,7 +366,7 @@ class _ConsentCard extends StatelessWidget {
                   'Convention active',
                   style: TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 14.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -404,7 +404,7 @@ class _TotalsCard extends StatelessWidget {
             'Répartition par statut',
             style: TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 14.5,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -432,14 +432,14 @@ class _TotalsCard extends StatelessWidget {
             child: Text(label,
                 style: const TextStyle(
                   color: PaColors.inkSecondary,
-                  fontSize: 13.5,
+                  fontSize: 13,
                 ),),
           ),
           Text(
             XAFFormatter.format(amount),
             style: const TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 13.5,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -468,7 +468,7 @@ class _TranchesSection extends StatelessWidget {
                   'Mes tranches',
                   style: TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 14.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -509,7 +509,7 @@ class _TranchesSection extends StatelessWidget {
                           AppDateFormatter.short(t.createdAt),
                           style: const TextStyle(
                             color: PaColors.inkMuted,
-                            fontSize: 11.5,
+                            fontSize: 11,
                           ),
                         ),
                       ],

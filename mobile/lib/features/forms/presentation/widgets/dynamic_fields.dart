@@ -104,7 +104,7 @@ class _SectionHeader extends StatelessWidget {
                 section.description!,
                 style: const TextStyle(
                   color: PaColors.inkSecondary,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   height: 1.4,
                 ),
               ),
@@ -138,7 +138,7 @@ class _FieldRow extends StatelessWidget {
           label,
           style: const TextStyle(
             color: PaColors.inkSecondary,
-            fontSize: 12.5,
+            fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -150,7 +150,7 @@ class _FieldRow extends StatelessWidget {
             error!,
             style: const TextStyle(
               color: PaColors.danger,
-              fontSize: 11.5,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -160,7 +160,7 @@ class _FieldRow extends StatelessWidget {
             field.helpText!,
             style: const TextStyle(
               color: PaColors.inkMuted,
-              fontSize: 11.5,
+              fontSize: 11,
               height: 1.4,
             ),
           ),
@@ -296,7 +296,7 @@ class _RadioInput extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               value: o.value,
               title: Text(o.label,
-                  style: const TextStyle(fontSize: 13.5, color: PaColors.inkPrimary),),
+                  style: const TextStyle(fontSize: 13, color: PaColors.inkPrimary),),
             ),
         ],
       ),
@@ -337,7 +337,7 @@ class _CheckboxInput extends StatelessWidget {
               child: Text(
                 field.label,
                 style: const TextStyle(
-                  fontSize: 13.5,
+                  fontSize: 13,
                   color: PaColors.inkPrimary,
                 ),
               ),
@@ -496,7 +496,7 @@ class _FileInput extends StatelessWidget {
                       color: picked != null
                           ? PaColors.inkPrimary
                           : PaColors.inkMuted,
-                      fontSize: 13.5,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                     overflow: TextOverflow.ellipsis,

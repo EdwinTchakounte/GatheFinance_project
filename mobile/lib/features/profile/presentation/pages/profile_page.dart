@@ -221,7 +221,7 @@ class ProfilePage extends ConsumerWidget {
                           style: const TextStyle(
                             color: PaColors.danger,
                             fontWeight: FontWeight.w600,
-                            fontSize: 15,
+                            fontSize: 14,
                           ),
                         ),
                       ),

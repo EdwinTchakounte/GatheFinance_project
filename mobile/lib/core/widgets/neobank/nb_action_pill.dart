@@ -58,7 +58,7 @@ class NbActionPill extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.bodySmall.copyWith(
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
                   color: scheme.onSurface.withValues(alpha: 0.85),

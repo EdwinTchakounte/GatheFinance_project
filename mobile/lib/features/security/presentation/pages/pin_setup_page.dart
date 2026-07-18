@@ -101,7 +101,7 @@ class _PinSetupPageState extends ConsumerState<PinSetupPage> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: _error ? PaColors.danger : PaColors.inkMuted,
-                  fontSize: 13.5,
+                  fontSize: 13,
                   height: 1.4,
                 ),
               ),

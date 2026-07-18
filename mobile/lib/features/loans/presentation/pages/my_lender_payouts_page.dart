@@ -101,7 +101,7 @@ class _TotalHeader extends StatelessWidget {
             'que tu as financés.',
             style: AppTypography.bodySmall.copyWith(
               color: PaColors.inkSecondary,
-              fontSize: 12.5,
+              fontSize: 12,
             ),
           ),
         ],
@@ -184,7 +184,7 @@ class _PayoutTile extends StatelessWidget {
                   _shortDate(payout.date),
                   style: const TextStyle(
                     color: PaColors.inkMuted,
-                    fontSize: 11.5,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -231,7 +231,7 @@ class _EmptyView extends StatelessWidget {
             'Aucun versement pour l\'instant',
             style: TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 17,
+              fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,

@@ -57,7 +57,7 @@ class PaText {
 
   /// Titres de section / cards — Sora SemiBold.
   static TextStyle heading({
-    double size = 17.5,
+    double size = 18,
     FontWeight weight = FontWeight.w600,
     Color color = PaColors.inkPrimary,
     double letterSpacing = -0.3,
@@ -90,7 +90,7 @@ class PaText {
 
   // ── Corps (Inter) ─────────────────────────────────────────────────────────
   static TextStyle body({
-    double size = 13.5,
+    double size = 13,
     FontWeight weight = FontWeight.w400,
     Color color = PaColors.inkSecondary,
     // Interligne resserré (densité 2026) — moins d'air entre les lignes dans

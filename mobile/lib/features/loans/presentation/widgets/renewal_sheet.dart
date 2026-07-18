@@ -191,7 +191,7 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
                     l.ren_fees_note,
                     style: const TextStyle(
                       color: PaColors.navyDeep,
-                      fontSize: 12.5,
+                      fontSize: 12,
                       height: 1.5,
                     ),
                   ),

@@ -206,7 +206,7 @@ class AppTheme {
         elevation: 0,
         indicatorColor: cobaltSurface,
         labelTextStyle: WidgetStatePropertyAll(
-          AppTypography.labelMedium.copyWith(fontSize: 11.5, color: inkDark),
+          AppTypography.labelMedium.copyWith(fontSize: 11, color: inkDark),
         ),
         iconTheme: WidgetStateProperty.resolveWith(
           (states) {

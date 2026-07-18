@@ -32,7 +32,7 @@ class PaStatusChip extends StatelessWidget {
             label,
             style: TextStyle(
               color: color,
-              fontSize: 11.5,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),

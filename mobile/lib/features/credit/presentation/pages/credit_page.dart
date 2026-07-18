@@ -186,7 +186,7 @@ class CreditPage extends ConsumerWidget {
                     l.credit_paths_title,
                     style: const TextStyle(
                       color: PaColors.inkPrimary,
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -222,7 +222,7 @@ class CreditPage extends ConsumerWidget {
                           l.credit_requests_title,
                           style: const TextStyle(
                             color: PaColors.inkPrimary,
-                            fontSize: 15,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -401,7 +401,7 @@ void _showIneligibilityDialog(BuildContext context, List<String> motifs) {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('• ', style: TextStyle(fontWeight: FontWeight.w700)),
-                  Expanded(child: Text(m, style: const TextStyle(fontSize: 13.5))),
+                  Expanded(child: Text(m, style: const TextStyle(fontSize: 13))),
                 ],
               ),
             ),
@@ -460,7 +460,7 @@ class _LoanCard extends StatelessWidget {
                   loan.numeroDossier,
                   style: const TextStyle(
                     color: PaColors.inkMuted,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -497,7 +497,7 @@ class _LoanCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             l.credit_due_total(XAFFormatter.format(loan.montantTotalDu), tauxPct),
-            style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
+            style: const TextStyle(color: PaColors.inkMuted, fontSize: 12),
           ),
 
           // CH-11 . Annonce explicite « intérêts retenus à la source ».
@@ -522,7 +522,7 @@ class _LoanCard extends StatelessWidget {
                       '· intérêts retenus à la source',
                       style: const TextStyle(
                         color: PaColors.success,
-                        fontSize: 11.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -539,7 +539,7 @@ class _LoanCard extends StatelessWidget {
               'Date butoire : ${_formatDateShort(loan.dateButoire!)}',
               style: const TextStyle(
                 color: PaColors.inkMuted,
-                fontSize: 11.5,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -588,7 +588,7 @@ class _LoanCard extends StatelessWidget {
                           l.credit_next_due,
                           style: const TextStyle(
                             color: PaColors.inkMuted,
-                            fontSize: 11.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -597,7 +597,7 @@ class _LoanCard extends StatelessWidget {
                           '${AppDateFormatter.long(next.dateEcheance)} · ${XAFFormatter.format(next.montantTotal)}',
                           style: const TextStyle(
                             color: PaColors.inkPrimary,
-                            fontSize: 13.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -635,7 +635,7 @@ class _LoanCard extends StatelessWidget {
                               l.credit_penalty_title,
                               style: const TextStyle(
                                 color: PaColors.danger,
-                                fontSize: 12.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -643,7 +643,7 @@ class _LoanCard extends StatelessWidget {
                               XAFFormatter.format(penalty),
                               style: const TextStyle(
                                 color: PaColors.danger,
-                                fontSize: 13.5,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -654,7 +654,7 @@ class _LoanCard extends StatelessWidget {
                           l.credit_penalty_sub,
                           style: const TextStyle(
                             color: PaColors.inkSecondary,
-                            fontSize: 11.5,
+                            fontSize: 11,
                             height: 1.4,
                           ),
                         ),
@@ -776,7 +776,7 @@ class _RequestCard extends ConsumerWidget {
           const SizedBox(height: 4),
           Text(
             l.credit_req_submitted_on(AppDateFormatter.long(request.dateSoumission)),
-            style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
+            style: const TextStyle(color: PaColors.inkMuted, fontSize: 12),
           ),
           // L6 . Échéance indicative d'étude de la commission (soumission +
           // ~1 mois). Affichée tant que la demande est encore en cours
@@ -907,7 +907,7 @@ class _RequestCard extends ConsumerWidget {
                   ),
                   textStyle: const TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 13.5,
+                    fontSize: 13,
                   ),
                 ),
               ),
@@ -1296,7 +1296,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                   'épargne gelée en garantie ne sont pas ponctionnables.',
                   style: const TextStyle(
                     color: PaColors.inkSecondary,
-                    fontSize: 11.5,
+                    fontSize: 11,
                     height: 1.4,
                   ),
                 ),
@@ -1348,7 +1348,7 @@ class _StudyFeePaySheetState extends ConsumerState<_StudyFeePaySheet> {
                       XAFFormatter.format(_montant!),
                       style: const TextStyle(
                         color: PaColors.inkPrimary,
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -1428,7 +1428,7 @@ class _EmptyState extends StatelessWidget {
                   l.credit_empty_title,
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 14.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1437,7 +1437,7 @@ class _EmptyState extends StatelessWidget {
                   l.credit_empty_body,
                   style: const TextStyle(
                     color: PaColors.inkSecondary,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     height: 1.35,
                   ),
                 ),
@@ -1452,7 +1452,7 @@ class _EmptyState extends StatelessWidget {
                       l.credit_empty_hint,
                       style: const TextStyle(
                         color: PaColors.teal,
-                        fontSize: 11.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1497,7 +1497,7 @@ class _PrimaryActionButton extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: PaColors.onTeal,
-              fontSize: 13.5,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1537,7 +1537,7 @@ class _OutlineActionButton extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 13.5,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1578,7 +1578,7 @@ class _StatusChip extends StatelessWidget {
             label,
             style: TextStyle(
               color: color,
-              fontSize: 11.5,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1614,7 +1614,7 @@ class _ErrorBox extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             message,
-            style: const TextStyle(color: PaColors.inkMuted, fontSize: 12.5),
+            style: const TextStyle(color: PaColors.inkMuted, fontSize: 12),
           ),
         ],
       ),
@@ -1660,7 +1660,7 @@ class _AvalisteEntryTile extends ConsumerWidget {
                 Text(
                   l.credit_mandates_title,
                   style: const TextStyle(
-                    fontSize: 14.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: PaColors.inkPrimary,
                   ),
@@ -1765,7 +1765,7 @@ class _LenderPayoutsEntryTile extends ConsumerWidget {
                   'Mes intérêts de prêteur',
                   style: TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 14.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1775,7 +1775,7 @@ class _LenderPayoutsEntryTile extends ConsumerWidget {
                   'total ${XAFFormatter.format(total)}',
                   style: const TextStyle(
                     color: PaColors.inkSecondary,
-                    fontSize: 12.5,
+                    fontSize: 12,
                   ),
                 ),
               ],
@@ -1971,7 +1971,7 @@ class _LoanRouteCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: PaColors.inkSecondary,
-                fontSize: 10.5,
+                fontSize: 11,
                 height: 1.25,
               ),
             ),
@@ -1990,7 +1990,7 @@ class _LoanRouteCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: statusOk ? PaColors.success : PaColors.warning,
-                  fontSize: 9.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -2054,7 +2054,7 @@ class _RouteBadge extends StatelessWidget {
             label,
             style: TextStyle(
               color: color,
-              fontSize: 11.5,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.2,
             ),
@@ -2165,9 +2165,9 @@ class _CreditCarnetTabs extends StatelessWidget {
         splashBorderRadius: BorderRadius.circular(999),
         labelColor: Colors.white,
         unselectedLabelColor: PaColors.inkSecondary,
-        labelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         unselectedLabelStyle:
-            const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+            const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         tabs: [
           Tab(text: l.credit_tab_credit),
           Tab(text: l.credit_tab_carnet),
@@ -2276,7 +2276,7 @@ class _ClosedLoanCard extends ConsumerWidget {
                   '#${loan.numeroDossier}',
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -2285,7 +2285,7 @@ class _ClosedLoanCard extends ConsumerWidget {
                   XAFFormatter.format(loan.montant),
                   style: const TextStyle(
                     color: PaColors.inkMuted,
-                    fontSize: 11.5,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -2301,7 +2301,7 @@ class _ClosedLoanCard extends ConsumerWidget {
               l.credit_status_closed,
               style: const TextStyle(
                 color: PaColors.inkSecondary,
-                fontSize: 10.5,
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
             ),

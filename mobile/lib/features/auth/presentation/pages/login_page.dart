@@ -369,7 +369,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       child: const Text(
                         'Premier acces ? Definir mon mot de passe',
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                           decoration: TextDecoration.underline,
                         ),
@@ -625,7 +625,7 @@ class _BlueCta extends StatelessWidget {
                           label,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 15,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.2,
                           ),
@@ -729,7 +729,7 @@ class _Pill extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: disabled ? PaColors.inkMuted : PaColors.inkPrimary,
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

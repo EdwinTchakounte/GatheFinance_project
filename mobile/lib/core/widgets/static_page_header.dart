@@ -172,7 +172,7 @@ class RootPageHeader extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.headingMedium.copyWith(
                       color: scheme.onSurface,
-                      fontSize: 24,
+                      fontSize: 22,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
                       letterSpacing: -0.3,

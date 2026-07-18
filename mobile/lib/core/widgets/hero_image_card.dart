@@ -88,7 +88,7 @@ class HeroImageCard extends StatelessWidget {
                   eyebrow.toUpperCase(),
                   style: AppTypography.eyebrow.copyWith(
                     color: AppColors.emerald,
-                    fontSize: 10.5,
+                    fontSize: 11,
                   ),
                 ),
                 const SizedBox(height: 6),

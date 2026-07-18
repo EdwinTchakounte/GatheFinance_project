@@ -96,7 +96,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
           l.notifs_title,
           style: const TextStyle(
             color: PaColors.inkPrimary,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -215,7 +215,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                     Text(
                       friendlyError(e),
                       style: const TextStyle(
-                          color: PaColors.inkMuted, fontSize: 12.5,),
+                          color: PaColors.inkMuted, fontSize: 12,),
                     ),
                   ],
                 ),
@@ -288,7 +288,7 @@ class _FilterBar extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: selected ? Colors.white : PaColors.inkSecondary,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -360,7 +360,7 @@ class _NotifCard extends StatelessWidget {
                         notif.title,
                         style: TextStyle(
                           color: PaColors.inkPrimary,
-                          fontSize: 14.5,
+                          fontSize: 14,
                           fontWeight:
                               isUnread ? FontWeight.w700 : FontWeight.w600,
                         ),
@@ -371,7 +371,7 @@ class _NotifCard extends StatelessWidget {
                       _relative(context, notif.createdAt),
                       style: const TextStyle(
                         color: PaColors.inkMuted,
-                        fontSize: 11.5,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -447,7 +447,7 @@ class _EmptyState extends StatelessWidget {
             l.notifs_empty_title,
             style: const TextStyle(
               color: PaColors.inkPrimary,
-              fontSize: 17,
+              fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -457,7 +457,7 @@ class _EmptyState extends StatelessWidget {
           child: Text(
             l.notifs_empty_sub,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: PaColors.inkMuted, fontSize: 13.5),
+            style: const TextStyle(color: PaColors.inkMuted, fontSize: 13),
           ),
         ),
       ],
