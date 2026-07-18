@@ -40,7 +40,7 @@ class PaText {
   // ── Display / titres (Sora) ─────────────────────────────────────────────
   /// Gros titres et hero balance — Sora SemiBold (poids allégé, pas lourd).
   static TextStyle display({
-    double size = 32,
+    double size = 29,
     FontWeight weight = FontWeight.w600,
     Color color = PaColors.inkPrimary,
     double letterSpacing = -0.6,
@@ -57,7 +57,7 @@ class PaText {
 
   /// Titres de section / cards — Sora SemiBold.
   static TextStyle heading({
-    double size = 19,
+    double size = 17.5,
     FontWeight weight = FontWeight.w600,
     Color color = PaColors.inkPrimary,
     double letterSpacing = -0.3,
@@ -73,7 +73,7 @@ class PaText {
   // ── Montants (Sora — figures nettes) ─────────────────────────────────────
   /// Chiffres monétaires — Sora, SemiBold par défaut, lettres resserrées.
   static TextStyle amount({
-    double size = 24,
+    double size = 22,
     FontWeight weight = FontWeight.w600,
     Color color = PaColors.inkPrimary,
     double letterSpacing = -0.5,
@@ -90,7 +90,7 @@ class PaText {
 
   // ── Corps (Inter) ─────────────────────────────────────────────────────────
   static TextStyle body({
-    double size = 14,
+    double size = 13.5,
     FontWeight weight = FontWeight.w400,
     Color color = PaColors.inkSecondary,
     // Interligne resserré (densité 2026) — moins d'air entre les lignes dans

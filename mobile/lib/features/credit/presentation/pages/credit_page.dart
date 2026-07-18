@@ -2307,18 +2307,16 @@ class _ClosedLoanCard extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 2),
+          // Cible tactile standard (≥ 48dp — Material/HIG) : on garde le
+          // tapTargetSize.padded par défaut, juste un padding horizontal réduit.
           TextButton(
             onPressed: () => _confirmHide(context, ref),
             style: TextButton.styleFrom(
               foregroundColor: PaColors.danger,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              minimumSize: const Size(0, 32),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              visualDensity: VisualDensity.standard,
             ),
-            child: Text(
-              l.credit_hide_action,
-              style: const TextStyle(fontSize: 12),
-            ),
+            child: Text(l.credit_hide_action),
           ),
         ],
       ),

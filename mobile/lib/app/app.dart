@@ -150,19 +150,17 @@ class _GatheAppState extends ConsumerState<GatheApp>
       theme: AppTheme.light,
       themeMode: ThemeMode.light,
       routerConfig: router,
-      // Densité 2026 : on resserre l'UI globalement (~-8 % sur TOUTE la typo,
-      // hardcodée comme tokens) pour un rendu moins « grotesque », tout en
-      // respectant le réglage système du membre. Borné [0.84, 1.05] : plancher
-      // lisible, plafond qui évite les débordements des layouts denses.
-      builder: (context, child) {
-        final mq = MediaQuery.of(context);
-        final userFactor = mq.textScaler.scale(1.0); // facteur système effectif
-        final dense = (userFactor * 0.90).clamp(0.82, 1.05);
-        return MediaQuery(
-          data: mq.copyWith(textScaler: TextScaler.linear(dense)),
-          child: child!,
-        );
-      },
+      // Standard international (WCAG / Material / HIG) : on RESPECTE le réglage
+      // de police du membre — on ne force JAMAIS le texte plus petit que son
+      // choix. On borne seulement pour éviter les débordements des layouts
+      // denses (hero, montants, sheets). La densité « moins grotesque » vient
+      // des tokens de design réduits + visualDensity.compact, pas d'un
+      // rapetissement imposé.
+      builder: (context, child) => MediaQuery.withClampedTextScaling(
+        minScaleFactor: 0.9,
+        maxScaleFactor: 1.15,
+        child: child!,
+      ),
       locale: locale,
       supportedLocales: AppL10n.supportedLocales,
       localizationsDelegates: const [
