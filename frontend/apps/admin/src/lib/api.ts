@@ -1101,6 +1101,16 @@ export type JudicialStatut =
   | "executee"
   | "classee_sans_suite";
 
+/** Crédit éligible à l'ouverture d'une escalade judiciaire. */
+export type EscalationCandidate = {
+  loan_id: number;
+  numero_dossier: string;
+  member_nom: string;
+  member_numero: string;
+  solde_restant: string;
+  poursuite_judiciaire_at: string | null;
+};
+
 export type JudicialEscalationRow = {
   id: number;
   loan_id: number;
@@ -1815,6 +1825,14 @@ export const adminApi = {
       ),
     detail: (id: number) =>
       request<JudicialEscalationRow>(`/loans/admin/escalations/${id}/`),
+    /**
+     * Crédits sur lesquels une escalade peut être ouverte : saisie sur
+     * épargne déjà tentée, reliquat > 0, pas d'escalade existante.
+     */
+    candidates: () =>
+      request<{ count: number; results: EscalationCandidate[] }>(
+        `/loans/admin/escalations/candidates/`,
+      ),
     open: (loanId: number, payload: { motif: string; mode?: string }) =>
       request<JudicialEscalationRow>(
         `/loans/admin/loans/${loanId}/escalation/`,

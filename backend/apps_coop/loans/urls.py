@@ -20,6 +20,7 @@ from .lender_admin_views import (
     admin_list_lender_tranches,
 )
 from .judicial_admin import (
+    admin_escalation_candidates,
     admin_escalation_classer,
     admin_escalation_decision,
     admin_escalation_detail,
@@ -260,6 +261,11 @@ urlpatterns = [
     ),
     # Refonte 2026 — LOT 17 : escalades judiciaires phase D/E
     path("admin/escalations/", admin_list_escalations, name="admin-escalations"),
+    path(
+        "admin/escalations/candidates/",
+        admin_escalation_candidates,
+        name="admin-escalation-candidates",
+    ),
     path(
         "admin/escalations/<int:pk>/",
         admin_escalation_detail,
