@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 import { CommandPalette } from "@/components/command-palette";
+import { DocumentPreviewProvider } from "@/components/document-preview";
 import { Sidebar, canAccessResource, hrefResource } from "@/components/sidebar";
 import {
   adminApi,
@@ -134,6 +135,7 @@ export default function AuthedLayout({
   if (!identity) return null;
 
   return (
+    <DocumentPreviewProvider>
     <div className="flex h-svh overflow-hidden bg-cream">
       {/* Sidebar persistant : monté une seule fois (drawer sur mobile). */}
       <Sidebar
@@ -189,6 +191,7 @@ export default function AuthedLayout({
         onClose={() => setPaletteOpen(false)}
       />
     </div>
+    </DocumentPreviewProvider>
   );
 }
 

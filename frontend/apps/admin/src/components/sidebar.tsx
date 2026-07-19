@@ -39,6 +39,8 @@ import { adminApi, type Identity } from "@/lib/api";
 type QueueKey =
   | "adhesions_en_attente"
   | "credits_en_instruction"
+  | "credits_a_traiter"
+  | "avaliste_pending"
   | "campaign_validation_pending"
   | "escalades_ouvertes";
 
@@ -75,10 +77,10 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: "Crédit",
     items: [
-      { href: "/loan-requests", label: "Demandes de crédit", icon: HandCoins, queueKey: "credits_en_instruction" },
+      { href: "/loan-requests", label: "Demandes de crédit", icon: HandCoins, queueKey: "credits_a_traiter" },
       { href: "/loans", label: "Crédits", icon: Wallet },
       { href: "/loan-renewals", label: "Reconductions", icon: RefreshCw },
-      { href: "/avaliste", label: "Avalistes / cautions", icon: Handshake },
+      { href: "/avaliste", label: "Avalistes / cautions", icon: Handshake, queueKey: "avaliste_pending" },
       { href: "/lender-tranches", label: "Pool prêteurs", icon: Coins },
       { href: "/escalations", label: "Escalades judiciaires", icon: Gavel, queueKey: "escalades_ouvertes" },
     ],
@@ -142,6 +144,8 @@ export function Sidebar({
   queues?: {
     adhesions_en_attente: number;
     credits_en_instruction: number;
+    credits_a_traiter?: number;
+    avaliste_pending?: number;
     campaign_validation_pending?: number;
     escalades_ouvertes?: number;
   };

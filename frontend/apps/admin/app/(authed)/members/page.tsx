@@ -2,13 +2,18 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SkeletonList } from "@gathe/ui";
-import { Mail, Phone, Search, FileDown, ChevronDown, ExternalLink } from "lucide-react";
+import { Mail, Phone, Search, FileDown, ChevronDown } from "lucide-react";
 
 import { ColumnsMenu } from "@/components/columns-menu";
+import {
+  DocumentPreview,
+  DocumentThumbnail,
+} from "@/components/document-preview";
 import { ExportMenu } from "@/components/export-menu";
 import { Modal } from "@/components/modal";
 import { Pagination } from "@/components/pagination";
 import type { ExportColumn } from "@/lib/export";
+import { StatusPill } from "@/components/status-pill";
 import {
   adminApi,
   type ApiError,
@@ -102,18 +107,7 @@ const COLUMNS: Col[] = [
     text: (m) => m.statut_display,
     render: (m) => (
       <div className="flex flex-wrap items-center gap-1">
-        <span
-          className={
-            "pill " +
-            (m.statut === "actif"
-              ? "pill-success"
-              : m.statut === "suspendu"
-                ? "pill-warning"
-                : "pill-muted")
-          }
-        >
-          {m.statut_display}
-        </span>
+        <StatusPill statut={m.statut} label={m.statut_display} />
         {m.is_brc_member ? <span className="pill pill-success">BRC</span> : null}
         {m.is_senior ? <span className="pill pill-muted">Ancien</span> : null}
       </div>
@@ -366,6 +360,9 @@ function AdhLine({ label, value }: { label: string; value?: string | null }) {
 
 
 function AdhesionDetails({ adh }: { adh: MemberAdhesion }) {
+  const [preview, setPreview] = useState<{ url: string; label: string } | null>(
+    null,
+  );
   const pieces = Object.entries(adh.pieces).filter(([, url]) => Boolean(url)) as [
     string,
     string,
@@ -442,22 +439,35 @@ function AdhesionDetails({ adh }: { adh: MemberAdhesion }) {
           <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-500">
             Pièces jointes
           </p>
-          <div className="flex flex-wrap gap-2">
-            {pieces.map(([k, url]) => (
-              <a
-                key={k}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md border border-line-300 bg-white px-2.5 py-1.5 text-xs font-medium text-ink-700 hover:border-blue-400 hover:text-blue-700"
-              >
-                <ExternalLink className="size-3.5" aria-hidden="true" />
-                {pieceLabel[k] ?? k}
-              </a>
-            ))}
+          <div className="flex flex-wrap gap-3">
+            {pieces.map(([k, url]) => {
+              const label = pieceLabel[k] ?? k;
+              return (
+                <div key={k} className="flex w-24 flex-col items-center gap-1.5">
+                  <DocumentThumbnail
+                    url={url}
+                    label={label}
+                    size="sm"
+                    onOpen={() => setPreview({ url, label })}
+                  />
+                  <span className="w-full truncate text-center text-[0.65rem] text-ink-600">
+                    {label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : null}
+
+      {preview && (
+        <DocumentPreview
+          url={preview.url}
+          name={preview.label}
+          subtitle={`Fiche d'adhésion · ${adh.identity.prenom} ${adh.identity.nom}`}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </div>
   );
 }

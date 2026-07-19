@@ -7,6 +7,7 @@ import { buttonClasses } from "@gathe/ui";
 
 import { Modal } from "@/components/modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
+import { StatusPill } from "@/components/status-pill";
 import {
   adminApi,
   type ApiError,
@@ -157,7 +158,7 @@ function Inner() {
       key: "statut",
       label: "Statut",
       text: (r) => r.statut_display,
-      render: (r) => <StatusBadge statut={r.statut} label={r.statut_display} />,
+      render: (r) => <StatusPill statut={r.statut} label={r.statut_display} />,
     },
   ];
 
@@ -168,7 +169,7 @@ function Inner() {
           Reconductions de crédit
         </h1>
         <p className="text-sm text-ink-500">
-          Le membre demande la reconduction (Art.10/11) depuis l&apos;app ou le
+          Le membre demande la reconduction depuis l&apos;app ou le
           portail. Le comité approuve (taux + 1re échéance → nouveau dossier) ou
           rejette avec motif.
         </p>
@@ -301,18 +302,6 @@ function FilterTabs({
 }
 
 
-function StatusBadge({ statut, label }: { statut: LoanRenewalStatut; label: string }) {
-  const map: Record<LoanRenewalStatut, string> = {
-    demandee: "bg-ink-100 text-ink-700",
-    approuvee: "bg-emerald-100 text-emerald-800",
-    rejetee: "bg-red-100 text-red-700",
-  };
-  return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${map[statut]}`}>
-      {label}
-    </span>
-  );
-}
 
 
 function ApproveForm({

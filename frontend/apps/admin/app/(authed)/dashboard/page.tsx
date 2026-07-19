@@ -20,6 +20,7 @@ import {
 
 import { adminApi, type AdminInstallmentRow, type DashboardKpis } from "@/lib/api";
 import { LoanDetailModal } from "@/components/loan-detail-modal";
+import { StatusPill } from "@/components/status-pill";
 
 
 function formatXAF(amount: string): string {
@@ -105,7 +106,7 @@ function DashboardContent() {
     {
       label: "Avalistes en attente",
       value: kpis.queues.avaliste_pending,
-      hint: "réponse attendue (Q13 non-rétractable)",
+      hint: "réponse de l'avaliste attendue",
       icon: UserCheck,
       tone: "terra",
     },
@@ -230,7 +231,7 @@ function DashboardContent() {
       {/* Refonte 2026 — éligibilité + prêteurs */}
       <section className="mt-10">
         <h2 className="mb-3 font-display text-xs font-semibold uppercase tracking-wider text-ink-500">
-          Éligibilité 3 voies &amp; prêteurs (refonte 2026)
+          Éligibilité 3 voies &amp; prêteurs
         </h2>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {refonteCards.map((c) => (
@@ -474,18 +475,7 @@ function UpcomingRepayments() {
                     </p>
                   </td>
                   <td>
-                    <span
-                      className={
-                        "pill " +
-                        (r.statut === "en_retard"
-                          ? "pill-danger"
-                          : r.statut === "partielle"
-                            ? "pill-warning"
-                            : "pill-muted")
-                      }
-                    >
-                      {r.statut_display}
-                    </span>
+                    <StatusPill statut={r.statut} label={r.statut_display} />
                   </td>
                   <td className="text-right">
                     <button

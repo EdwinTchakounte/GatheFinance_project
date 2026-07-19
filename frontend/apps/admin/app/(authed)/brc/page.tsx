@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Check,
   X,
   FileText,
-  ExternalLink,
+  Paperclip,
   ZoomIn,
 } from "lucide-react";
 
@@ -19,6 +20,7 @@ import { ExportMenu } from "@/components/export-menu";
 import { Modal, ModalField, modalInputClass } from "@/components/modal";
 import { adminApi, type ApiError, type BRCDocument } from "@/lib/api";
 import type { ExportColumn } from "@/lib/export";
+import { StatusPill } from "@/components/status-pill";
 
 
 /**
@@ -110,6 +112,12 @@ function Inner() {
     { key: "numero", label: "N° membre", value: (d) => d.member_numero },
     { key: "fichier", label: "Fichier", value: (d) => d.nom_original || `Document #${d.id}` },
     { key: "taille_ko", label: "Taille (Ko)", value: (d) => Math.round(d.taille / 1024) },
+    { key: "provenance", label: "Provenance", value: (d) => d.champ_source_display },
+    {
+      key: "demande_credit",
+      label: "Demande de crédit",
+      value: (d) => (d.loan_request_id ? `#${d.loan_request_id}` : ""),
+    },
     { key: "statut", label: "Statut", value: (d) => d.statut_display },
     { key: "motif_rejet", label: "Motif rejet", value: (d) => d.motif_rejet },
     {
@@ -133,7 +141,9 @@ function Inner() {
           </h1>
           <p className="text-sm text-ink-500">
             Validation du statut de client Broad Range Consulting — prérequis
-            pour les voies crédit Senior+BRC (refonte 2026).
+            pour les voies crédit Senior+BRC. Les pièces jointes
+            aux demandes de crédit (contrat CGA BRC, certificat CFP BRC)
+            arrivent automatiquement dans cette file.
           </p>
         </div>
         <ExportMenu
@@ -212,17 +222,7 @@ function Inner() {
                     <span className="rounded-full bg-paper-soft px-2 py-0.5 text-xs font-medium text-ink-500">
                       {doc.member_numero}
                     </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        doc.statut === "en_attente"
-                          ? "bg-amber-100 text-amber-700"
-                          : doc.statut === "valide"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {doc.statut_display}
-                    </span>
+                    <StatusPill statut={doc.statut} label={doc.statut_display} />
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-ink-500">
                     <span className="inline-flex items-center gap-1">
@@ -233,25 +233,26 @@ function Inner() {
                         : ""}
                     </span>
                     {doc.fichier_url && (
-                      <>
-                        <button
-                          onClick={() => setPreviewTarget(doc)}
-                          className="inline-flex items-center gap-1 text-blue-700 hover:text-blue-800"
-                        >
-                          <ZoomIn className="h-3 w-3" />
-                          Aperçu plein écran
-                        </button>
-                        <a
-                          href={doc.fichier_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-ink-500 hover:text-ink-700"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Nouvel onglet
-                        </a>
-                      </>
+                      <button
+                        onClick={() => setPreviewTarget(doc)}
+                        className="inline-flex items-center gap-1 text-blue-700 hover:text-blue-800"
+                      >
+                        <ZoomIn className="h-3 w-3" />
+                        Aperçu plein écran
+                      </button>
                     )}
+                    <span className="inline-flex items-center gap-1">
+                      <Paperclip className="h-3 w-3" />
+                      {doc.champ_source_display}
+                    </span>
+                    {doc.loan_request_id ? (
+                      <Link
+                        href="/loan-requests"
+                        className="inline-flex items-center gap-1 text-blue-700 hover:underline"
+                      >
+                        Demande de crédit #{doc.loan_request_id}
+                      </Link>
+                    ) : null}
                   </div>
                   {doc.statut === "rejete" && doc.motif_rejet && (
                     <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">

@@ -44,7 +44,7 @@ export default function AdhesionsPipelinePage() {
           Suivi des adhésions
         </h1>
         <p className="mt-1 text-sm text-ink-600">
-          De la demande publique à l'activation complète des 3 frais (Article 3).
+          De la demande publique à l'activation complète des 3 frais.
         </p>
       </header>
 

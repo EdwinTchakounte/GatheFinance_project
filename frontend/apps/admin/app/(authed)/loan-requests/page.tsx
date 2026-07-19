@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Check, Coins, FileText, Scale, Send, X } from "lucide-react";
 
 import { buttonClasses, SkeletonList } from "@gathe/ui";
 
 import { CashInModal, type CashInPrefill } from "@/components/cash-in-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
+import { DocumentLink } from "@/components/document-preview";
 import { Modal, ModalField, modalInputClass } from "@/components/modal";
 import { adminApi, type ApiError, type LoanRequest } from "@/lib/api";
+import { StatusPill } from "@/components/status-pill";
 
 
 function formatXAF(amount: string): string {
@@ -312,24 +315,7 @@ function Inner() {
       text: (r) => r.statut_display,
       render: (r) => (
         <div>
-          <span
-            className={
-              "pill " +
-              (r.statut === "en_attente"
-                ? "pill-warning"
-                : r.statut === "en_instruction"
-                  ? "pill-info"
-                  : r.statut === "approuvee_provisoire"
-                    ? "pill-warning"
-                    : r.statut === "approuvee"
-                      ? "pill-success"
-                      : r.statut === "rejetee"
-                        ? "pill-danger"
-                        : "pill-muted")
-            }
-          >
-            {r.statut_display}
-          </span>
+          <StatusPill statut={r.statut} label={r.statut_display} />
           {r.field_visit_outcome ? (
             <p className="mt-1 text-[11px] font-medium">
               <span className="text-ink-500">Visite : </span>
@@ -1126,15 +1112,12 @@ function GarantieMaterielleSection({ r }: { r: LoanRequest }) {
           <span className="text-ink-500">Bien non encore évalué.</span>
         )}
         {titre?.url ? (
-          <a
-            href={titre.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 font-medium text-blue-700 hover:underline"
-            title={titre.nom_original}
-          >
-            <FileText className="size-3" aria-hidden="true" />Titre de propriété
-          </a>
+          <DocumentLink
+            url={titre.url}
+            name={titre.nom_original || "Titre de propriété"}
+            subtitle={`Demande #${r.id} · garantie matérielle`}
+            label="Titre de propriété"
+          />
         ) : (
           <span className="text-amber-700">Titre non uploadé — à demander.</span>
         )}
@@ -1289,33 +1272,78 @@ function VoieBadge({ r }: { r: LoanRequest }) {
 }
 
 
+/**
+ * Badges de profil emprunteur — déclarations du formulaire + pièce jointe
+ * correspondante, ouvrable en aperçu (jamais en nouvel onglet).
+ *
+ * Les deux lignes « Broad Range Consulting » (CGA BRC / CFP BRC) sont ce qui
+ * alimente la file de validation `/brc` : la pièce déposée ici est dupliquée
+ * côté backend en `BRCDocument`, d'où le rappel affiché à l'admin.
+ */
+const PROFIL_ROWS: {
+  label: string;
+  flagField: string;
+  proofField: string;
+  brc?: boolean;
+}[] = [
+  {
+    label: "CFP Broad Range",
+    flagField: "ancien_apprenant",
+    proofField: "ancien_apprenant_preuve",
+  },
+  { label: "CGA", flagField: "cga_adherent", proofField: "cga_preuve" },
+  {
+    label: "CGA · BRC",
+    flagField: "cga_brc_member",
+    proofField: "cga_brc_preuve",
+    brc: true,
+  },
+  {
+    label: "CFP · BRC",
+    flagField: "cfp_brc_apprenant",
+    proofField: "cfp_brc_preuve",
+    brc: true,
+  },
+];
+
 function ProfilEmprunteurBadges({ r }: { r: LoanRequest }) {
   const ep = r.extra_payload ?? {};
-  const apprenant = String(ep["ancien_apprenant"] ?? "").toLowerCase();
-  const cga = String(ep["cga_adherent"] ?? "").toLowerCase();
-  if (!apprenant && !cga && !(r.attachments && r.attachments.length)) {
-    return null;
-  }
-  const apprenantOui = apprenant === "oui";
-  const cgaOui = cga === "oui";
   const findAttachment = (fieldId: string) =>
     (r.attachments ?? []).find((a) => a.schema_field_id === fieldId) ?? null;
-  const apprenantProof = findAttachment("ancien_apprenant_preuve");
-  const cgaProof = findAttachment("cga_preuve");
+
+  const rows = PROFIL_ROWS.map((row) => ({
+    ...row,
+    value: String(ep[row.flagField] ?? "").toLowerCase(),
+    proof: findAttachment(row.proofField),
+  })).filter((row) => row.value || row.proof);
+
+  if (rows.length === 0) return null;
+
+  const hasBrc = rows.some((row) => row.brc && (row.value === "oui" || row.proof));
+
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-      <ProfilBadge
-        label="CFP Broad Range"
-        value={apprenant}
-        proof={apprenantProof}
-        isYes={apprenantOui}
-      />
-      <ProfilBadge
-        label="CGA"
-        value={cga}
-        proof={cgaProof}
-        isYes={cgaOui}
-      />
+    <div className="mt-2 space-y-1">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {rows.map((row) => (
+          <ProfilBadge
+            key={row.flagField}
+            label={row.label}
+            value={row.value}
+            proof={row.proof}
+            isYes={row.value === "oui"}
+            subtitle={`Demande #${r.id}${r.member ? ` · ${r.member.prenom} ${r.member.nom}` : ""}`}
+          />
+        ))}
+      </div>
+      {hasBrc ? (
+        <p className="text-[11px] text-ink-500">
+          Justificatif BRC à valider dans{" "}
+          <Link href="/brc" className="font-medium text-blue-700 hover:underline">
+            Justificatifs BRC
+          </Link>
+          .
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -1325,11 +1353,13 @@ function ProfilBadge({
   value,
   proof,
   isYes,
+  subtitle,
 }: {
   label: string;
   value: string;
   proof: { url: string | null; nom_original: string } | null;
   isYes: boolean;
+  subtitle?: string;
 }) {
   const tone = !value
     ? "border-line-200 bg-paper text-ink-500"
@@ -1343,16 +1373,14 @@ function ProfilBadge({
     >
       <span aria-hidden="true">{symbol}</span>
       <span>{label}</span>
-      {isYes && proof?.url ? (
-        <a
-          href={proof.url}
-          target="_blank"
-          rel="noopener noreferrer"
+      {proof?.url ? (
+        <DocumentLink
+          url={proof.url}
+          name={proof.nom_original || label}
+          subtitle={subtitle}
+          label="Voir"
           className="ml-1 inline-flex items-center gap-0.5 rounded bg-paper px-1.5 py-px text-[10px] font-medium text-blue-700 hover:underline"
-          title={proof.nom_original}
-        >
-          📎 Voir
-        </a>
+        />
       ) : null}
       {isYes && !proof?.url ? (
         <span

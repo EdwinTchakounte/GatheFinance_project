@@ -225,6 +225,8 @@ export type DashboardKpis = {
   queues: {
     adhesions_en_attente: number;
     credits_en_instruction: number;
+    /** Tout ce qui attend une action admin sur l'onglet Demandes de crédit. */
+    credits_a_traiter: number;
     avaliste_pending: number;
     campaign_validation_pending: number;
   };
@@ -436,7 +438,11 @@ export type AdminLoanRepayment = {
 // Mandat d'avaliste vu par l'admin (onglet « Avalistes / cautions »).
 export type AvalisteConsentRow = {
   id: number;
-  statut: "pending" | "accepted" | "refused";
+  /**
+   * `attente_frais` = avaliste désigné sur la demande mais pas encore
+   * sollicité (frais d'étude non réglés) — ligne synthétique côté serveur.
+   */
+  statut: "attente_frais" | "pending" | "accepted" | "refused";
   statut_display: string;
   created_at: string;
   montant_gele: string;
@@ -596,6 +602,10 @@ export type BRCDocument = {
   statut: "en_attente" | "valide" | "rejete";
   statut_display: string;
   motif_rejet: string;
+  /** Demande de crédit d'origine quand la pièce vient du formulaire crédit. */
+  loan_request_id: number | null;
+  champ_source: string;
+  champ_source_display: string;
   validated_by: number | null;
   validated_at: string | null;
   created_at: string;

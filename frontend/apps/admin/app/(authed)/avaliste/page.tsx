@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { adminApi, type ApiError, type AvalisteConsentRow } from "@/lib/api";
+import { StatusPill } from "@/components/status-pill";
 
 
 function fmtMoney(v: string | number) {
@@ -24,7 +25,7 @@ function fmtDate(iso: string) {
   }
 }
 
-type Filter = "all" | "pending" | "accepted" | "refused";
+type Filter = "all" | "attente_frais" | "pending" | "accepted" | "refused";
 
 
 /**
@@ -35,7 +36,7 @@ type Filter = "all" | "pending" | "accepted" | "refused";
  * qui garantit qui, la caution gelée et l'état.
  */
 export default function AvalistePage() {
-  const [filter, setFilter] = useState<Filter>("pending");
+  const [filter, setFilter] = useState<Filter>("all");
   const [rows, setRows] = useState<AvalisteConsentRow[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -84,7 +85,7 @@ export default function AvalistePage() {
       render: (r) => (
         <div>
           <p className="font-medium text-ink-900">
-            {r.avaliste.prenom} {r.avaliste.nom}
+            {`${r.avaliste.prenom} ${r.avaliste.nom}`.trim() || "—"}
           </p>
           <p className="font-mono text-xs text-ink-500">{r.avaliste.numero_membre}</p>
         </div>
@@ -108,24 +109,32 @@ export default function AvalistePage() {
       numeric: true,
       align: "right",
       text: (r) => r.montant_gele,
-      render: (r) => (
-        <span className="font-mono font-medium text-amber-700">
-          {fmtMoney(r.montant_gele)} XAF
-        </span>
-      ),
+      render: (r) =>
+        r.statut === "attente_frais" ? (
+          <span className="text-ink-400">—</span>
+        ) : (
+          <span className="font-mono font-medium text-amber-700">
+            {fmtMoney(r.montant_gele)} XAF
+          </span>
+        ),
     },
     {
       key: "ratio",
       label: "Couverture",
       align: "right",
       text: (r) => r.couverture.ratio,
-      render: (r) => <span className="font-mono text-ink-700">×{r.couverture.ratio}</span>,
+      render: (r) =>
+        r.statut === "attente_frais" ? (
+          <span className="text-ink-400">—</span>
+        ) : (
+          <span className="font-mono text-ink-700">×{r.couverture.ratio}</span>
+        ),
     },
     {
       key: "statut",
       label: "Statut",
       text: (r) => r.statut_display,
-      render: (r) => <StatusBadge statut={r.statut} label={r.statut_display} />,
+      render: (r) => <StatusPill statut={r.statut} label={r.statut_display} />,
     },
     {
       key: "date",
@@ -142,10 +151,10 @@ export default function AvalistePage() {
           Avalistes / cautions
         </h1>
         <p className="text-sm text-ink-500">
-          Supervision des mandats d&apos;avaliste : qui garantit qui, la caution
-          gelée sur l&apos;épargne du garant, et l&apos;état. La décision
-          appartient à l&apos;avaliste depuis son espace (acceptation
-          définitive, Q13).
+          Qui garantit qui, la caution gelée sur l&apos;épargne du garant et
+          l&apos;état de chaque mandat. La décision appartient à
+          l&apos;avaliste depuis son espace ; l&apos;acceptation est
+          définitive.
         </p>
       </header>
 
@@ -162,7 +171,7 @@ export default function AvalistePage() {
           columns={columns}
           rows={rows}
           rowKey={(r) => r.id}
-          emptyLabel="Aucun mandat d'avaliste pour ce filtre."
+          emptyLabel="Aucune demande avec avaliste pour ce filtre."
           leftMeta={
             <>
               <span className="font-mono font-medium text-ink-900">{rows.length}</span>
@@ -189,10 +198,15 @@ function FilterTabs({
   counts: Record<string, number>;
 }) {
   const tabs: Array<{ key: Filter; label: string; count?: number }> = [
-    { key: "pending", label: "En attente", count: counts.pending },
+    { key: "all", label: "Tous" },
+    {
+      key: "attente_frais",
+      label: "Désignés",
+      count: counts.attente_frais,
+    },
+    { key: "pending", label: "À répondre", count: counts.pending },
     { key: "accepted", label: "Acceptés", count: counts.accepted },
     { key: "refused", label: "Refusés", count: counts.refused },
-    { key: "all", label: "Tous" },
   ];
   return (
     <div className="flex flex-wrap gap-2">
@@ -214,25 +228,5 @@ function FilterTabs({
         </button>
       ))}
     </div>
-  );
-}
-
-
-function StatusBadge({
-  statut,
-  label,
-}: {
-  statut: AvalisteConsentRow["statut"];
-  label: string;
-}) {
-  const map: Record<AvalisteConsentRow["statut"], string> = {
-    pending: "bg-ink-100 text-ink-700",
-    accepted: "bg-emerald-100 text-emerald-800",
-    refused: "bg-red-100 text-red-700",
-  };
-  return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${map[statut]}`}>
-      {label}
-    </span>
   );
 }

@@ -8,6 +8,7 @@ import { CashInModal } from "@/components/cash-in-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { Pagination } from "@/components/pagination";
 import { adminApi, type ApiError, type PaymentRow } from "@/lib/api";
+import { StatusPill } from "@/components/status-pill";
 
 
 type StatutFilter = "" | "en_attente" | "valide" | "rejete" | "annule";
@@ -171,20 +172,7 @@ function Inner() {
       text: (p) => p.statut_display,
       render: (p) => (
         <div>
-          <span
-            className={
-              "pill " +
-              (p.statut === "valide"
-                ? "pill-success"
-                : p.statut === "en_attente"
-                  ? "pill-warning"
-                  : p.statut === "rejete"
-                    ? "pill-danger"
-                    : "pill-muted")
-            }
-          >
-            {p.statut_display}
-          </span>
+          <StatusPill statut={p.statut} label={p.statut_display} />
           {p.statut === "rejete" && p.motif_rejet ? (
             <p className="mt-1 max-w-[14rem] text-xs text-terra-700">{p.motif_rejet}</p>
           ) : null}

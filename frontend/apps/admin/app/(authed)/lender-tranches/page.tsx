@@ -7,6 +7,7 @@ import { Coins, Search, Filter, Layers } from "lucide-react";
 import { buttonClasses } from "@gathe/ui";
 
 import { DataTable, type DataColumn } from "@/components/data-table";
+import { StatusPill } from "@/components/status-pill";
 import {
   adminApi,
   type ApiError,
@@ -106,14 +107,7 @@ function Inner() {
       render: (t) => {
         const opt = STATUT_OPTIONS.find((o) => o.v === t.statut);
         return (
-          <span
-            className={[
-              "inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.65rem] font-medium ring-1 ring-inset",
-              opt?.color || "",
-            ].join(" ")}
-          >
-            {t.statut_display}
-          </span>
+          <StatusPill statut={t.statut} label={t.statut_display} />
         );
       },
     },
