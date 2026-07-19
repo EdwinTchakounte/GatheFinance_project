@@ -28,10 +28,20 @@ export function Modal({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  // `onClose` est presque toujours passé en arrow inline
+  // (`onClose={() => setTarget(null)}`) : son identité change à CHAQUE rendu
+  // du parent. S'il figure dans les deps de l'effet ci-dessous, alors chaque
+  // frappe dans un champ de la modale relance l'effet — donc rappelle
+  // `dialogRef.current.focus()`, qui VOLE le focus au champ en cours de
+  // saisie. Symptôme observé : impossible de taper plus d'un caractère.
+  // On garde donc le handler dans une ref et l'effet ne dépend que de `open`.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     }
     document.addEventListener("keydown", handleKey);
     // Lock body scroll while the modal is open.
@@ -43,7 +53,7 @@ export function Modal({
       document.removeEventListener("keydown", handleKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

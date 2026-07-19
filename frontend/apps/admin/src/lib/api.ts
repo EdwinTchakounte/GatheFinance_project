@@ -981,6 +981,12 @@ export type LoanRenewalRow = {
   duree_actuelle_mois: number;
   nouvelle_duree_mois: number;
   interets_au_comptant: boolean;
+  /** Intérêts figés à la demande (taux × capital restant). */
+  interets_dus: string;
+  capital_restant_snapshot: string;
+  interets_payes: boolean;
+  reste_a_payer: string;
+  member_id: number;
   date_demande: string | null;
   date_decision: string | null;
 };
@@ -1273,6 +1279,17 @@ export const adminApi = {
         results: AvalisteConsentRow[];
       }>(`/loans/admin/avaliste-consents/${qs ? `?${qs}` : ""}`);
     },
+    /**
+     * Émet le mandat d'une demande qui désigne un avaliste sans mandat posé.
+     * En cas d'échec (avaliste introuvable, couverture insuffisante…), le
+     * motif remonte dans `detail` — il ne restait auparavant que dans les
+     * logs serveur.
+     */
+    requestConsent: (loanRequestId: number) =>
+      request<AvalisteConsentRow>(
+        `/loans/admin/requests/${loanRequestId}/request-avaliste/`,
+        { method: "POST" },
+      ),
   },
 
   loanRequests: {
@@ -1566,6 +1583,7 @@ export const adminApi = {
         | "frais_demande_credit"
         | "epargne"
         | "epargne_classique"
+        | "frais_reconduction"
         | "remboursement";
       montant: number | string;
       reference_externe?: string;

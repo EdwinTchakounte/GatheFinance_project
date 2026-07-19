@@ -41,6 +41,39 @@ export default function AvalistePage() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<number | null>(null);
+  const [notice, setNotice] = useState<{ tone: "ok" | "err"; text: string } | null>(
+    null,
+  );
+
+  /**
+   * Émet le mandat d'un avaliste désigné mais jamais sollicité. Le motif
+   * d'échec (avaliste introuvable, couverture insuffisante…) est affiché :
+   * c'est exactement l'information qui manquait quand la sollicitation
+   * échouait en silence.
+   */
+  async function solliciter(row: AvalisteConsentRow) {
+    setActingId(row.id);
+    setNotice(null);
+    try {
+      await adminApi.avaliste.requestConsent(row.loan_request.id);
+      setNotice({
+        tone: "ok",
+        text: `Mandat émis — ${row.demandeur.prenom} ${row.demandeur.nom}. L'avaliste peut répondre depuis son espace.`,
+      });
+      setFilter((f) => f);
+      const res = await adminApi.avaliste.list({});
+      setRows(res.results);
+      setCounts(res.counts ?? {});
+    } catch (e) {
+      setNotice({
+        tone: "err",
+        text: (e as ApiError).detail ?? "Sollicitation impossible.",
+      });
+    } finally {
+      setActingId(null);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -160,6 +193,18 @@ export default function AvalistePage() {
 
       <FilterTabs value={filter} onChange={setFilter} counts={counts} />
 
+      {notice ? (
+        <p
+          className={`rounded-md border px-4 py-3 text-sm ${
+            notice.tone === "ok"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+              : "border-red-300 bg-red-50 text-red-800"
+          }`}
+        >
+          {notice.text}
+        </p>
+      ) : null}
+
       {error ? (
         <p className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
@@ -177,6 +222,19 @@ export default function AvalistePage() {
               <span className="font-mono font-medium text-ink-900">{rows.length}</span>
               <span>mandat{rows.length > 1 ? "s" : ""}</span>
             </>
+          }
+          actions={(r) =>
+            r.statut === "attente_frais" ? (
+              <button
+                type="button"
+                onClick={() => solliciter(r)}
+                disabled={actingId === r.id}
+                className="rounded-md border border-line-200 bg-paper px-3 py-1.5 text-xs font-medium text-ink-700 transition hover:border-blue-700 hover:text-blue-700 disabled:opacity-50"
+                title="Émettre le mandat maintenant — l'avaliste pourra accepter ou refuser depuis son espace"
+              >
+                {actingId === r.id ? "Envoi…" : "Solliciter l'avaliste"}
+              </button>
+            ) : null
           }
           exportFilename="avalistes-cautions"
           exportTitle="Avalistes / cautions — GATHE Finance"

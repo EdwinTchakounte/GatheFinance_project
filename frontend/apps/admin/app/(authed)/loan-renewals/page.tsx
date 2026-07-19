@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, RefreshCw, XCircle } from "lucide-react";
+import { CheckCircle2, Coins, RefreshCw, XCircle } from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
 
+import { CashInModal } from "@/components/cash-in-modal";
 import { Modal } from "@/components/modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { StatusPill } from "@/components/status-pill";
@@ -37,6 +38,7 @@ function Inner() {
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<number | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  const [cashInTarget, setCashInTarget] = useState<LoanRenewalRow | null>(null);
 
   const [approveTarget, setApproveTarget] = useState<LoanRenewalRow | null>(null);
   const [rejectTarget, setRejectTarget] = useState<LoanRenewalRow | null>(null);
@@ -143,15 +145,28 @@ function Inner() {
     {
       key: "interets",
       label: "Intérêts",
-      text: (r) => (r.interets_au_comptant ? "Comptant" : "Reportés"),
+      text: (r) =>
+        `${fmtMoney(r.interets_dus)} ${r.interets_payes ? "versés" : "à verser"}`,
       render: (r) => (
-        <span
-          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-            r.interets_au_comptant ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-800"
-          }`}
-        >
-          {r.interets_au_comptant ? "Comptant (10 %)" : "Reportés (15 %)"}
-        </span>
+        <div className="space-y-1">
+          <div className="font-semibold tabular-nums text-ink-900">
+            {fmtMoney(r.interets_dus)} FCFA
+          </div>
+          <div className="text-xs text-ink-500">
+            sur {fmtMoney(r.capital_restant_snapshot)} de capital restant
+          </div>
+          {r.interets_payes ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/10 px-2 py-0.5 text-[0.7rem] font-medium text-emerald-800">
+              <span className="size-1.5 rounded-full bg-emerald-600" />
+              Versés
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.7rem] font-medium text-amber-800">
+              <span className="size-1.5 rounded-full bg-amber-500" />
+              À verser
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -169,9 +184,11 @@ function Inner() {
           Reconductions de crédit
         </h1>
         <p className="text-sm text-ink-500">
-          Le membre demande la reconduction depuis l&apos;app ou le
-          portail. Le comité approuve (taux + 1re échéance → nouveau dossier) ou
-          rejette avec motif.
+          Le membre demande la reconduction depuis l&apos;app ou le portail. Le
+          comité approuve (taux + 1re échéance → nouveau dossier) ou rejette
+          avec motif. Les intérêts se versent librement, avant ou après la
+          décision ; s&apos;ils ne sont pas encaissés, ils sont reportés sur le
+          nouvel échéancier.
         </p>
       </header>
 
@@ -206,34 +223,71 @@ function Inner() {
           exportFilename="reconductions-credit"
           exportTitle="Reconductions de crédit — GATHE Finance"
           exportSubtitle={`Filtre : ${filter === "all" ? "tous" : filter}`}
-          actions={(r) =>
-            r.statut === "demandee" ? (
-              <div className="flex justify-end gap-2">
+          actions={(r) => (
+            <div className="flex flex-col items-end gap-2">
+              {/* Le versement des intérêts est libre : avant ou après la
+                  décision du comité. Le bouton reste donc disponible tant
+                  qu'il reste quelque chose à encaisser. */}
+              {!r.interets_payes && Number(r.reste_a_payer) > 0 ? (
                 <button
                   type="button"
-                  onClick={() => setApproveTarget(r)}
-                  disabled={actingId === r.id}
-                  className={buttonClasses({ variant: "primary", size: "sm" })}
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  Approuver
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRejectTarget(r)}
-                  disabled={actingId === r.id}
+                  onClick={() => setCashInTarget(r)}
                   className={buttonClasses({ variant: "secondary", size: "sm" })}
+                  title="Enregistrer le versement des intérêts reçu en agence"
                 >
-                  <XCircle className="h-4 w-4" />
-                  Rejeter
+                  <Coins className="h-4 w-4" />
+                  Encaisser {fmtMoney(r.reste_a_payer)}
                 </button>
-              </div>
-            ) : (
-              <span className="text-xs text-ink-400"></span>
-            )
-          }
+              ) : null}
+              {r.statut === "demandee" ? (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setApproveTarget(r)}
+                    disabled={actingId === r.id}
+                    className={buttonClasses({ variant: "primary", size: "sm" })}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Approuver
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRejectTarget(r)}
+                    disabled={actingId === r.id}
+                    className={buttonClasses({ variant: "secondary", size: "sm" })}
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Rejeter
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
         />
       )}
+
+      {cashInTarget ? (
+        <CashInModal
+          open
+          onClose={() => setCashInTarget(null)}
+          onSuccess={(msg) => {
+            setCashInTarget(null);
+            setMessage({ tone: "ok", text: msg });
+            reload();
+          }}
+          prefill={{
+            member: {
+              id: cashInTarget.member_id,
+              numero_membre: cashInTarget.numero_membre,
+              nom: cashInTarget.member_nom,
+              prenom: "",
+            },
+            type: "frais_reconduction",
+            montant: cashInTarget.reste_a_payer,
+            note: `Intérêts de reconduction — dossier ${cashInTarget.numero_dossier}`,
+          }}
+        />
+      ) : null}
 
       <Modal
         open={!!approveTarget}

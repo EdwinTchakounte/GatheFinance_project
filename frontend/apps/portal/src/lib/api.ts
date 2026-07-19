@@ -25,6 +25,25 @@ function resolveApiBase(): string {
 
 const API_BASE = resolveApiBase();
 
+/** Reconduction de crédit vue par le membre. */
+export type LoanRenewal = {
+  id: number;
+  loan_id: number;
+  numero_dossier?: string;
+  nouvelle_duree_mois: number;
+  statut: string;
+  date_demande: string;
+  frais_reconduction_payment_id: number | null;
+  interets_au_comptant: boolean;
+  /** Intérêts figés à la demande (taux × capital restant). */
+  interets_dus: string;
+  capital_restant_snapshot: string;
+  interets_payes: boolean;
+  interets_payes_at: string | null;
+  /** Reste à verser. Payable avant OU après la décision du comité. */
+  reste_a_payer: string;
+};
+
 export type ApiError = {
   status: number;
   detail?: string;
@@ -822,19 +841,21 @@ export const portalApi = {
         [extraField: string]: unknown;
       } = {},
     ) =>
-      request<{
-        renewal: {
-          id: number;
-          loan_id: number;
-          nouvelle_duree_mois: number;
-          statut: string;
-          date_demande: string;
-          frais_reconduction_payment_id: number | null;
-        };
-      }>(`/loans/${loanId}/renewal/`, {
+      request<{ renewal: LoanRenewal }>(`/loans/${loanId}/renewal/`, {
         method: "POST",
         body: JSON.stringify(data),
       }),
+
+    /** Mes reconductions, avec le reste à verser sur les intérêts. */
+    myRenewals: () =>
+      request<{ results: LoanRenewal[] }>(`/loans/me/renewals/`),
+
+    /** Règle les intérêts de reconduction par prélèvement sur l'épargne. */
+    payRenewalInterestFromSavings: (renewalId: number) =>
+      request<{ renewal: LoanRenewal; payment_id: number }>(
+        `/loans/renewals/${renewalId}/pay-interest-from-savings/`,
+        { method: "POST" },
+      ),
     /** Frais d'étude — 3e canal : déduction sur l'épargne classique.
      *
      *  Ne PAS passer par `/payments/init/` : cet endpoint force
