@@ -25,6 +25,7 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from django.contrib.auth.models import Group
 
 from apps_coop.audit.models import AppSetting, AuditLog
@@ -88,11 +89,33 @@ def _approve_initial(member, comite_user, *, montant=Decimal("100000")):
 
 
 def _request_renewal(loan, *, interets_au_comptant=False, duree=1):
-    return request_loan_renewal(
+    renewal = request_loan_renewal(
         loan,
         nouvelle_duree_mois=duree,
         interets_au_comptant=interets_au_comptant,
     )
+    # Option « au comptant » = le membre verse les intérêts avant la décision.
+    # (Le versement reste possible après : il n'est jamais bloquant.)
+    if interets_au_comptant:
+        _settle_interest(renewal)
+    return renewal
+
+
+def _settle_interest(renewal):
+    """Constate l'encaissement des intérêts (canal agence simulé)."""
+    from apps_coop.loans.renewal_payment_services import mark_renewal_interest_paid
+    from apps_coop.payments.models import Payment
+
+    payment = Payment.objects.create(
+        member=renewal.loan.member,
+        montant=renewal.interets_dus,
+        type=Payment.Type.FRAIS_RECONDUCTION,
+        source=Payment.Source.MANUEL,
+        statut=Payment.Statut.VALIDE,
+        date_versement=timezone.now(),
+        date_validation=timezone.now(),
+    )
+    return mark_renewal_interest_paid(renewal, payment)
 
 
 # ---------------------------------------------------------------------------
@@ -111,10 +134,12 @@ class TestArticle11InterestOnRemainingCapital:
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
         # Capital restant = 100k (rien remboursé), intérêts initiaux = 10k restants.
-        # Base reportée = 110k. Intérêts reconduction = 10% × 100k = 10k.
-        # Montant total dû = 110k + 10k = 120k.
+        # Base reportée = 110k. Intérêts reconduction = 10% × 100k = 10k,
+        # DÉJÀ versés au comptant → le nouveau dossier ne porte que la base.
+        # (Avant correction : 120k, soit les 10k facturés une 2ᵉ fois.)
         assert nouveau.montant == Decimal("110000.00")
-        assert nouveau.montant_total_du == Decimal("120000.00")
+        assert nouveau.montant_total_du == Decimal("110000.00")
+        assert renewal.interets_dus == Decimal("10000.00")
 
     def test_deferred_uses_remaining_capital(self, active_member, comite_user):
         """Mode reporté = 15 % × capital_restant."""
@@ -248,10 +273,11 @@ class TestRenewalUnderSourceMode:
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
         # capital_restant = 90k (rien remboursé). Pas d'intérêts restants
-        # (échéances source = capital pur). Base = 90k.
-        # Intérêts reconduction = 10% × 90k = 9k. Total = 99k.
+        # (échéances source = capital pur). Base = 90k. Les 9k d'intérêts de
+        # reconduction ont été versés au comptant → total = base = 90k.
         assert nouveau.montant == Decimal("90000.00")
-        assert nouveau.montant_total_du == Decimal("99000.00")
+        assert nouveau.montant_total_du == Decimal("90000.00")
+        assert renewal.interets_dus == Decimal("9000.00")
 
 
 # ---------------------------------------------------------------------------

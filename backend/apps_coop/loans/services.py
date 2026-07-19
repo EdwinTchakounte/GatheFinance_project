@@ -881,10 +881,27 @@ def request_loan_renewal(
     if existing:
         return existing
 
+    # Le montant à verser au comptant est FIGÉ ici. Avant, il n'existait que
+    # côté client (recalculé à l'affichage) et transitoirement à l'approbation :
+    # le membre lisait « tu verses les intérêts maintenant » sans que rien ne
+    # soit jamais réclamable. On le persiste pour pouvoir l'encaisser.
+    from apps_coop.payments.rates import get_rate
+    from apps_coop.payments.models import RateParam
+
+    capital_restant, _interets_restants = _remaining_capital_and_interest(loan)
+    taux = get_rate(
+        RateParam.Code.RENEWAL_CASH
+        if interets_au_comptant
+        else RateParam.Code.RENEWAL_DEFERRED
+    )
+    interets_dus = _q(Decimal(taux) * capital_restant)
+
     renewal = LoanRenewal.objects.create(
         loan=loan,
         nouvelle_duree_mois=duree,
         interets_au_comptant=interets_au_comptant,
+        capital_restant_snapshot=capital_restant,
+        interets_dus=interets_dus,
     )
     record_audit(
         action="loan_renewal.requested",
@@ -896,6 +913,8 @@ def request_loan_renewal(
             "numero_dossier": loan.numero_dossier,
             "nouvelle_duree_mois": duree,
             "interets_au_comptant": interets_au_comptant,
+            "interets_dus": str(interets_dus),
+            "capital_restant": str(capital_restant),
             "solde_restant": str(loan.solde_restant),
         },
     )
@@ -949,9 +968,10 @@ def approve_loan_renewal(
             f"Impossible d'approuver une reconduction en statut {renewal.statut!r}."
         )
 
-    # La reconduction n'engendre AUCUN frais (Règlement Intérieur) : seul le
-    # taux d'intérêt est majoré. Aucun paiement préalable n'est requis avant
-    # la décision du comité.
+    # Les intérêts de reconduction peuvent être versés AVANT ou APRÈS la
+    # décision — l'approbation n'est donc jamais bloquée par le paiement. Ce
+    # qui change, c'est seulement le traitement à l'approbation : déjà
+    # encaissés → rien à étaler ; pas encore → reportés sur l'échéancier.
 
     # Taux applicable : Article 11 — au comptant (≈10 %) si intérêts cash,
     # reporté (≈15 %) sinon. Valeurs modifiables côté admin (RateParam, BR2).
@@ -981,7 +1001,14 @@ def approve_loan_renewal(
         )
     base = _q(capital_restant + interets_restants)
     interets_reconduction = _q(Decimal(taux_annuel) * capital_restant)
-    montant_total_du = _q(base + interets_reconduction)
+    # Les intérêts déjà encaissés ne sont pas réintégrés au nouveau dossier :
+    # les remettre ferait payer deux fois la même chose (une fois en cash, une
+    # fois étalée sur les échéances). On se fie à l'encaissement RÉELLEMENT
+    # constaté, pas à l'intention cochée au moment de la demande.
+    interets_deja_encaisses = renewal.interets_payes_at is not None
+    montant_total_du = (
+        base if interets_deja_encaisses else _q(base + interets_reconduction)
+    )
 
     # 2) Clôture de l'ancien Loan
     old_loan.statut = Loan.Statut.CLOTURE
@@ -1036,9 +1063,12 @@ def approve_loan_renewal(
         interets_retenus_source=Decimal("0"),
     )
 
-    # 5) Échéancier — intérêts de reconduction calculés sur le capital restant.
+    # 5) Échéancier — on n'étale que ce qui n'a pas déjà été encaissé.
+    interets_a_etaler = (
+        Decimal("0") if interets_deja_encaisses else interets_reconduction
+    )
     generate_installments_flat_interest(
-        nouveau_loan, interets_totaux=interets_reconduction
+        nouveau_loan, interets_totaux=interets_a_etaler
     )
 
     # 6) Renewal close

@@ -1122,6 +1122,13 @@ def _hook_not_implemented(payment: Payment, _raw: dict) -> None:
     )
 
 
+def _hook_renewal_interest(payment: Payment, meta: dict) -> None:
+    """Intérêts de reconduction versés au comptant (agence ou mobile money)."""
+    from apps_coop.loans.renewal_payment_services import hook_renewal_interest
+
+    hook_renewal_interest(payment, meta)
+
+
 _BUSINESS_HOOKS: dict[str, Callable[[Payment, dict], None]] = {
     Payment.Type.FRAIS_ADHESION: _hook_adhesion,
     Payment.Type.FRAIS_INSCRIPTION: _hook_adhesion,  # both activate the member
@@ -1129,8 +1136,11 @@ _BUSINESS_HOOKS: dict[str, Callable[[Payment, dict], None]] = {
     Payment.Type.EPARGNE_CLASSIQUE: _hook_classic_savings_deposit,
     Payment.Type.FRAIS_DEMANDE_CREDIT: _hook_loan_request_fees,
     Payment.Type.REMBOURSEMENT: _hook_loan_repayment,
-    # FRAIS_RECONDUCTION : volontairement non mappé — la reconduction n'engendre
-    # aucun frais (Règlement). Un paiement de ce type ne déclenche aucun hook.
+    # FRAIS_RECONDUCTION : pas un « frais » — ce sont les INTÉRÊTS que le
+    # membre a choisi de verser au comptant pour obtenir le taux réduit. Le
+    # hook rattache l'encaissement à sa reconduction en attente, ce qui
+    # débloque l'approbation par le comité.
+    Payment.Type.FRAIS_RECONDUCTION: _hook_renewal_interest,
     Payment.Type.FRAIS_CARNET: _hook_carnet_fees,
     Payment.Type.DECAISSEMENT: _hook_decaissement,
 }

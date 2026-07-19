@@ -1000,14 +1000,15 @@ def admin_list_payments(request):
 #   . EPARGNE_CLASSIQUE . depot classique (libre via is_placement=False ou
 #     placement via is_placement=True)
 #   . REMBOURSEMENT . remboursement credit (loan_id obligatoire)
-# Types interdits : DECAISSEMENT (passe par /loans/admin/disburse-now/),
-# FRAIS_RECONDUCTION (reconduction gratuite Art.10/11).
+#   . FRAIS_RECONDUCTION . interets de reconduction verses au comptant
+# Type interdit : DECAISSEMENT (passe par /loans/admin/disburse-now/).
 
 _CASH_IN_ALLOWED_TYPES = {
     Payment.Type.FRAIS_ADHESION,
     Payment.Type.FRAIS_INSCRIPTION,
     Payment.Type.FRAIS_CARNET,
     Payment.Type.FRAIS_DEMANDE_CREDIT,
+    Payment.Type.FRAIS_RECONDUCTION,
     Payment.Type.EPARGNE,
     Payment.Type.EPARGNE_CLASSIQUE,
     Payment.Type.REMBOURSEMENT,
@@ -1079,7 +1080,9 @@ def admin_cash_in_payment(request):
         Payment.Type.FRAIS_CARNET: FeeType.Code.CARNET,
         Payment.Type.FRAIS_ADHESION: FeeType.Code.ADHESION,
         Payment.Type.FRAIS_INSCRIPTION: FeeType.Code.INSCRIPTION,
-        Payment.Type.FRAIS_RECONDUCTION: FeeType.Code.RECONDUCTION,
+        # FRAIS_RECONDUCTION volontairement absent : ce ne sont pas des frais
+        # au tarif catalogue mais des INTÉRÊTS, propres à chaque reconduction
+        # (taux × capital restant). Le montant est figé sur la LoanRenewal.
     }
     fee_code = _FIXED_FEE_CODE.get(payment_type)
     if fee_code is not None:

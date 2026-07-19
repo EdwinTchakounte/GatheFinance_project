@@ -444,6 +444,23 @@ class LoanRenewalReadSerializer(serializers.Serializer):
     date_demande = serializers.DateTimeField(read_only=True)
     frais_reconduction_payment_id = serializers.IntegerField(read_only=True, allow_null=True)
 
+    # Volet « intérêts au comptant » : ce que le membre doit verser, et si
+    # c'est fait. Sans ces champs, les clients affichaient « tu verses les
+    # intérêts maintenant » sans jamais pouvoir proposer de payer.
+    interets_au_comptant = serializers.BooleanField(read_only=True)
+    interets_dus = serializers.DecimalField(
+        max_digits=14, decimal_places=2, read_only=True
+    )
+    capital_restant_snapshot = serializers.DecimalField(
+        max_digits=14, decimal_places=2, read_only=True
+    )
+    interets_payes = serializers.BooleanField(read_only=True)
+    interets_payes_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    reste_a_payer = serializers.DecimalField(
+        max_digits=14, decimal_places=2, read_only=True
+    )
+    numero_dossier = serializers.CharField(read_only=True, required=False)
+
 
 class LoanRenewalDecideSerializer(serializers.Serializer):
     """Body of ``POST /api/v1/loans/renewals/{id}/decide/`` — comité."""

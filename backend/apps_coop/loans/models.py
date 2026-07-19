@@ -7,6 +7,8 @@ implemented in the application service, not in the model).
 """
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 
@@ -932,6 +934,45 @@ class LoanRenewal(TimestampedModel):
         blank=True,
         related_name="renewal_fees",
     )
+
+    # Montant d'intérêts à verser cash quand le membre choisit « au comptant ».
+    # Figé à la demande (le capital restant bouge si le membre rembourse
+    # entre-temps) pour que ce qu'on lui affiche soit bien ce qu'on lui
+    # réclame. 0 en mode « reportés ».
+    interets_dus = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0"),
+        help_text="Intérêts à verser au comptant. 0 si intérêts reportés.",
+    )
+    capital_restant_snapshot = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0"),
+        help_text="Capital restant dû au moment de la demande (base du calcul).",
+    )
+    interets_payes_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date d'encaissement des intérêts au comptant.",
+    )
+
+    @property
+    def interets_payes(self) -> bool:
+        """Les intérêts de reconduction ont-ils été encaissés ?"""
+        return self.interets_payes_at is not None
+
+    @property
+    def reste_a_payer(self) -> Decimal:
+        """Intérêts restant à verser.
+
+        Le versement est libre : avant ou après la décision du comité. Tant
+        qu'il n'a pas eu lieu, les intérêts sont reportés sur l'échéancier du
+        nouveau dossier ; s'il a lieu, ils n'y figurent pas.
+        """
+        if self.interets_payes:
+            return Decimal("0")
+        return Decimal(self.interets_dus)
     statut = models.CharField(max_length=12, choices=Statut.choices, default=Statut.DEMANDEE, db_index=True)
     date_demande = models.DateTimeField(auto_now_add=True)
     date_decision = models.DateTimeField(null=True, blank=True)

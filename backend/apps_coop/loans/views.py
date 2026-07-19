@@ -53,7 +53,19 @@ from apps_coop.payments.providers.base import ProviderError
 # Champs « fichier » du formulaire de demande de crédit qui portent une preuve
 # du rattachement Broad Range Consulting. Toute pièce déposée sur l'un de ces
 # champs est dupliquée dans la file de validation BRC du back-office.
-BRC_PROOF_FIELD_IDS = frozenset({"cga_brc_preuve", "cfp_brc_preuve"})
+#
+# Les deux champs historiques (`ancien_apprenant_preuve` = attestation du CFP
+# Broad Range, `cga_preuve` = carte CGA) en font partie : ce sont eux que
+# l'admin regarde pour trancher « ce membre est-il client BRC ? ». Les laisser
+# hors de la file revenait à ne jamais pouvoir décider.
+BRC_PROOF_FIELD_IDS = frozenset(
+    {
+        "cga_brc_preuve",
+        "cfp_brc_preuve",
+        "ancien_apprenant_preuve",
+        "cga_preuve",
+    }
+)
 
 # Flags déclaratifs BRC correspondants — conservés en `extra_payload` même si
 # le FormSchema actif en prod ne les déclare pas encore.
@@ -368,9 +380,17 @@ def loan_request_create(request):
         # Voie AVALISTE — « frais d'abord, avaliste ensuite » : on mémorise la
         # désignation, on ne sollicite personne. Le consentement est posé par
         # open_instruction_after_fees, une fois les frais encaissés.
-        if route_eval.route == EligibilityRoute.AVALISTE:
-            loan_request.avaliste_numero_saisi = data["avaliste_numero"].strip()
-            loan_request.avaliste_nom_saisi = data["avaliste_nom"].strip()
+        #
+        # On enregistre dès qu'un avaliste est DÉSIGNÉ, sans exiger que le
+        # routeur ait retenu cette voie. Avant, un demandeur qui se
+        # couvrait lui-même (route SENIOR_BRC, évaluée en premier) voyait sa
+        # désignation jetée en silence : plus aucune trace côté admin, et
+        # l'avaliste n'était évidemment jamais sollicité.
+        avaliste_numero = (data.get("avaliste_numero") or "").strip()
+        avaliste_nom = (data.get("avaliste_nom") or "").strip()
+        if avaliste_numero and avaliste_nom:
+            loan_request.avaliste_numero_saisi = avaliste_numero
+            loan_request.avaliste_nom_saisi = avaliste_nom
             loan_request.save(
                 update_fields=[
                     "avaliste_numero_saisi",
@@ -378,6 +398,8 @@ def loan_request_create(request):
                     "updated_at",
                 ]
             )
+
+        if route_eval.route == EligibilityRoute.AVALISTE:
             # Étude gratuite → rien à encaisser, on enchaîne tout de suite.
             if frais_montant <= 0:
                 from .study_fee_services import open_instruction_after_fees
@@ -885,17 +907,112 @@ def loan_renewal_request(request, pk: int):
         except Exception:  # noqa: BLE001
             pass
 
-    # Aucun frais : la reconduction n'engendre qu'une majoration de taux.
-    # La demande part directement en décision comité.
-    payload = LoanRenewalReadSerializer({
-        "id": renewal.id,
-        "loan_id": loan.id,
-        "nouvelle_duree_mois": renewal.nouvelle_duree_mois,
-        "statut": renewal.statut,
-        "date_demande": renewal.date_demande,
-        "frais_reconduction_payment_id": renewal.frais_reconduction_payment_id,
-    }).data
-    return Response({"renewal": payload}, status=status.HTTP_201_CREATED)
+    # En mode « intérêts reportés », la demande part directement en décision
+    # comité. En mode « au comptant », elle attend d'abord l'encaissement :
+    # le client enchaîne sur le paiement grâce à `reste_a_payer`.
+    return Response(
+        {"renewal": _renewal_payload(renewal)},
+        status=status.HTTP_201_CREATED,
+    )
+
+
+def _renewal_payload(renewal) -> dict:
+    """Vue membre d'une reconduction (création + listing)."""
+    return LoanRenewalReadSerializer(
+        {
+            "id": renewal.id,
+            "loan_id": renewal.loan_id,
+            "numero_dossier": renewal.loan.numero_dossier,
+            "nouvelle_duree_mois": renewal.nouvelle_duree_mois,
+            "statut": renewal.statut,
+            "date_demande": renewal.date_demande,
+            "frais_reconduction_payment_id": renewal.frais_reconduction_payment_id,
+            "interets_au_comptant": renewal.interets_au_comptant,
+            "interets_dus": renewal.interets_dus,
+            "capital_restant_snapshot": renewal.capital_restant_snapshot,
+            "interets_payes": renewal.interets_payes,
+            "interets_payes_at": renewal.interets_payes_at,
+            "reste_a_payer": renewal.reste_a_payer,
+        }
+    ).data
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="Mes demandes de reconduction",
+    description=(
+        "Liste les reconductions du membre connecté, avec le montant d'intérêts "
+        "restant à verser (`reste_a_payer`) quand l'option « au comptant » a "
+        "été retenue. Filtre `?statut=` optionnel."
+    ),
+    responses={200: OpenApiResponse(description="`{ results: LoanRenewal[] }`")},
+)
+@api_view(["GET"])
+@permission_classes([IsActiveMember])
+def my_loan_renewals(request):
+    from .models import LoanRenewal
+
+    qs = (
+        LoanRenewal.objects.filter(loan__member=request.user.member)
+        .select_related("loan")
+        .order_by("-date_demande")
+    )
+    statut = (request.query_params.get("statut") or "").strip()
+    if statut:
+        qs = qs.filter(statut=statut)
+    return Response({"results": [_renewal_payload(r) for r in qs[:50]]})
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="Payer les intérêts de reconduction sur mon épargne",
+    description=(
+        "Prélève `reste_a_payer` sur l'épargne classique **retirable** (hors "
+        "placement et hors épargne gelée en garantie) et constate "
+        "l'encaissement. La reconduction devient approuvable par le comité."
+    ),
+    responses={
+        200: OpenApiResponse(description="Paiement effectué"),
+        400: OpenApiResponse(description="Rien à payer / statut incompatible"),
+        404: OpenApiResponse(description="Reconduction introuvable"),
+        409: OpenApiResponse(description="Épargne disponible insuffisante"),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsActiveMember])
+def pay_renewal_interest_from_savings_view(request, pk: int):
+    from .models import LoanRenewal
+    from .renewal_payment_services import (
+        RenewalPaymentError,
+        pay_renewal_interest_from_savings,
+    )
+
+    try:
+        renewal = LoanRenewal.objects.select_related("loan").get(
+            pk=pk, loan__member=request.user.member
+        )
+    except LoanRenewal.DoesNotExist:
+        return Response(
+            {"detail": "Reconduction introuvable."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    try:
+        payment = pay_renewal_interest_from_savings(renewal)
+    except RenewalPaymentError as exc:
+        # « Insuffisant » n'est pas une erreur de saisie : c'est un conflit
+        # d'état, que le client traduit en « choisis un autre moyen ».
+        code = (
+            status.HTTP_409_CONFLICT
+            if "insuffisant" in str(exc).lower()
+            else status.HTTP_400_BAD_REQUEST
+        )
+        return Response({"detail": str(exc)}, status=code)
+
+    renewal.refresh_from_db()
+    return Response(
+        {"renewal": _renewal_payload(renewal), "payment_id": payment.id}
+    )
 
 
 _ADMIN_LOANS_PAGE_SIZE = 200
@@ -1049,6 +1166,13 @@ def admin_list_loan_renewals(request):
             "duree_actuelle_mois": loan.duree_mois,
             "nouvelle_duree_mois": r.nouvelle_duree_mois,
             "interets_au_comptant": r.interets_au_comptant,
+            # Volet encaissement : montant figé à la demande + état du
+            # versement, pour que l'admin sache quoi réclamer et à qui.
+            "interets_dus": str(r.interets_dus),
+            "capital_restant_snapshot": str(r.capital_restant_snapshot),
+            "interets_payes": r.interets_payes,
+            "reste_a_payer": str(r.reste_a_payer),
+            "member_id": member.id,
             "date_demande": r.date_demande.isoformat() if r.date_demande else None,
             "date_decision": r.date_decision.isoformat() if r.date_decision else None,
         })

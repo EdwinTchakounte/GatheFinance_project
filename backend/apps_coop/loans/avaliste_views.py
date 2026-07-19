@@ -344,3 +344,56 @@ def avaliste_mandat_respond(request, pk: int):
 
     c.refresh_from_db()
     return Response(_row(c))
+
+
+# ---------------------------------------------------------------------------
+# Relance admin — solliciter l'avaliste désigné
+# ---------------------------------------------------------------------------
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Staff — solliciter l'avaliste désigné sur une demande",
+    description=(
+        "Émet le mandat d'avaliste pour une demande qui en désigne un mais dont "
+        "le mandat n'a jamais été posé (frais réglés hors ligne, avaliste devenu "
+        "invalide au moment de l'encaissement, etc.). En cas d'échec, le MOTIF "
+        "est retourné — auparavant il n'apparaissait que dans les logs serveur."
+    ),
+    responses={
+        200: OpenApiResponse(description="Mandat émis"),
+        400: OpenApiResponse(description="Mandat déjà posé / avaliste invalide"),
+        404: OpenApiResponse(description="Demande introuvable"),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_request_avaliste_consent(request, pk: int):
+    from .avaliste_services import request_avaliste_consent
+    from .models import LoanRequest
+
+    try:
+        lr = LoanRequest.objects.select_related("member").get(pk=pk)
+    except LoanRequest.DoesNotExist:
+        return Response(
+            {"detail": "Demande introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    numero = (lr.avaliste_numero_saisi or "").strip()
+    nom = (lr.avaliste_nom_saisi or "").strip()
+    if not numero or not nom:
+        return Response(
+            {"detail": "Aucun avaliste n'est désigné sur cette demande."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        consent = request_avaliste_consent(
+            lr, numero_identification=numero, nom=nom
+        )
+    except (ValueError, LookupError) as exc:
+        # Le motif remonte à l'admin : c'est exactement l'information qui
+        # manquait quand la sollicitation échouait en silence après paiement.
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(_admin_row(consent))

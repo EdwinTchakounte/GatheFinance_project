@@ -5,8 +5,11 @@ the Next.js admin dashboard is built. Until then, staff use ``/django-admin/``.
 """
 from django.urls import path
 
+from . import views
+
 from .avaliste_views import (
     admin_avaliste_consents_list,
+    admin_request_avaliste_consent,
     avaliste_mandat_detail,
     avaliste_mandat_respond,
     avaliste_mandats_list,
@@ -121,11 +124,22 @@ urlpatterns = [
     ),
     # Reconduction (renewal) — membre actif
     path("<int:pk>/renewal/", loan_renewal_request, name="renewal-request"),
+    path("me/renewals/", views.my_loan_renewals, name="my-renewals"),
+    path(
+        "renewals/<int:pk>/pay-interest-from-savings/",
+        views.pay_renewal_interest_from_savings_view,
+        name="renewal-pay-interest-from-savings",
+    ),
     # Admin/comité
     path(
         "admin/avaliste-consents/",
         admin_avaliste_consents_list,
         name="admin-avaliste-consents",
+    ),
+    path(
+        "admin/requests/<int:pk>/request-avaliste/",
+        admin_request_avaliste_consent,
+        name="admin-request-avaliste",
     ),
     path("admin/requests/", admin_list_loan_requests, name="admin-list-requests"),
     path("admin/list/", admin_list_loans, name="admin-list-loans"),

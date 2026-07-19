@@ -16,7 +16,8 @@ _ALLOWED_INIT_TYPES = {
     Payment.Type.EPARGNE_CLASSIQUE,
     Payment.Type.REMBOURSEMENT,
     Payment.Type.FRAIS_DEMANDE_CREDIT,
-    # FRAIS_RECONDUCTION retiré : la reconduction est sans frais (Règlement).
+    # Intérêts de reconduction versés au comptant (taux réduit).
+    Payment.Type.FRAIS_RECONDUCTION,
     Payment.Type.FRAIS_CARNET,
 }
 

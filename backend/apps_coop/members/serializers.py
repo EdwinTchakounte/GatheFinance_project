@@ -308,6 +308,8 @@ class BRCDocumentAdminReadSerializer(serializers.ModelSerializer):
     _CHAMP_LABELS = {
         "cga_brc_preuve": "Contrat CGA — Broad Range Consulting",
         "cfp_brc_preuve": "Certificat CFP — Broad Range Consulting",
+        "ancien_apprenant_preuve": "Attestation CFP — ancien apprenant",
+        "cga_preuve": "Carte CGA — adhérent",
     }
 
     def get_champ_source_display(self, obj: BRCDocument) -> str:

@@ -111,3 +111,112 @@ def test_file_admin_expose_la_provenance(loan_request, active_member, admin_user
     assert row["champ_source"] == "cga_brc_preuve"
     assert "Broad Range" in row["champ_source_display"]
     assert row["fichier_url"].startswith("/media/")
+
+
+# ---------------------------------------------------------------------------
+# Cycle complet : dépôt depuis la demande → file admin → décision
+# ---------------------------------------------------------------------------
+
+
+class TestDecisionAdmin:
+    """Le justificatif déposé sur une demande de crédit doit être décidable.
+
+    C'est le bout de chaîne qui manquait : sans `BRCDocument`, l'admin ne
+    pouvait ni valider ni rejeter, donc `Member.is_brc_member` restait
+    toujours False et la voie SENIOR_BRC était inatteignable.
+    """
+
+    def _depose(self, loan_request, active_member, field_id="cfp_brc_preuve"):
+        client = APIClient()
+        client.force_authenticate(active_member.user)
+        r = _upload(client, loan_request, field_id)
+        assert r.status_code == 201, r.content
+        return BRCDocument.objects.get(pk=r.json()["brc_document_id"])
+
+    def test_validation_rend_le_membre_brc(
+        self, loan_request, active_member, admin_user
+    ):
+        doc = self._depose(loan_request, active_member)
+        assert active_member.is_brc_member is False
+
+        staff = APIClient()
+        staff.force_authenticate(admin_user)
+        r = staff.post(f"/api/v1/admin/brc/{doc.id}/validate/")
+        assert r.status_code == 200, r.content
+        assert r.json()["statut"] == "valide"
+
+        active_member.refresh_from_db()
+        assert active_member.is_brc_member is True
+        assert active_member.brc_validated_at is not None
+
+    def test_rejet_exige_un_motif_et_laisse_le_membre_non_brc(
+        self, loan_request, active_member, admin_user
+    ):
+        doc = self._depose(loan_request, active_member, "cga_brc_preuve")
+
+        staff = APIClient()
+        staff.force_authenticate(admin_user)
+
+        # Motif vide → refusé.
+        assert staff.post(f"/api/v1/admin/brc/{doc.id}/reject/", {}).status_code == 400
+
+        r = staff.post(
+            f"/api/v1/admin/brc/{doc.id}/reject/",
+            {"motif": "Document illisible."},
+            format="json",
+        )
+        assert r.status_code == 200, r.content
+        body = r.json()
+        assert body["statut"] == "rejete"
+        assert body["motif_rejet"] == "Document illisible."
+
+        active_member.refresh_from_db()
+        assert active_member.is_brc_member is False
+
+    def test_un_doc_rejete_ne_peut_plus_etre_valide(
+        self, loan_request, active_member, admin_user
+    ):
+        doc = self._depose(loan_request, active_member)
+        staff = APIClient()
+        staff.force_authenticate(admin_user)
+        staff.post(
+            f"/api/v1/admin/brc/{doc.id}/reject/",
+            {"motif": "Non conforme."},
+            format="json",
+        )
+        r = staff.post(f"/api/v1/admin/brc/{doc.id}/validate/")
+        assert r.status_code == 400, r.content
+
+    def test_le_membre_peut_redeposer_apres_rejet(
+        self, loan_request, active_member, admin_user
+    ):
+        doc = self._depose(loan_request, active_member)
+        staff = APIClient()
+        staff.force_authenticate(admin_user)
+        staff.post(
+            f"/api/v1/admin/brc/{doc.id}/reject/",
+            {"motif": "Illisible."},
+            format="json",
+        )
+
+        # Nouveau dépôt : le rejeté est conservé (historique), le neuf arrive
+        # en attente — le remplacement ne vise que les dépôts EN_ATTENTE.
+        nouveau = self._depose(loan_request, active_member)
+        assert nouveau.id != doc.id
+        assert BRCDocument.objects.filter(member=active_member).count() == 2
+        assert (
+            BRCDocument.objects.filter(
+                member=active_member, statut=BRCDocument.Statut.EN_ATTENTE
+            ).count()
+            == 1
+        )
+
+    def test_non_staff_ne_peut_pas_decider(
+        self, loan_request, active_member
+    ):
+        doc = self._depose(loan_request, active_member)
+        client = APIClient()
+        client.force_authenticate(active_member.user)
+        assert client.post(
+            f"/api/v1/admin/brc/{doc.id}/validate/"
+        ).status_code in (401, 403)
