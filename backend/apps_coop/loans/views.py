@@ -929,7 +929,7 @@ def _renewal_payload(renewal) -> dict:
             "frais_reconduction_payment_id": renewal.frais_reconduction_payment_id,
             "interets_au_comptant": renewal.interets_au_comptant,
             "interets_dus": renewal.interets_dus,
-            "capital_restant_snapshot": renewal.capital_restant_snapshot,
+            "montant_a_reconduire_snapshot": renewal.montant_a_reconduire_snapshot,
             "interets_payes": renewal.interets_payes,
             "interets_payes_at": renewal.interets_payes_at,
             "reste_a_payer": renewal.reste_a_payer,
@@ -1169,7 +1169,7 @@ def admin_list_loan_renewals(request):
             # Volet encaissement : montant figé à la demande + état du
             # versement, pour que l'admin sache quoi réclamer et à qui.
             "interets_dus": str(r.interets_dus),
-            "capital_restant_snapshot": str(r.capital_restant_snapshot),
+            "montant_a_reconduire_snapshot": str(r.montant_a_reconduire_snapshot),
             "interets_payes": r.interets_payes,
             "reste_a_payer": str(r.reste_a_payer),
             "member_id": member.id,

@@ -127,13 +127,18 @@ const double kRenewalRateComptant = 0.10;
 /// Taux de reconduction SANS versement (intérêts reportés, Article 11).
 const double kRenewalRateReporte = 0.15;
 
-/// Intérêts de reconduction = taux × capital restant (Article 11).
+/// Intérêts de reconduction = taux × montant reconduit.
 ///
-/// Le taux porte UNIQUEMENT sur le capital restant dû : pas d'intérêt sur les
-/// intérêts déjà courus (« pas d'intérêt sur intérêt »).
-num renewalInterest(num capitalRestant, {required bool comptant}) {
+/// La base est TOUT ce qu'il reste à remettre (capital + intérêts résiduels),
+/// jamais le montant initial du crédit : reconduire 50 000 coûte 15 % de
+/// 50 000, EN PLUS des 50 000 à rembourser.
+///
+/// Estimation d'affichage uniquement — le montant qui fait foi est celui figé
+/// par le serveur à la demande (`resteAPayer`), le taux étant piloté par
+/// l'admin et donc susceptible de différer des constantes ci-dessus.
+num renewalInterest(num montantAReconduire, {required bool comptant}) {
   final taux = comptant ? kRenewalRateComptant : kRenewalRateReporte;
-  return (capitalRestant * taux).roundToDouble();
+  return (montantAReconduire * taux).roundToDouble();
 }
 
 // === Pénalité de retard (Article 12) ======================================

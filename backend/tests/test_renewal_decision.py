@@ -85,12 +85,15 @@ class TestApproveLoanRenewal:
 
         # Ancien Loan clôturé
         assert old_loan.statut == Loan.Statut.CLOTURE
-        # Nouveau Loan : base = capital restant 60 000 + intérêts restants 6 000.
+        # Nouveau Loan : base = capital restant 60 000 + intérêts restants
+        # 6 000 = 66 000, soit tout ce qu'il reste à remettre.
         assert nouveau.id != old_loan.id
         assert nouveau.montant == Decimal("66000")
-        # Au comptant (10 %) : dû = 60 000 + 6 000 + 10 % × 60 000 = 72 000.
-        assert nouveau.montant_total_du == Decimal("72000")
-        assert nouveau.solde_restant == Decimal("72000")
+        # Les intérêts portent sur cette base, pas sur le seul capital :
+        # 10 % × 66 000 = 6 600 → dû = 66 000 + 6 600 = 72 600.
+        # (Non versés au comptant ici, donc reportés sur l'échéancier.)
+        assert nouveau.montant_total_du == Decimal("72600")
+        assert nouveau.solde_restant == Decimal("72600")
         assert nouveau.duree_mois == renewal.nouvelle_duree_mois
         assert nouveau.statut == Loan.Statut.ACTIF
         # Crédit issu d'une reconduction → non reconductible à nouveau.
@@ -133,7 +136,7 @@ class TestApproveLoanRenewal:
         assert nouveau.statut == Loan.Statut.ACTIF
 
     def test_reporte_rate_15_percent(self, active_member, admin_user):
-        """Reporté (15 %) : 60 000 + 6 000 reportés + 15 % × 60 000 = 75 000."""
+        """Reporté (15 %) : base 66 000 + 15 % × 66 000 = 75 900."""
         renewal = _seed_renewal(active_member)
         nouveau = approve_loan_renewal(
             renewal,
@@ -142,7 +145,7 @@ class TestApproveLoanRenewal:
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
         assert nouveau.montant == Decimal("66000")
-        assert nouveau.montant_total_du == Decimal("75000")
+        assert nouveau.montant_total_du == Decimal("75900")
 
     def test_renewed_loan_cannot_be_renewed_again(self, active_member, admin_user):
         """Une seule reconduction par crédit : le crédit issu d'une reconduction

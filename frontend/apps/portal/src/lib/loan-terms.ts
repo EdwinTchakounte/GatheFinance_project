@@ -60,17 +60,22 @@ export const RENEWAL_RATE_REPORTE = 0.15;
 export const RENEWAL_EXTRA_MONTHS = 1;
 
 /**
- * Calcule les interets de reconduction (Article 11).
+ * Calcule les interets de reconduction.
  *
- * Le taux porte UNIQUEMENT sur le capital restant du (pas d'interet sur
- * interet). Le mobile fait pareil via `renewalInterest()`.
+ * La base est TOUT ce qu'il reste a remettre (capital + interets residuels),
+ * jamais le montant initial : reconduire 50 000 coute 15 % de 50 000, EN PLUS
+ * des 50 000 a rembourser. Le mobile fait pareil via `renewalInterest()`.
+ *
+ * Estimation d'affichage seulement — le montant qui fait foi est celui fige
+ * par le serveur a la demande (`reste_a_payer`), le taux etant pilote par
+ * l'admin et donc susceptible de differer des constantes ci-dessus.
  */
 export function renewalInterest(
-  capitalRestant: number,
+  montantAReconduire: number,
   modalite: "comptant" | "reporte",
 ): number {
   const taux = modalite === "comptant" ? RENEWAL_RATE_COMPTANT : RENEWAL_RATE_REPORTE;
-  return Math.round(capitalRestant * taux);
+  return Math.round(montantAReconduire * taux);
 }
 
 /** Calcule le recap d'un credit (flat 10 % + paliers + modalite). */

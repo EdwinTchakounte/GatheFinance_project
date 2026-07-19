@@ -458,7 +458,9 @@ class _RecapBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final interets = renewalInterest(loan.capitalRestant, comptant: comptant);
+    // Base = le solde restant (tout ce qu'il reste à remettre), pas le seul
+    // capital : c'est la règle métier retenue côté serveur.
+    final interets = renewalInterest(loan.soldeRestant, comptant: comptant);
     final nouveauTotal = loan.soldeRestant + interets;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

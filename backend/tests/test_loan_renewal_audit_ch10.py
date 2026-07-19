@@ -2,8 +2,10 @@
 
 Formalise par des tests les invariants suivants :
 
-  - Art. 11 : les intérêts de reconduction sont calculés **uniquement sur
-    le capital restant dû**, JAMAIS sur le montant initial.
+  - Les intérêts de reconduction portent sur **tout ce qu'il reste à
+    remettre** (capital restant + intérêts résiduels), JAMAIS sur le montant
+    initial du crédit. Reconduire 50 000 coûte 15 % × 50 000, en plus des
+    50 000 à rembourser.
   - Art. 11 : 2 taux selon que le membre verse les intérêts au comptant
     (RENEWAL_CASH ≈ 10 %) ou les reporte (RENEWAL_DEFERRED ≈ 15 %).
   - Art. 10 : la reconduction n'est possible qu'une seule fois par crédit
@@ -133,13 +135,12 @@ class TestArticle11InterestOnRemainingCapital:
             taux_annuel=Decimal("0.10"),
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
-        # Capital restant = 100k (rien remboursé), intérêts initiaux = 10k restants.
-        # Base reportée = 110k. Intérêts reconduction = 10% × 100k = 10k,
-        # DÉJÀ versés au comptant → le nouveau dossier ne porte que la base.
-        # (Avant correction : 120k, soit les 10k facturés une 2ᵉ fois.)
+        # Reste à remettre = 100k de capital + 10k d'intérêts = 110k.
+        # Intérêts de reconduction = 10 % × 110k = 11k, DÉJÀ versés au
+        # comptant → le nouveau dossier ne porte que les 110k.
         assert nouveau.montant == Decimal("110000.00")
         assert nouveau.montant_total_du == Decimal("110000.00")
-        assert renewal.interets_dus == Decimal("10000.00")
+        assert renewal.interets_dus == Decimal("11000.00")
 
     def test_deferred_uses_remaining_capital(self, active_member, comite_user):
         """Mode reporté = 15 % × capital_restant."""
@@ -152,8 +153,9 @@ class TestArticle11InterestOnRemainingCapital:
             taux_annuel=Decimal("0.15"),
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
-        # 15% × 100k = 15k, base 110k → total 125k.
-        assert nouveau.montant_total_du == Decimal("125000.00")
+        # Base à reconduire = 110k → 15 % × 110k = 16,5k. Non versés au
+        # comptant, ils sont reportés → total 126,5k.
+        assert nouveau.montant_total_du == Decimal("126500.00")
 
     def test_interest_calc_does_not_use_initial_amount(
         self, active_member, comite_user
@@ -178,16 +180,17 @@ class TestArticle11InterestOnRemainingCapital:
             taux_annuel=Decimal("0.10"),
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
-        # capital_restant ≈ 50k → intérêts reconduction ≈ 5k. Si on
-        # utilisait par erreur le montant initial (100k), on aurait 10k.
+        # Moitié réglée → reste ≈ 50k de capital + 5k d'intérêts = 55k de
+        # base → intérêts reconduction ≈ 5,5k. Si on utilisait par erreur le
+        # montant initial (100k+10k), on serait à 11k.
         audit = AuditLog.objects.filter(
             action="loan_renewal.approved", entite_id=renewal.id
         ).latest("created_at")
         interets_reconduction = Decimal(audit.details_json["interets_reconduction"])
-        # Tolérance d'arrondi : doit être ≈ 5k, certainement < 6k.
+        # Tolérance d'arrondi : doit être ≈ 5,5k, certainement < 6k.
         assert interets_reconduction < Decimal("6000"), (
             f"Intérêts reconduction {interets_reconduction} suspect — devrait "
-            f"être ~5k, pas 10k. Vérifie qu'on utilise capital_restant."
+            f"être ~5,5k, pas 11k. Vérifie qu'on part bien du reste à remettre."
         )
 
 
@@ -303,7 +306,8 @@ class TestAuditCapturesFormula:
         details = audit.details_json
         assert Decimal(details["capital_restant"]) == Decimal("100000.00")
         assert Decimal(details["interets_restants"]) == Decimal("10000.00")
-        assert Decimal(details["interets_reconduction"]) == Decimal("10000.00")
+        # 10 % × (100k capital + 10k intérêts restants) = 11k.
+        assert Decimal(details["interets_reconduction"]) == Decimal("11000.00")
         assert Decimal(details["taux_annuel"]) == Decimal("0.10")
 
 

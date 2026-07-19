@@ -945,11 +945,14 @@ class LoanRenewal(TimestampedModel):
         default=Decimal("0"),
         help_text="Intérêts à verser au comptant. 0 si intérêts reportés.",
     )
-    capital_restant_snapshot = models.DecimalField(
+    montant_a_reconduire_snapshot = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         default=Decimal("0"),
-        help_text="Capital restant dû au moment de la demande (base du calcul).",
+        help_text=(
+            "Montant reconduit au moment de la demande — tout ce qu'il reste "
+            "à remettre (capital + intérêts résiduels). Base des intérêts."
+        ),
     )
     interets_payes_at = models.DateTimeField(
         null=True,

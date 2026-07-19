@@ -37,7 +37,7 @@ export type LoanRenewal = {
   interets_au_comptant: boolean;
   /** Intérêts figés à la demande (taux × capital restant). */
   interets_dus: string;
-  capital_restant_snapshot: string;
+  montant_a_reconduire_snapshot: string;
   interets_payes: boolean;
   interets_payes_at: string | null;
   /** Reste à verser. Payable avant OU après la décision du comité. */

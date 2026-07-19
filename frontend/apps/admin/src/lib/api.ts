@@ -983,7 +983,7 @@ export type LoanRenewalRow = {
   interets_au_comptant: boolean;
   /** Intérêts figés à la demande (taux × capital restant). */
   interets_dus: string;
-  capital_restant_snapshot: string;
+  montant_a_reconduire_snapshot: string;
   interets_payes: boolean;
   reste_a_payer: string;
   member_id: number;

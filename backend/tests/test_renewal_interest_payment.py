@@ -5,7 +5,8 @@ n'était payable : aucun montant persisté, le type ``frais_reconduction`` étai
 refusé par les trois canaux d'encaissement et aucun hook ne l'écoutait.
 
 Règles couvertes ici :
-  - le montant dû est FIGÉ à la demande (taux × capital restant) ;
+  - le montant dû est FIGÉ à la demande (taux × montant reconduit, c.-à-d.
+    tout ce qu'il reste à remettre : capital + intérêts résiduels) ;
   - le taux est piloté par l'admin (``RateParam``) ;
   - le versement est LIBRE : avant ou après la décision du comité, il ne
     bloque jamais l'approbation ;
@@ -102,10 +103,11 @@ class TestMontantFige:
 
         renewal = request_loan_renewal(loan, interets_au_comptant=False)
 
-        # 15 % × capital restant (100 000) = 15 000.
-        assert renewal.capital_restant_snapshot == Decimal("100000.00")
-        assert renewal.interets_dus == Decimal("15000.00")
-        assert renewal.reste_a_payer == Decimal("15000.00")
+        # Base = tout ce qu'il reste à remettre : 100 000 de capital
+        # + 10 000 d'intérêts résiduels = 110 000. 15 % × 110 000 = 16 500.
+        assert renewal.montant_a_reconduire_snapshot == Decimal("110000.00")
+        assert renewal.interets_dus == Decimal("16500.00")
+        assert renewal.reste_a_payer == Decimal("16500.00")
         assert renewal.interets_payes is False
 
     def test_taux_pilote_par_admin(self, active_member, comite_user):
@@ -115,7 +117,8 @@ class TestMontantFige:
 
         renewal = request_loan_renewal(loan, interets_au_comptant=False)
 
-        assert renewal.interets_dus == Decimal("20000.00")
+        # 20 % × 110 000 = 22 000.
+        assert renewal.interets_dus == Decimal("22000.00")
 
 
 class TestPrelevementSurEpargne:
@@ -129,8 +132,8 @@ class TestPrelevementSurEpargne:
 
         account.refresh_from_db()
         renewal.refresh_from_db()
-        assert account.solde == Decimal("35000.00")  # 50 000 − 15 000
-        assert payment.montant == Decimal("15000.00")
+        assert account.solde == Decimal("33500.00")  # 50 000 − 16 500
+        assert payment.montant == Decimal("16500.00")
         assert renewal.interets_payes is True
         assert renewal.reste_a_payer == Decimal("0")
         assert renewal.frais_reconduction_payment_id == payment.id
@@ -172,8 +175,8 @@ class TestVersementLibre:
             taux_annuel=Decimal("0.15"),
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
-        # Non encaissés → reportés sur le nouveau dossier (110k + 15k).
-        assert nouveau.montant_total_du == Decimal("125000.00")
+        # Non encaissés → reportés sur le nouveau dossier (110k + 16,5k).
+        assert nouveau.montant_total_du == Decimal("126500.00")
 
     def test_paiement_apres_approbation_reste_possible(
         self, active_member, comite_user
@@ -191,7 +194,7 @@ class TestVersementLibre:
         renewal.refresh_from_db()
 
         payment = pay_renewal_interest_from_savings(renewal)
-        assert payment.montant == Decimal("15000.00")
+        assert payment.montant == Decimal("16500.00")
 
     def test_paiement_avant_approbation_evite_le_double_comptage(
         self, active_member, comite_user
@@ -224,7 +227,7 @@ class TestEndpointsMembre:
         r = client.get("/api/v1/loans/me/renewals/")
         assert r.status_code == 200, r.content
         row = r.json()["results"][0]
-        assert row["reste_a_payer"] == "15000.00"
+        assert row["reste_a_payer"] == "16500.00"
         assert row["interets_payes"] is False
         assert row["numero_dossier"] == loan.numero_dossier
 

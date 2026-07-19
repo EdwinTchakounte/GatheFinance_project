@@ -451,7 +451,7 @@ class LoanRenewalReadSerializer(serializers.Serializer):
     interets_dus = serializers.DecimalField(
         max_digits=14, decimal_places=2, read_only=True
     )
-    capital_restant_snapshot = serializers.DecimalField(
+    montant_a_reconduire_snapshot = serializers.DecimalField(
         max_digits=14, decimal_places=2, read_only=True
     )
     interets_payes = serializers.BooleanField(read_only=True)

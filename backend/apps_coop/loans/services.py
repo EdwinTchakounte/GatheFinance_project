@@ -888,19 +888,22 @@ def request_loan_renewal(
     from apps_coop.payments.rates import get_rate
     from apps_coop.payments.models import RateParam
 
-    capital_restant, _interets_restants = _remaining_capital_and_interest(loan)
+    # Base = tout ce qu'il reste à remettre (capital + intérêts résiduels).
+    # Reconduire 50 000 coûte 15 % de 50 000, EN PLUS des 50 000 à rembourser.
+    capital_restant, interets_restants = _remaining_capital_and_interest(loan)
+    montant_a_reconduire = _q(capital_restant + interets_restants)
     taux = get_rate(
         RateParam.Code.RENEWAL_CASH
         if interets_au_comptant
         else RateParam.Code.RENEWAL_DEFERRED
     )
-    interets_dus = _q(Decimal(taux) * capital_restant)
+    interets_dus = _q(Decimal(taux) * montant_a_reconduire)
 
     renewal = LoanRenewal.objects.create(
         loan=loan,
         nouvelle_duree_mois=duree,
         interets_au_comptant=interets_au_comptant,
-        capital_restant_snapshot=capital_restant,
+        montant_a_reconduire_snapshot=montant_a_reconduire,
         interets_dus=interets_dus,
     )
     record_audit(
@@ -914,7 +917,7 @@ def request_loan_renewal(
             "nouvelle_duree_mois": duree,
             "interets_au_comptant": interets_au_comptant,
             "interets_dus": str(interets_dus),
-            "capital_restant": str(capital_restant),
+            "montant_a_reconduire": str(montant_a_reconduire),
             "solde_restant": str(loan.solde_restant),
         },
     )
@@ -987,12 +990,11 @@ def approve_loan_renewal(
     old_loan = renewal.loan
     member = old_loan.member
 
-    # Base de reconduction (Article 11) : le taux porte sur le **capital
-    # restant**, jamais sur des intérêts déjà comptés (« intérêts rattachés
-    # une fois »). Le nouveau dû reprend le capital + les intérêts restants,
-    # puis ajoute taux × capital_restant :
-    #   au comptant (10 %) : capital + intérêts + 10 % × capital
-    #   reporté    (15 %) : capital + intérêts + 15 % × capital
+    # Base de reconduction : le taux porte sur TOUT ce qu'il reste à remettre
+    # (capital + intérêts résiduels), jamais sur le montant initial. Le
+    # nouveau dû reprend cette base, puis ajoute taux × base :
+    #   reconduire 50 000 → 15 % × 50 000 = 7 500 d'intérêts, EN PLUS des
+    #   50 000 qui restent à rembourser.
     capital_restant, interets_restants = _remaining_capital_and_interest(old_loan)
     if capital_restant <= 0:
         raise ValueError(
@@ -1000,7 +1002,7 @@ def approve_loan_renewal(
             "rien à reconduire."
         )
     base = _q(capital_restant + interets_restants)
-    interets_reconduction = _q(Decimal(taux_annuel) * capital_restant)
+    interets_reconduction = _q(Decimal(taux_annuel) * base)
     # Les intérêts déjà encaissés ne sont pas réintégrés au nouveau dossier :
     # les remettre ferait payer deux fois la même chose (une fois en cash, une
     # fois étalée sur les échéances). On se fie à l'encaissement RÉELLEMENT

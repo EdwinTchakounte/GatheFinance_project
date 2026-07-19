@@ -153,7 +153,7 @@ function Inner() {
             {fmtMoney(r.interets_dus)} FCFA
           </div>
           <div className="text-xs text-ink-500">
-            sur {fmtMoney(r.capital_restant_snapshot)} de capital restant
+            sur {fmtMoney(r.montant_a_reconduire_snapshot)} reconduits
           </div>
           {r.interets_payes ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/10 px-2 py-0.5 text-[0.7rem] font-medium text-emerald-800">
