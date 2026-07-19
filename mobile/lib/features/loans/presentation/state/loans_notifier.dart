@@ -66,6 +66,14 @@ class LoansNotifier extends AsyncNotifier<List<Loan>>
     await refresh();
     return renewal;
   }
+
+  /// Règle les intérêts de reconduction sur l'épargne classique.
+  Future<LoanRenewalEntity> payRenewalInterestFromSavings(int renewalId) async {
+    final repo = ref.read(loansRepositoryProvider);
+    final updated = await repo.payRenewalInterestFromSavings(renewalId);
+    await refresh();
+    return updated;
+  }
 }
 
 final loansProvider =

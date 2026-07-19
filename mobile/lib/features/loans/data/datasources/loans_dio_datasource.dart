@@ -398,15 +398,42 @@ class LoansDioDataSource implements LoansRemoteDataSource {
       final data = res.data ?? const {};
       // Le backend renvoie { renewal: {...} }.
       final r = (data['renewal'] as Map<String, dynamic>?) ?? data;
-      // capitalRestant / interetsReconduction ne sont pas dans la réponse
-      // backend (calculés côté serveur, stockés ailleurs). L'UI les
-      // recalculera à partir du Loan via loan_terms.dart.
+      // Le backend fige désormais le montant à la demande : on le lit au lieu
+      // de le recalculer côté client (l'ancienne version renvoyait 0/0, ce qui
+      // rendait tout écran de paiement impossible à construire).
       return LoanRenewalEntity(
         id: (r['id'] as num).toInt(),
         loanId: (r['loan_id'] as num?)?.toInt() ?? loanId,
         comptant: comptant,
-        capitalRestant: 0,
-        interetsReconduction: 0,
+        capitalRestant: _num(r['capital_restant_snapshot']),
+        interetsReconduction: _num(r['interets_dus']),
+        resteAPayer: _num(r['reste_a_payer']),
+        interetsPayes: r['interets_payes'] == true,
+        statut: _renewalStatus((r['statut'] as String?) ?? 'demandee'),
+        dateDemande: _date(r['date_demande']),
+        dateDecision: r['date_decision'] != null ? _date(r['date_decision']) : null,
+      );
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
+  Future<LoanRenewalEntity> payRenewalInterestFromSavings(int renewalId) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/loans/renewals/$renewalId/pay-interest-from-savings/',
+      );
+      final data = res.data ?? const {};
+      final r = (data['renewal'] as Map<String, dynamic>?) ?? data;
+      return LoanRenewalEntity(
+        id: (r['id'] as num).toInt(),
+        loanId: (r['loan_id'] as num?)?.toInt() ?? 0,
+        comptant: r['interets_au_comptant'] == true,
+        capitalRestant: _num(r['capital_restant_snapshot']),
+        interetsReconduction: _num(r['interets_dus']),
+        resteAPayer: _num(r['reste_a_payer']),
+        interetsPayes: r['interets_payes'] == true,
         statut: _renewalStatus((r['statut'] as String?) ?? 'demandee'),
         dateDemande: _date(r['date_demande']),
         dateDecision: r['date_decision'] != null ? _date(r['date_decision']) : null,
