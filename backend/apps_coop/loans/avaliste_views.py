@@ -168,8 +168,92 @@ def admin_avaliste_consents_list(request):
             AvalisteConsent.Statut.REFUSED,
         )
     }
-    rows = [_admin_row(c) for c in qs[:200]]
+
+    # Demandes où un avaliste est désigné mais pas encore sollicité (les frais
+    # d'étude ne sont pas réglés — règle « frais d'abord, avaliste ensuite »).
+    # Sans ces lignes, l'onglet paraît vide alors que des demandes avaliste
+    # existent bel et bien. Lecture seule : aucun tiers n'est notifié.
+    attente_frais = _rows_avaliste_awaiting_fees(q)
+    counts["attente_frais"] = len(attente_frais)
+
+    if statut == "attente_frais":
+        rows = attente_frais
+    else:
+        rows = [_admin_row(c) for c in qs[:200]]
+        if not statut:
+            rows = attente_frais + rows
+
     return Response({"count": len(rows), "counts": counts, "results": rows})
+
+
+def _rows_avaliste_awaiting_fees(q: str = "") -> list[dict]:
+    """Lignes « avaliste désigné, mandat pas encore émis ».
+
+    Construites depuis ``LoanRequest`` (pas de ``AvalisteConsent`` à ce stade) :
+    id négatif pour ne jamais collisionner avec un vrai mandat côté front.
+    """
+    from django.db.models import Q
+
+    from .models import LoanRequest
+
+    lrs = (
+        LoanRequest.objects.filter(statut=LoanRequest.Statut.EN_ATTENTE)
+        .exclude(avaliste_numero_saisi="")
+        .exclude(avaliste_numero_saisi__isnull=True)
+        .filter(avaliste_consent__isnull=True)
+        .select_related("member")
+        .order_by("-date_soumission")
+    )
+    if q:
+        lrs = lrs.filter(
+            Q(avaliste_numero_saisi__icontains=q)
+            | Q(avaliste_nom_saisi__icontains=q)
+            | Q(member__numero_membre__icontains=q)
+            | Q(member__nom__icontains=q)
+        )
+
+    rows = []
+    for lr in lrs[:200]:
+        rows.append(
+            {
+                "id": -lr.id,
+                "statut": "attente_frais",
+                "statut_display": "Avaliste désigné",
+                "responded_at": None,
+                "refus_motif": "",
+                "created_at": lr.date_soumission.isoformat(),
+                "demandeur": {
+                    "id": lr.member_id,
+                    "numero_membre": lr.member.numero_membre,
+                    "prenom": lr.member.prenom,
+                    "nom": lr.member.nom,
+                },
+                "avaliste": {
+                    "id": None,
+                    "numero_membre": lr.avaliste_numero_saisi or "",
+                    "prenom": "",
+                    "nom": lr.avaliste_nom_saisi or "",
+                },
+                "loan_request": {
+                    "id": lr.id,
+                    "montant_demande": str(lr.montant_demande),
+                    "duree_mois": lr.duree_mois,
+                    "motif": lr.motif,
+                    "statut": lr.statut,
+                    "date_soumission": lr.date_soumission.isoformat(),
+                },
+                "couverture": {
+                    "epargne_borrower": "0",
+                    "epargne_avaliste": "0",
+                    "ratio": "0",
+                },
+                "montant_gele": "0",
+                "cni_demandeur": lr.cni_demandeur or "",
+                "cni_avaliste": "",
+                "cni_avaliste_fichier": None,
+            }
+        )
+    return rows
 
 
 @extend_schema(

@@ -50,6 +50,16 @@ from .services import (
 from apps_coop.payments.providers.base import ProviderError
 
 
+# Champs « fichier » du formulaire de demande de crédit qui portent une preuve
+# du rattachement Broad Range Consulting. Toute pièce déposée sur l'un de ces
+# champs est dupliquée dans la file de validation BRC du back-office.
+BRC_PROOF_FIELD_IDS = frozenset({"cga_brc_preuve", "cfp_brc_preuve"})
+
+# Flags déclaratifs BRC correspondants — conservés en `extra_payload` même si
+# le FormSchema actif en prod ne les déclare pas encore.
+BRC_DECLARATION_FIELD_IDS = ("cga_brc_member", "cfp_brc_apprenant")
+
+
 # ---------------------------------------------------------------------------
 # 1. GET /api/v1/loans/me/eligibility/ — can I submit a new request?
 # ---------------------------------------------------------------------------
@@ -289,7 +299,7 @@ def loan_request_create(request):
         # CGA sont stockées en BD même si le seed FormSchema en prod n'a pas
         # encore été poussé avec ces champs (apply_form_schema filtre sinon
         # les valeurs inconnues). Le mobile envoie ces clés systématiquement.
-        for compat_key in ("ancien_apprenant", "cga_adherent"):
+        for compat_key in ("ancien_apprenant", "cga_adherent", *BRC_DECLARATION_FIELD_IDS):
             val = request.data.get(compat_key)
             if val in ("oui", "non") and compat_key not in extra_payload:
                 extra_payload[compat_key] = val
@@ -1272,6 +1282,24 @@ def loan_request_upload_attachment(request, pk: int):
         ip=client_ip(request),
     )
 
+    # Un justificatif BRC déposé en pièce jointe d'une demande de crédit doit
+    # aussi alimenter la file de validation `/brc` du back-office : sans ça, le
+    # document dort dans les pièces de la demande et l'admin ne peut jamais
+    # poser `Member.is_brc_member` (la voie SENIOR_BRC reste inatteignable).
+    brc_doc_id = None
+    if schema_field_id in BRC_PROOF_FIELD_IDS:
+        from apps_coop.members.services import upload_brc_document
+
+        brc_doc = upload_brc_document(
+            member=member,
+            fichier=doc.fichier,
+            nom_original=doc.nom_original,
+            taille=doc.taille,
+            loan_request_id=lr.id,
+            champ_source=schema_field_id,
+        )
+        brc_doc_id = brc_doc.id
+
     return Response(
         {
             "id": doc.id,
@@ -1279,6 +1307,7 @@ def loan_request_upload_attachment(request, pk: int):
             "nom_original": doc.nom_original,
             "taille": doc.taille,
             "url": doc.fichier.url if doc.fichier else None,
+            "brc_document_id": brc_doc_id,
         },
         status=status.HTTP_201_CREATED,
     )

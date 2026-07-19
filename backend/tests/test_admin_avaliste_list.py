@@ -77,3 +77,68 @@ def test_non_staff_forbidden(active_member):
     client.force_authenticate(user=active_member.user)
     r = client.get("/api/v1/loans/admin/avaliste-consents/")
     assert r.status_code in (401, 403)
+
+
+def test_avaliste_designe_avant_paiement_des_frais_est_visible(
+    active_member, admin_user
+):
+    """Règle « frais d'abord, avaliste ensuite » : le mandat n'existe pas
+    encore, mais la demande ne doit pas être invisible pour autant.
+
+    Sans cette ligne synthétique, l'onglet paraissait vide alors que des
+    demandes avec avaliste attendaient bel et bien.
+    """
+    lr = LoanRequest.objects.create(
+        member=active_member,
+        montant_demande=Decimal("250000"),
+        duree_mois=6,
+        motif="Avaliste désigné, frais non réglés",
+        statut=LoanRequest.Statut.EN_ATTENTE,
+        avaliste_numero_saisi="GF-2026-0042",
+        avaliste_nom_saisi="NGONO",
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+    r = client.get("/api/v1/loans/admin/avaliste-consents/")
+    assert r.status_code == 200, r.content
+    body = r.json()
+
+    assert body["counts"]["attente_frais"] == 1
+    row = next(x for x in body["results"] if x["statut"] == "attente_frais")
+    assert row["loan_request"]["id"] == lr.id
+    assert row["avaliste"]["numero_membre"] == "GF-2026-0042"
+    assert row["avaliste"]["nom"] == "NGONO"
+    # Aucune caution n'est gelée tant que le mandat n'est pas émis.
+    assert Decimal(row["montant_gele"]) == Decimal("0")
+    # Id négatif : ne collisionne jamais avec un vrai mandat côté front.
+    assert row["id"] < 0
+
+
+def test_filtre_attente_frais_isole_les_demandes_non_sollicitees(
+    active_member, admin_user
+):
+    avaliste = MemberFactory(nom="MBALLA")
+    _consent(active_member, avaliste)
+    LoanRequest.objects.create(
+        member=MemberFactory(),
+        montant_demande=Decimal("80000"),
+        duree_mois=3,
+        motif="Frais non réglés",
+        statut=LoanRequest.Statut.EN_ATTENTE,
+        avaliste_numero_saisi="GF-2026-0099",
+        avaliste_nom_saisi="ATANGANA",
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+
+    r = client.get("/api/v1/loans/admin/avaliste-consents/?statut=attente_frais")
+    assert r.status_code == 200, r.content
+    rows = r.json()["results"]
+    assert len(rows) == 1
+    assert rows[0]["statut"] == "attente_frais"
+
+    # Le filtre « pending » ne ramène que les vrais mandats.
+    r2 = client.get("/api/v1/loans/admin/avaliste-consents/?statut=pending")
+    assert all(x["statut"] == "pending" for x in r2.json()["results"])

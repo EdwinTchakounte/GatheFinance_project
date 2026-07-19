@@ -498,19 +498,36 @@ def upload_brc_document(
     fichier,
     nom_original: str = "",
     taille: int = 0,
+    loan_request_id: int | None = None,
+    champ_source: str = "",
 ) -> BRCDocument:
     """Le membre dépose un justificatif BRC.
 
     Crée un ``BRCDocument`` en statut ``EN_ATTENTE``. Le membre peut
     re-uploader autant de fois qu'il veut (chaque ligne garde son
     historique). L'admin gère la validation séparément.
+
+    ``loan_request_id`` / ``champ_source`` sont renseignés quand le
+    justificatif arrive en pièce jointe d'une demande de crédit : dans ce cas
+    on **remplace** le précédent dépôt encore en attente pour le même couple
+    (demande, champ), sinon un re-upload créerait des doublons dans la file.
     """
+    if loan_request_id and champ_source:
+        BRCDocument.objects.filter(
+            member=member,
+            loan_request_id=loan_request_id,
+            champ_source=champ_source,
+            statut=BRCDocument.Statut.EN_ATTENTE,
+        ).delete()
+
     doc = BRCDocument.objects.create(
         member=member,
         fichier=fichier,
         nom_original=nom_original or getattr(fichier, "name", ""),
         taille=taille or getattr(fichier, "size", 0),
         statut=BRCDocument.Statut.EN_ATTENTE,
+        loan_request_id=loan_request_id,
+        champ_source=champ_source,
     )
     record_audit(
         action="member.brc_document_uploaded",
@@ -522,6 +539,8 @@ def upload_brc_document(
             "numero_membre": member.numero_membre,
             "nom_original": doc.nom_original,
             "taille": doc.taille,
+            "loan_request_id": loan_request_id,
+            "champ_source": champ_source,
         },
     )
     _emit_brc_event(
