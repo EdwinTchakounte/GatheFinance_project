@@ -13,6 +13,7 @@ import {
 import { LoanDetailModal } from "@/components/loan-detail-modal";
 import { CashInModal } from "@/components/cash-in-modal";
 import { adminApi, type AdminLoanRow, type ApiError } from "@/lib/api";
+import { StatusPill } from "@/components/status-pill";
 
 
 const MOYEN_LABEL: Record<string, string> = {
@@ -189,20 +190,7 @@ function Inner() {
       text: (l) => l.statut_display,
       render: (l) => (
         <div>
-          <span
-            className={
-              "pill " +
-              (l.statut === "actif"
-                ? "pill-success"
-                : l.statut === "en_retard"
-                  ? "pill-warning"
-                  : l.statut === "contentieux"
-                    ? "pill-danger"
-                    : "pill-muted")
-            }
-          >
-            {l.statut_display}
-          </span>
+          <StatusPill statut={l.statut} label={l.statut_display} />
           {l.mode_retenue_interets === "source" ? (
             <p className="mt-1 text-[10px] uppercase tracking-wide text-emerald-700">
               Intérêts à la source

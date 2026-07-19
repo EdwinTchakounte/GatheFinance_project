@@ -2,8 +2,10 @@
 
 Formalise par des tests les invariants suivants :
 
-  - Art. 11 : les intérêts de reconduction sont calculés **uniquement sur
-    le capital restant dû**, JAMAIS sur le montant initial.
+  - Les intérêts de reconduction portent sur **tout ce qu'il reste à
+    remettre** (capital restant + intérêts résiduels), JAMAIS sur le montant
+    initial du crédit. Reconduire 50 000 coûte 15 % × 50 000, en plus des
+    50 000 à rembourser.
   - Art. 11 : 2 taux selon que le membre verse les intérêts au comptant
     (RENEWAL_CASH ≈ 10 %) ou les reporte (RENEWAL_DEFERRED ≈ 15 %).
   - Art. 10 : la reconduction n'est possible qu'une seule fois par crédit
@@ -25,6 +27,7 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from django.contrib.auth.models import Group
 
 from apps_coop.audit.models import AppSetting, AuditLog
@@ -88,11 +91,33 @@ def _approve_initial(member, comite_user, *, montant=Decimal("100000")):
 
 
 def _request_renewal(loan, *, interets_au_comptant=False, duree=1):
-    return request_loan_renewal(
+    renewal = request_loan_renewal(
         loan,
         nouvelle_duree_mois=duree,
         interets_au_comptant=interets_au_comptant,
     )
+    # Option « au comptant » = le membre verse les intérêts avant la décision.
+    # (Le versement reste possible après : il n'est jamais bloquant.)
+    if interets_au_comptant:
+        _settle_interest(renewal)
+    return renewal
+
+
+def _settle_interest(renewal):
+    """Constate l'encaissement des intérêts (canal agence simulé)."""
+    from apps_coop.loans.renewal_payment_services import mark_renewal_interest_paid
+    from apps_coop.payments.models import Payment
+
+    payment = Payment.objects.create(
+        member=renewal.loan.member,
+        montant=renewal.interets_dus,
+        type=Payment.Type.FRAIS_RECONDUCTION,
+        source=Payment.Source.MANUEL,
+        statut=Payment.Statut.VALIDE,
+        date_versement=timezone.now(),
+        date_validation=timezone.now(),
+    )
+    return mark_renewal_interest_paid(renewal, payment)
 
 
 # ---------------------------------------------------------------------------
@@ -110,11 +135,12 @@ class TestArticle11InterestOnRemainingCapital:
             taux_annuel=Decimal("0.10"),
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
-        # Capital restant = 100k (rien remboursé), intérêts initiaux = 10k restants.
-        # Base reportée = 110k. Intérêts reconduction = 10% × 100k = 10k.
-        # Montant total dû = 110k + 10k = 120k.
+        # Reste à remettre = 100k de capital + 10k d'intérêts = 110k.
+        # Intérêts de reconduction = 10 % × 110k = 11k, DÉJÀ versés au
+        # comptant → le nouveau dossier ne porte que les 110k.
         assert nouveau.montant == Decimal("110000.00")
-        assert nouveau.montant_total_du == Decimal("120000.00")
+        assert nouveau.montant_total_du == Decimal("110000.00")
+        assert renewal.interets_dus == Decimal("11000.00")
 
     def test_deferred_uses_remaining_capital(self, active_member, comite_user):
         """Mode reporté = 15 % × capital_restant."""
@@ -127,8 +153,9 @@ class TestArticle11InterestOnRemainingCapital:
             taux_annuel=Decimal("0.15"),
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
-        # 15% × 100k = 15k, base 110k → total 125k.
-        assert nouveau.montant_total_du == Decimal("125000.00")
+        # Base à reconduire = 110k → 15 % × 110k = 16,5k. Non versés au
+        # comptant, ils sont reportés → total 126,5k.
+        assert nouveau.montant_total_du == Decimal("126500.00")
 
     def test_interest_calc_does_not_use_initial_amount(
         self, active_member, comite_user
@@ -153,16 +180,17 @@ class TestArticle11InterestOnRemainingCapital:
             taux_annuel=Decimal("0.10"),
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
-        # capital_restant ≈ 50k → intérêts reconduction ≈ 5k. Si on
-        # utilisait par erreur le montant initial (100k), on aurait 10k.
+        # Moitié réglée → reste ≈ 50k de capital + 5k d'intérêts = 55k de
+        # base → intérêts reconduction ≈ 5,5k. Si on utilisait par erreur le
+        # montant initial (100k+10k), on serait à 11k.
         audit = AuditLog.objects.filter(
             action="loan_renewal.approved", entite_id=renewal.id
         ).latest("created_at")
         interets_reconduction = Decimal(audit.details_json["interets_reconduction"])
-        # Tolérance d'arrondi : doit être ≈ 5k, certainement < 6k.
+        # Tolérance d'arrondi : doit être ≈ 5,5k, certainement < 6k.
         assert interets_reconduction < Decimal("6000"), (
             f"Intérêts reconduction {interets_reconduction} suspect — devrait "
-            f"être ~5k, pas 10k. Vérifie qu'on utilise capital_restant."
+            f"être ~5,5k, pas 11k. Vérifie qu'on part bien du reste à remettre."
         )
 
 
@@ -248,10 +276,11 @@ class TestRenewalUnderSourceMode:
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
         # capital_restant = 90k (rien remboursé). Pas d'intérêts restants
-        # (échéances source = capital pur). Base = 90k.
-        # Intérêts reconduction = 10% × 90k = 9k. Total = 99k.
+        # (échéances source = capital pur). Base = 90k. Les 9k d'intérêts de
+        # reconduction ont été versés au comptant → total = base = 90k.
         assert nouveau.montant == Decimal("90000.00")
-        assert nouveau.montant_total_du == Decimal("99000.00")
+        assert nouveau.montant_total_du == Decimal("90000.00")
+        assert renewal.interets_dus == Decimal("9000.00")
 
 
 # ---------------------------------------------------------------------------
@@ -277,7 +306,8 @@ class TestAuditCapturesFormula:
         details = audit.details_json
         assert Decimal(details["capital_restant"]) == Decimal("100000.00")
         assert Decimal(details["interets_restants"]) == Decimal("10000.00")
-        assert Decimal(details["interets_reconduction"]) == Decimal("10000.00")
+        # 10 % × (100k capital + 10k intérêts restants) = 11k.
+        assert Decimal(details["interets_reconduction"]) == Decimal("11000.00")
         assert Decimal(details["taux_annuel"]) == Decimal("0.10")
 
 

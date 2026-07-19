@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { adminApi, type ApiError, type BookletOrderAdmin } from "@/lib/api";
+import { StatusPill } from "@/components/status-pill";
 
 type Tab = "tous" | "payee" | "en_impression" | "delivree";
 
@@ -111,16 +112,7 @@ export default function BookletOrdersPage() {
       key: "statut",
       label: "Statut",
       text: (r) => r.statut_display,
-      render: (r) => {
-        const tone = STATUT_TONE[r.statut] ?? "bg-ink-50 text-ink-700 ring-ink-200";
-        return (
-          <span
-            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${tone}`}
-          >
-            {r.statut_display}
-          </span>
-        );
-      },
+      render: (r) => <StatusPill statut={r.statut} label={r.statut_display} />,
     },
   ];
 
@@ -134,7 +126,7 @@ export default function BookletOrdersPage() {
           Commandes de carnet
         </h1>
         <p className="mt-1 text-sm text-ink-600">
-          Pilotage du workflow Article 4 : payée → en impression → délivrée.
+          Suivi des carnets : payée → en impression → délivrée.
         </p>
       </header>
 

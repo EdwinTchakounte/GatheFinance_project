@@ -167,6 +167,47 @@ def admin_list_escalations(request):
 
 @extend_schema(
     tags=["loans"],
+    summary="🔒 Staff — crédits éligibles à une escalade judiciaire",
+    description=(
+        "Crédits sur lesquels l'admin peut ouvrir une escalade : saisie sur "
+        "épargne déjà tentée (`poursuite_judiciaire_at` posé), reliquat > 0, "
+        "et aucune escalade existante. Sans cet endpoint, l'ouverture manuelle "
+        "obligeait à deviner un id de crédit."
+    ),
+    responses={200: OpenApiResponse(description="`{ count, results: [...] }`")},
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_escalation_candidates(request):
+    qs = (
+        Loan.objects.select_related("member")
+        .filter(
+            poursuite_judiciaire_at__isnull=False,
+            solde_restant__gt=0,
+            judicial_escalation__isnull=True,
+        )
+        .order_by("poursuite_judiciaire_at")
+    )
+    results = [
+        {
+            "loan_id": loan.id,
+            "numero_dossier": loan.numero_dossier,
+            "member_nom": f"{loan.member.prenom} {loan.member.nom}".strip(),
+            "member_numero": loan.member.numero_membre,
+            "solde_restant": str(loan.solde_restant),
+            "poursuite_judiciaire_at": (
+                loan.poursuite_judiciaire_at.isoformat()
+                if loan.poursuite_judiciaire_at
+                else None
+            ),
+        }
+        for loan in qs[:200]
+    ]
+    return Response({"count": len(results), "results": results})
+
+
+@extend_schema(
+    tags=["loans"],
     summary="🔒 Staff — détail d'une escalade judiciaire",
     responses={200: OpenApiResponse(description="Détail")},
 )

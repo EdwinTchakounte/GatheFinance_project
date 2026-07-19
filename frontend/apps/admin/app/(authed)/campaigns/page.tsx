@@ -18,7 +18,7 @@ import {
 
 import { buttonClasses } from "@gathe/ui";
 
-import { DocumentPreview } from "@/components/document-preview";
+import { DocumentLink, DocumentPreview } from "@/components/document-preview";
 import { ExportMenu } from "@/components/export-menu";
 import { Modal } from "@/components/modal";
 import {
@@ -873,15 +873,13 @@ function ApplicationsSection({ campaignId }: { campaignId: number }) {
               <div className="mt-2 flex flex-wrap gap-2">
                 {a.documents.map((d, i) =>
                   d.url ? (
-                    <a
+                    <DocumentLink
                       key={i}
-                      href={d.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      url={d.url}
+                      name={d.label}
+                      label={d.label}
                       className="inline-flex items-center gap-1 rounded-md bg-paper-soft px-2 py-1 font-medium text-emerald-700 hover:underline"
-                    >
-                      📎 {d.label}
-                    </a>
+                    />
                   ) : (
                     <span key={i} className="text-ink-400">
                       {d.label} (indisponible)

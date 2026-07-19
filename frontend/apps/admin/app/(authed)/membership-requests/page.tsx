@@ -5,8 +5,10 @@ import { Check, X, Mail, Phone, MapPin, Eye, FileText } from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
 
+import { DocumentPreview } from "@/components/document-preview";
 import { Modal, ModalField, modalInputClass } from "@/components/modal";
 import { adminApi, type ApiError, type MembershipRequest } from "@/lib/api";
+import { StatusPill } from "@/components/status-pill";
 
 
 export default function MembershipRequestsPage() {
@@ -174,11 +176,7 @@ function Inner() {
                     {new Date(r.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "2-digit" })}
                   </td>
                   <td>
-                    <span className={
-                      "pill " +
-                      (r.statut === "en_attente" ? "pill-warning"
-                       : r.statut === "approuvee" ? "pill-success" : "pill-danger")
-                    }>{r.statut_display}</span>
+                    <StatusPill statut={r.statut} label={r.statut_display} />
                     {r.statut === "rejetee" && r.motif_rejet ? (
                       <p className="mt-1 text-xs text-terra-700 max-w-[12rem]">{r.motif_rejet}</p>
                     ) : null}
@@ -407,6 +405,9 @@ function DetailMembershipModal({
   target: MembershipRequest | null;
   onClose: () => void;
 }) {
+  const [preview, setPreview] = useState<{ url: string; label: string } | null>(
+    null,
+  );
   if (!target) return null;
   const t = target;
 
@@ -460,12 +461,32 @@ function DetailMembershipModal({
           Documents soumis
         </h4>
         <div className="mt-2 grid gap-3 sm:grid-cols-2">
-          <DocCard label="CNI recto" url={t.cni_recto_url} />
-          <DocCard label="CNI verso" url={t.cni_verso_url} />
-          <DocCard label="Photo identite" url={t.photo_identite_url} />
-          <DocCard label="Plan de localisation" url={t.plan_localisation_url} />
+          {(
+            [
+              ["CNI recto", t.cni_recto_url],
+              ["CNI verso", t.cni_verso_url],
+              ["Photo identite", t.photo_identite_url],
+              ["Plan de localisation", t.plan_localisation_url],
+            ] as const
+          ).map(([label, url]) => (
+            <DocCard
+              key={label}
+              label={label}
+              url={url}
+              onOpen={(u, l) => setPreview({ url: u, label: l })}
+            />
+          ))}
         </div>
       </div>
+
+      {preview && (
+        <DocumentPreview
+          url={preview.url}
+          name={preview.label}
+          subtitle={`Demande #${t.id} · ${t.prenom} ${t.nom}`}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </Modal>
   );
 }
@@ -481,7 +502,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 
-function DocCard({ label, url }: { label: string; url: string | null }) {
+function DocCard({
+  label,
+  url,
+  onOpen,
+}: {
+  label: string;
+  url: string | null;
+  onOpen: (url: string, label: string) => void;
+}) {
   if (!url) {
     return (
       <div className="flex items-center justify-between rounded-md border border-dashed border-line-200 bg-paper/50 px-3 py-2.5">
@@ -492,11 +521,10 @@ function DocCard({ label, url }: { label: string; url: string | null }) {
   }
   const isImage = /\.(jpe?g|png|webp|gif)(\?|$)/i.test(url);
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group flex items-center gap-3 rounded-md border border-line-200 bg-paper p-2.5 transition-colors hover:border-blue-700 hover:bg-blue-50/40"
+    <button
+      type="button"
+      onClick={() => onOpen(url, label)}
+      className="group flex w-full items-center gap-3 rounded-md border border-line-200 bg-paper p-2.5 text-left transition-colors hover:border-blue-700 hover:bg-blue-50/40 focus:outline-none focus:ring-2 focus:ring-blue-700"
     >
       {isImage ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -509,9 +537,9 @@ function DocCard({ label, url }: { label: string; url: string | null }) {
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-ink-900">{label}</p>
         <p className="truncate text-xs text-blue-700 group-hover:underline">
-          Ouvrir le fichier
+          Aperçu
         </p>
       </div>
-    </a>
+    </button>
   );
 }

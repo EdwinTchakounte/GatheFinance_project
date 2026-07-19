@@ -72,4 +72,7 @@ abstract class LoansRemoteDataSource {
     required int loanId,
     required bool comptant,
   });
+
+  /// Prélève les intérêts de reconduction sur l'épargne classique.
+  Future<LoanRenewalEntity> payRenewalInterestFromSavings(int renewalId);
 }

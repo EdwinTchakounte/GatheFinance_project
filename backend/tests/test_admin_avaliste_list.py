@@ -77,3 +77,232 @@ def test_non_staff_forbidden(active_member):
     client.force_authenticate(user=active_member.user)
     r = client.get("/api/v1/loans/admin/avaliste-consents/")
     assert r.status_code in (401, 403)
+
+
+def test_avaliste_designe_avant_paiement_des_frais_est_visible(
+    active_member, admin_user
+):
+    """Règle « frais d'abord, avaliste ensuite » : le mandat n'existe pas
+    encore, mais la demande ne doit pas être invisible pour autant.
+
+    Sans cette ligne synthétique, l'onglet paraissait vide alors que des
+    demandes avec avaliste attendaient bel et bien.
+    """
+    lr = LoanRequest.objects.create(
+        member=active_member,
+        montant_demande=Decimal("250000"),
+        duree_mois=6,
+        motif="Avaliste désigné, frais non réglés",
+        statut=LoanRequest.Statut.EN_ATTENTE,
+        avaliste_numero_saisi="GF-2026-0042",
+        avaliste_nom_saisi="NGONO",
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+    r = client.get("/api/v1/loans/admin/avaliste-consents/")
+    assert r.status_code == 200, r.content
+    body = r.json()
+
+    assert body["counts"]["attente_frais"] == 1
+    row = next(x for x in body["results"] if x["statut"] == "attente_frais")
+    assert row["loan_request"]["id"] == lr.id
+    assert row["avaliste"]["numero_membre"] == "GF-2026-0042"
+    assert row["avaliste"]["nom"] == "NGONO"
+    # Aucune caution n'est gelée tant que le mandat n'est pas émis.
+    assert Decimal(row["montant_gele"]) == Decimal("0")
+    # Id négatif : ne collisionne jamais avec un vrai mandat côté front.
+    assert row["id"] < 0
+
+
+def test_filtre_attente_frais_isole_les_demandes_non_sollicitees(
+    active_member, admin_user
+):
+    avaliste = MemberFactory(nom="MBALLA")
+    _consent(active_member, avaliste)
+    LoanRequest.objects.create(
+        member=MemberFactory(),
+        montant_demande=Decimal("80000"),
+        duree_mois=3,
+        motif="Frais non réglés",
+        statut=LoanRequest.Statut.EN_ATTENTE,
+        avaliste_numero_saisi="GF-2026-0099",
+        avaliste_nom_saisi="ATANGANA",
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+
+    r = client.get("/api/v1/loans/admin/avaliste-consents/?statut=attente_frais")
+    assert r.status_code == 200, r.content
+    rows = r.json()["results"]
+    assert len(rows) == 1
+    assert rows[0]["statut"] == "attente_frais"
+
+    # Le filtre « pending » ne ramène que les vrais mandats.
+    r2 = client.get("/api/v1/loans/admin/avaliste-consents/?statut=pending")
+    assert all(x["statut"] == "pending" for x in r2.json()["results"])
+
+
+# ---------------------------------------------------------------------------
+# Sollicitation du mandat + rejet automatique sur refus
+# ---------------------------------------------------------------------------
+
+
+def test_designation_conservee_meme_hors_voie_avaliste(active_member, comite_user=None):
+    """La désignation ne doit jamais être jetée en silence.
+
+    Avant, elle n'était persistée que si le routeur avait retenu la voie
+    AVALISTE. Un demandeur qui se couvrait lui-même (voie évaluée en premier)
+    perdait donc son avaliste : plus aucune trace, et évidemment aucun mandat.
+    """
+    from decimal import Decimal as D
+
+    from datetime import date
+
+    from apps_coop.payments.models import FeeType
+    from apps_coop.savings.models import ClassicSavingsAccount
+    from rest_framework.test import APIClient as C
+
+    FeeType.objects.update_or_create(
+        code=FeeType.Code.DEMANDE_CREDIT,
+        defaults={"libelle": "Frais crédit", "montant": D("2000"), "actif": True},
+    )
+    avaliste = MemberFactory(nom="TAGNE")
+    # Épargne suffisante → le routeur choisit l'auto-couverture, pas l'avaliste.
+    ClassicSavingsAccount.objects.create(
+        member=active_member, solde=D("500000"), date_ouverture=date.today()
+    )
+
+    client = C()
+    client.force_authenticate(active_member.user)
+    r = client.post(
+        "/api/v1/loans/requests/",
+        {
+            "montant_demande": "50000",
+            "duree_mois": 3,
+            "motif": "Test désignation conservée",
+            "avaliste_numero": avaliste.numero_membre,
+            "avaliste_nom": avaliste.nom,
+        },
+        format="json",
+    )
+    assert r.status_code in (200, 201), r.content
+
+    lr = LoanRequest.objects.filter(member=active_member).latest("date_soumission")
+    assert lr.avaliste_numero_saisi == avaliste.numero_membre
+    assert lr.avaliste_nom_saisi == avaliste.nom
+
+
+def test_admin_peut_solliciter_l_avaliste_et_voit_le_motif_d_echec(
+    active_member, admin_user
+):
+    from decimal import Decimal as D
+
+    lr = LoanRequest.objects.create(
+        member=active_member,
+        montant_demande=D("50000"),
+        duree_mois=3,
+        motif="Sollicitation manuelle",
+        statut=LoanRequest.Statut.EN_ATTENTE,
+        avaliste_numero_saisi="GF-INEXISTANT",
+        avaliste_nom_saisi="INCONNU",
+    )
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+
+    r = client.post(f"/api/v1/loans/admin/requests/{lr.id}/request-avaliste/")
+    # L'échec est désormais REMONTÉ (avant : log serveur uniquement).
+    assert r.status_code == 400
+    assert "GF-INEXISTANT" in r.json()["detail"]
+
+
+def test_refus_de_l_avaliste_rejette_automatiquement_la_demande(
+    active_member, admin_user
+):
+    """Un refus de l'avaliste clôt la demande — pas de dossier fantôme."""
+    from apps_coop.loans.avaliste_services import respond_to_avaliste_consent
+
+    avaliste = MemberFactory(nom="NKOMO")
+    consent = _consent(active_member, avaliste)
+
+    respond_to_avaliste_consent(consent, accept=False, motif="Je ne peux pas.")
+
+    consent.refresh_from_db()
+    lr = consent.loan_request
+    lr.refresh_from_db()
+    assert consent.statut == AvalisteConsent.Statut.REFUSED
+    assert lr.statut == LoanRequest.Statut.REJETEE_AVALISTE
+    assert lr.motif_rejet == "Je ne peux pas."
+
+
+# ---------------------------------------------------------------------------
+# Bout en bout — le mandat arrive chez l'avaliste et il peut répondre
+# ---------------------------------------------------------------------------
+
+
+class TestMandatCoteAvaliste:
+    """Ce que voit l'avaliste dans SON espace (mobile + portail partagent
+    ces endpoints : `/loans/me/avaliste-mandats/`)."""
+
+    def test_le_mandat_apparait_chez_l_avaliste(self, active_member):
+        avaliste = MemberFactory(nom="ESSOMBA")
+        _consent(active_member, avaliste)
+
+        client = APIClient()
+        client.force_authenticate(avaliste.user)
+        r = client.get("/api/v1/loans/me/avaliste-mandats/")
+        assert r.status_code == 200, r.content
+        body = r.json()
+
+        assert body["pending"] == 1
+        row = body["results"][0]
+        assert row["statut"] == "pending"
+        # L'avaliste doit savoir QUI demande et COMBIEN il engage.
+        assert row["demandeur"]["numero_membre"] == active_member.numero_membre
+        assert Decimal(row["montant_gele"]) == Decimal("100000")
+
+    def test_l_avaliste_peut_refuser_et_la_demande_est_rejetee(self, active_member):
+        avaliste = MemberFactory(nom="BIYA")
+        consent = _consent(active_member, avaliste)
+
+        client = APIClient()
+        client.force_authenticate(avaliste.user)
+        r = client.post(
+            f"/api/v1/loans/me/avaliste-mandats/{consent.id}/respond/",
+            {"accept": False, "motif": "Épargne déjà engagée."},
+            format="json",
+        )
+        assert r.status_code == 200, r.content
+        assert r.json()["statut"] == "refused"
+
+        lr = consent.loan_request
+        lr.refresh_from_db()
+        # Le refus de l'avaliste clôt automatiquement la demande de crédit.
+        assert lr.statut == LoanRequest.Statut.REJETEE_AVALISTE
+        assert lr.motif_rejet == "Épargne déjà engagée."
+
+    def test_un_tiers_ne_voit_pas_le_mandat(self, active_member):
+        avaliste = MemberFactory(nom="MENGUE")
+        _consent(active_member, avaliste)
+        curieux = MemberFactory()
+
+        client = APIClient()
+        client.force_authenticate(curieux.user)
+        r = client.get("/api/v1/loans/me/avaliste-mandats/")
+        assert r.status_code == 200
+        assert r.json()["results"] == []
+
+    def test_acceptation_exige_la_cni_de_l_avaliste(self, active_member):
+        avaliste = MemberFactory(nom="AMOUGOU")
+        consent = _consent(active_member, avaliste)
+
+        client = APIClient()
+        client.force_authenticate(avaliste.user)
+        r = client.post(
+            f"/api/v1/loans/me/avaliste-mandats/{consent.id}/respond/",
+            {"accept": True},
+            format="multipart",
+        )
+        assert r.status_code == 400
+        assert "CNI" in r.json()["detail"]

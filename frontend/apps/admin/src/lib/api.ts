@@ -225,6 +225,8 @@ export type DashboardKpis = {
   queues: {
     adhesions_en_attente: number;
     credits_en_instruction: number;
+    /** Tout ce qui attend une action admin sur l'onglet Demandes de crédit. */
+    credits_a_traiter: number;
     avaliste_pending: number;
     campaign_validation_pending: number;
   };
@@ -436,7 +438,11 @@ export type AdminLoanRepayment = {
 // Mandat d'avaliste vu par l'admin (onglet « Avalistes / cautions »).
 export type AvalisteConsentRow = {
   id: number;
-  statut: "pending" | "accepted" | "refused";
+  /**
+   * `attente_frais` = avaliste désigné sur la demande mais pas encore
+   * sollicité (frais d'étude non réglés) — ligne synthétique côté serveur.
+   */
+  statut: "attente_frais" | "pending" | "accepted" | "refused";
   statut_display: string;
   created_at: string;
   montant_gele: string;
@@ -596,6 +602,10 @@ export type BRCDocument = {
   statut: "en_attente" | "valide" | "rejete";
   statut_display: string;
   motif_rejet: string;
+  /** Demande de crédit d'origine quand la pièce vient du formulaire crédit. */
+  loan_request_id: number | null;
+  champ_source: string;
+  champ_source_display: string;
   validated_by: number | null;
   validated_at: string | null;
   created_at: string;
@@ -971,6 +981,12 @@ export type LoanRenewalRow = {
   duree_actuelle_mois: number;
   nouvelle_duree_mois: number;
   interets_au_comptant: boolean;
+  /** Intérêts figés à la demande (taux × capital restant). */
+  interets_dus: string;
+  montant_a_reconduire_snapshot: string;
+  interets_payes: boolean;
+  reste_a_payer: string;
+  member_id: number;
   date_demande: string | null;
   date_decision: string | null;
 };
@@ -1084,6 +1100,16 @@ export type JudicialStatut =
   | "decision_rendue"
   | "executee"
   | "classee_sans_suite";
+
+/** Crédit éligible à l'ouverture d'une escalade judiciaire. */
+export type EscalationCandidate = {
+  loan_id: number;
+  numero_dossier: string;
+  member_nom: string;
+  member_numero: string;
+  solde_restant: string;
+  poursuite_judiciaire_at: string | null;
+};
 
 export type JudicialEscalationRow = {
   id: number;
@@ -1263,6 +1289,17 @@ export const adminApi = {
         results: AvalisteConsentRow[];
       }>(`/loans/admin/avaliste-consents/${qs ? `?${qs}` : ""}`);
     },
+    /**
+     * Émet le mandat d'une demande qui désigne un avaliste sans mandat posé.
+     * En cas d'échec (avaliste introuvable, couverture insuffisante…), le
+     * motif remonte dans `detail` — il ne restait auparavant que dans les
+     * logs serveur.
+     */
+    requestConsent: (loanRequestId: number) =>
+      request<AvalisteConsentRow>(
+        `/loans/admin/requests/${loanRequestId}/request-avaliste/`,
+        { method: "POST" },
+      ),
   },
 
   loanRequests: {
@@ -1556,6 +1593,7 @@ export const adminApi = {
         | "frais_demande_credit"
         | "epargne"
         | "epargne_classique"
+        | "frais_reconduction"
         | "remboursement";
       montant: number | string;
       reference_externe?: string;
@@ -1787,6 +1825,14 @@ export const adminApi = {
       ),
     detail: (id: number) =>
       request<JudicialEscalationRow>(`/loans/admin/escalations/${id}/`),
+    /**
+     * Crédits sur lesquels une escalade peut être ouverte : saisie sur
+     * épargne déjà tentée, reliquat > 0, pas d'escalade existante.
+     */
+    candidates: () =>
+      request<{ count: number; results: EscalationCandidate[] }>(
+        `/loans/admin/escalations/candidates/`,
+      ),
     open: (loanId: number, payload: { motif: string; mode?: string }) =>
       request<JudicialEscalationRow>(
         `/loans/admin/loans/${loanId}/escalation/`,

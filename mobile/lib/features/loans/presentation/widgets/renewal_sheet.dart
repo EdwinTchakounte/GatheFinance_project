@@ -12,6 +12,7 @@ import '../../../../core/widgets/brand_loader.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/loan.dart';
+import '../../domain/entities/loan_renewal.dart';
 import '../../domain/loan_terms.dart';
 import '../state/loans_notifier.dart';
 import '../../../../core/error/error_message.dart';
@@ -52,6 +53,10 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
   _Step _step = _Step.form;
   late final AnimationController _checkCtrl;
 
+  /// Reconduction créée — porte le montant d'intérêts restant à verser.
+  LoanRenewalEntity? _renewal;
+  bool _paying = false;
+
   @override
   void initState() {
     super.initState();
@@ -71,17 +76,46 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
     unawaited(HapticFeedback.mediumImpact());
     setState(() => _step = _Step.loading);
     try {
-      await ref.read(loansProvider.notifier).requestRenewal(
+      final renewal = await ref.read(loansProvider.notifier).requestRenewal(
             loanId: widget.loan.id,
             comptant: _comptant,
           );
       if (!mounted) return;
-      setState(() => _step = _Step.success);
+      setState(() {
+        _renewal = renewal;
+        _step = _Step.success;
+      });
       unawaited(HapticFeedback.heavyImpact());
       unawaited(_checkCtrl.forward());
     } catch (err) {
       if (!mounted) return;
       setState(() => _step = _Step.form);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(err))),
+      );
+    }
+  }
+
+  /// Règle les intérêts sur l'épargne classique. Non bloquant : le membre
+  /// peut aussi fermer la feuille et payer plus tard (agence, mobile money)
+  /// — les intérêts non versés sont reportés sur le nouvel échéancier.
+  Future<void> _payFromSavings() async {
+    final renewal = _renewal;
+    if (renewal == null) return;
+    setState(() => _paying = true);
+    try {
+      final updated = await ref
+          .read(loansProvider.notifier)
+          .payRenewalInterestFromSavings(renewal.id);
+      if (!mounted) return;
+      setState(() {
+        _renewal = updated;
+        _paying = false;
+      });
+      unawaited(HapticFeedback.heavyImpact());
+    } catch (err) {
+      if (!mounted) return;
+      setState(() => _paying = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(friendlyError(err))),
       );
@@ -228,6 +262,7 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
 
   Widget _successStep(BuildContext context) {
     final l = AppL10n.of(context);
+    final reste = _renewal?.resteAPayer ?? 0;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
       child: Column(
@@ -260,11 +295,56 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
               height: 1.45,
             ),
           ),
-          const SizedBox(height: 24),
-          PaButton(
-            label: l.common_understood,
-            onPressed: () => Navigator.of(context).pop(),
-          ),
+          if (reste > 0) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: PaColors.warning.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Intérêts à verser : ${XAFFormatter.format(reste)}',
+                    style: AppTypography.bodyMedium
+                        .copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tu peux les régler maintenant sur ton épargne, ou plus '
+                    'tard. Non versés, ils sont reportés sur ton nouvel '
+                    'échéancier.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.7),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            PaButton(
+              label: _paying ? 'Prélèvement…' : 'Régler sur mon épargne',
+              onPressed: _paying ? null : _payFromSavings,
+            ),
+            const SizedBox(height: 10),
+            PaButton(
+              label: 'Plus tard',
+              variant: PaButtonVariant.outline,
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ] else ...[
+            const SizedBox(height: 24),
+            PaButton(
+              label: l.common_understood,
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
         ],
       ),
     );
@@ -378,7 +458,9 @@ class _RecapBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final interets = renewalInterest(loan.capitalRestant, comptant: comptant);
+    // Base = le solde restant (tout ce qu'il reste à remettre), pas le seul
+    // capital : c'est la règle métier retenue côté serveur.
+    final interets = renewalInterest(loan.soldeRestant, comptant: comptant);
     final nouveauTotal = loan.soldeRestant + interets;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

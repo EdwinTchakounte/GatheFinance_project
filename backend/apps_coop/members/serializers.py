@@ -292,6 +292,7 @@ class BRCDocumentAdminReadSerializer(serializers.ModelSerializer):
     member_nom = serializers.CharField(source="member.nom", read_only=True)
     member_prenom = serializers.CharField(source="member.prenom", read_only=True)
     fichier_url = serializers.SerializerMethodField()
+    champ_source_display = serializers.SerializerMethodField()
 
     class Meta:
         model = BRCDocument
@@ -299,9 +300,22 @@ class BRCDocumentAdminReadSerializer(serializers.ModelSerializer):
             "id", "member", "member_numero", "member_nom", "member_prenom",
             "fichier_url", "nom_original", "taille",
             "statut", "statut_display", "motif_rejet",
+            "loan_request_id", "champ_source", "champ_source_display",
             "validated_by", "validated_at", "created_at",
         )
         read_only_fields = fields
+
+    _CHAMP_LABELS = {
+        "cga_brc_preuve": "Contrat CGA — Broad Range Consulting",
+        "cfp_brc_preuve": "Certificat CFP — Broad Range Consulting",
+        "ancien_apprenant_preuve": "Attestation CFP — ancien apprenant",
+        "cga_preuve": "Carte CGA — adhérent",
+    }
+
+    def get_champ_source_display(self, obj: BRCDocument) -> str:
+        if not obj.champ_source:
+            return "Dépôt direct par le membre"
+        return self._CHAMP_LABELS.get(obj.champ_source, obj.champ_source)
 
     def get_fichier_url(self, obj: BRCDocument) -> str:
         try:

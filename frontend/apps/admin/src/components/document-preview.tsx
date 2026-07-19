@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { Download, FileText, X, ZoomIn } from "lucide-react";
 
 /**
@@ -119,7 +127,9 @@ export function DocumentPreview({
       role="dialog"
       aria-modal="true"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex flex-col bg-ink-900/85 backdrop-blur-sm"
+      /* z-[60] : la preview doit passer AU-DESSUS d'une `Modal` (z-50) quand
+         elle est ouverte depuis une modale de détail (adhésion, crédit…). */
+      className="fixed inset-0 z-[60] flex flex-col bg-ink-900/85 backdrop-blur-sm"
     >
       <header className="flex items-center justify-between border-b border-white/10 px-6 py-3 text-paper">
         <div className="min-w-0">
@@ -191,5 +201,96 @@ export function DocumentPreview({
         )}
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Provider global — ouvrir un aperçu depuis n'importe quelle profondeur
+// ---------------------------------------------------------------------------
+
+/**
+ * Beaucoup de pièces jointes sont rendues par des sous-composants imbriqués
+ * (badges de profil, sections garantie, lignes de tableau…). Faire remonter un
+ * état de preview jusqu'à la page à chaque fois est bruyant et pousse à
+ * retomber sur `target="_blank"`. Ce provider expose un `openDocument()`
+ * utilisable partout ; la modale est montée une seule fois dans le layout.
+ */
+
+export type OpenDocumentArgs = {
+  url: string;
+  name: string;
+  subtitle?: string;
+};
+
+const DocumentPreviewContext = createContext<
+  ((doc: OpenDocumentArgs) => void) | null
+>(null);
+
+export function DocumentPreviewProvider({ children }: { children: ReactNode }) {
+  const [doc, setDoc] = useState<OpenDocumentArgs | null>(null);
+  const open = useCallback((next: OpenDocumentArgs) => setDoc(next), []);
+  const value = useMemo(() => open, [open]);
+
+  return (
+    <DocumentPreviewContext.Provider value={value}>
+      {children}
+      {doc && (
+        <DocumentPreview
+          url={doc.url}
+          name={doc.name}
+          subtitle={doc.subtitle}
+          onClose={() => setDoc(null)}
+        />
+      )}
+    </DocumentPreviewContext.Provider>
+  );
+}
+
+/**
+ * Retourne `openDocument(doc)`. Hors provider, on retombe sur l'ouverture
+ * navigateur plutôt que de planter — mais toutes les pages admin sont sous le
+ * layout `(authed)` qui monte le provider.
+ */
+export function useDocumentPreview(): (doc: OpenDocumentArgs) => void {
+  const ctx = useContext(DocumentPreviewContext);
+  return (
+    ctx ??
+    ((doc: OpenDocumentArgs) => {
+      window.open(doc.url, "_blank", "noopener,noreferrer");
+    })
+  );
+}
+
+/**
+ * Bouton compact « voir la pièce » — remplace les anciens liens
+ * `target="_blank"` disséminés dans les pages.
+ */
+export function DocumentLink({
+  url,
+  name,
+  subtitle,
+  label = "Voir",
+  className,
+}: {
+  url: string;
+  name: string;
+  subtitle?: string;
+  label?: string;
+  className?: string;
+}) {
+  const openDocument = useDocumentPreview();
+  return (
+    <button
+      type="button"
+      onClick={() => openDocument({ url, name, subtitle })}
+      title={name}
+      className={
+        className ??
+        "inline-flex items-center gap-1 font-medium text-blue-700 hover:underline"
+      }
+    >
+      <FileText className="size-3" aria-hidden="true" />
+      {label}
+    </button>
   );
 }

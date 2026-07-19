@@ -122,4 +122,8 @@ class LoansRepositoryImpl implements LoansRepository {
             loanId: loanId,
             comptant: comptant,
           ),);
+
+  @override
+  Future<LoanRenewalEntity> payRenewalInterestFromSavings(int renewalId) =>
+      _run(() => _remote.payRenewalInterestFromSavings(renewalId));
 }

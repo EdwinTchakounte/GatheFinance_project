@@ -332,6 +332,11 @@ class ClassicSavingsTransaction(TimestampedModel):
             "frais_demande_credit",
             "Frais d'étude crédit prélevés sur l'épargne (2026)",
         )
+        # Intérêts de reconduction réglés « au comptant » par prélèvement.
+        INTERETS_RECONDUCTION = (
+            "interets_reconduction",
+            "Intérêts de reconduction prélevés sur l'épargne",
+        )
         # LOT 13 (refonte 2026) — Saisie sur épargne classique (R1 étendue).
         RETRAIT_FORCE = (
             "retrait_force",

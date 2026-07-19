@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 
 import { Container } from "@gathe/ui";
 
-import { portalApi, type ApiError, type Loan } from "@/lib/api";
+import {
+  portalApi,
+  type ApiError,
+  type Loan,
+  type LoanRenewal,
+} from "@/lib/api";
 import { renewalInterest, RENEWAL_EXTRA_MONTHS } from "@/lib/loan-terms";
 
 
@@ -20,6 +25,30 @@ export default function ReconductionPage() {
   const [modalite, setModalite] = useState<"comptant" | "reporte">("comptant");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Reconduction créée → étape « régler les intérêts » (ou plus tard).
+  const [created, setCreated] = useState<LoanRenewal | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+  const [paid, setPaid] = useState(false);
+
+  async function payFromSavings() {
+    if (!created) return;
+    setPaying(true);
+    setPayError(null);
+    try {
+      await portalApi.loans.payRenewalInterestFromSavings(created.id);
+      setPaid(true);
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setPayError(
+        apiErr.detail ??
+          "Prélèvement impossible. Tu peux régler en agence ou par mobile money.",
+      );
+    } finally {
+      setPaying(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -51,12 +80,11 @@ export default function ReconductionPage() {
       const res = await portalApi.loans.requestRenewal(loanId, {
         interets_au_comptant: modalite === "comptant",
       });
-      const paymentId = res.renewal.frais_reconduction_payment_id;
-      if (paymentId) {
-        router.push(`/epargne/depot?context=credit-fees&payment_id=${paymentId}`);
-      } else {
-        router.push("/credit");
-      }
+      // Les intérêts sont réglables tout de suite ou plus tard : on présente
+      // le choix au lieu de renvoyer sur /credit sans rien proposer (l'ancien
+      // branchement dépendait d'un `frais_reconduction_payment_id` que le
+      // backend ne renseignait jamais → étape de paiement inatteignable).
+      setCreated(res.renewal);
     } catch (err) {
       const apiErr = err as ApiError;
       setSubmitError(apiErr.detail ?? "Échec de la demande de reconduction.");
@@ -93,13 +121,63 @@ export default function ReconductionPage() {
             Demander une reconduction.
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-ink-600">
-            Art. 10/11 du Règlement Intérieur — la reconduction prolonge ton
-            crédit d'un mois sans frais. Tu choisis le mode de paiement des
-            intérêts (10 % comptant, 15 % reporté).
+            La reconduction prolonge ton crédit d&apos;un mois. Tu règles les
+            intérêts quand tu veux : tout de suite, ou plus tard — dans ce cas
+            ils sont reportés sur ton nouvel échéancier.
           </p>
         </header>
 
-        {loading ? (
+        {created ? (
+          <section className="rounded-xl border border-line-200 bg-paper p-6">
+            <h2 className="font-editorial text-xl text-ink-900">
+              Demande enregistrée.
+            </h2>
+            <p className="mt-2 text-sm text-ink-600">
+              Elle part en validation du comité. Il reste{" "}
+              <strong className="text-ink-900">
+                {Number(created.reste_a_payer).toLocaleString("fr-FR")} FCFA
+              </strong>{" "}
+              d&apos;intérêts sur ce crédit.
+            </p>
+
+            {paid ? (
+              <p className="mt-4 rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-800">
+                Intérêts réglés — prélevés sur ton épargne classique. Rien
+                d&apos;autre à faire.
+              </p>
+            ) : (
+              <>
+                {payError ? (
+                  <p className="mt-4 rounded-lg border border-terra-400/40 bg-terra-50/60 p-4 text-sm text-terra-700">
+                    {payError}
+                  </p>
+                ) : null}
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={payFromSavings}
+                    disabled={paying || Number(created.reste_a_payer) <= 0}
+                    className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:opacity-50"
+                  >
+                    {paying ? "Prélèvement…" : "Régler sur mon épargne"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/credit")}
+                    className="rounded-lg border border-line-200 bg-paper px-5 py-2.5 text-sm font-medium text-ink-700 transition hover:border-blue-700 hover:text-blue-700"
+                  >
+                    Plus tard
+                  </button>
+                </div>
+                <p className="mt-3 text-xs text-ink-500">
+                  « Plus tard » ne bloque rien : les intérêts non versés sont
+                  simplement reportés sur le nouvel échéancier. Tu peux aussi
+                  régler en agence ou par mobile money.
+                </p>
+              </>
+            )}
+          </section>
+        ) : loading ? (
           <p className="text-sm text-ink-600">Chargement…</p>
         ) : error ? (
           <p className="rounded-lg border border-terra-400/40 bg-terra-50/60 p-4 text-sm text-terra-700">{error}</p>

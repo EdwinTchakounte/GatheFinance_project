@@ -102,6 +102,32 @@ class AvalisteMandat {
   bool get isPending => statut == AvalisteStatut.pending;
   bool get isAccepted => statut == AvalisteStatut.accepted;
   bool get isRefused => statut == AvalisteStatut.refused;
+
+  /// Empreinte utilisée par `PollableNotifier` pour dédoublonner les
+  /// rafraîchissements. SANS elle, le hash retombe sur `toString()`
+  /// (« Instance of AvalisteMandat »), identique d'un poll à l'autre : un
+  /// nouveau mandat ou un changement de statut n'était jamais poussé à
+  /// l'écran de l'avaliste.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'statut': statut.name,
+        'statut_display': statutDisplay,
+        'responded_at': respondedAt?.toIso8601String(),
+        'refus_motif': refusMotif,
+        'created_at': createdAt.toIso8601String(),
+        'demandeur_id': demandeur.id,
+        'demandeur': demandeur.fullName,
+        'loan_request_id': loanRequest.id,
+        'loan_request_statut': loanRequest.statut,
+        'montant_demande': montantDemande,
+        'montant_gele': montantGele,
+        'ratio': couverture.ratio,
+        'cni_demandeur': cniDemandeur,
+        'cni_avaliste': cniAvaliste,
+        'cni_avaliste_fichier': cniAvalisteFichier,
+      };
+
+  num get montantDemande => loanRequest.montantDemande;
 }
 
 /// Résultat de [list] côté backend — porte aussi le compteur pending pour
@@ -111,4 +137,11 @@ class AvalisteMandatList {
   const AvalisteMandatList({required this.items, required this.pendingCount});
   final List<AvalisteMandat> items;
   final int pendingCount;
+
+  /// Voir `AvalisteMandat.toJson` — c'est cette empreinte que le poller
+  /// compare pour décider s'il pousse une mise à jour.
+  Map<String, dynamic> toJson() => {
+        'pending_count': pendingCount,
+        'items': items.map((m) => m.toJson()).toList(),
+      };
 }

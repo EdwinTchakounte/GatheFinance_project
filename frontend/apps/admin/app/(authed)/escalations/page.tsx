@@ -20,6 +20,7 @@ import {
   adminApi,
   type ApiError,
   type JudicialBien,
+  type EscalationCandidate,
   type JudicialEscalationRow,
   type JudicialStatut,
 } from "@/lib/api";
@@ -81,6 +82,17 @@ function Inner() {
     tone: "ok" | "err";
     text: string;
   } | null>(null);
+  const [candidates, setCandidates] = useState<EscalationCandidate[]>([]);
+  const [openModal, setOpenModal] = useState(false);
+
+  async function loadCandidates() {
+    try {
+      const res = await adminApi.escalations.candidates();
+      setCandidates(res.results);
+    } catch {
+      setCandidates([]);
+    }
+  }
 
   async function reload() {
     setLoading(true);
@@ -101,6 +113,10 @@ function Inner() {
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [filter]);
 
+  useEffect(() => {
+    loadCandidates();
+  }, []);
+
   return (
     <section className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -114,13 +130,28 @@ function Inner() {
             déjà tentée et un reliquat &gt; 0.
           </p>
         </div>
-        <ExportMenu
-          filenamePrefix="escalades-judiciaires"
-          title="Escalades judiciaires — GATHE Finance"
-          subtitle={`Filtre : ${filter}`}
-          columns={escalationsExportColumns}
-          rows={items}
-        />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOpenModal(true)}
+            className={buttonClasses({ variant: "primary", size: "sm" })}
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            Ouvrir une escalade
+            {candidates.length > 0 ? (
+              <span className="ml-1 rounded-full bg-white/20 px-1.5 text-[0.7rem]">
+                {candidates.length}
+              </span>
+            ) : null}
+          </button>
+          <ExportMenu
+            filenamePrefix="escalades-judiciaires"
+            title="Escalades judiciaires — GATHE Finance"
+            subtitle={`Filtre : ${filter}`}
+            columns={escalationsExportColumns}
+            rows={items}
+          />
+        </div>
       </header>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -167,9 +198,16 @@ function Inner() {
           </p>
         )}
         {!loading && items.length === 0 && (
-          <p className="px-6 py-12 text-center text-sm text-ink-500">
-            Aucune escalade pour ce filtre.
-          </p>
+          <div className="px-6 py-12 text-center">
+            <p className="text-sm text-ink-500">Aucune escalade pour ce filtre.</p>
+            {/* Une page vide sans explication laisse croire à une panne : on
+                indique donc s'il y a matière à en ouvrir une, ou pourquoi non. */}
+            <p className="mx-auto mt-2 max-w-lg text-xs text-ink-400">
+              {candidates.length > 0
+                ? `${candidates.length} crédit${candidates.length > 1 ? "s" : ""} en attente d'une décision d'escalade — utilise « Ouvrir une escalade ».`
+                : "Aucun crédit n'est éligible : une escalade suppose une saisie sur épargne déjà tentée et un reliquat restant dû."}
+            </p>
+          </div>
         )}
         {!loading && items.length > 0 && (
           <ul className="divide-y divide-line-200">
@@ -195,7 +233,128 @@ function Inner() {
           onError={(text) => setMessage({ tone: "err", text })}
         />
       )}
+
+      {openModal && (
+        <OpenEscalationModal
+          candidates={candidates}
+          onClose={() => setOpenModal(false)}
+          onDone={(text) => {
+            setOpenModal(false);
+            setMessage({ tone: "ok", text });
+            reload();
+            loadCandidates();
+          }}
+          onError={(text) => setMessage({ tone: "err", text })}
+        />
+      )}
     </section>
+  );
+}
+
+
+/**
+ * Ouverture manuelle d'une escalade.
+ *
+ * L'endpoint existait déjà côté serveur mais aucune vue ne l'appelait : en
+ * mode `manual` (le défaut), plus rien ne pouvait donc alimenter cette page.
+ * On liste ici les seuls crédits que le service acceptera — saisie sur
+ * épargne tentée, reliquat > 0, pas d'escalade en cours — pour éviter un
+ * refus après coup.
+ */
+function OpenEscalationModal({
+  candidates,
+  onClose,
+  onDone,
+  onError,
+}: {
+  candidates: EscalationCandidate[];
+  onClose: () => void;
+  onDone: (text: string) => void;
+  onError: (text: string) => void;
+}) {
+  const [loanId, setLoanId] = useState<number | null>(
+    candidates[0]?.loan_id ?? null,
+  );
+  const [motif, setMotif] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const selected = candidates.find((c) => c.loan_id === loanId) ?? null;
+
+  async function submit() {
+    if (!loanId || !motif.trim()) return;
+    setBusy(true);
+    try {
+      await adminApi.escalations.open(loanId, { motif: motif.trim() });
+      onDone(
+        `Escalade ouverte sur ${selected?.numero_dossier ?? `le crédit #${loanId}`}.`,
+      );
+    } catch (err) {
+      onError((err as ApiError).detail ?? "Ouverture impossible.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Ouvrir une escalade judiciaire">
+      {candidates.length === 0 ? (
+        <p className="text-sm text-ink-600">
+          Aucun crédit éligible. Une escalade suppose qu&apos;une saisie sur
+          épargne a déjà été tentée et qu&apos;il reste un solde dû.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-700">
+              Crédit concerné
+            </label>
+            <select
+              value={loanId ?? ""}
+              onChange={(e) => setLoanId(Number(e.target.value))}
+              className="w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-sm"
+            >
+              {candidates.map((c) => (
+                <option key={c.loan_id} value={c.loan_id}>
+                  {c.numero_dossier} · {c.member_nom} ({c.member_numero}) ·
+                  reliquat {Number(c.solde_restant).toLocaleString("fr-FR")} XAF
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-700">
+              Motif *
+            </label>
+            <textarea
+              value={motif}
+              onChange={(e) => setMotif(e.target.value)}
+              rows={3}
+              placeholder="Reliquat impayé après saisie sur épargne…"
+              className="w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className={buttonClasses({ variant: "ghost", size: "sm" })}
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={busy || !loanId || !motif.trim()}
+              className={buttonClasses({ variant: "primary", size: "sm" })}
+            >
+              {busy ? "Ouverture…" : "Ouvrir l'escalade"}
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 

@@ -93,4 +93,9 @@ abstract class LoansRepository {
     required int loanId,
     required bool comptant,
   });
+
+  /// Règle les intérêts de reconduction par prélèvement sur l'épargne
+  /// classique retirable. Lève `BusinessFailure` si l'épargne disponible ne
+  /// suffit pas (le placement et l'épargne gelée en garantie sont exclus).
+  Future<LoanRenewalEntity> payRenewalInterestFromSavings(int renewalId);
 }

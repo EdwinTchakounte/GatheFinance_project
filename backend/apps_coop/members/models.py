@@ -545,6 +545,25 @@ class BRCDocument(TimestampedModel):
         help_text="Date de la décision admin (validation ou rejet).",
     )
 
+    # Provenance — un justificatif BRC peut arriver par deux chemins :
+    #   * dépôt direct depuis l'espace membre (`POST /members/me/brc/`)
+    #     → les deux champs restent vides ;
+    #   * pièce jointe d'une demande de crédit (champs `cga_brc_preuve` /
+    #     `cfp_brc_preuve` du formulaire) → on trace la demande et le champ
+    #     source pour que l'admin sache d'où vient le document.
+    # Id « nu » (pas de FK) pour ne pas créer de dépendance members → loans.
+    loan_request_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Demande de crédit d'où provient le justificatif, si applicable.",
+    )
+    champ_source = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Id du champ FormSchema source (ex. cga_brc_preuve).",
+    )
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Justificatif BRC"

@@ -507,3 +507,79 @@ class TestClasser:
             format="json",
         )
         assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Candidats à l'escalade — la porte d'entrée qui manquait
+# ---------------------------------------------------------------------------
+
+
+class TestEscalationCandidates:
+    """En mode `manual` (le défaut), aucune escalade ne naît toute seule : le
+    cron d'auto-escalade est désactivé. L'admin doit donc pouvoir en ouvrir
+    une — encore faut-il qu'il sache SUR QUEL crédit. Sans cette liste, la
+    page Escalades restait vide sans explication.
+    """
+
+    def test_liste_les_credits_eligibles(self, staff_client):
+        loan = _build_loan_with_pursuit()
+
+        r = staff_client.get("/api/v1/loans/admin/escalations/candidates/")
+        assert r.status_code == 200, r.content
+        body = r.json()
+
+        assert body["count"] == 1
+        row = body["results"][0]
+        assert row["loan_id"] == loan.id
+        assert row["numero_dossier"] == loan.numero_dossier
+        assert row["solde_restant"] == "50000.00"
+        assert row["poursuite_judiciaire_at"] is not None
+
+    def test_exclut_les_credits_sans_saisie_epargne(self, staff_client):
+        """`poursuite_judiciaire_at` NULL → le service refuserait l'ouverture."""
+        loan = _build_loan_with_pursuit()
+        Loan.objects.filter(pk=loan.pk).update(poursuite_judiciaire_at=None)
+
+        r = staff_client.get("/api/v1/loans/admin/escalations/candidates/")
+        assert r.json()["count"] == 0
+
+    def test_exclut_les_credits_soldes(self, staff_client):
+        loan = _build_loan_with_pursuit()
+        Loan.objects.filter(pk=loan.pk).update(solde_restant=Decimal("0"))
+
+        r = staff_client.get("/api/v1/loans/admin/escalations/candidates/")
+        assert r.json()["count"] == 0
+
+    def test_exclut_ceux_qui_ont_deja_une_escalade(self, staff_client, admin_client):
+        loan = _build_loan_with_pursuit()
+        admin_client.post(
+            f"/api/v1/loans/admin/loans/{loan.id}/escalation/",
+            {"motif": "Reliquat impayé."},
+            format="json",
+        )
+
+        r = staff_client.get("/api/v1/loans/admin/escalations/candidates/")
+        assert r.json()["count"] == 0
+
+    def test_ouverture_puis_apparition_dans_la_liste(self, staff_client, admin_client):
+        """Bout en bout : c'est ce parcours qui était impossible côté admin."""
+        loan = _build_loan_with_pursuit()
+
+        # La page est vide au départ — d'où le symptôme constaté.
+        assert staff_client.get(
+            "/api/v1/loans/admin/escalations/?open=true"
+        ).json()["count"] == 0
+
+        r = admin_client.post(
+            f"/api/v1/loans/admin/loans/{loan.id}/escalation/",
+            {"motif": "Reliquat après saisie épargne."},
+            format="json",
+        )
+        assert r.status_code == 201, r.content
+
+        listing = staff_client.get(
+            "/api/v1/loans/admin/escalations/?open=true"
+        ).json()
+        assert listing["count"] == 1
+        assert listing["results"][0]["loan_numero_dossier"] == loan.numero_dossier
+        assert listing["results"][0]["statut"] == JudicialEscalation.Statut.EN_INSTANCE

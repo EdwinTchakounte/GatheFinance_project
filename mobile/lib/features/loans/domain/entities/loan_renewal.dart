@@ -21,6 +21,8 @@ class LoanRenewalEntity {
     required this.statut,
     required this.dateDemande,
     this.dateDecision,
+    this.resteAPayer = 0,
+    this.interetsPayes = false,
   });
 
   final int id;
@@ -38,6 +40,14 @@ class LoanRenewalEntity {
   final LoanRenewalStatus statut;
   final DateTime dateDemande;
   final DateTime? dateDecision;
+
+  /// Intérêts restant à verser. Réglables avant OU après la décision du
+  /// comité : tant qu'ils ne le sont pas, ils sont reportés sur le nouvel
+  /// échéancier.
+  final num resteAPayer;
+
+  /// Les intérêts ont-ils été encaissés ?
+  final bool interetsPayes;
 
   /// Prorogation accordée (Article 10) — toujours +1 mois.
   int get prorogationMois => kRenewalExtraMonths;

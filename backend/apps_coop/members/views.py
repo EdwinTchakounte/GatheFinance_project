@@ -695,6 +695,16 @@ def admin_dashboard_kpis(request):
     loans_pending = LoanRequest.objects.filter(
         statut=LoanRequest.Statut.EN_INSTRUCTION
     ).count()
+    # Badge « Demandes de crédit » du sidebar : tout ce qui attend une action
+    # admin sur cet onglet, pas seulement l'instruction — sinon le compteur
+    # affiche 1 alors que plusieurs demandes dorment en attente de frais.
+    loans_a_traiter = LoanRequest.objects.filter(
+        statut__in=[
+            LoanRequest.Statut.EN_ATTENTE,
+            LoanRequest.Statut.EN_INSTRUCTION,
+            LoanRequest.Statut.APPROUVEE_PROVISOIRE,
+        ]
+    ).count()
     avaliste_pending = AvalisteConsent.objects.filter(
         statut=AvalisteConsent.Statut.PENDING
     ).count()
@@ -797,6 +807,7 @@ def admin_dashboard_kpis(request):
             "queues": {
                 "adhesions_en_attente": pending_adhesions,
                 "credits_en_instruction": loans_pending,
+                "credits_a_traiter": loans_a_traiter,
                 "avaliste_pending": avaliste_pending,
                 "campaign_validation_pending": campaign_validation_pending,
             },
@@ -1117,7 +1128,11 @@ def admin_member_adhesion(request, pk: int):
         if not f:
             return None
         try:
-            return request.build_absolute_uri(f.url)
+            # URL **relative** (`/media/...`) : le dashboard admin proxifie
+            # /media/* vers le backend interne. `build_absolute_uri` y
+            # embarquerait l'host Docker (`gathe-backend:8000`), non résoluble
+            # par le navigateur → aperçu cassé (même raison que pour le BRC).
+            return f.url
         except Exception:  # noqa: BLE001 - storage absent en dev
             return None
 
