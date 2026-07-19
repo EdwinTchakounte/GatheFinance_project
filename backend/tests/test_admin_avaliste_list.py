@@ -234,3 +234,75 @@ def test_refus_de_l_avaliste_rejette_automatiquement_la_demande(
     assert consent.statut == AvalisteConsent.Statut.REFUSED
     assert lr.statut == LoanRequest.Statut.REJETEE_AVALISTE
     assert lr.motif_rejet == "Je ne peux pas."
+
+
+# ---------------------------------------------------------------------------
+# Bout en bout — le mandat arrive chez l'avaliste et il peut répondre
+# ---------------------------------------------------------------------------
+
+
+class TestMandatCoteAvaliste:
+    """Ce que voit l'avaliste dans SON espace (mobile + portail partagent
+    ces endpoints : `/loans/me/avaliste-mandats/`)."""
+
+    def test_le_mandat_apparait_chez_l_avaliste(self, active_member):
+        avaliste = MemberFactory(nom="ESSOMBA")
+        _consent(active_member, avaliste)
+
+        client = APIClient()
+        client.force_authenticate(avaliste.user)
+        r = client.get("/api/v1/loans/me/avaliste-mandats/")
+        assert r.status_code == 200, r.content
+        body = r.json()
+
+        assert body["pending"] == 1
+        row = body["results"][0]
+        assert row["statut"] == "pending"
+        # L'avaliste doit savoir QUI demande et COMBIEN il engage.
+        assert row["demandeur"]["numero_membre"] == active_member.numero_membre
+        assert Decimal(row["montant_gele"]) == Decimal("100000")
+
+    def test_l_avaliste_peut_refuser_et_la_demande_est_rejetee(self, active_member):
+        avaliste = MemberFactory(nom="BIYA")
+        consent = _consent(active_member, avaliste)
+
+        client = APIClient()
+        client.force_authenticate(avaliste.user)
+        r = client.post(
+            f"/api/v1/loans/me/avaliste-mandats/{consent.id}/respond/",
+            {"accept": False, "motif": "Épargne déjà engagée."},
+            format="json",
+        )
+        assert r.status_code == 200, r.content
+        assert r.json()["statut"] == "refused"
+
+        lr = consent.loan_request
+        lr.refresh_from_db()
+        # Le refus de l'avaliste clôt automatiquement la demande de crédit.
+        assert lr.statut == LoanRequest.Statut.REJETEE_AVALISTE
+        assert lr.motif_rejet == "Épargne déjà engagée."
+
+    def test_un_tiers_ne_voit_pas_le_mandat(self, active_member):
+        avaliste = MemberFactory(nom="MENGUE")
+        _consent(active_member, avaliste)
+        curieux = MemberFactory()
+
+        client = APIClient()
+        client.force_authenticate(curieux.user)
+        r = client.get("/api/v1/loans/me/avaliste-mandats/")
+        assert r.status_code == 200
+        assert r.json()["results"] == []
+
+    def test_acceptation_exige_la_cni_de_l_avaliste(self, active_member):
+        avaliste = MemberFactory(nom="AMOUGOU")
+        consent = _consent(active_member, avaliste)
+
+        client = APIClient()
+        client.force_authenticate(avaliste.user)
+        r = client.post(
+            f"/api/v1/loans/me/avaliste-mandats/{consent.id}/respond/",
+            {"accept": True},
+            format="multipart",
+        )
+        assert r.status_code == 400
+        assert "CNI" in r.json()["detail"]
