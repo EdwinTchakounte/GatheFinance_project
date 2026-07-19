@@ -6,7 +6,7 @@ nouveau retirable). Les tranches ENGAGEE/GELEE ne sont pas touchées.
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 import pytest
@@ -34,14 +34,29 @@ def _rate(v: str = "0.01"):
     )
 
 
-def _tranche(member, montant, *, statut=LenderTranche.Statut.DISPONIBLE, age_days=60):
+# Date de traitement FIXE — le prorata prod = (today − created_at.date()).days.
+# On fige `today` ET `created_at` à des dates ABSOLUES (midi, pour éviter tout
+# effet de bord minuit/fuseau) afin que le nombre de jours soit exactement
+# `age_days`, quel que soit l'instant réel d'exécution de la CI.
+_REF_DAY = date(2026, 6, 1)
+
+
+def _tranche(
+    member,
+    montant,
+    *,
+    statut=LenderTranche.Statut.DISPONIBLE,
+    age_days=60,
+    today=_REF_DAY,
+):
     tr = LenderTranche.objects.create(
         member=member, montant=Decimal(montant), statut=statut
     )
-    # created_at est auto_now_add → on le repousse dans le passé via .update().
-    LenderTranche.objects.filter(pk=tr.pk).update(
-        created_at=timezone.now() - timedelta(days=age_days)
+    # created_at est auto_now_add → on le repousse à une date ABSOLUE (midi).
+    created = timezone.make_aware(
+        datetime.combine(today - timedelta(days=age_days), time(12, 0))
     )
+    LenderTranche.objects.filter(pk=tr.pk).update(created_at=created)
     return LenderTranche.objects.get(pk=tr.pk)
 
 
@@ -58,7 +73,7 @@ class TestProcess:
         acc = _classic(m, "50000")
         _tranche(m, "50000", age_days=60)  # 2 mois
 
-        summary = process_placement_maturity(date.today())
+        summary = process_placement_maturity(_REF_DAY)
 
         assert summary["processed"] == 1
         acc.refresh_from_db()
@@ -80,7 +95,7 @@ class TestProcess:
         _classic(m, "50000")
         _tranche(m, "50000", statut=LenderTranche.Statut.ENGAGEE, age_days=60)
 
-        summary = process_placement_maturity(date.today())
+        summary = process_placement_maturity(_REF_DAY)
         assert summary["processed"] == 0
         tr = LenderTranche.objects.get(member=m)
         assert tr.statut == LenderTranche.Statut.ENGAGEE
@@ -91,7 +106,7 @@ class TestProcess:
         acc = _classic(m, "10000")
         _tranche(m, "10000", age_days=30)  # 1 mois
 
-        process_placement_maturity(date.today())
+        process_placement_maturity(_REF_DAY)
         acc.refresh_from_db()
         # 10 000 × 0.02 × (30/30) = 200
         assert acc.solde == Decimal("10200.00")
