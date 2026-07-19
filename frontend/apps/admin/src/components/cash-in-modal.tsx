@@ -96,12 +96,14 @@ export function CashInModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Frais de crédit : demande(s) en attente du membre sélectionné (le « crédit
-  // demandé » à afficher/confirmer à la sélection).
+  // Sélection du « crédit demandé » : UNIQUEMENT pour les frais d'étude de
+  // dossier (le remboursement, lui, cible le crédit via son propre champ
+  // `loanId`). Le carnet est un frais FIXE indépendant de tout crédit — il ne
+  // doit ni chercher une demande en attente ni afficher « pas de demande de
+  // crédit » (bug signalé sur l'achat de carnet).
   const [pendingRequests, setPendingRequests] = useState<LoanRequest[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
-  const isCreditFee =
-    paymentType === "frais_demande_credit" || paymentType === "frais_carnet";
+  const isCreditFee = paymentType === "frais_demande_credit";
   // Anti double-facturation : si on est sur « frais de demande de crédit » et
   // que la demande en attente a déjà ses frais d'étude réglés (cas campagne :
   // seul le carnet reste dû), on bloque la saisie — sinon on re-facturerait.

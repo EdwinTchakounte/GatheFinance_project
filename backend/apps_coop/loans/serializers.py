@@ -121,6 +121,15 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
     # carnet). "0" sinon. Permet à l'admin d'encaisser étude + carnet à la
     # demande de crédit (2 paiements distincts, même étape).
     carnet_fee_due = serializers.SerializerMethodField()
+    # Voie d'éligibilité empruntée (senior_brc / avaliste / campagne /
+    # garantie_materielle), dérivée de l'état de la demande — pour prévisualiser
+    # « le mode employé » sur chaque crédit (liste + détail admin, mobile).
+    voie = serializers.SerializerMethodField()
+    voie_display = serializers.SerializerMethodField()
+    # Montant que l'AVALISTE doit couvrir sur ce crédit (= le manque : montant −
+    # épargne dispo du demandeur). Exposé au demandeur ET repris côté avaliste
+    # (montant_gele du mandat) pour que les deux connaissent l'engagement.
+    avaliste_montant_a_couvrir = serializers.SerializerMethodField()
 
     class Meta:
         model = LoanRequest
@@ -143,6 +152,10 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "frais_demande_credit_paye",
             "epargne_disponible_frais",
             "carnet_fee_due",
+            # Voie + montant avaliste à couvrir (prévisualisation du mode).
+            "voie",
+            "voie_display",
+            "avaliste_montant_a_couvrir",
             "loan",
             "extra_payload",
             "attachments",
@@ -156,6 +169,61 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "cni_demandeur",
         )
         read_only_fields = fields
+
+    # Libellés lisibles des voies (aligné sur EligibilityRoute).
+    _VOIE_LABELS = {
+        "campagne": "Campagne",
+        "avaliste": "Avaliste",
+        "garantie_materielle": "Garantie matérielle",
+        "senior_brc": "BRC / ancienneté",
+    }
+
+    def _derive_voie(self, obj) -> str:
+        """Voie empruntée, dérivée de l'état de la demande (fiable sans stockage).
+
+        Ordre = signaux les plus spécifiques d'abord : campagne (FK), avaliste
+        (consentement OU désignation OU statut avaliste), garantie matérielle,
+        sinon BRC/ancienneté (voie SENIOR_BRC, incl. auto-couverture épargne).
+        """
+        if getattr(obj, "microcampaign_id", None):
+            return "campagne"
+        statut = getattr(obj, "statut", "")
+        has_consent = hasattr(obj, "avaliste_consent")
+        designe = bool((getattr(obj, "avaliste_numero_saisi", "") or "").strip())
+        if has_consent or designe or statut in (
+            LoanRequest.Statut.EN_ATTENTE_AVALISTE,
+            LoanRequest.Statut.REJETEE_AVALISTE,
+        ):
+            return "avaliste"
+        if getattr(obj, "garantie_materielle", False):
+            return "garantie_materielle"
+        return "senior_brc"
+
+    def get_voie(self, obj):
+        return self._derive_voie(obj)
+
+    def get_voie_display(self, obj):
+        return self._VOIE_LABELS.get(self._derive_voie(obj), "—")
+
+    def get_avaliste_montant_a_couvrir(self, obj):
+        """Montant à couvrir par l'avaliste. Autoritaire depuis le consentement
+        s'il existe (``montant_caution``), sinon projeté = manque = montant −
+        épargne classique dispo du demandeur. "0" si la voie n'est pas avaliste."""
+        from decimal import Decimal
+
+        if self._derive_voie(obj) != "avaliste":
+            return "0"
+        consent = getattr(obj, "avaliste_consent", None)
+        if consent is not None:
+            return str(consent.montant_caution)
+        try:
+            from .avaliste_services import _member_available_savings
+
+            dispo = _member_available_savings(obj.member)
+        except Exception:  # noqa: BLE001
+            dispo = Decimal("0")
+        manque = Decimal(obj.montant_demande) - Decimal(dispo)
+        return str(manque if manque > 0 else Decimal("0"))
 
     def get_frais_etude_montant(self, obj):
         from apps_coop.payments.models import FeeType

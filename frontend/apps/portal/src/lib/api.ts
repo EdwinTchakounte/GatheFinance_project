@@ -329,6 +329,10 @@ export type LoanRequest = {
   // (hors placement et hors épargne gelée en garantie). Sert à savoir si le
   // canal « déduction » — proposé par défaut — est tenable, sans second appel.
   epargne_disponible_frais?: string;
+  // Voie empruntée (prévisualisation du mode) + montant que l'avaliste couvre.
+  voie?: "senior_brc" | "avaliste" | "campagne" | "garantie_materielle";
+  voie_display?: string;
+  avaliste_montant_a_couvrir?: string;
 };
 
 // Refonte 2026 LOT 19 — Espace prêteur (épargne-prêteur).

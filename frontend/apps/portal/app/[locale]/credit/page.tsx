@@ -457,6 +457,20 @@ export default function PortalCreditPage() {
                         {formatDate(r.date_limite_etude)}
                       </p>
                     ) : null}
+                    {/* Voie empruntée (mode employé) + engagement de l'avaliste. */}
+                    {r.voie_display ? (
+                      <span className="mt-2 inline-block rounded-full bg-cream px-2 py-0.5 text-[11px] font-medium text-ink-700">
+                        Voie : {r.voie_display}
+                      </span>
+                    ) : null}
+                    {r.voie === "avaliste" &&
+                    Number(r.avaliste_montant_a_couvrir ?? 0) > 0 ? (
+                      <p className="mt-1.5 text-xs text-ink-600">
+                        Votre avaliste doit couvrir{" "}
+                        <strong>{formatXAF(r.avaliste_montant_a_couvrir!)}</strong>{" "}
+                        sur ce crédit.
+                      </p>
+                    ) : null}
                     </div>
                     <span className={`font-medium ${statutColor(r.statut)}`}>
                       {r.statut_display}
