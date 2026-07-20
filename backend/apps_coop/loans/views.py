@@ -567,7 +567,19 @@ def loan_repay_from_savings(request, pk: int):
 def admin_list_loan_requests(request):
     qs = LoanRequest.objects.order_by("-date_soumission")
     statut = request.query_params.get("statut")
-    if statut:
+    if statut == LoanRequest.Statut.REJETEE:
+        # L'onglet « Rejetées » doit rassembler TOUTES les fins de non-recevoir,
+        # pas seulement le rejet comité. Une demande refusée par l'avaliste
+        # (rejetee_avaliste) ou recalée en campagne (rejetee_campagne) est tout
+        # aussi rejetée — sans ça elle n'apparaissait que sous « Toutes ».
+        qs = qs.filter(
+            statut__in=[
+                LoanRequest.Statut.REJETEE,
+                LoanRequest.Statut.REJETEE_AVALISTE,
+                LoanRequest.Statut.REJETEE_CAMPAGNE,
+            ]
+        )
+    elif statut:
         qs = qs.filter(statut=statut)
     # Filtre membre — utilisé par la saisie de versement (cash-in) pour
     # retrouver la demande de crédit d'un adhérent et encaisser ses frais.

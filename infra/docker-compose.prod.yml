@@ -272,6 +272,57 @@ services:
         condition: service_healthy
     networks: [internal]
 
+  # ---------------------------------------------------------------------------
+  # Monitoring — Beszel (hub + agent)
+  # ---------------------------------------------------------------------------
+  # OPT-IN via `--profile monitoring`. Léger, pensé conteneurs :
+  #   - beszel        : le HUB (dashboard web) servi sur ${MONITOR_DOMAIN}.
+  #   - beszel-agent  : lit l'hôte + TOUS les conteneurs Docker via le socket
+  #                     et expose ses stats au hub sur le réseau `internal`.
+  #
+  # Multi-projets / multi-serveurs : un seul hub, N agents. Sur CE VPS, l'agent
+  # voit déjà tous les conteneurs Docker de la machine (GATHE + autres projets).
+  # Pour un autre serveur, installe un beszel-agent là-bas et ajoute-le dans le
+  # hub avec sa clé publique (menu « Add System »).
+  #
+  # Première mise en route (la clé est générée par le hub) :
+  #   1. docker compose --profile monitoring up -d beszel
+  #   2. Ouvre https://${MONITOR_DOMAIN}, crée le compte admin.
+  #   3. « Add System » → héberge = beszel-agent, port = 45876 → copie la KEY.
+  #   4. Colle-la dans .env.prod (BESZEL_KEY=...), puis :
+  #      docker compose --profile monitoring up -d beszel-agent
+  beszel:
+    image: henrygd/beszel:${BESZEL_IMAGE_TAG:-latest}
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    volumes:
+      - beszel_data:/beszel_data
+    networks: [internal, web]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gathe-monitor.rule=Host(`${MONITOR_DOMAIN}`)"
+      - "traefik.http.routers.gathe-monitor.entrypoints=websecure"
+      - "traefik.http.routers.gathe-monitor.tls=true"
+      - "traefik.http.routers.gathe-monitor.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gathe-monitor.service=gathe-monitor"
+      - "traefik.http.services.gathe-monitor.loadbalancer.server.port=8090"
+
+  beszel-agent:
+    image: henrygd/beszel-agent:${BESZEL_IMAGE_TAG:-latest}
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    environment:
+      # Le hub se connecte à l'agent sur ce port (réseau `internal`).
+      LISTEN: 45876
+      # Clé publique du hub (récupérée à l'étape « Add System »). Tant qu'elle
+      # est vide, l'agent tourne mais refuse toute connexion — c'est normal
+      # avant la première configuration.
+      KEY: ${BESZEL_KEY:-}
+    volumes:
+      # Lecture seule : stats CPU/RAM/réseau/disque par conteneur.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [internal]
+
 
 networks:
   # `internal` : isolé, accessible uniquement entre conteneurs
@@ -287,3 +338,4 @@ volumes:
   backend_static:
   letsencrypt:
   backups:
+  beszel_data:

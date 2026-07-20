@@ -22,6 +22,15 @@ class AppDateFormatter {
       DateFormat('dd MMM', _locale).format(date);
   static String long(DateTime date) =>
       DateFormat('d MMMM yyyy', _locale).format(date);
+
+  /// Horodatage complet — date + heure:minute:seconde. Utilisé pour les
+  /// évènements/transactions où la seconde compte (versements, messages,
+  /// mouvements d'épargne). Les dates « calendaires » (échéances, adhésion)
+  /// gardent [short]/[long] sans heure.
   static String withTime(DateTime date) =>
-      DateFormat('dd MMM · HH:mm', _locale).format(date);
+      DateFormat('dd MMM · HH:mm:ss', _locale).format(date);
+
+  /// Variante longue avec seconde (reçus, justificatifs imprimables).
+  static String longWithTime(DateTime date) =>
+      DateFormat('d MMMM yyyy · HH:mm:ss', _locale).format(date);
 }

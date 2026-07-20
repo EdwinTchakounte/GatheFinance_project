@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 import { CommandPalette } from "@/components/command-palette";
@@ -38,11 +38,40 @@ export default function AuthedLayout({
   const [loading, setLoading] = useState(true);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Repli du sidebar sur DESKTOP (rail d'icônes). Mémorisé entre les visites
+  // pour respecter le choix de place de l'utilisateur sur petit écran de PC.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Ferme le drawer mobile à chaque navigation (le contenu change).
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
+
+  // Restaure l'état de repli au montage (localStorage).
+  useEffect(() => {
+    try {
+      setSidebarCollapsed(
+        localStorage.getItem("gathe.admin.sidebarCollapsed") === "1",
+      );
+    } catch {
+      /* localStorage indisponible (SSR/private) — on garde le défaut déplié. */
+    }
+  }, []);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem(
+          "gathe.admin.sidebarCollapsed",
+          next ? "1" : "0",
+        );
+      } catch {
+        /* best-effort */
+      }
+      return next;
+    });
+  }, []);
 
   // Raccourci global Cmd+K / Ctrl+K — toujours actif tant que le layout est monté.
   useEffect(() => {
@@ -142,6 +171,8 @@ export default function AuthedLayout({
         identity={identity}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapsed}
         queues={
           kpis
             ? {
