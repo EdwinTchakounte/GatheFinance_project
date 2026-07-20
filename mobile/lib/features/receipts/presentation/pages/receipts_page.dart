@@ -308,7 +308,7 @@ RecuData _buildRecuData(
   Member? member,
   Map<String, double> rates,
 ) {
-  final dfLong = DateFormat('dd/MM/yyyy à HH:mm', 'fr_FR');
+  final dfLong = DateFormat('dd/MM/yyyy à HH:mm:ss', 'fr_FR');
   final statusLabel = switch (r.statut) {
     'valide' => 'Validé',
     'rejete' => 'Rejeté',

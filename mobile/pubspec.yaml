@@ -112,7 +112,6 @@ flutter:
   generate: true
   assets:
     - assets/images/
-    - assets/icons/
     - assets/illustrations/
 
   # Polices bundlées (offline) — variables fonts, le poids est piloté via

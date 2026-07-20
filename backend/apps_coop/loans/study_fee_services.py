@@ -173,6 +173,40 @@ def open_instruction_after_fees(loan_request: LoanRequest) -> LoanRequest:
         )
         return loan_request
 
+    # Un avaliste a-t-il DÉJÀ été sollicité pour cette demande ? (ordre
+    # « avaliste d'abord » : l'admin sollicite, l'avaliste accepte, PUIS le
+    # membre paie les frais.) Dans ce cas on ne re-sollicite surtout pas —
+    # ``request_avaliste_consent`` lèverait « consentement déjà existant », et
+    # l'exception avalée laissait la demande coincée en EN_ATTENTE (« frais à
+    # percevoir ») malgré des frais bel et bien encaissés. On se contente de
+    # faire avancer le statut selon l'état du consentement.
+    from .models import AvalisteConsent
+
+    existing_consent = getattr(loan_request, "avaliste_consent", None)
+    if existing_consent is not None:
+        if existing_consent.statut == AvalisteConsent.Statut.ACCEPTED:
+            # Avaliste OK + frais payés → l'instruction peut s'ouvrir.
+            loan_request.statut = LoanRequest.Statut.EN_INSTRUCTION
+        elif existing_consent.statut == AvalisteConsent.Statut.REFUSED:
+            # Refus déjà acté (rare : frais payés après un refus).
+            loan_request.statut = LoanRequest.Statut.REJETEE_AVALISTE
+        else:
+            # Toujours en attente de la réponse de l'avaliste.
+            loan_request.statut = LoanRequest.Statut.EN_ATTENTE_AVALISTE
+        loan_request.save(
+            update_fields=["frais_demande_credit_paye", "statut", "updated_at"]
+        )
+        record_audit(
+            action="loan_request.fees_paid_avaliste_already_solicited",
+            entite_type="LoanRequest",
+            entite_id=loan_request.id,
+            details={
+                "consent_statut": existing_consent.statut,
+                "nouveau_statut": loan_request.statut,
+            },
+        )
+        return loan_request
+
     numero = (loan_request.avaliste_numero_saisi or "").strip()
     nom = (loan_request.avaliste_nom_saisi or "").strip()
 

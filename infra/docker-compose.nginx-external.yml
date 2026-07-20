@@ -71,6 +71,15 @@ services:
     environment:
       BACKEND_INTERNAL_URL: "http://gathe-backend:8000"
 
+  # Monitoring Beszel (profil `monitoring`) — alias unique attendu par ton nginx
+  # (proxy_pass http://gathe-beszel:8090, cf. nginx.gathe-finance.container.conf).
+  # PAS de Traefik ici : c'est ton nginx qui expose le sous-domaine monitor.*.
+  beszel:
+    networks:
+      internal:
+      shared:
+        aliases: [gathe-beszel]
+
 networks:
   # Réseau Docker de ton nginx (déjà existant, déclaré external).
   shared:

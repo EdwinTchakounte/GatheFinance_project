@@ -738,7 +738,14 @@ def status_after_prevoie(loan_request) -> str:
     """Statut d'une demande APRÈS la pré-étape d'une voie (avaliste accepté /
     campagne validée). On passe par la porte « frais d'étude » (EN_ATTENTE) si
     des frais sont dus, sinon directement en instruction. Ainsi TOUTES les voies
-    réclament les frais d'étude au même endroit (statut en_attente = à payer)."""
+    réclament les frais d'étude au même endroit (statut en_attente = à payer).
+
+    Frais déjà réglés → EN_INSTRUCTION direct. Sans ce garde-fou, l'ordre
+    « frais d'abord, avaliste ensuite » renvoyait la demande en EN_ATTENTE
+    (« frais à percevoir ») alors même que ``frais_demande_credit_paye`` est
+    vrai — elle restait bloquée à réclamer des frais déjà encaissés."""
+    if getattr(loan_request, "frais_demande_credit_paye", False):
+        return LoanRequest.Statut.EN_INSTRUCTION
     return (
         LoanRequest.Statut.EN_ATTENTE
         if study_fee_for(getattr(loan_request, "microcampaign", None)) > 0

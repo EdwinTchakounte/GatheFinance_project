@@ -31,6 +31,8 @@ import {
   Coins,
   ShieldCheck,
   Handshake,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
@@ -139,6 +141,8 @@ export function Sidebar({
   queues,
   open = false,
   onClose,
+  collapsed = false,
+  onToggleCollapse,
 }: {
   identity: Identity | null;
   queues?: {
@@ -152,6 +156,13 @@ export function Sidebar({
   /** Ouvert en drawer sur mobile (ignoré sur ≥ lg où la barre est statique). */
   open?: boolean;
   onClose?: () => void;
+  /**
+   * Replié en rail d'icônes sur DESKTOP (≥ lg) uniquement. Sur mobile la barre
+   * reste un drawer plein — le repli n'a de sens que quand elle est statique.
+   * Toutes les bascules de repli passent donc par des variantes `lg:`.
+   */
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -184,29 +195,90 @@ export function Sidebar({
       <aside
         className={[
           "fixed inset-y-0 left-0 z-40 flex w-[17rem] shrink-0 flex-col border-r border-line-100 bg-paper",
-          "transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          "lg:static lg:z-auto lg:w-64 lg:translate-x-0",
+          "transition-[transform,width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          "lg:static lg:z-auto lg:translate-x-0",
+          collapsed ? "lg:w-[4.75rem]" : "lg:w-64",
           open ? "translate-x-0 shadow-xl" : "-translate-x-full lg:shadow-none",
         ].join(" ")}
       >
-        {/* Header — logo officiel + libellé back-office */}
-        <div className="px-5 py-5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/images/logo.png"
-            alt="GATHE Finance"
-            className="h-8 w-auto"
-          />
-          <p className="mt-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-terra-600">
+        {/* Header — logo officiel (stacké) + bouton de repli à droite */}
+        <div
+          className={[
+            "py-5",
+            collapsed ? "px-5 lg:px-2" : "px-5",
+          ].join(" ")}
+        >
+          <div
+            className={[
+              "flex items-center gap-2",
+              collapsed ? "lg:justify-center" : "",
+            ].join(" ")}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/logo.png"
+              alt="GATHE Finance"
+              className={["h-8 w-auto", collapsed ? "lg:hidden" : ""].join(" ")}
+            />
+            {/* Marque compacte (« G ») — visible seulement en rail replié. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/mark.png"
+              alt="GATHE Finance"
+              className={[
+                "size-8 rounded-md",
+                collapsed ? "hidden lg:block" : "hidden",
+              ].join(" ")}
+            />
+            {/* Bascule de repli — DESKTOP uniquement (drawer sur mobile). */}
+            {onToggleCollapse ? (
+              <button
+                type="button"
+                onClick={onToggleCollapse}
+                aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+                title={collapsed ? "Déplier le menu" : "Replier le menu"}
+                className={[
+                  "ml-auto hidden shrink-0 place-items-center rounded-md p-1.5 text-ink-400 transition-colors hover:bg-cream hover:text-ink-700 lg:grid",
+                  collapsed ? "lg:hidden" : "",
+                ].join(" ")}
+              >
+                <PanelLeftClose className="size-4" aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
+          <p
+            className={[
+              "mt-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-terra-600",
+              collapsed ? "lg:hidden" : "",
+            ].join(" ")}
+          >
             Administration
           </p>
         </div>
+
+        {/* En rail replié : un bouton « déplier » sous la marque. */}
+        {onToggleCollapse && collapsed ? (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-label="Déplier le menu"
+            title="Déplier le menu"
+            className="mx-2 mb-1 hidden place-items-center rounded-md p-1.5 text-ink-400 transition-colors hover:bg-cream hover:text-ink-700 lg:grid"
+          >
+            <PanelLeftOpen className="size-4" aria-hidden="true" />
+          </button>
+        ) : null}
 
         {/* Nav — sections thématiques */}
         <nav className="flex-1 overflow-y-auto px-3 pb-4">
           {sections.map((section) => (
             <div key={section.title} className="mb-4">
-              <p className="px-3 pb-1.5 pt-2 text-[0.64rem] font-semibold uppercase tracking-[0.14em] text-ink-400">
+              <p
+                className={[
+                  "px-3 pb-1.5 pt-2 text-[0.64rem] font-semibold uppercase tracking-[0.14em] text-ink-400",
+                  collapsed ? "lg:hidden" : "",
+                ].join(" ")}
+              >
                 {section.title}
               </p>
               <ul className="space-y-0.5">
@@ -221,8 +293,11 @@ export function Sidebar({
                         href={href}
                         onClick={onClose}
                         aria-current={active ? "page" : undefined}
+                        // Rail replié : le libellé passe en infobulle native.
+                        title={collapsed ? label : undefined}
                         className={[
-                          "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                          "group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                          collapsed ? "lg:justify-center lg:px-0" : "",
                           active
                             ? "bg-blue-50 font-semibold text-blue-800"
                             : "font-medium text-ink-600 hover:bg-cream hover:text-ink-900",
@@ -235,18 +310,37 @@ export function Sidebar({
                           ].join(" ")}
                           aria-hidden="true"
                         />
-                        <span className="flex-1 truncate">{label}</span>
+                        <span
+                          className={[
+                            "flex-1 truncate",
+                            collapsed ? "lg:hidden" : "",
+                          ].join(" ")}
+                        >
+                          {label}
+                        </span>
                         {count && count > 0 ? (
-                          <span
-                            className={[
-                              "rounded-full px-1.5 py-0.5 font-mono text-[0.68rem] font-semibold",
-                              active
-                                ? "bg-blue-700 text-white"
-                                : "bg-terra-500/15 text-terra-700",
-                            ].join(" ")}
-                          >
-                            {count}
-                          </span>
+                          <>
+                            <span
+                              className={[
+                                "rounded-full px-1.5 py-0.5 font-mono text-[0.68rem] font-semibold",
+                                collapsed ? "lg:hidden" : "",
+                                active
+                                  ? "bg-blue-700 text-white"
+                                  : "bg-terra-500/15 text-terra-700",
+                              ].join(" ")}
+                            >
+                              {count}
+                            </span>
+                            {/* Rail replié : pastille compacte sur l'icône. */}
+                            <span
+                              aria-hidden="true"
+                              className={[
+                                "absolute right-1.5 top-1.5 size-2 rounded-full ring-2 ring-paper",
+                                collapsed ? "hidden lg:block" : "hidden",
+                                active ? "bg-blue-700" : "bg-terra-500",
+                              ].join(" ")}
+                            />
+                          </>
                         ) : null}
                       </Link>
                     </li>
@@ -260,9 +354,26 @@ export function Sidebar({
         {/* User */}
         <div className="border-t border-line-100 p-3">
           {identity ? (
-            <div className="rounded-xl bg-cream px-3 py-2.5">
-              <p className="truncate text-sm font-medium text-ink-900">{identity.email}</p>
-              <p className="mt-0.5 text-xs text-ink-500">
+            <div
+              className={[
+                "rounded-xl bg-cream px-3 py-2.5",
+                collapsed ? "lg:px-2 lg:py-2" : "",
+              ].join(" ")}
+            >
+              <p
+                className={[
+                  "truncate text-sm font-medium text-ink-900",
+                  collapsed ? "lg:hidden" : "",
+                ].join(" ")}
+              >
+                {identity.email}
+              </p>
+              <p
+                className={[
+                  "mt-0.5 text-xs text-ink-500",
+                  collapsed ? "lg:hidden" : "",
+                ].join(" ")}
+              >
                 {identity.is_superuser
                   ? "Superuser"
                   : identity.groups.length
@@ -272,10 +383,14 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={onLogout}
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-terra-700 transition-colors hover:text-terra-800"
+                title="Se déconnecter"
+                className={[
+                  "mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-terra-700 transition-colors hover:text-terra-800",
+                  collapsed ? "lg:mt-0 lg:w-full lg:justify-center" : "",
+                ].join(" ")}
               >
                 <LogOut className="size-3.5" aria-hidden="true" />
-                Se déconnecter
+                <span className={collapsed ? "lg:hidden" : ""}>Se déconnecter</span>
               </button>
             </div>
           ) : null}

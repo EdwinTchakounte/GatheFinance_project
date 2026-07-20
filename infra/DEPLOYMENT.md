@@ -761,6 +761,51 @@ docker system prune -af --volumes
 
 ---
 
+## 19bis. Monitoring des conteneurs (Beszel, optionnel)
+
+Supervision légère de **tous les conteneurs Docker de l'hôte** (CPU / RAM /
+disque / réseau, historique + alertes). Architecture : **1 hub** (dashboard) +
+**N agents** (un par serveur). Sur ce VPS, l'agent unique voit déjà TOUS les
+conteneurs (GATHE + autres projets déployés sur la même machine).
+
+> **Pas de Traefik ici** : l'exposition se fait par TON nginx conteneurisé
+> (déploiement `docker-compose.nginx-external.yml`). Le hub rejoint le réseau
+> `shared` sous l'alias `gathe-beszel`, ton nginx `proxy_pass` dessus.
+
+Activation (profil `monitoring`, hors stack par défaut) :
+
+```bash
+# 0. DNS : créer monitor.gathe-finance.horus-lab.com → IP du VPS.
+#    Renseigner MONITOR_DOMAIN dans .env.prod (info seulement ici — c'est nginx
+#    qui route, cf. étape 4).
+
+# 1. Démarrer le hub (rejoint le réseau `shared` de ton nginx)
+docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml \
+  --env-file .env.prod --profile monitoring up -d beszel
+
+# 2. Ajouter le SAN monitor.* au certificat (une seule fois) + recharger nginx :
+#    certbot certonly --webroot -w /var/www/certbot \
+#      -d gathe-finance.horus-lab.com -d portail.gathe-finance.horus-lab.com \
+#      -d admin.gathe-finance.horus-lab.com -d api.gathe-finance.horus-lab.com \
+#      -d cms.gathe-finance.horus-lab.com  -d monitor.gathe-finance.horus-lab.com
+#    (garde TOUS les -d existants + ajoute monitor). Puis copie/active le server
+#    block « monitor » de nginx.gathe-finance.container.conf et : docker restart <ton_nginx>
+
+# 3. Ouvrir https://monitor.gathe-finance.horus-lab.com, créer le compte admin.
+#    « Add System » : host = beszel-agent, port = 45876 → COPIER la clé publique.
+
+# 4. Coller la clé dans .env.prod  ->  BESZEL_KEY=ssh-ed25519 AAAA...  puis :
+docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml \
+  --env-file .env.prod --profile monitoring up -d beszel-agent
+```
+
+**Brancher un autre serveur / projet** : installer un `beszel-agent` là-bas
+(image `henrygd/beszel-agent`, socket Docker monté), puis « Add System » dans le
+même hub avec l'adresse du nouveau serveur et sa clé. Un seul dashboard pour tout.
+
+> Le hub a sa propre authentification. Pense à épingler une version en prod
+> (`BESZEL_IMAGE_TAG=0.9.x`) plutôt que `latest`.
+
 ## 20. Contacts et ressources
 
 - Repo : `https://github.com/EdwinTchakounte/GatheFinance_project`
