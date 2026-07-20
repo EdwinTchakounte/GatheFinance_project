@@ -346,7 +346,7 @@ function Inner() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-8 flex items-end justify-between gap-4">
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
             Crédits
@@ -359,7 +359,7 @@ function Inner() {
           </p>
         </div>
 
-        <div className="flex items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
+        <div className="flex flex-wrap items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
           {[
             { v: "en_attente", l: "Frais à percevoir" },
             { v: "en_attente_avaliste", l: "Attente avaliste" },
