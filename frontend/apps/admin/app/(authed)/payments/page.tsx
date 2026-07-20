@@ -216,7 +216,7 @@ function Inner() {
         </div>
       </header>
 
-      <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-[auto_auto_1fr]">
+      <div className="mb-5 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
         <FilterPills
           label="Statut"
           value={statut}
@@ -260,7 +260,7 @@ function Inner() {
             setOffset(0);
             reload();
           }}
-          className="flex items-center gap-2"
+          className="flex min-w-[240px] flex-1 items-center gap-2"
         >
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" />
@@ -358,7 +358,7 @@ function FilterPills<T extends string>({
       <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-ink-500">
         {label}
       </span>
-      <div className="flex items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
+      <div className="flex flex-wrap items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
         {options.map((opt) => (
           <button
             key={opt.v || "all"}

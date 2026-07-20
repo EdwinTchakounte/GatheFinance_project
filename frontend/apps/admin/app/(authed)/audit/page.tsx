@@ -132,14 +132,14 @@ function Inner() {
       </header>
 
       {/* Barre de filtres */}
-      <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_auto_auto_auto]">
+      <div className="mb-5 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             setOffset(0);
             reload();
           }}
-          className="relative"
+          className="relative min-w-[220px] flex-1"
         >
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" />
           <input
