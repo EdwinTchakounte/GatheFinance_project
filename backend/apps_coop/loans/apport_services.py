@@ -51,9 +51,13 @@ def restitute_tranche_by_apport(tranche_id: int, *, admin_user=None) -> dict:
 
     from .models import LenderAllocation, Loan
 
+    # NB : on ne `select_related` PAS `engaged_in_loan` (FK nullable) dans la
+    # requête verrouillée — sous PostgreSQL, `FOR UPDATE` ne peut pas porter sur
+    # le côté nullable d'un OUTER JOIN. `member` (non-null) est joint sans souci ;
+    # le loan se charge à part.
     tranche = (
         LenderTranche.objects.select_for_update()
-        .select_related("member", "engaged_in_loan")
+        .select_related("member")
         .get(pk=tranche_id)
     )
     if tranche.statut != LenderTranche.Statut.ENGAGEE:
