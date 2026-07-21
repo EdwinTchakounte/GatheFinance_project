@@ -13,15 +13,55 @@ from .models import (
 )
 
 
+# Types d'opération qui SORTENT de l'argent du compte (à afficher en négatif
+# sur les écritures) : retraits + frais prélevés (étude, reconduction, ré-inscription).
+# Tout le reste (dépôt, intérêts, bascule collecte…) est un crédit (positif).
+_DEBIT_TYPE_OPS = frozenset(
+    {
+        "retrait",
+        "retrait_force",
+        "frais_renouvellement",
+        "frais_demande_credit",
+        "interets_reconduction",
+    }
+)
+# NB : `restitution_maturite` est un CRÉDIT (le placement arrivé à maturité est
+# restitué à la part libre) — cohérent avec `report_pdf._CLASSIC_CREDIT_TYPE_VALUES`.
+
+
+def transaction_sens(type_op: str) -> str:
+    """« debit » (sortie d'argent, à afficher en négatif) ou « credit »."""
+    return "debit" if type_op in _DEBIT_TYPE_OPS else "credit"
+
+
+def _booklet_annee(obj) -> int | None:
+    """Année du carnet auquel l'écriture est rattachée (None si non rattachée)."""
+    bo = getattr(obj, "booklet_order", None)
+    return getattr(bo, "annee", None) if bo is not None else None
+
+
 class SavingsTransactionReadSerializer(serializers.ModelSerializer):
     """Compact transaction representation for portal display."""
 
     type_display = serializers.CharField(source="get_type_op_display", read_only=True)
+    sens = serializers.SerializerMethodField()
+    # Carnet de rattachement (L7) — permet le filtre « par carnet » côté clients.
+    booklet_order = serializers.PrimaryKeyRelatedField(read_only=True)
+    booklet_annee = serializers.SerializerMethodField()
 
     class Meta:
         model = SavingsTransaction
-        fields = ("id", "type_op", "type_display", "montant", "solde_apres", "date")
+        fields = (
+            "id", "type_op", "type_display", "sens", "montant", "solde_apres",
+            "date", "booklet_order", "booklet_annee",
+        )
         read_only_fields = fields
+
+    def get_sens(self, obj) -> str:
+        return transaction_sens(obj.type_op)
+
+    def get_booklet_annee(self, obj):
+        return _booklet_annee(obj)
 
 
 class SavingsAccountReadSerializer(serializers.ModelSerializer):
@@ -49,7 +89,7 @@ class SavingsAccountReadSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_transactions_recentes(self, obj: SavingsAccount):
-        recent = obj.transactions.order_by("-date", "-id")[:10]
+        recent = obj.transactions.select_related("booklet_order").order_by("-date", "-id")[:10]
         return SavingsTransactionReadSerializer(recent, many=True).data
 
 
@@ -70,11 +110,23 @@ class ClassicSavingsConfigSerializer(serializers.ModelSerializer):
 
 class ClassicSavingsTransactionReadSerializer(serializers.ModelSerializer):
     type_display = serializers.CharField(source="get_type_op_display", read_only=True)
+    sens = serializers.SerializerMethodField()
+    booklet_order = serializers.PrimaryKeyRelatedField(read_only=True)
+    booklet_annee = serializers.SerializerMethodField()
 
     class Meta:
         model = ClassicSavingsTransaction
-        fields = ("id", "type_op", "type_display", "montant", "solde_apres", "date")
+        fields = (
+            "id", "type_op", "type_display", "sens", "montant", "solde_apres",
+            "date", "booklet_order", "booklet_annee",
+        )
         read_only_fields = fields
+
+    def get_sens(self, obj) -> str:
+        return transaction_sens(obj.type_op)
+
+    def get_booklet_annee(self, obj):
+        return _booklet_annee(obj)
 
 
 class ClassicSavingsAccountReadSerializer(serializers.ModelSerializer):
@@ -135,7 +187,7 @@ class ClassicSavingsAccountReadSerializer(serializers.ModelSerializer):
         return str(classic_withdrawable(obj))
 
     def get_transactions_recentes(self, obj: ClassicSavingsAccount):
-        recent = obj.transactions.order_by("-date", "-id")[:10]
+        recent = obj.transactions.select_related("booklet_order").order_by("-date", "-id")[:10]
         return ClassicSavingsTransactionReadSerializer(recent, many=True).data
 
     def get_config(self, obj):

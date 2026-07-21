@@ -74,11 +74,14 @@ class TestRequestLoanRenewalService:
         renewal = request_loan_renewal(loan)
         assert renewal.nouvelle_duree_mois == 1
 
-    def test_records_interets_au_comptant_flag(self, active_member):
-        """Article 11 — choix du membre entre taux 10 % et 15 %."""
+    def test_renewal_is_always_single_15pct_volet(self, active_member):
+        """2026-07 : volet UNIQUE 15 %. Le choix comptant 10 % a été retiré —
+        même si un client envoie encore interets_au_comptant=True, on force le
+        report (15 %). Le paiement anticipé reste possible mais ne change rien
+        au taux."""
         loan = _build_active_loan(active_member)
         renewal = request_loan_renewal(loan, interets_au_comptant=True)
-        assert renewal.interets_au_comptant is True
+        assert renewal.interets_au_comptant is False
 
     def test_idempotent_double_request_returns_same_renewal(self, active_member):
         loan = _build_active_loan(active_member)

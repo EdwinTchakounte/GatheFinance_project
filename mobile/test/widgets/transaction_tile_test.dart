@@ -57,4 +57,25 @@ void main() {
     await pump(tester, TransactionTile(tx: tx));
     expect(find.text('Intérêts crédités'), findsOneWidget);
   });
+
+  testWidgets('TransactionTile — frais (isDebit) : négatif + libellé backend',
+      (tester) async {
+    // Un frais d'étude arrive avec type_op=frais_demande_credit → type mappé
+    // sur depot MAIS isDebit=true → doit s'afficher en NÉGATIF (sortie).
+    final tx = SavingsTransaction.fromJson({
+      'id': 4,
+      'type_op': 'frais_demande_credit',
+      'type_display': "Frais d'étude crédit",
+      'sens': 'debit',
+      'montant': 5000,
+      'solde_apres': 20000,
+      'date': '2026-05-20T10:00:00Z',
+    });
+    expect(tx.isOutflow, isTrue);
+    expect(tx.montantSigne, -5000);
+    await pump(tester, TransactionTile(tx: tx));
+    expect(find.text("Frais d'étude crédit"), findsOneWidget);
+    expect(find.textContaining('−'), findsWidgets); // signe négatif
+    expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget); // sortie
+  });
 }

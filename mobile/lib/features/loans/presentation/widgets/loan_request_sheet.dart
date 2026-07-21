@@ -170,8 +170,9 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   //     Professionnelle BRC) -> upload attestation de formation
   // Le backend les recoit dans extra_payload :
   //   cga_brc_member / cga_brc_preuve / cfp_brc_apprenant / cfp_brc_preuve
-  // et recalcule is_brc_member = (cga_brc_member OR cfp_brc_apprenant)
-  // pour evaluer la Voie 1 SENIOR_BRC.
+  // Ces flags + la piece jointe sont DOCUMENTAIRES (le comite les consulte) ;
+  // ils n'entrent PAS dans le routage. La Voie 1 « Ancien sous-couvert »
+  // s'ouvre sur l'anciennete seule (require_brc_for_senior=false par defaut).
   bool _cgaBrcMember = false;
   PickedFile? _cgaBrcProof;
   bool _cfpBrcApprenant = false;
@@ -483,7 +484,8 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       // L5 identité . Numéro de CNI du demandeur (champ top-level du serializer).
       scalarExtras['cni_demandeur'] = cniDemandeur;
       // §7.1 Voie BRC . envoie au backend les 2 flags + les fichiers.
-      // Le backend recalcule is_brc_member = OR pour evaluer la Voie 1.
+      // Documentaire : consultes par le comite, hors routage (Voie 1 ouverte
+      // sur l'anciennete seule cote backend).
       scalarExtras['cga_brc_member'] = _cgaBrcMember ? 'oui' : 'non';
       scalarExtras['cfp_brc_apprenant'] = _cfpBrcApprenant ? 'oui' : 'non';
       if (_cgaBrcMember && _cgaBrcProof != null) {

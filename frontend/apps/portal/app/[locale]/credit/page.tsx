@@ -93,6 +93,46 @@ export default function PortalCreditPage() {
   const [renewalSubmitting, setRenewalSubmitting] = useState(false);
   const [renewalError, setRenewalError] = useState<string | null>(null);
   const [renewalDone, setRenewalDone] = useState(false);
+  // Remboursement par transfert depuis l'épargne (parité mobile).
+  const [repayTarget, setRepayTarget] = useState<Loan | null>(null);
+  const [repayAmount, setRepayAmount] = useState<string>("");
+  const [repaySubmitting, setRepaySubmitting] = useState(false);
+  const [repayError, setRepayError] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  async function reloadLoans() {
+    const [list, active] = await Promise.all([
+      portalApi.loans.listMine(),
+      portalApi.loans.activeMine(),
+    ]);
+    setRequests(list);
+    setActiveLoans(active);
+  }
+
+  async function submitRepayFromSavings() {
+    if (!repayTarget) return;
+    const montant = parseInt(repayAmount, 10);
+    if (!montant || montant < 500) {
+      setRepayError("Le montant minimum est de 500 FCFA.");
+      return;
+    }
+    setRepaySubmitting(true);
+    setRepayError(null);
+    try {
+      const res = await portalApi.loans.repayFromSavings(repayTarget.id, montant);
+      await reloadLoans();
+      setRepayTarget(null);
+      setFlash(
+        res.statut === "cloture"
+          ? "Crédit soldé ✓ — l'épargne gelée en garantie est libérée."
+          : `Remboursement de ${montant.toLocaleString("fr-FR")} FCFA imputé depuis ton épargne.`,
+      );
+    } catch (err) {
+      setRepayError((err as ApiError).detail ?? "Échec du remboursement.");
+    } finally {
+      setRepaySubmitting(false);
+    }
+  }
   // CH-4 — Schéma + valeurs des champs extras pour la modale reconduction.
   const [renewalSchema, setRenewalSchema] = useState<FormSchemaPublic | null>(null);
   const [renewalValues, setRenewalValues] = useState<FormValues>({});
@@ -175,6 +215,18 @@ export default function PortalCreditPage() {
   return (
     <main className="py-12 lg:py-16">
       <Container className="max-w-4xl">
+        {flash ? (
+          <div className="mb-6 flex items-center justify-between gap-3 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <span>{flash}</span>
+            <button
+              type="button"
+              onClick={() => setFlash(null)}
+              className="text-emerald-700 hover:underline"
+            >
+              ✕
+            </button>
+          </div>
+        ) : null}
         <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line-200 pb-6">
           <div>
             <button
@@ -371,7 +423,18 @@ export default function PortalCreditPage() {
                         onClick={() => router.push(`/epargne/depot?context=loan-repayment&loan=${loan.id}`)}
                         className={buttonClasses({ variant: "success", size: "md" })}
                       >
-                        Rembourser mon crédit
+                        Rembourser (Mobile Money)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRepayTarget(loan);
+                          setRepayAmount(String(Math.trunc(Number(loan.solde_restant))));
+                          setRepayError(null);
+                        }}
+                        className={buttonClasses({ variant: "secondary", size: "md" })}
+                      >
+                        Depuis mon épargne
                       </button>
                       <button
                         type="button"
@@ -518,6 +581,57 @@ export default function PortalCreditPage() {
           )}
         </section>
       </Container>
+
+      {/* Remboursement par transfert depuis l'épargne (parité mobile) */}
+      {repayTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4">
+          <div className="w-full max-w-md rounded-lg border border-line-200 bg-paper p-6 shadow-xl">
+            <h2 className="font-editorial text-xl font-medium text-ink-900">
+              Rembourser depuis mon épargne
+            </h2>
+            <p className="mt-2 text-sm text-ink-600">
+              Le montant est prélevé sur ton épargne disponible (part libre +
+              collecte) et imputé sur ton crédit. Solde restant :{" "}
+              <strong>{formatXAF(repayTarget.solde_restant)}</strong>.
+            </p>
+            <label className="mt-4 block text-sm font-medium text-ink-900" htmlFor="repay-amount">
+              Montant (FCFA)
+            </label>
+            <input
+              id="repay-amount"
+              type="number"
+              inputMode="numeric"
+              value={repayAmount}
+              onChange={(e) => setRepayAmount(e.target.value)}
+              className="mt-2 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+            />
+            {repayError ? (
+              <p className="mt-3 rounded-md border border-terra-400/40 bg-terra-50/60 px-3 py-2 text-sm text-terra-700">
+                {repayError}
+              </p>
+            ) : null}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setRepayTarget(null)}
+                disabled={repaySubmitting}
+                className={buttonClasses({ variant: "secondary", size: "md" })}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={submitRepayFromSavings}
+                disabled={repaySubmitting}
+                className={buttonClasses({ variant: "success", size: "md" })}
+              >
+                {repaySubmitting ? "Traitement…" : "Confirmer le remboursement"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <RenewalModal
         target={renewalTarget}
         submitting={renewalSubmitting}

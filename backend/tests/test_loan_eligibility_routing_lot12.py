@@ -160,8 +160,19 @@ class TestVoieAncienBrcSousCouverture:
         assert result.route == EligibilityRoute.SENIOR_BRC
         assert Decimal(result.details["manque"]) == Decimal("100000")
 
-    def test_senior_without_brc_undercovered_rejected_by_default(self):
-        # require_brc_for_senior = true (défaut) → l'ancienneté seule ne suffit pas.
+    def test_senior_without_brc_undercovered_matches_by_default(self):
+        # Nouveau défaut 2026-07 : require_brc_for_senior = FALSE (BRC devenu
+        # documentaire) → l'ancienneté seule ouvre la voie sous-couverte.
+        m = _ancient_brc(MemberFactory(), brc=False)
+        _add_savings(m, Decimal("10000"))
+        result = evaluate_routes(m, montant=Decimal("100000"))
+        assert result.route == EligibilityRoute.SENIOR_BRC
+        assert result.details["sous_couverture"] is True
+
+    def test_senior_without_brc_rejected_when_require_brc_reenabled(self):
+        # Si l'admin RE-EXIGE un BRC validé (setting=true), l'ancienneté seule
+        # ne suffit plus — le membre sans BRC est recalé.
+        _setting("loans.eligibility.require_brc_for_senior", "true")
         m = _ancient_brc(MemberFactory(), brc=False)
         _add_savings(m, Decimal("10000"))
         result = evaluate_routes(m, montant=Decimal("100000"))
@@ -258,12 +269,14 @@ class TestVoieAvaliste:
         )
         assert result.route == EligibilityRoute.NONE
 
-    def test_no_avaliste_designation_skips_voie2(self):
+    def test_no_designation_defaults_to_senior_brc(self):
+        # Sans désignation → voie par défaut SENIOR_BRC (choix implicite). Un
+        # nouvel adhérent ni couvert ni ancien → NONE avec les motifs de CETTE
+        # voie (l'avaliste n'est plus « évalué puis écarté »).
         borrower = _new_member(MemberFactory())
         result = evaluate_routes(borrower, montant=Decimal("100000"))
-        # Pas d'avaliste fourni → motif "non sollicitée"
         assert result.route == EligibilityRoute.NONE
-        assert any("AVALISTE" in m for m in result.motifs)
+        assert any(m.startswith("[senior_brc]") for m in result.motifs)
 
     def test_invalid_avaliste_numero_skips_voie2(self):
         borrower = _new_member(MemberFactory())
@@ -359,10 +372,12 @@ class TestVoieCampaign:
 
 
 class TestRoutePriority:
-    def test_default_order_senior_first(self):
-        """Si plusieurs voies matchent, SENIOR_BRC gagne par défaut."""
+    def test_explicit_campaign_choice_wins_over_senior(self):
+        """Le CHOIX du membre prime : un ancien auto-couvert qui postule à une
+        campagne (campaign_id fourni) est routé CAMPAIGN, pas SENIOR_BRC —
+        fini le « je choisis campagne mais ancienneté s'affiche »."""
         m = _ancient_brc(MemberFactory())
-        _add_savings(m, Decimal("25000"))  # auto-couverture OK
+        _add_savings(m, Decimal("25000"))  # auto-couverture OK, mais non retenue
         c = _make_campaign()
         result = evaluate_routes(
             m,
@@ -370,7 +385,7 @@ class TestRoutePriority:
             campaign_id=c.id,
             profil_cible="commercants",
         )
-        assert result.route == EligibilityRoute.SENIOR_BRC
+        assert result.route == EligibilityRoute.CAMPAIGN
 
     def test_admin_promotes_campaign(self):
         """Admin réordonne via AppSetting → CAMPAIGN passe en premier."""
@@ -420,12 +435,15 @@ class TestNoneCase:
         # Doit avoir des motifs pour chaque voie évaluée.
         assert len(result.motifs) >= 2
 
-    def test_motifs_prefixed_by_voie(self):
+    def test_motifs_prefixed_by_chosen_voie(self):
+        # Seule la voie CHOISIE (ici SENIOR_BRC par défaut, aucune désignation)
+        # est évaluée → tous les motifs portent SON préfixe, pas ceux des
+        # autres voies (qui ne sont plus parcourues).
         m = _new_member(MemberFactory())
         result = evaluate_routes(m, montant=Decimal("100000"))
-        assert any(motif.startswith("[senior_brc]") for motif in result.motifs)
-        assert any(motif.startswith("[avaliste]") for motif in result.motifs)
-        assert any(motif.startswith("[campaign]") for motif in result.motifs)
+        assert result.route == EligibilityRoute.NONE
+        assert result.motifs
+        assert all(motif.startswith("[senior_brc]") for motif in result.motifs)
 
     def test_zero_montant_is_invalid_for_avaliste(self):
         borrower = _new_member(MemberFactory())

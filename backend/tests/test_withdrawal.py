@@ -53,19 +53,44 @@ class TestRequestWithdrawal:
         with pytest.raises(ValueError, match="(?i)déjà en attente"):
             request_withdrawal(acc, montant=Decimal("2000"))
 
+    def test_approved_amount_stays_reserved_for_next_request(
+        self, active_member, admin_user
+    ):
+        """Un montant engagé (approuvé mais pas encore payé) reste réservé : il
+        n'est plus allouable à un autre retrait, même si le solde n'a pas bougé."""
+        acc = _fund(active_member, "50000")
+        a = request_withdrawal(acc, montant=Decimal("30000"))
+        decide_withdrawal(a, decided_by=admin_user, approve=True)  # réservé, pas débité
+        acc.refresh_from_db()
+        assert acc.solde == Decimal("50000")  # solde intact
+
+        # Le reste allouable = 50000 − 30000 réservés = 20000 : 25000 est refusé.
+        with pytest.raises(ValueError, match="(?i)supérieur au solde"):
+            request_withdrawal(acc, montant=Decimal("25000"))
+        # 20000 (le reste exact) passe.
+        b = request_withdrawal(acc, montant=Decimal("20000"))
+        assert b.statut == WithdrawalRequest.Statut.EN_ATTENTE
+
 
 class TestDecideWithdrawal:
-    def test_approve_debits_balance_and_creates_tx(self, active_member, admin_user):
+    def test_approve_reserves_then_payment_debits(self, active_member, admin_user):
         acc = _fund(active_member, "50000")
         wr = request_withdrawal(acc, montant=Decimal("20000"))
 
+        # Approbation : PAS de débit — l'argent est réservé, le solde intact.
         decide_withdrawal(wr, decided_by=admin_user, approve=True)
-
         wr.refresh_from_db()
         acc.refresh_from_db()
         assert wr.statut == WithdrawalRequest.Statut.APPROUVEE
+        assert acc.solde == Decimal("50000.00")  # INCHANGÉ
+        assert wr.transaction_id is None  # pas encore de transaction
+
+        # Remise espèces → débit effectif ICI.
+        mark_withdrawal_paid(wr, agent=admin_user)
+        wr.refresh_from_db()
+        acc.refresh_from_db()
+        assert wr.statut == WithdrawalRequest.Statut.COMPLETEE
         assert acc.solde == Decimal("30000.00")
-        assert wr.transaction is not None
         tx = SavingsTransaction.objects.get(pk=wr.transaction_id)
         assert tx.type_op == SavingsTransaction.TypeOp.RETRAIT
         assert tx.montant == Decimal("20000")
@@ -90,10 +115,10 @@ class TestDecideWithdrawal:
         acc = _fund(active_member, "50000")
         wr = request_withdrawal(acc, montant=Decimal("20000"))
         decide_withdrawal(wr, decided_by=admin_user, approve=True)
-        # 2e appel : ne re-débite pas
+        # 2e appel : idempotent, et de toute façon l'approbation ne débite pas.
         decide_withdrawal(wr, decided_by=admin_user, approve=True)
         acc.refresh_from_db()
-        assert acc.solde == Decimal("30000.00")
+        assert acc.solde == Decimal("50000.00")  # solde intact (débit au paiement)
 
 
 class TestWithdrawalEndpoints:
@@ -118,7 +143,8 @@ class TestWithdrawalEndpoints:
         assert rd.json()["statut"] == "approuvee"
 
         active_member.savings_account.refresh_from_db()
-        assert active_member.savings_account.solde == Decimal("25000.00")
+        # Approbation = validation sans débit : solde intact jusqu'au paiement.
+        assert active_member.savings_account.solde == Decimal("40000.00")
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -209,8 +235,9 @@ class TestDecideWithdrawalMomo:
         wr.refresh_from_db()
         acc.refresh_from_db()
 
-        # Solde débité (commit à l'approbation, comme pour le présentiel)
-        assert acc.solde == Decimal("35000.00")
+        # PAS de débit à l'init du payout — le solde ne bougera qu'à la
+        # complétion effective (webhook COMPLETEE). L'argent est réservé.
+        assert acc.solde == Decimal("50000.00")
         # Statut bascule MOMO en cours
         assert wr.statut == WithdrawalRequest.Statut.EN_PAYOUT
         # Payment payout créé et lié
@@ -256,12 +283,12 @@ class TestDecideWithdrawalMomo:
         assert payment.statut == Payment.Statut.VALIDE
         assert wr.statut == WithdrawalRequest.Statut.COMPLETEE
 
-    def test_payout_failure_marks_payout_failed_and_keeps_debit(
+    def test_payout_failure_marks_payout_failed_and_no_debit(
         self, active_member, admin_user, monkeypatch
     ):
-        """Quand `provider.init_payout` lève ProviderError, le statut WR doit
-        passer à `PAYOUT_FAILED` et le solde reste débité (pas de rollback
-        du débit — l'admin pourra retry sans re-débiter)."""
+        """Quand `provider.init_payout` lève ProviderError, le statut WR passe
+        à `PAYOUT_FAILED` et le solde n'est PAS débité (le débit n'a lieu qu'à
+        la complétion) — l'admin pourra retry, aucun remboursement nécessaire."""
         from apps_coop.payments.providers import tara as tara_mod
         from apps_coop.payments.providers.base import ProviderError
 
@@ -284,8 +311,8 @@ class TestDecideWithdrawalMomo:
 
         assert wr.statut == WithdrawalRequest.Statut.PAYOUT_FAILED
         assert "Tara down" in wr.motif_rejet
-        # Solde toujours débité — l'admin retentera (ou remboursera manuellement)
-        assert acc.solde == Decimal("30000.00")
+        # Solde INTACT — aucun débit à l'init : rien à rembourser sur échec.
+        assert acc.solde == Decimal("50000.00")
 
 
 class TestMarkWithdrawalPaid:

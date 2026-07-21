@@ -110,8 +110,9 @@ export default function MembershipRenewalPage() {
                   <>
                     Ton compte est <strong>suspendu</strong> car la période
                     annuelle est dépassée de plus de {status.grace_days}{" "}
-                    jours. Paie ton carnet pour réactiver immédiatement
-                    tes accès.
+                    jours. Réactive-le en réglant tes{" "}
+                    <strong>frais d'adhésion</strong> — ton numéro, ton solde
+                    d'épargne et ton historique sont conservés.
                   </>
                 ) : status.days_until_expiry !== null &&
                   status.days_until_expiry < 0 ? (
@@ -153,9 +154,11 @@ export default function MembershipRenewalPage() {
               </h3>
               <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <dt className="text-xs text-ink-500">Frais carnet annuel</dt>
+                  <dt className="text-xs text-ink-500">
+                    {isSuspended ? "Frais d'adhésion (réactivation)" : "Frais carnet annuel"}
+                  </dt>
                   <dd className="mt-1 font-mono text-lg font-semibold text-ink-900">
-                    {fmtAmount(status.carnet_fee_xaf)} XAF
+                    {isSuspended ? "Voir écran de réactivation" : `${fmtAmount(status.carnet_fee_xaf)} XAF`}
                   </dd>
                 </div>
                 <div>
@@ -167,12 +170,20 @@ export default function MembershipRenewalPage() {
               </dl>
 
               <p className="mt-5 text-xs text-ink-500">
-                Le paiement met à jour ta date d'anniversaire annuel. Si
-                ton compte était suspendu pour non-renouvellement, il
-                redevient actif immédiatement après validation Tara.
+                {isSuspended
+                  ? "La réactivation d'un compte suspendu pour non-renouvellement se règle via les frais d'adhésion. Le compte redevient actif immédiatement après validation Tara."
+                  : "Le paiement met à jour ta date d'anniversaire annuel et reconduit ton adhésion sur le cycle suivant."}
               </p>
 
-              {status.needs_renewal || isSuspended ? (
+              {isSuspended ? (
+                <button
+                  type="button"
+                  onClick={() => router.push("/activation")}
+                  className={`mt-6 ${buttonClasses({ variant: "success", size: "md" })}`}
+                >
+                  Réactiver mon compte
+                </button>
+              ) : status.needs_renewal ? (
                 <button
                   type="button"
                   onClick={() =>

@@ -58,6 +58,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     }
     final route = switch (n.kind) {
       NotifKind.loan => '/credit',
+      NotifKind.avaliste => '/avaliste/mandats',
       NotifKind.savings => '/savings/history',
       NotifKind.payment => '/states',
       NotifKind.lender => '/me/lender-payouts',
@@ -234,6 +235,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 String _kindLabel(AppL10n l, NotifKind k) => switch (k) {
       NotifKind.savings => l.notif_kind_savings,
       NotifKind.loan => l.notif_kind_loan,
+      NotifKind.avaliste => 'Avaliste',
       NotifKind.payment => l.notif_kind_payment,
       NotifKind.lender => l.notif_kind_lender,
       NotifKind.announcement => l.notif_kind_announcement,
@@ -312,6 +314,8 @@ class _NotifCard extends StatelessWidget {
         return (icon: Icons.savings_outlined, tint: PaColors.success);
       case NotifKind.loan:
         return (icon: Icons.account_balance_outlined, tint: PaColors.teal);
+      case NotifKind.avaliste:
+        return (icon: Icons.handshake_rounded, tint: PaColors.blue);
       case NotifKind.payment:
         return (icon: Icons.payments_outlined, tint: PaColors.navy);
       case NotifKind.lender:

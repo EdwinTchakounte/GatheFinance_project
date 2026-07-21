@@ -223,3 +223,20 @@ class TestAvalisteFreezeLifecycle:
         consent.refresh_from_db()
         assert consent.statut == AvalisteConsent.Statut.REFUSED
         assert member_frozen_guarantee(senior) == Decimal("0")
+
+    def test_freeze_released_on_committee_rejection_after_accept(self):
+        """Régression : l'avaliste ACCEPTE puis le comité REJETTE la demande
+        (aucun Loan créé). La caution doit être LIBÉRÉE — sinon l'épargne de
+        l'avaliste restait gelée « à vie » malgré la libération des tranches."""
+        _, senior, lr, consent = self._accepted()
+        respond_to_avaliste_consent(consent, accept=True)
+        assert member_frozen_guarantee(senior) == Decimal("40000")
+
+        # Rejet comité : la demande passe REJETEE, le consentement reste ACCEPTED
+        # et aucun Loan n'est créé.
+        lr.statut = LoanRequest.Statut.REJETEE
+        lr.save(update_fields=["statut"])
+        consent.refresh_from_db()
+        assert consent.statut == AvalisteConsent.Statut.ACCEPTED
+        # La caution n'est plus engagée → gel libéré.
+        assert member_frozen_guarantee(senior) == Decimal("0")

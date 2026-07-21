@@ -238,6 +238,31 @@ TEMPLATES = [
         "variables": ["prenom", "montant", "portal_url"],
     },
     {
+        "code": "withdrawal.admin_pending",
+        "objet": "Retrait à traiter · {demandeur_nom} ({demandeur_numero})",
+        "corps_html": _join(
+            hi("l'équipe"),
+            title("Une demande de retrait attend une décision"),
+            lead(
+                "<strong>{demandeur_nom}</strong> (membre {demandeur_numero}) a "
+                "initié une demande de retrait. Elle attend la validation de "
+                "l'administration ; aucun montant n'est débité tant qu'elle n'est "
+                "pas approuvée puis payée."
+            ),
+            info_card([
+                ("Membre", "{demandeur_nom} ({demandeur_numero})"),
+                ("Montant", "<strong>{montant} XAF</strong>"),
+                ("Source", "{source}"),
+            ], tone="info"),
+            cta("Traiter la demande", "{admin_url}/payments"),
+            closing(),
+        ),
+        "variables": [
+            "prenom", "demandeur_nom", "demandeur_numero", "montant",
+            "source", "admin_url",
+        ],
+    },
+    {
         "code": "withdrawal.approved",
         "objet": "Retrait approuvé · {montant} XAF",
         "corps_html": _join(
@@ -406,6 +431,27 @@ TEMPLATES = [
             closing(),
         ),
         "variables": ["prenom", "montant", "numero_dossier", "solde_restant", "portal_url"],
+    },
+    {
+        "code": "loan.closed",
+        "objet": "Crédit soldé · {numero_dossier} 🎉",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton crédit est soldé"),
+            lead(
+                "Félicitations — ton crédit <strong>{numero_dossier}</strong> est "
+                "intégralement remboursé et désormais <strong>clôturé</strong>. "
+                "Toute épargne qui était gelée en garantie de ce crédit est de "
+                "nouveau disponible au retrait."
+            ),
+            info_card([
+                ("Statut", "<strong>Soldé / clôturé</strong>"),
+                ("Solde restant", "0 XAF"),
+            ], tone="success"),
+            cta("Voir mon épargne", "{portal_url}/portal/epargne"),
+            closing(),
+        ),
+        "variables": ["prenom", "numero_dossier", "portal_url"],
     },
     # ────────────────────────────────────────────────────────────────────
     # RECONDUCTION
@@ -704,6 +750,55 @@ TEMPLATES = [
         "variables": [
             "prenom", "borrower_nom", "borrower_numero", "montant",
             "avaliste_numero", "portal_url",
+        ],
+    },
+    {
+        "code": "loan.avaliste_gel_released",
+        "objet": "Ta caution est libérée · épargne de nouveau disponible",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ta caution est libérée"),
+            lead(
+                "La caution que tu avais gelée en garantie pour "
+                "<strong>{borrower_nom}</strong> (membre {borrower_numero}) est "
+                "<strong>libérée</strong> : le crédit garanti est soldé ou la "
+                "demande a été rejetée. La part correspondante de ton épargne "
+                "est de nouveau disponible au retrait."
+            ),
+            info_card([
+                ("Caution libérée", "<strong>{montant} XAF</strong>"),
+                ("Garanti pour", "{borrower_nom} ({borrower_numero})"),
+            ], tone="success"),
+            cta("Voir mon épargne", "{portal_url}/portal/epargne"),
+            closing(),
+        ),
+        "variables": [
+            "prenom", "borrower_nom", "borrower_numero", "montant", "portal_url",
+        ],
+    },
+    {
+        "code": "loan.credit_dossier_ready",
+        "objet": "Dossier crédit prêt · {demandeur_nom} ({demandeur_numero})",
+        "corps_html": _join(
+            hi("l'équipe"),
+            title("Un dossier crédit est prêt pour le comité"),
+            lead(
+                "La demande de crédit de <strong>{demandeur_nom}</strong> "
+                "(membre {demandeur_numero}) vient de passer en instruction : "
+                "les frais d'étude sont réglés et, le cas échéant, le garant a "
+                "accepté. Le dossier attend la décision du comité."
+            ),
+            info_card([
+                ("Demandeur", "{demandeur_nom} ({demandeur_numero})"),
+                ("Montant demandé", "<strong>{montant} XAF</strong>"),
+                ("Réf. demande", "#{request_id}"),
+            ], tone="info"),
+            cta("Traiter le dossier", "{admin_url}/loan-requests"),
+            closing(),
+        ),
+        "variables": [
+            "prenom", "demandeur_nom", "demandeur_numero", "montant",
+            "request_id", "admin_url",
         ],
     },
     # ────────────────────────────────────────────────────────────────────
@@ -1057,6 +1152,48 @@ TEMPLATES = [
             closing(),
         ),
         "variables": ["prenom", "montant", "loan_dossier"],
+    },
+    {
+        "code": "lender.tranche_released",
+        "objet": "Ta part de placement est libérée · {numero_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ta part de placement est de nouveau disponible"),
+            lead(
+                "Le crédit <strong>{numero_dossier}</strong> que ta part de "
+                "placement finançait est soldé. Ta part est <strong>libérée</strong> "
+                "— de nouveau disponible pour un retrait ou un nouveau financement."
+            ),
+            info_card([
+                ("Part libérée", "<strong>{montant} FCFA</strong>"),
+                ("Crédit", "{numero_dossier} · soldé"),
+            ], tone="success"),
+            cta("Voir mon épargne", "{portal_url}/portal/epargne"),
+            closing(),
+        ),
+        "variables": ["prenom", "montant", "numero_dossier", "portal_url"],
+    },
+    {
+        "code": "lender.apport_restitution",
+        "objet": "Ton placement est restitué (apport coop) · {numero_dossier}",
+        "corps_html": _join(
+            hi("{prenom}"),
+            title("Ton placement t'est restitué par anticipation"),
+            lead(
+                "La coopérative a procédé à un <strong>apport</strong> pour te "
+                "restituer ton placement à terme, sans attendre le remboursement "
+                "du crédit <strong>{numero_dossier}</strong> qu'il finançait. Ton "
+                "capital est de nouveau disponible et tes intérêts de placement "
+                "sont crédités."
+            ),
+            info_card([
+                ("Capital libéré", "<strong>{capital} FCFA</strong>"),
+                ("Intérêts placement", "<strong>{interet} FCFA</strong>"),
+            ], tone="success"),
+            cta("Voir mon épargne", "{portal_url}/portal/epargne"),
+            closing(),
+        ),
+        "variables": ["prenom", "capital", "interet", "numero_dossier", "portal_url"],
     },
     {
         "code": "lender.interest_paid_at_source",

@@ -20,6 +20,9 @@ abstract class AuthRepository {
     required String phone,
   });
 
+  /// Charge/remplace la photo de profil (avatar) — renvoie l'entité à jour.
+  Future<Member> updatePhoto(String filePath);
+
   /// Change le mot de passe ; `null` = succès, sinon message d'erreur affiché.
   Future<String?> changePassword({
     required String oldPassword,

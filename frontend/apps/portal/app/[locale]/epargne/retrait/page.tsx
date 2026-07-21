@@ -66,12 +66,14 @@ export default function WithdrawalRequestPage() {
     }
   }
 
-  // Solde disponible pour la source sélectionnée (aligné backend) :
+  // Solde disponible pour la source sélectionnée (aligné backend + mobile) :
   //   collecte         → savings.solde
-  //   classique libre  → classic.solde_libre (placement exclu, resté bloqué)
+  //   classique libre  → classic.solde_disponible_retrait (= solde − max(placement,
+  //                      gel garantie) − retraits déjà réservés). PAS solde_libre,
+  //                      qui ignore le gel et le réservé → surestimait le disponible.
   const availableForSource =
     source === "classique_libre"
-      ? Number(classic?.solde_libre ?? 0)
+      ? Number(classic?.solde_disponible_retrait ?? classic?.solde_libre ?? 0)
       : Number(savings?.solde ?? 0);
   const hasClassic = classic !== null && Number(classic.solde) > 0;
 

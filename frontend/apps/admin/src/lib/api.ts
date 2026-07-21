@@ -446,6 +446,12 @@ export type AvalisteConsentRow = {
   statut_display: string;
   created_at: string;
   montant_gele: string;
+  refus_motif?: string;
+  // L5 — pièces d'identité (preuves audit) : n° CNI + scan de l'avaliste (fournis
+  // à l'acceptation), n° CNI du demandeur (saisi à la soumission).
+  cni_demandeur?: string;
+  cni_avaliste?: string;
+  cni_avaliste_fichier?: string | null;
   demandeur: { id: number; numero_membre: string; prenom: string; nom: string };
   avaliste: { id: number; numero_membre: string; prenom: string; nom: string };
   loan_request: {
@@ -2109,6 +2115,18 @@ export const adminApi = {
         `/loans/admin/${loanId}/funding-manual/`,
         { method: "POST", body: JSON.stringify(payload) },
       ),
+    // Restitution par APPORT coop d'une tranche ENGAGÉE (crédit non soldé) :
+    // le prêteur est restitué (capital + intérêts placement), la coop reprend
+    // le risque du crédit.
+    restituteApport: (trancheId: number) =>
+      request<{
+        tranche_id: number;
+        capital: string;
+        interet_placement: string;
+        loan_id: number | null;
+      }>(`/loans/admin/lender-tranches/${trancheId}/restitute-apport/`, {
+        method: "POST",
+      }),
   },
 
   // RBAC — Utilisateurs & accès (staff + rôles/ressources).

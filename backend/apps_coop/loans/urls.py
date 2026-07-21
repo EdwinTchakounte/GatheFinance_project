@@ -18,6 +18,7 @@ from .lender_admin_views import (
     admin_compose_funding_manual,
     admin_lender_pool_summary,
     admin_list_lender_tranches,
+    admin_restitute_tranche_apport,
 )
 from .judicial_admin import (
     admin_escalation_candidates,
@@ -258,6 +259,11 @@ urlpatterns = [
         "admin/<int:pk>/funding-manual/",
         admin_compose_funding_manual,
         name="admin-funding-manual",
+    ),
+    path(
+        "admin/lender-tranches/<int:tranche_id>/restitute-apport/",
+        admin_restitute_tranche_apport,
+        name="admin-restitute-tranche-apport",
     ),
     # Refonte 2026 — LOT 17 : escalades judiciaires phase D/E
     path("admin/escalations/", admin_list_escalations, name="admin-escalations"),

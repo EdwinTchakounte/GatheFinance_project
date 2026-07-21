@@ -17,6 +17,7 @@ import '../../../../core/widgets/payment_fee_breakdown.dart';
 import '../../../../core/widgets/pdf_preview_page.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_dialog.dart';
 import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/skeleton.dart';
@@ -381,40 +382,13 @@ void _startLoanRequestFlow(
 // compute_eligibility côté backend, ou une demande déjà en cours). Affiche les
 // motifs.
 void _showIneligibilityDialog(BuildContext context, List<String> motifs) {
-  showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Demande de crédit indisponible'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Tu ne peux pas demander un nouveau crédit pour le moment :',
-            style: TextStyle(fontSize: 14),
-          ),
-          const SizedBox(height: 12),
-          ...motifs.map(
-            (m) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('• ', style: TextStyle(fontWeight: FontWeight.w700)),
-                  Expanded(child: Text(m, style: const TextStyle(fontSize: 13))),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text("J'ai compris"),
-        ),
-      ],
-    ),
+  showPaAlert(
+    context,
+    icon: Icons.block_rounded,
+    accent: PaColors.danger,
+    title: 'Demande de crédit indisponible',
+    message: 'Tu ne peux pas demander un nouveau crédit pour le moment :',
+    bullets: motifs,
   );
 }
 
@@ -1883,7 +1857,6 @@ class _LoanRoutesCarousel extends StatelessWidget {
     final l = AppL10n.of(context);
     final elig = eligibility;
     final isEligible = elig != null && elig.eligible;
-    final plafond = elig?.plafondMax;
     final ready = onSelect != null;
 
     // Les 3 voies tiennent sur UNE ligne (Row + Expanded), hauteurs égalisées
@@ -1900,11 +1873,6 @@ class _LoanRoutesCarousel extends StatelessWidget {
                 iconColor: PaColors.teal,
                 iconBg: PaColors.tealSurface,
                 title: 'BRC',
-                subtitle: plafond != null && plafond > 0
-                    ? '${_formatPlafond(plafond)} XAF'
-                    : l.credit_path_brc_sub_savings,
-                statusLabel:
-                    isEligible ? l.credit_path_available : l.credit_path_ineligible,
                 statusOk: isEligible,
                 onTap: ready && isEligible
                     ? () => onSelect!(LoanRequestVoie.brc)
@@ -1918,8 +1886,6 @@ class _LoanRoutesCarousel extends StatelessWidget {
                 iconColor: PaColors.blue,
                 iconBg: const Color(0xFFE8EEFC),
                 title: l.credit_path_avaliste_title,
-                subtitle: l.credit_path_avaliste_sub,
-                statusLabel: l.credit_path_available,
                 statusOk: true,
                 onTap: ready ? () => onSelect!(LoanRequestVoie.avaliste) : null,
               ),
@@ -1931,8 +1897,6 @@ class _LoanRoutesCarousel extends StatelessWidget {
                 iconColor: PaColors.warning,
                 iconBg: PaColors.warningSurface,
                 title: l.credit_path_campaign_title,
-                subtitle: l.credit_path_campaign_sub,
-                statusLabel: l.credit_path_available,
                 statusOk: true,
                 onTap: ready ? () => onSelect!(LoanRequestVoie.campaign) : null,
               ),
@@ -1944,8 +1908,6 @@ class _LoanRoutesCarousel extends StatelessWidget {
                 iconColor: PaColors.blue,
                 iconBg: const Color(0xFFE8EEFC),
                 title: l.credit_path_garantie_title,
-                subtitle: l.credit_path_garantie_sub,
-                statusLabel: l.credit_path_available,
                 statusOk: true,
                 onTap: ready
                     ? () => onSelect!(LoanRequestVoie.garantieMaterielle)
@@ -1957,26 +1919,20 @@ class _LoanRoutesCarousel extends StatelessWidget {
       ),
     );
   }
-
-  static String _formatPlafond(num value) {
-    final str = value.toInt().toString();
-    final buf = StringBuffer();
-    for (int i = 0; i < str.length; i++) {
-      if (i > 0 && (str.length - i) % 3 == 0) buf.write(' ');
-      buf.write(str[i]);
-    }
-    return buf.toString();
-  }
 }
 
+/// Carte de voie de crédit — design allégé (icône + libellé + point d'état).
+///
+/// Le membre choisit sa voie d'un coup d'œil : plus de sous-texte ni de
+/// pilule textuelle « Disponible / Non éligible ». L'état se lit sur un
+/// simple point coloré — **vert** = voie ouverte, **rouge** = indisponible
+/// (typiquement BRC quand le membre n'est pas encore éligible).
 class _LoanRouteCard extends StatelessWidget {
   const _LoanRouteCard({
     required this.icon,
     required this.iconColor,
     required this.iconBg,
     required this.title,
-    required this.subtitle,
-    required this.statusLabel,
     required this.statusOk,
     required this.onTap,
   });
@@ -1985,8 +1941,6 @@ class _LoanRouteCard extends StatelessWidget {
   final Color iconColor;
   final Color iconBg;
   final String title;
-  final String subtitle;
-  final String statusLabel;
   final bool statusOk;
   final VoidCallback? onTap;
 
@@ -1994,8 +1948,8 @@ class _LoanRouteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final disabled = onTap == null;
     return Opacity(
-      opacity: disabled ? 0.6 : 1.0,
-      // Carte compacte conçue pour vivre dans un Expanded (3 par ligne).
+      opacity: disabled ? 0.55 : 1.0,
+      // Carte compacte conçue pour vivre dans un Expanded (4 par ligne).
       child: PaCard(
         padding: const EdgeInsets.all(11),
         onTap: onTap,
@@ -2003,55 +1957,39 @@ class _LoanRouteCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: iconColor, size: 19),
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 19),
+                ),
+                const Spacer(),
+                // Point d'état : vert = voie disponible, rouge = indisponible.
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: statusOk ? PaColors.success : PaColors.danger,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 9),
             Text(
               title,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: PaColors.inkPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              subtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: PaColors.inkSecondary,
-                fontSize: 11,
-                height: 1.25,
-              ),
-            ),
-            const SizedBox(height: 9),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-              decoration: BoxDecoration(
-                color: statusOk
-                    ? PaColors.successSurface
-                    : PaColors.warningSurface,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                statusLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: statusOk ? PaColors.success : PaColors.warning,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
+                height: 1.2,
               ),
             ),
           ],
@@ -2285,25 +2223,16 @@ class _ClosedLoanCard extends ConsumerWidget {
 
   Future<void> _confirmHide(BuildContext context, WidgetRef ref) async {
     final l = AppL10n.of(context);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.credit_hide_confirm_title),
-        content: Text(l.credit_hide_confirm_body),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l.credit_hide_cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: PaColors.danger),
-            child: Text(l.credit_hide_action),
-          ),
-        ],
-      ),
+    final ok = await showPaConfirm(
+      context,
+      icon: Icons.visibility_off_rounded,
+      title: l.credit_hide_confirm_title,
+      message: l.credit_hide_confirm_body,
+      confirmLabel: l.credit_hide_action,
+      cancelLabel: l.credit_hide_cancel,
+      danger: true,
     );
-    if (ok != true || !context.mounted) return;
+    if (!ok || !context.mounted) return;
     try {
       await ref.read(closedLoansProvider.notifier).hide(loan.id);
       if (context.mounted) {

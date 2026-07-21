@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_radii.dart';
+import '../../../../core/error/error_message.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
@@ -71,6 +73,10 @@ class ProfilePage extends ConsumerWidget {
                 email: member?.email ?? '.',
                 memberNumber: member?.numeroMembre ?? 'GF-XXXX-XXXX',
                 initials: _initials(member?.prenom, member?.nom),
+                photoUrl: member?.photoUrl,
+                onEditPhoto: member == null
+                    ? null
+                    : () => _pickAndUploadPhoto(context, ref),
               ),
 
               const SizedBox(height: AppSpacing.l),
@@ -277,6 +283,31 @@ class ProfilePage extends ConsumerWidget {
     final b = n.isNotEmpty ? n[0] : '';
     final initials = (a + b).toUpperCase();
     return initials.isEmpty ? 'GF' : initials;
+  }
+
+  /// Choisit une image dans la galerie et la charge comme photo de profil.
+  static Future<void> _pickAndUploadPhoto(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    // file_picker 11+ : appel statique direct (pas de singleton `.platform`).
+    final res = await FilePicker.pickFiles(type: FileType.image);
+    final path = res?.files.single.path;
+    if (path == null) return; // annulé
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Mise à jour de la photo…')),
+    );
+    try {
+      await ref.read(authProvider.notifier).updatePhoto(path);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Photo de profil mise à jour.')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(friendlyError(e))),
+      );
+    }
   }
 
   static Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
@@ -573,12 +604,16 @@ class _IdentityHero extends StatelessWidget {
     required this.email,
     required this.memberNumber,
     required this.initials,
+    this.photoUrl,
+    this.onEditPhoto,
   });
 
   final String fullName;
   final String email;
   final String memberNumber;
   final String initials;
+  final String? photoUrl;
+  final VoidCallback? onEditPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -618,32 +653,78 @@ class _IdentityHero extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  // Avatar . anneau dégradé + initiales
-                  Container(
-                    width: 68,
-                    height: 68,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.26),
-                          Colors.white.withValues(alpha: 0.08),
-                        ],
-                      ),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.32),
-                        width: 1.6,
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      initials,
-                      style: AppTypography.headingMedium.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  // Avatar . photo de profil (si définie) ou anneau + initiales,
+                  // + badge appareil photo pour charger/changer sa photo.
+                  GestureDetector(
+                    onTap: onEditPhoto,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 68,
+                          height: 68,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withValues(alpha: 0.26),
+                                Colors.white.withValues(alpha: 0.08),
+                              ],
+                            ),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.32),
+                              width: 1.6,
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.antiAlias,
+                          child: (photoUrl != null && photoUrl!.isNotEmpty)
+                              ? Image.network(
+                                  photoUrl!,
+                                  width: 68,
+                                  height: 68,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Text(
+                                    initials,
+                                    style: AppTypography.headingMedium.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  initials,
+                                  style: AppTypography.headingMedium.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                        ),
+                        if (onEditPhoto != null)
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: PaColors.teal,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 1.6,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.photo_camera_rounded,
+                                color: Colors.white,
+                                size: 13,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: AppSpacing.m),

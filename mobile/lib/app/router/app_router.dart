@@ -28,6 +28,7 @@ import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../../features/onboarding/presentation/state/onboarding_notifier.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/support/presentation/pages/support_page.dart';
+import '../../features/savings/presentation/pages/account_state_page.dart';
 import '../../features/savings/presentation/pages/savings_history_page.dart';
 import '../../features/security/presentation/pages/pin_change_page.dart';
 import '../../features/security/presentation/pages/pin_lock_page.dart';
@@ -121,6 +122,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/auth/forgot-password',
         name: 'forgot-password',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const ForgotPasswordPage()),
       ),
@@ -130,6 +132,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/auth/setup-password',
         name: 'setup-password',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) {
           final token = state.uri.queryParameters['token'];
           return _paSlideFadePage(
@@ -153,6 +156,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/pin/change',
         name: 'pin-change',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const PinChangePage()),
       ),
@@ -161,6 +165,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/notifications',
         name: 'notifications',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const NotificationsPage()),
       ),
@@ -169,6 +174,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/savings/history',
         name: 'savings-history',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const SavingsHistoryPage()),
       ),
@@ -177,6 +183,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/booklet',
         name: 'booklet',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const BookletPage()),
       ),
@@ -185,6 +192,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/contributions',
         name: 'contributions',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const ContributionsPage()),
       ),
@@ -193,14 +201,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/states',
         name: 'states',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const StatesPage()),
+      ),
+
+      // État de mon compte (ventilation + retraits en cours) — icône détail accueil.
+      GoRoute(
+        path: '/account-state',
+        name: 'account-state',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) =>
+            _paSlideFadePage(state, const AccountStatePage()),
       ),
 
       // Préférences notifications — pushée depuis Profil.
       GoRoute(
         path: '/preferences/notifications',
         name: 'preferences-notifications',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const NotificationsPreferencesPage()),
       ),
@@ -209,6 +228,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/help',
         name: 'help',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const HelpContactPage()),
       ),
@@ -218,6 +238,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/support',
         name: 'support',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const SupportPage()),
       ),
@@ -228,6 +249,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/campaigns',
         name: 'campaigns',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const CampaignsListPage()),
       ),
@@ -236,6 +258,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/news',
         name: 'news',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const NewsListPage()),
       ),
@@ -245,6 +268,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/news/:id',
         name: 'news-detail',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) {
           final article = state.extra as NewsArticle?;
           if (article == null) {
@@ -259,6 +283,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/campaigns/:id',
         name: 'campaign-detail',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) {
           final campaign = state.extra as CampaignFlyer?;
           if (campaign == null) {
@@ -275,6 +300,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/avaliste/mandats',
         name: 'avaliste-mandats',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const AvalisteMandatsPage()),
       ),
@@ -283,6 +309,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/me/lender-payouts',
         name: 'my-lender-payouts',
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const MyLenderPayoutsPage()),
       ),

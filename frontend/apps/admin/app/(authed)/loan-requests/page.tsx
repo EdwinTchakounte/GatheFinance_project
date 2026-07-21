@@ -1276,9 +1276,10 @@ function VoieBadge({ r }: { r: LoanRequest }) {
  * Badges de profil emprunteur — déclarations du formulaire + pièce jointe
  * correspondante, ouvrable en aperçu (jamais en nouvel onglet).
  *
- * Les deux lignes « Broad Range Consulting » (CGA BRC / CFP BRC) sont ce qui
- * alimente la file de validation `/brc` : la pièce déposée ici est dupliquée
- * côté backend en `BRCDocument`, d'où le rappel affiché à l'admin.
+ * Les deux lignes « Broad Range Consulting » (CGA BRC / CFP BRC) sont
+ * DOCUMENTAIRES : la pièce déposée est dupliquée côté backend en `BRCDocument`
+ * (consultable ici et dans `/brc`, en lecture). Plus de validation — le comité
+ * juge la demande de crédit en s'appuyant dessus.
  */
 const PROFIL_ROWS: {
   label: string;
@@ -1337,11 +1338,11 @@ function ProfilEmprunteurBadges({ r }: { r: LoanRequest }) {
       </div>
       {hasBrc ? (
         <p className="text-[11px] text-ink-500">
-          Justificatif BRC à valider dans{" "}
+          Pièce BRC à consulter (ci-dessus, ou dans{" "}
           <Link href="/brc" className="font-medium text-blue-700 hover:underline">
             Justificatifs BRC
           </Link>
-          .
+          ) — le comité juge la demande.
         </p>
       ) : null}
     </div>

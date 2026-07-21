@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Rapport d'audit — Pré-livraison GATHE Finance</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm 22mm 18mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "DejaVu Sans", "Segoe UI", Helvetica, Arial, sans-serif;
+    color: #1a2230; font-size: 10.5pt; line-height: 1.55;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  p { text-align: justify; margin: 0 0 9px 0; }
+  strong { color: #10233f; }
+
+  .cover { display: flex; align-items: center; gap: 18px; padding-bottom: 14px; margin-bottom: 6px; }
+  .cover img { height: 52px; width: auto; }
+  .cover .titles { flex: 1; }
+  .cover .kicker { color: #004CA4; font-size: 8.5pt; font-weight: 700;
+    letter-spacing: 2.2px; text-transform: uppercase; margin: 0 0 3px 0; }
+  .cover h1 { font-size: 20pt; line-height: 1.12; margin: 0; color: #10233f;
+    font-weight: 800; letter-spacing: -0.2px; }
+  .accentbar { height: 4px; width: 54px; border-radius: 3px;
+    background: linear-gradient(90deg, #004CA4 55%, #0E9F6E 55%); }
+
+  .metaline { display: flex; gap: 22px; flex-wrap: wrap;
+    font-size: 9pt; color: #667085; margin: 10px 0 20px 0; }
+  .metaline b { color: #10233f; font-weight: 700; }
+  .tag { display: inline-block; background: #EAF1FB; color: #004CA4;
+    font-size: 8pt; font-weight: 700; letter-spacing: .6px;
+    padding: 3px 9px; border-radius: 999px; text-transform: uppercase; }
+
+  h2 { font-size: 13.5pt; color: #10233f; font-weight: 800;
+    margin: 22px 0 3px 0; letter-spacing: -0.1px; }
+  h2 .num { color: #004CA4; }
+  h2 + .accentbar { margin-bottom: 12px; }
+  h3 { font-size: 11pt; color: #004CA4; font-weight: 700; margin: 16px 0 6px 0; }
+
+  ul { margin: 4px 0 10px 0; padding-left: 0; list-style: none; }
+  ul li { position: relative; padding-left: 16px; margin-bottom: 5px; text-align: justify; }
+  ul li::before { content: ""; position: absolute; left: 2px; top: 7px;
+    width: 5px; height: 5px; border-radius: 50%; background: #0E9F6E; }
+  ul.warn li::before { background: #E08A1E; }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px 0; font-size: 9.5pt; }
+  thead th { background: #EAF1FB; color: #10233f; text-align: left;
+    font-weight: 700; padding: 7px 9px; border-bottom: 1px solid #cfe0f6; }
+  tbody td { padding: 7px 9px; border-bottom: 1px solid #eef1f5; vertical-align: top; text-align: left; }
+  tbody tr:nth-child(even) td { background: #fafbfc; }
+  td.center, th.center { text-align: center; }
+
+  .chip { display: inline-block; font-size: 8pt; font-weight: 700;
+    padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .chip.red { background: #FCEAEA; color: #B42318; }
+  .chip.amber { background: #FEF0E2; color: #B54708; }
+
+  h2, h3 { page-break-after: avoid; }
+  table, tr { page-break-inside: avoid; }
+  .callout { border-left: 4px solid #004CA4; background: #F4F8FD;
+    padding: 11px 14px; border-radius: 0 8px 8px 0; margin: 10px 0 14px 0;
+    page-break-inside: avoid; }
+  .callout.ok { border-left-color: #0E9F6E; background: #F0F9F4; }
+  .callout.bad { border-left-color: #E05252; background: #FDF3F3; }
+  .callout .lead { font-weight: 800; color: #10233f; margin-bottom: 3px; }
+  .callout p { margin: 0; }
+
+  code { font-family: "DejaVu Sans Mono", monospace; font-size: 8.8pt;
+    background: #eef1f5; padding: 1px 4px; border-radius: 4px; color: #10233f; }
+
+  .foot { position: fixed; bottom: 6mm; left: 0; right: 0;
+    font-size: 7.5pt; color: #9aa4b2; display: flex; justify-content: space-between; }
+  .foot .dot { color: #0E9F6E; font-weight: 700; }
+</style>
+</head>
+<body>
+
+  <div class="cover">
+    <img src="data:image/png;base64,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" alt="GATHE Finance"/>
+    <div class="titles">
+      <p class="kicker">Rapport d'audit interne</p>
+      <h1>Vérifications de pré-livraison</h1>
+    </div>
+  </div>
+  <div class="accentbar"></div>
+
+  <div class="metaline">
+    <span><b>Date</b>&nbsp;: 21 juillet 2026</span>
+    <span><b>Périmètre</b>&nbsp;: Backend · Mobile · Portail · Admin</span>
+    <span><b>Statut backend</b>&nbsp;: 1&nbsp;175 tests au vert</span>
+    <span class="tag">Confidentiel — interne</span>
+  </div>
+
+  <p>Ce document consigne les vérifications approfondies menées avant la mise en
+  production. Chaque point est audité de bout en bout sur l'ensemble des canaux
+  concernés (application mobile, portail web membre, back-office administrateur
+  et cœur métier), afin de garantir qu'aucune anomalie ne subsiste sur les
+  parcours sensibles. Les correctifs déjà appliqués sont documentés avec leur
+  couverture de tests&nbsp;; les points restant à traiter sont assortis d'une
+  recommandation priorisée.</p>
+
+  <section>
+    <h2><span class="num">1.</span>&nbsp; Versement épargne &amp; collecte — trois canaux</h2>
+    <div class="accentbar"></div>
+
+    <p>La coopérative crédite un versement par trois voies&nbsp;: le membre depuis
+    l'application <strong>mobile</strong>, le membre depuis le <strong>portail
+    web</strong>, et le <strong>versement manuel</strong> saisi par un agent au
+    guichet. Deux produits coexistent&nbsp;: la <strong>collecte journalière</strong>
+    et l'<strong>épargne classique</strong> (part libre ou placement). L'objectif
+    de l'audit était de confirmer que le solde, l'imputation au carnet et les
+    règles de montant sont cohérents quel que soit le canal.</p>
+
+    <h3>Ce qui est confirmé sain</h3>
+    <ul>
+      <li>Mobile et portail appellent le <strong>même point d'entrée</strong>
+      (<code>POST /payments/init/</code>), avec un corps de requête et un encodage
+      produit identiques&nbsp;; les minimums en version de production concordent
+      (1&nbsp;000&nbsp;XAF).</li>
+      <li>Le <strong>calcul du solde</strong> et de la balance après opération est
+      strictement identique sur les trois canaux (verrouillage transactionnel
+      commun, hooks métier partagés).</li>
+      <li>Le <strong>rattachement au carnet</strong> est posé sur tous les canaux,
+      y compris le versement manuel agence.</li>
+      <li>Le versement manuel passe par les <strong>mêmes hooks métier</strong> que
+      la confirmation du prestataire de paiement&nbsp;: audit, événements et solde
+      restent cohérents.</li>
+      <li>Le champ « réseau » codé côté mobile est <strong>sans effet</strong>&nbsp;:
+      le prestataire détecte l'opérateur d'après le préfixe du numéro. Aucun
+      risque de mauvais routage.</li>
+    </ul>
+
+    <h3>Anomalies détectées — toutes sur le versement manuel agence</h3>
+    <p>Le parcours membre validait déjà chaque règle&nbsp;; le versement manuel,
+    lui, ne contrôlait quasiment rien avant enregistrement. Trois écarts&nbsp;:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:64px" class="center">Réf.</th>
+          <th style="width:150px">Produit</th>
+          <th>Anomalie</th>
+          <th style="width:78px" class="center">Gravité</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="center"><strong>R2</strong></td>
+          <td>Épargne classique</td>
+          <td>Contrôle absent du produit ouvert, du <strong>plancher de
+          1&nbsp;000&nbsp;XAF</strong> et du plafond&nbsp;: un dépôt pouvait être
+          enregistré produit fermé, sous le minimum ou au-dessus du maximum.</td>
+          <td class="center"><span class="chip red">Haute</span></td>
+        </tr>
+        <tr>
+          <td class="center"><strong>R3</strong></td>
+          <td>Épargne classique</td>
+          <td>Un placement pouvait être marqué <strong>hors fenêtre
+          d'éligibilité</strong>&nbsp;: l'écriture s'affichait « placement » sans
+          création de tranche, donc l'argent n'était pas réellement bloqué —
+          incohérence de grand livre.</td>
+          <td class="center"><span class="chip red">Haute</span></td>
+        </tr>
+        <tr>
+          <td class="center"><strong>R1</strong></td>
+          <td>Collecte journalière</td>
+          <td>Ni le pas de 50&nbsp;FCFA ni le minimum par jour n'étaient
+          appliqués&nbsp;: un montant invalide pouvait être saisi.</td>
+          <td class="center"><span class="chip amber">Moyenne</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Correctif appliqué</h3>
+    <p>Un module de validation unique a été créé et branché sur les
+    <strong>deux</strong> canaux (membre et agence), de sorte que les mêmes règles
+    s'appliquent partout et qu'aucune divergence ne puisse réapparaître à
+    l'avenir&nbsp;: gate d'ouverture, plancher, plafond côté classique&nbsp;; pas de
+    montant et minimum par jour côté collecte&nbsp;; et refus d'un placement hors
+    fenêtre.</p>
+
+    <div class="callout ok">
+      <div class="lead">Résultat</div>
+      <p>Les trois écarts sont corrigés. Neuf tests de non-régression figent les
+      cas R1, R2 et R3 ainsi que les cas positifs (un dépôt valide crédite bien la
+      transaction). L'ensemble de la suite backend — 1&nbsp;175 tests — reste au
+      vert.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">2.</span>&nbsp; Paiement des trois frais à la première connexion</h2>
+    <div class="accentbar"></div>
+
+    <p>Un nouveau membre doit régler trois frais obligatoires pour activer son
+    compte. Tant que les trois ne sont pas réglés, le compte reste
+    <strong>suspendu</strong>. L'audit vérifie qu'un membre peut payer
+    <strong>facilement</strong> ces trois frais dès sa première connexion, sur
+    mobile comme sur le portail.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Frais</th>
+          <th style="width:120px" class="center">Montant</th>
+          <th style="width:150px">Requis pour activer&nbsp;?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Frais d'adhésion</td><td class="center">10&nbsp;000&nbsp;XAF</td><td>Oui</td></tr>
+        <tr><td>Frais d'inscription</td><td class="center">2&nbsp;000&nbsp;XAF</td><td>Oui</td></tr>
+        <tr><td>Frais de carnet</td><td class="center">1&nbsp;000&nbsp;XAF</td><td>Oui</td></tr>
+        <tr><td><strong>Total</strong></td><td class="center"><strong>13&nbsp;000&nbsp;XAF</strong></td><td>Les trois</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout ok">
+      <div class="lead">Portail web — parcours fluide</div>
+      <p>Un écran d'activation unique présente les trois frais ensemble avec le
+      total (13&nbsp;000&nbsp;XAF), une barre de progression « X&nbsp;sur&nbsp;3
+      réglés », un seul numéro de téléphone saisi, un paiement possible dans
+      n'importe quel ordre, un suivi en direct et le passage automatique du compte
+      en « actif ». Le parcours est complet et aligné sur l'exigence des trois
+      frais.</p>
+    </div>
+
+    <div class="callout bad">
+      <div class="lead">Mobile — état initial (défaillant)</div>
+      <p>À l'audit, un membre qui suivait le chemin évident restait bloqué en
+      « suspendu ». Les anomalies constatées&nbsp;:</p>
+    </div>
+
+    <ul class="warn">
+      <li>Le service qui liste les frais et l'écran de paiement n'exposaient que
+      <strong>deux</strong> frais (adhésion et inscription). Le
+      <strong>frais de carnet</strong> — pourtant obligatoire — n'était
+      <strong>jamais présenté comme un frais d'activation</strong>&nbsp;: il n'était
+      accessible que via une « commande de carnet physique », sans lien avec
+      l'activation.</li>
+      <li>Un membre qui réglait les deux frais visibles <strong>n'était donc pas
+      activé</strong>, sans qu'aucun message n'indique qu'un troisième frais restait
+      dû.</li>
+      <li>Aucun total, aucune barre de progression&nbsp;; le numéro de téléphone était
+      <strong>re-saisi trois fois</strong>&nbsp;; les frais étaient dispersés sur trois
+      écrans différents.</li>
+      <li>La bannière du compte suspendu affichait « Contacte la coopérative pour
+      régulariser ta situation » — orientant le membre <strong>hors</strong> du
+      paiement in-app.</li>
+    </ul>
+
+    <div class="callout ok">
+      <div class="lead">Correctif appliqué — parité avec le portail</div>
+      <p>Le parcours mobile a été refait. Le service des frais expose désormais les
+      <strong>trois</strong> frais d'activation (carnet inclus) avec, pour chacun,
+      son montant et son état « réglé ». Un <strong>écran d'activation unique</strong>
+      regroupe les trois frais avec le <strong>total</strong>, une
+      <strong>barre de progression</strong> « N sur 3 réglés », un
+      <strong>numéro saisi une seule fois</strong>, un paiement dans n'importe quel
+      ordre (Mobile Money ou depuis le compte), et un passage automatique en
+      « actif » avec écran de confirmation. La bannière et le carrousel d'accueil
+      pointent maintenant vers un vrai bouton <strong>« Activer mon compte »</strong>.
+      Le carnet est en outre devenu réglable depuis l'épargne.</p>
+    </div>
+
+    <div class="callout">
+      <div class="lead">Verdict</div>
+      <p>Payer les trois frais à la première connexion est désormais
+      <strong>simple et complet sur les deux canaux</strong>, web et mobile.
+      Couverture&nbsp;: le service backend expose les trois frais avec leur état, et
+      les tests figent l'activation de bout en bout (les trois frais réglés depuis
+      l'épargne — carnet compris — basculent le membre en actif).</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">3.</span>&nbsp; Reconduction annuelle de cycle</h2>
+    <div class="accentbar"></div>
+
+    <p>Chaque membre a un <strong>cycle de 12 mois</strong> ancré sur son
+    anniversaire d'adhésion (et non la fin d'année calendaire). Un cron quotidien
+    envoie des rappels à J-30, J-7 et le jour J, puis <strong>suspend
+    automatiquement</strong> à J+10 (délai de grâce) le membre qui n'a pas
+    reconduit. Il n'y a <strong>jamais</strong> de radiation automatique.</p>
+
+    <div class="callout ok">
+      <div class="lead">Question clé — les états de compte sont-ils conservés ?</div>
+      <p><strong>Oui, intégralement.</strong> La reconduction ne modifie que deux
+      champs du membre (date de réinscription + statut). <strong>Aucun</strong>
+      chemin (reconduction, suspension, réactivation, « nouveau cycle ») ne lit ou
+      n'écrit un solde ou une écriture d'épargne. Le membre conserve son numéro,
+      son solde d'épargne classique et tout son historique sur le cycle suivant.
+      Vérifié dans le code et par les tests de réactivation.</p>
+    </div>
+
+    <h3>Ce que paie le membre</h3>
+    <ul>
+      <li><strong>Reconduction à temps</strong> (compte encore actif, dans la
+      fenêtre anniversaire) : <strong>frais de carnet — 1 000 XAF</strong>.</li>
+      <li><strong>Réactivation</strong> (compte déjà suspendu pour
+      non-renouvellement) : <strong>frais d'adhésion — 10 000 XAF</strong>
+      (décision métier, pénalité). Les deux clients sont alignés sur ce montant.</li>
+    </ul>
+
+    <p class="muted"><em>Nuance indépendante de la reconduction :</em> la
+    <strong>collecte journalière</strong> est clôturée chaque fin de mois
+    (commission 1 % puis restitution ou bascule vers l'épargne classique, tout
+    journalisé) — comportement propre à ce produit, l'épargne classique n'est
+    jamais touchée.</p>
+
+    <div class="callout bad">
+      <div class="lead">Anomalies trouvées à l'audit — statut « suspendu » ambigu</div>
+      <p>Le statut « suspendu » confondait deux cas très différents (nouveau
+      membre jamais activé vs membre existant non renouvelé), provoquant côté
+      mobile deux bannières contradictoires, une reconduction déguisée en
+      « commande de carnet », et côté portail un cul-de-sac (l'écran d'activation
+      affichait « 3/3 réglés » sans possibilité de réactiver).</p>
+    </div>
+
+    <div class="callout ok">
+      <div class="lead">Correctif appliqué</div>
+      <p>Les quatre états sont désormais distingués proprement, sur les deux
+      canaux : <strong>activation</strong> initiale (frais dus), <strong>
+      réactivation</strong> (adhésion 10 000, avec message et prix corrects),
+      <strong>renouvellement</strong> annuel à temps (carnet 1 000), et compte
+      <strong>actif</strong>. La reconduction mobile est cadrée (framing
+      « renouvellement / réactivation », frais serveur, <strong>réassurance
+      explicite que le solde et l'historique sont conservés</strong>, refresh
+      auto). Le cul-de-sac du portail est corrigé (chemin de réactivation
+      dédié). Analyse mobile et typecheck portail au vert.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">4.</span>&nbsp; Demande de retrait — état, gel &amp; page « État de mon compte »</h2>
+    <div class="accentbar"></div>
+
+    <p>Un retrait n'est pas un débit immédiat : le membre envoie une demande, la
+    coopérative la traite, et le solde n'est réellement débité qu'au
+    <strong>paiement / à la remise</strong>. Une part de l'épargne peut par
+    ailleurs être <strong>gelée en garantie</strong> d'un crédit. L'audit vérifie
+    que ces deux aspects sont correctement pris en compte sur les deux clients.</p>
+
+    <h3>Ce qui est confirmé sain</h3>
+    <ul>
+      <li><strong>Machine à états</strong> correcte : la demande naît « en
+      attente », l'approbation ne débite pas (le montant est seulement
+      <strong>réservé</strong>), et le débit n'intervient qu'au paiement. Un
+      paiement échoué ne débite rien. Les statuts sont suivis côté membre (accueil
+      + états).</li>
+      <li><strong>Calcul du disponible (mobile)</strong> correct : le sheet de
+      retrait s'appuie sur le « disponible au retrait » = solde − max(placement,
+      gel garantie) − retraits déjà réservés. Le gel est affiché.</li>
+    </ul>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:64px" class="center">Réf.</th>
+          <th>Constat</th>
+          <th style="width:78px" class="center">Gravité</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="center"><strong>W1</strong></td>
+          <td>Portail : le formulaire de retrait plafonnait le disponible sur la
+          part « libre » (placement exclu seulement), <strong>ignorant le gel et
+          les retraits déjà réservés</strong> → chiffre surestimé. Le backend
+          rejetait quand même : défaut d'affichage, pas de fuite. <em>Corrigé</em>
+          (bascule sur le « disponible au retrait » réel, à parité avec le
+          mobile).</td>
+          <td class="center"><span class="chip amber">Moyenne</span></td>
+        </tr>
+        <tr>
+          <td class="center"><strong>W2</strong></td>
+          <td>À la soumission, seul le membre recevait un accusé ; l'admin
+          découvrait la demande via sa file d'attente, sans notification poussée.
+          <strong>Corrigé</strong> : un e-mail « retrait à traiter » part à l'équipe
+          (adresse ops configurable, no-op si vide), à parité avec l'alerte
+          « dossier crédit prêt ».</td>
+          <td class="center"><span class="chip green">Corrigé</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout ok">
+      <div class="lead">Nouvelle page « État de mon compte » (accueil)</div>
+      <p>Une <strong>icône détail</strong> a été ajoutée en haut de l'accueil
+      mobile. Elle ouvre une page synthèse qui présente au membre&nbsp;: la
+      ventilation de son épargne classique (solde total, en placement, libre,
+      <strong>gelé en garantie</strong>, <strong>disponible au retrait</strong>),
+      le solde de sa collecte, ses <strong>retraits en cours</strong> avec leur
+      statut, et une explication claire du cycle d'un retrait (demande → validation
+      → paiement) ainsi que du gel de garantie. Le membre comprend d'un coup d'œil
+      pourquoi son disponible diffère de son solde.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">5.</span>&nbsp; Voie avaliste (garant) — flow, gel &amp; notifications</h2>
+    <div class="accentbar"></div>
+
+    <p>Le crédit par voie avaliste : le demandeur désigne un garant, celui-ci
+    accepte (avec CNI) ou refuse (avec motif), une part de l'épargne du garant est
+    gelée en garantie, puis le comité décide. L'audit couvre le flow complet, le
+    gel, et les notifications, sur mobile, portail et admin.</p>
+
+    <h3>Ce qui est confirmé sain</h3>
+    <ul>
+      <li><strong>Flow complet et câblé</strong> côté demandeur ET garant, sur
+      <strong>mobile et portail</strong> (parité) : désignation par recherche d'un
+      membre réel, acceptation avec CNI, refus avec motif, engagement non
+      rétractable.</li>
+      <li><strong>Gel appliqué correctement</strong> : caution = le « manque »
+      (montant − collatéral demandeur), gelée seulement à l'acceptation ; cap-solde
+      vérifié (le garant ne peut couvrir au-delà de son épargne disponible) ; pas de
+      double-comptage.</li>
+      <li><strong>Onglet « Rejetées » admin</strong> = famille complète (rejet
+      comité + refus avaliste + recalage campagne) — géré côté backend.</li>
+    </ul>
+
+    <div class="callout bad">
+      <div class="lead">Anomalie principale — gel non libéré après rejet comité</div>
+      <p>Le montant gelé <em>dérivé</em> (qui grise le disponible au retrait du
+      garant) ne se libérait que si un crédit était clôturé. Si le garant acceptait
+      puis que le <strong>comité rejetait</strong> la demande (aucun crédit créé),
+      la caution restait comptée <strong>« à vie »</strong> — l'épargne du garant
+      grisée en permanence, alors même que les tranches persistées étaient, elles,
+      bien libérées. <strong>Corrigé</strong> : la libération est alignée sur le
+      collatéral demandeur (libérée dès que la demande passe en statut rejeté).
+      Test de non-régression ajouté.</p>
+    </div>
+
+    <div class="callout ok">
+      <div class="lead">Corrections d'affichage &amp; navigation</div>
+      <p>Mobile : la notification « tu es désigné garant » ouvre désormais la page
+      <strong>« Mes mandats »</strong> (au lieu de la page crédit du demandeur ou
+      d'un tap mort). Admin : les statuts <em>refusée (avaliste)</em> et
+      <em>rejetée (campagne)</em> ont enfin leur pastille rouge (au lieu d'un gris
+      neutre).</p>
+    </div>
+
+    <div class="callout ok">
+      <div class="lead">Notifications &amp; preuves — ajoutées</div>
+      <p><strong>CNI de l'avaliste</strong> : le n° et le <strong>scan</strong>
+      fournis à l'acceptation sont désormais affichés/prévisualisables dans le
+      back-office (colonne « Pièces / motif »), avec le motif de refus — pour
+      reconstituer les preuves côté audit. <strong>Admin notifié</strong> : un
+      e-mail part à l'équipe (adresse ops configurable) dès qu'un dossier crédit
+      passe en instruction (toutes voies). <strong>Garant prévenu</strong> : un
+      e-mail l'informe quand sa caution est <strong>libérée</strong> (crédit soldé
+      ou demande rejetée). L'e-mail staff nécessite de renseigner
+      ``notifications.ops_email`` et de re-semer les templates.</p>
+    </div>
+
+    <div class="callout ok">
+      <div class="lead">Voie « garantie matérielle » — flow vérifié</div>
+      <p>La demande par garantie matérielle (bien/titre en garantie, sans garant)
+      arrive bien et est correctement traitée : après paiement des frais d'étude,
+      elle passe directement en <strong>instruction comité</strong>
+      (EN_INSTRUCTION) — comme l'auto-couverture — et l'admin la traite dans la
+      file crédit standard, avec le bien déclaré et le titre en pièce jointe. Le
+      relâchement de tout gel demandeur suit la même règle que ci-dessus.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">6.</span>&nbsp; Corrections d'interface &amp; de documents</h2>
+    <div class="accentbar"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:150px">Point</th>
+          <th>Correction</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Barre de navigation (mobile)</strong></td>
+          <td>Sur les pages ouvertes depuis un onglet (avec bouton retour), la
+          barre de navigation du bas restait affichée. Les pages plein écran sont
+          désormais posées sur le navigateur racine (au-dessus du shell) — la barre
+          du bas <strong>disparaît</strong> sur toute page poussée, ne laissant que
+          le bouton retour.</td>
+        </tr>
+        <tr>
+          <td><strong>Note de demande de crédit</strong></td>
+          <td>Sur la ligne d'échéance de l'échéancier, la <strong>date</strong>
+          (libellé complet, ex. « 20 octobre 2026 ») chevauchait la colonne
+          <strong>Capital</strong>. Les colonnes ont été élargies (N° · échéance ·
+          capital · total dû) — plus aucune superposition.</td>
+        </tr>
+        <tr>
+          <td><strong>Documents de garantie (dashboard)</strong></td>
+          <td>Le titre de propriété (et autres pièces) d'une demande par garantie
+          matérielle ne se prévisualisait pas depuis le back-office : l'URL du
+          fichier était <strong>relative</strong> (résolue sur l'hôte admin → 404).
+          Les URLs des pièces jointes sont désormais <strong>absolues</strong> — le
+          document est consultable depuis le tableau de bord.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2><span class="num">7.</span>&nbsp; Fin de mois collecte, menu d'accueil &amp; photo de profil</h2>
+    <div class="accentbar"></div>
+
+    <h3>Fonctionnement de la fin de mois (collecte journalière)</h3>
+    <p>Chaque <strong>1er du mois</strong>, un traitement automatique clôture la
+    collecte journalière de chaque membre. Sur le solde accumulé, la coopérative
+    prélève une <strong>commission de 1 %</strong>, puis le reste part selon le
+    <strong>choix du membre</strong> (« Que faire de ta collecte en fin de mois ? »)
+    parmi trois options&nbsp;:</p>
+    <ul>
+      <li><strong>Espèces à l'agence</strong> — le membre récupère son solde au
+      guichet.</li>
+      <li><strong>Mobile Money</strong> — restitution sur le numéro qu'il
+      renseigne.</li>
+      <li><strong>Basculer vers l'épargne classique</strong> — le solde est
+      viré sur son compte d'épargne classique (capitalisé).</li>
+    </ul>
+    <p>Chaque mouvement (commission, restitution, bascule) est <strong>journalisé
+    </strong>&nbsp;: la poche « collecte » revient à zéro mais l'argent est
+    restitué ou déplacé, jamais perdu. L'épargne classique n'est pas concernée.</p>
+
+    <h3>Améliorations livrées</h3>
+    <ul>
+      <li><strong>Menu « trois points » (accueil)</strong> — l'icône de détail en
+      haut à droite devient un menu ⋮ regroupant <strong>« Détail du compte »</strong>
+      (état&nbsp;: soldes, gel, retraits en cours) et <strong>« Historique »</strong>
+      (mêmes écritures que « voir plus »).</li>
+      <li><strong>Photo de profil</strong> — le membre peut désormais
+      <strong>charger et changer son avatar</strong> depuis son espace (badge
+      appareil photo sur la photo du profil). L'avatar s'affiche partout (profil,
+      en-tête d'accueil) avec repli automatique sur les initiales si l'image n'est
+      pas encore définie. Champ dédié côté backend (migration), upload multipart,
+      URL exposée par <code>/auth/me/</code> et <code>/members/me/</code>.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">8.</span>&nbsp; Remboursement de crédit &amp; dégel des comptes</h2>
+    <div class="accentbar"></div>
+
+    <p>Un membre rembourse par <strong>transfert</strong> (prélèvement sur son
+    épargne) ou par <strong>versement</strong> (Mobile Money) ; l'agent peut aussi
+    saisir un remboursement manuel. L'enjeu&nbsp;: quand le crédit est soldé, tout
+    ce qui était gelé doit être <strong>libéré</strong>.</p>
+
+    <div class="callout ok">
+      <div class="lead">Dégel à la clôture — complet &amp; correct (les deux canaux)</div>
+      <p>Les deux canaux convergent vers une même fonction d'imputation. À la
+      clôture (dernier remboursement, solde à 0), sont libérés&nbsp;: le
+      <strong>collatéral du demandeur</strong>, la <strong>caution du garant</strong>
+      (montant gelé <em>et</em> tranches), et les <strong>tranches de financement
+      prêteur</strong> rendues au pool (intérêts prêteur crédités en 50/50). Le
+      <strong>disponible au retrait</strong> du membre se dégrise automatiquement.
+      Idempotent, arrondis gérés, anti-rejeu OK.</p>
+    </div>
+
+    <div class="callout bad">
+      <div class="lead">Failles trouvées — corrigées</div>
+      <p>Le <strong>remboursement manuel admin</strong> ne vérifiait <em>ni</em>
+      le statut du crédit <em>ni</em> le trop-perçu (contrairement au canal
+      membre)&nbsp;: on pouvait saisir un remboursement sur un crédit déjà soldé,
+      ou au-dessus du solde — l'argent était alors <strong>silencieusement perdu</strong>.
+      <strong>Corrigé</strong> (mêmes gardes que le membre + 3 tests). Par ailleurs,
+      la libération des tranches de financement n'était déclenchée qu'au
+      remboursement&nbsp;: une clôture par <strong>saisie/contentieux</strong> laissait
+      ces tranches en l'air. <strong>Corrigé</strong> — la libération est désormais
+      posée sur le signal de clôture (toutes voies, idempotent), symétrique du gel
+      garantie.</p>
+    </div>
+
+    <div class="callout ok">
+      <div class="lead">Ajouts</div>
+      <p>Notification <strong>« crédit soldé »</strong> au membre à la clôture
+      (nouvel e-mail <code>loan.closed</code>). Copie du portail corrigée&nbsp;: après
+      un remboursement, le message dit « remboursement imputé » (au lieu de
+      « crédité sur ton épargne »).</p>
+    </div>
+
+    <div class="callout ok">
+      <div class="lead">Manquements comblés</div>
+      <p>Le <strong>remboursement par transfert épargne est ajouté au portail</strong>
+      (bouton « Depuis mon épargne » + confirmation), à parité avec le mobile.
+      Nouvelle notification au <strong>prêteur</strong> quand sa part de placement
+      est libérée à la clôture du crédit financé.</p>
+    </div>
+
+    <div class="callout ok">
+      <div class="lead">Pool prêteur — modèle confirmé &amp; apport admin ajouté</div>
+      <p>Une part de placement peut financer <strong>plusieurs crédits</strong>
+      (découpée en tranches), remboursés à des dates différentes ; à la clôture de
+      chaque crédit, sa tranche est libérée et le capital redevient retirable.
+      <strong>Nouveau&nbsp;: l'apport coop.</strong> Quand un crédit financé n'est
+      pas encore remboursé mais que le prêteur doit être restitué « à terme »,
+      l'admin peut, depuis le pool de tranches, <strong>restituer le prêteur par
+      apport</strong>&nbsp;: capital libéré + intérêts de placement crédités, la
+      coopérative <strong>reprend le risque</strong> du crédit (recouvré à son
+      profit) et garde la part d'intérêts future de ce prêteur. Décisions
+      validées&nbsp;: coop reprend le risque · capital&nbsp;+&nbsp;intérêts ·
+      déclenchement manuel par tranche. Endpoint + bouton admin + notification +
+      tests (dont l'exclusion des intérêts futurs, sans régression sur le partage
+      50/50).</p>
+    </div>
+  </section>
+
+  <div class="foot">
+    <span>GATHE Finance <span class="dot">•</span> Rapport d'audit de pré-livraison</span>
+    <span>21 juillet 2026 <span class="dot">•</span> Confidentiel</span>
+  </div>
+
+</body>
+</html>

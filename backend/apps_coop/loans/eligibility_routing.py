@@ -23,8 +23,10 @@ deploiement) :
   - ``loans.eligibility.allow_senior_brc`` (true) — kill-switch Voie 1
   - ``loans.eligibility.allow_avaliste`` (true) — kill-switch Voie 2
   - ``loans.eligibility.allow_campaign`` (true) — kill-switch Voie 3
-  - ``loans.eligibility.require_brc_for_senior`` (true) — si false, l'ancienneté
-    seule débloque la Voie 1 (cas où admin veut temporairement contourner BRC)
+  - ``loans.eligibility.require_brc_for_senior`` (**false** par défaut depuis
+    2026-07) — le BRC est devenu documentaire (plus de validation) : l'ancienneté
+    seule débloque la Voie 1, le comité juge la demande en consultant la pièce.
+    Repasser à true si l'admin veut re-exiger un statut BRC validé.
   - ``loans.eligibility.route_priority`` (csv "senior_brc,avaliste,campaign")
     — admin peut réordonner. Une voie absente est désactivée.
 
@@ -147,13 +149,13 @@ def _eval_senior_brc(
          compte dans l'épargne (il sera gelé en garantie). Un nouvel adhérent qui
          se couvre lui-même n'a pas besoin d'avaliste.
 
-      2. **Ancien + BRC** — membre établi (``seniority_months ≥
-         seniority.threshold_months``) au statut BRC validé (``is_brc_member``).
-         La demande passe en instruction **même sous-couverte** : c'est le COMITÉ
-         DES PRÊTS qui juge la validité (crédit de confiance, comme la garantie
-         matérielle et la campagne). Le réglage
-         ``loans.eligibility.require_brc_for_senior`` (défaut true) : si false,
-         l'ancienneté seule suffit (contournement admin temporaire du BRC).
+      2. **Ancien** — membre établi (``seniority_months ≥
+         seniority.threshold_months``). La demande passe en instruction **même
+         sous-couverte** : c'est le COMITÉ DES PRÊTS qui juge la validité (crédit
+         de confiance, comme la garantie matérielle et la campagne), en
+         consultant le justificatif BRC désormais **documentaire**. Le réglage
+         ``loans.eligibility.require_brc_for_senior`` (défaut **false**) : si
+         true, l'admin re-exige un statut BRC validé (``is_brc_member``).
 
     Le montant réellement gelé côté demandeur est décidé à la création
     (``min(montant, épargne disponible)``) : un ancien sous-couvert immobilise ce
@@ -191,7 +193,11 @@ def _eval_senior_brc(
 
     # Chemin 2 — ancien (+ BRC) : la couverture n'est PAS exigée, le comité juge.
     threshold = get_int_setting("seniority.threshold_months", 12)
-    require_brc = _bool_setting("loans.eligibility.require_brc_for_senior", True)
+    # Défaut 2026-07 : le BRC n'est plus un statut à valider (pièce purement
+    # documentaire, consultée par le comité). L'ancienneté seule ouvre donc la
+    # voie « crédit de confiance » ; le comité juge la demande. L'admin peut
+    # re-exiger un BRC validé en repassant ce réglage à true.
+    require_brc = _bool_setting("loans.eligibility.require_brc_for_senior", False)
     seniority = int(getattr(member, "seniority_months", 0) or 0)
     has_brc = bool(getattr(member, "is_brc_member", False))
     is_senior = seniority >= threshold
@@ -465,6 +471,30 @@ def _eval_campaign(
 # ---------------------------------------------------------------------------
 
 
+def _chosen_voie(
+    *,
+    avaliste_numero: Optional[str],
+    avaliste_nom: Optional[str],
+    campaign_id: Optional[int],
+    profil_cible: Optional[str],
+    garantie_materielle: bool,
+) -> str:
+    """Voie CHOISIE par le membre, déduite de ce qu'il a renseigné.
+
+    Le membre pilote sa voie : campagne (id de campagne OU profil ciblé rempli),
+    avaliste (désigne un garant), garantie matérielle (déclare un bien). S'il ne
+    désigne rien, c'est la voie par défaut SENIOR_BRC (auto-couverture épargne /
+    ancienneté). On ne laisse PLUS une autre voie « voler » ce choix (fini le
+    « je choisis X mais Y s'affiche »)."""
+    if campaign_id or (profil_cible or "").strip():
+        return EligibilityRoute.CAMPAIGN
+    if (avaliste_numero or "").strip() and (avaliste_nom or "").strip():
+        return EligibilityRoute.AVALISTE
+    if garantie_materielle:
+        return EligibilityRoute.GARANTIE_MATERIELLE
+    return EligibilityRoute.SENIOR_BRC
+
+
 def evaluate_routes(
     member: Member,
     *,
@@ -476,61 +506,65 @@ def evaluate_routes(
     garantie_materielle: bool = False,
     extra_payload: Optional[dict] = None,
 ) -> RouteEvaluation:
-    """Évalue dans l'ordre les 3 voies et renvoie la première qui matche.
+    """Évalue **la voie CHOISIE par le membre** (déduite de ses saisies), et
+    elle seule — la voie affichée sur la demande est toujours celle choisie.
 
-    L'ordre est tunable via ``loans.eligibility.route_priority``. Si toutes
-    échouent, retourne ``RouteEvaluation(route=NONE, motifs=[…])`` avec les
-    raisons cumulées des 3 voies — l'UI peut afficher pour orienter
-    l'utilisateur.
-    """
-    priority = _route_priority()
-    cumulative_motifs: list[str] = []
-    suggested_campaigns: list[int] = []
-    last_details: dict = {}
+    On ne parcourt plus les voies par ordre de priorité en prenant « la première
+    qui matche » : ça faisait qu'un ancien qui postulait à une campagne (ou
+    désignait un avaliste) se retrouvait routé en SENIOR_BRC. Désormais :
 
-    for voie in priority:
-        if voie == EligibilityRoute.SENIOR_BRC:
-            r = _eval_senior_brc(member, montant, extra_payload=extra_payload)
-        elif voie == EligibilityRoute.AVALISTE:
-            r = _eval_avaliste(
-                member,
-                montant,
-                avaliste_numero=avaliste_numero,
-                avaliste_nom=avaliste_nom,
-            )
-        elif voie == EligibilityRoute.GARANTIE_MATERIELLE:
-            r = _eval_garantie_materielle(
-                member,
-                montant,
-                garantie_materielle=garantie_materielle,
-            )
-        elif voie == EligibilityRoute.CAMPAIGN:
-            r = _eval_campaign(
-                member,
-                montant,
-                campaign_id=campaign_id,
-                profil_cible=profil_cible,
-            )
-        else:  # noqa: PIE786 — défense en profondeur
-            continue
+      * campagne désignée → voie CAMPAIGN ;
+      * avaliste désigné  → voie AVALISTE ;
+      * bien déclaré      → voie GARANTIE_MATERIELLE ;
+      * rien              → voie SENIOR_BRC (auto-couverture / ancienneté).
 
-        if r.matched:
-            return RouteEvaluation(
-                route=voie,
-                eligible=True,
-                motifs=[],
-                details=r.details,
-            )
-        cumulative_motifs.extend([f"[{voie}] {m}" for m in r.motifs])
-        if "suggested_campaigns" in r.details:
-            suggested_campaigns.extend(r.details["suggested_campaigns"])
-        last_details = {**last_details, voie: r.details}
+    Une voie retirée de ``loans.eligibility.route_priority`` (ou coupée par son
+    ``allow_*``) reste désactivée. Si la voie choisie échoue, on renvoie NONE
+    avec SES motifs (on ne bascule pas en douce sur une autre voie)."""
+    chosen = _chosen_voie(
+        avaliste_numero=avaliste_numero,
+        avaliste_nom=avaliste_nom,
+        campaign_id=campaign_id,
+        profil_cible=profil_cible,
+        garantie_materielle=garantie_materielle,
+    )
+
+    # Kill-switch par liste : une voie absente de la priorité admin est désactivée.
+    if chosen not in set(_route_priority()):
+        return RouteEvaluation(
+            route=EligibilityRoute.NONE,
+            eligible=False,
+            motifs=[f"Voie « {chosen} » désactivée par l'administration."],
+        )
+
+    if chosen == EligibilityRoute.CAMPAIGN:
+        r = _eval_campaign(
+            member, montant, campaign_id=campaign_id, profil_cible=profil_cible
+        )
+    elif chosen == EligibilityRoute.AVALISTE:
+        r = _eval_avaliste(
+            member,
+            montant,
+            avaliste_numero=avaliste_numero,
+            avaliste_nom=avaliste_nom,
+        )
+    elif chosen == EligibilityRoute.GARANTIE_MATERIELLE:
+        r = _eval_garantie_materielle(
+            member, montant, garantie_materielle=garantie_materielle
+        )
+    else:  # SENIOR_BRC
+        r = _eval_senior_brc(member, montant, extra_payload=extra_payload)
+
+    if r.matched:
+        return RouteEvaluation(
+            route=chosen, eligible=True, motifs=[], details=r.details
+        )
 
     return RouteEvaluation(
         route=EligibilityRoute.NONE,
         eligible=False,
-        motifs=cumulative_motifs
+        motifs=[f"[{chosen}] {m}" for m in r.motifs]
         or ["Aucune voie d'éligibilité applicable. Contactez la coopérative."],
-        details=last_details,
-        suggested_campaigns=suggested_campaigns,
+        details={chosen: r.details},
+        suggested_campaigns=r.details.get("suggested_campaigns", []),
     )

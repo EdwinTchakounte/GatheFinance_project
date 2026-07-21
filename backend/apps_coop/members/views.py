@@ -51,7 +51,12 @@ class MemberMeView(generics.RetrieveAPIView):
 
     _EDITABLE = ("prenom", "nom", "phone", "adresse", "profession")
 
-    def _payload(self, m) -> dict:
+    def _payload(self, m, request=None) -> dict:
+        photo = None
+        if m.photo_profil:
+            photo = m.photo_profil.url
+            if request is not None and photo and not photo.startswith("http"):
+                photo = request.build_absolute_uri(photo)
         return {
             "id": m.id,
             "numero_membre": m.numero_membre,
@@ -62,10 +67,11 @@ class MemberMeView(generics.RetrieveAPIView):
             "profession": m.profession,
             "statut": m.statut,
             "date_adhesion": m.date_adhesion.isoformat(),
+            "photo_profil_url": photo,
         }
 
     def retrieve(self, request, *args, **kwargs):
-        return Response(self._payload(request.user.member))
+        return Response(self._payload(request.user.member, request))
 
     def patch(self, request, *args, **kwargs):
         m = request.user.member
@@ -76,6 +82,12 @@ class MemberMeView(generics.RetrieveAPIView):
                 if getattr(m, field) != value:
                     setattr(m, field, value)
                     changed.append(field)
+        # Avatar de profil (multipart) — le membre peut charger/mettre à jour
+        # sa photo depuis son espace.
+        photo = request.FILES.get("photo_profil")
+        if photo is not None:
+            m.photo_profil = photo
+            changed.append("photo_profil")
         if changed:
             m.save(update_fields=[*changed, "updated_at"])
             record_audit(
@@ -86,7 +98,7 @@ class MemberMeView(generics.RetrieveAPIView):
                 details={"fields": changed},
                 ip=client_ip(request),
             )
-        return Response(self._payload(m))
+        return Response(self._payload(m, request))
 
 
 @extend_schema(
@@ -1180,17 +1192,42 @@ def admin_member_adhesion(request, pk: int):
 @api_view(["GET"])
 @permission_classes([IsMember])
 def my_membership_fees(request):
-    """Statut des frais adhésion/inscription : montants + solvabilité compte."""
+    """Statut des TROIS frais d'activation (adhésion + inscription + carnet).
+
+    Pour chaque frais : montant, solvabilité du compte (payable depuis
+    l'épargne) et **déjà réglé** (``paye``). Alimente l'écran d'activation mobile
+    (à parité avec le portail) : total, progression « N sur 3 réglés » et
+    passage automatique en actif quand les trois sont soldés.
+    """
+    from apps_coop.payments.models import Payment
+
     from .fee_from_savings_services import available_for_fees, membership_fee_amount
 
     member = request.user.member
     dispo = available_for_fees(member)
+
+    # Carnet inclus : c'est le 3e frais requis pour activer (Règlement Art. 3).
+    # Sans lui, un membre qui règle adhésion + inscription restait suspendu.
+    code_to_type = {
+        "ADHESION": Payment.Type.FRAIS_ADHESION,
+        "INSCRIPTION": Payment.Type.FRAIS_INSCRIPTION,
+        "CARNET": Payment.Type.FRAIS_CARNET,
+    }
+    paid_types = set(
+        Payment.objects.filter(
+            member=member,
+            statut=Payment.Statut.VALIDE,
+            type__in=list(code_to_type.values()),
+        ).values_list("type", flat=True)
+    )
+
     fees = {}
-    for code in ("ADHESION", "INSCRIPTION"):
+    for code, ptype in code_to_type.items():
         montant = membership_fee_amount(code)
         fees[code] = {
             "montant": str(montant),
             "solvable": bool(montant > 0 and dispo >= montant),
+            "paye": ptype in paid_types,
         }
     return Response(
         {

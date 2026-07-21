@@ -363,9 +363,9 @@ CATALOG: list[dict] = [
         "key": "loans.eligibility.require_brc_for_senior",
         "group": "eligibility",
         "label": "Justificatif BRC obligatoire pour la voie « Ancien »",
-        "description": "Si false, l'ancienneté seule suffit (bypass admin temporaire).",
+        "description": "Défaut false : le BRC est documentaire, l'ancienneté seule ouvre la voie et le comité juge. True pour re-exiger un statut BRC validé.",
         "type": "bool",
-        "default": "true",
+        "default": "false",
     },
     {
         "key": "loans.eligibility.route_priority",

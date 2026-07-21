@@ -2,33 +2,26 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  Check,
-  X,
-  FileText,
-  Paperclip,
-  ZoomIn,
-} from "lucide-react";
-
-import { buttonClasses } from "@gathe/ui";
+import { FileText, Paperclip, ZoomIn } from "lucide-react";
 
 import {
   DocumentPreview,
   DocumentThumbnail,
 } from "@/components/document-preview";
 import { ExportMenu } from "@/components/export-menu";
-import { Modal, ModalField, modalInputClass } from "@/components/modal";
-import { adminApi, type ApiError, type BRCDocument } from "@/lib/api";
+import { adminApi, type BRCDocument } from "@/lib/api";
 import type { ExportColumn } from "@/lib/export";
 import { StatusPill } from "@/components/status-pill";
 
 
 /**
- * Refonte 2026 — LOT 1 — Justificatifs BRC.
+ * Justificatifs BRC — VUE DE LECTURE.
  *
- * Queue des ``BRCDocument`` en attente de validation par un admin.
- * Décision = valider (pose Member.is_brc_member=True) ou rejeter avec motif
- * (le membre peut alors re-uploader).
+ * Le justificatif BRC est purement **documentaire** : il n'y a plus de statut
+ * BRC à « valider » ici (les boutons approuver/rejeter ont été retirés). Le
+ * comité consulte simplement la pièce (contrat CGA BRC, certificat CFP BRC…)
+ * quand il instruit / décide la **demande de crédit** correspondante — c'est
+ * là que se prend la décision, pas sur un statut BRC séparé.
  */
 export default function BRCPage() {
   return <Inner />;
@@ -37,21 +30,14 @@ export default function BRCPage() {
 function Inner() {
   const [filter, setFilter] = useState<
     "en_attente" | "valide" | "rejete" | ""
-  >("en_attente");
+  >("");
   const [items, setItems] = useState<BRCDocument[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actingId, setActingId] = useState<number | null>(null);
-  const [message, setMessage] = useState<{
-    tone: "ok" | "err";
-    text: string;
-  } | null>(null);
-  const [rejectTarget, setRejectTarget] = useState<BRCDocument | null>(null);
   const [previewTarget, setPreviewTarget] = useState<BRCDocument | null>(null);
 
   async function reload() {
     setLoading(true);
     try {
-      adminApi.primeCsrf().catch(() => undefined);
       const list = await adminApi.brc.list(filter || undefined);
       setItems(list);
     } finally {
@@ -63,48 +49,6 @@ function Inner() {
     reload();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [filter]);
-
-  async function onValidate(doc: BRCDocument) {
-    setActingId(doc.id);
-    try {
-      await adminApi.brc.validate(doc.id);
-      setMessage({
-        tone: "ok",
-        text: `Justificatif #${doc.id} validé — ${doc.member_prenom} ${doc.member_nom} est désormais BRC.`,
-      });
-      await reload();
-    } catch (err) {
-      const apiErr = err as ApiError;
-      setMessage({
-        tone: "err",
-        text: apiErr.detail ?? "Validation impossible.",
-      });
-    } finally {
-      setActingId(null);
-    }
-  }
-
-  async function submitReject(motif: string) {
-    if (!rejectTarget) return;
-    setActingId(rejectTarget.id);
-    try {
-      await adminApi.brc.reject(rejectTarget.id, motif);
-      setMessage({
-        tone: "ok",
-        text: `Justificatif #${rejectTarget.id} rejeté.`,
-      });
-      setRejectTarget(null);
-      await reload();
-    } catch (err) {
-      const apiErr = err as ApiError;
-      setMessage({
-        tone: "err",
-        text: apiErr.detail ?? "Rejet impossible.",
-      });
-    } finally {
-      setActingId(null);
-    }
-  }
 
   const exportColumns: ExportColumn<BRCDocument>[] = [
     { key: "id", label: "ID", value: (d) => d.id },
@@ -119,16 +63,10 @@ function Inner() {
       value: (d) => (d.loan_request_id ? `#${d.loan_request_id}` : ""),
     },
     { key: "statut", label: "Statut", value: (d) => d.statut_display },
-    { key: "motif_rejet", label: "Motif rejet", value: (d) => d.motif_rejet },
     {
       key: "depose_le",
       label: "Déposé le",
       value: (d) => new Date(d.created_at).toLocaleDateString("fr-FR"),
-    },
-    {
-      key: "valide_le",
-      label: "Validé le",
-      value: (d) => (d.validated_at ? new Date(d.validated_at).toLocaleDateString("fr-FR") : ""),
     },
   ];
 
@@ -139,17 +77,17 @@ function Inner() {
           <h1 className="font-display text-2xl text-ink-900">
             Justificatifs BRC
           </h1>
-          <p className="text-sm text-ink-500">
-            Validation du statut de client Broad Range Consulting — prérequis
-            pour les voies crédit Senior+BRC. Les pièces jointes
-            aux demandes de crédit (contrat CGA BRC, certificat CFP BRC)
-            arrivent automatiquement dans cette file.
+          <p className="max-w-2xl text-sm text-ink-500">
+            Consultation des pièces BRC (contrat CGA BRC, certificat CFP BRC…)
+            déposées par les membres ou jointes à leurs demandes de crédit. Vue
+            documentaire : la décision se prend sur la demande de crédit
+            correspondante, pas ici.
           </p>
         </div>
         <ExportMenu
           filenamePrefix="brc-justificatifs"
           title="Justificatifs BRC"
-          subtitle={`Filtre : ${filter || "tous statuts"}`}
+          subtitle={`Filtre : ${filter || "tous"}`}
           columns={exportColumns}
           rows={items}
         />
@@ -158,10 +96,10 @@ function Inner() {
       <div className="flex flex-wrap items-center gap-2">
         {(
           [
-            ["en_attente", "En attente"],
-            ["valide", "Validés"],
-            ["rejete", "Rejetés"],
             ["", "Tous"],
+            ["en_attente", "Sans décision"],
+            ["valide", "Historique validés"],
+            ["rejete", "Historique rejetés"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -178,18 +116,6 @@ function Inner() {
         ))}
       </div>
 
-      {message && (
-        <div
-          className={`rounded-lg border px-4 py-3 text-sm ${
-            message.tone === "ok"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700"
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
-
       <section className="rounded-2xl border border-line-200 bg-paper">
         {loading && (
           <p className="px-6 py-12 text-center text-sm text-ink-500">
@@ -198,8 +124,7 @@ function Inner() {
         )}
         {!loading && items.length === 0 && (
           <p className="px-6 py-12 text-center text-sm text-ink-500">
-            Aucun justificatif{" "}
-            {filter === "en_attente" ? "en attente" : "à ce filtre"}.
+            Aucun justificatif à ce filtre.
           </p>
         )}
         {!loading && items.length > 0 && (
@@ -216,7 +141,7 @@ function Inner() {
                   onOpen={() => setPreviewTarget(doc)}
                 />
 
-                <div className="flex-1 min-w-[260px] space-y-1.5">
+                <div className="min-w-[260px] flex-1 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink-900">
                     {doc.member_prenom} {doc.member_nom}
                     <span className="rounded-full bg-paper-soft px-2 py-0.5 text-xs font-medium text-ink-500">
@@ -256,7 +181,7 @@ function Inner() {
                   </div>
                   {doc.statut === "rejete" && doc.motif_rejet && (
                     <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
-                      <strong>Motif rejet :</strong> {doc.motif_rejet}
+                      <strong>Motif (historique) :</strong> {doc.motif_rejet}
                     </p>
                   )}
                   <p className="text-xs text-ink-400">
@@ -264,47 +189,11 @@ function Inner() {
                     {new Date(doc.created_at).toLocaleDateString("fr-FR")}
                   </p>
                 </div>
-
-                {doc.statut === "en_attente" && (
-                  <div className="flex shrink-0 gap-2">
-                    <button
-                      onClick={() => onValidate(doc)}
-                      disabled={actingId === doc.id}
-                      className={buttonClasses({
-                        variant: "primary",
-                        size: "sm",
-                      })}
-                    >
-                      <Check className="mr-1 h-4 w-4" />
-                      Valider
-                    </button>
-                    <button
-                      onClick={() => setRejectTarget(doc)}
-                      disabled={actingId === doc.id}
-                      className={buttonClasses({
-                        variant: "ghost",
-                        size: "sm",
-                      })}
-                    >
-                      <X className="mr-1 h-4 w-4" />
-                      Rejeter
-                    </button>
-                  </div>
-                )}
               </li>
             ))}
           </ul>
         )}
       </section>
-
-      {rejectTarget && (
-        <RejectModal
-          target={rejectTarget}
-          onClose={() => setRejectTarget(null)}
-          onSubmit={submitReject}
-          submitting={actingId === rejectTarget.id}
-        />
-      )}
 
       {previewTarget && previewTarget.fichier_url && (
         <DocumentPreview
@@ -315,56 +204,5 @@ function Inner() {
         />
       )}
     </section>
-  );
-}
-
-
-function RejectModal({
-  target,
-  onClose,
-  onSubmit,
-  submitting,
-}: {
-  target: BRCDocument;
-  onClose: () => void;
-  onSubmit: (motif: string) => void;
-  submitting: boolean;
-}) {
-  const [motif, setMotif] = useState("");
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={`Rejeter le justificatif BRC #${target.id}`}
-    >
-      <p className="text-sm text-ink-500">
-        Le motif sera transmis au membre. Il pourra re-uploader un nouveau
-        document.
-      </p>
-      <ModalField label="Motif de rejet *">
-        <textarea
-          value={motif}
-          onChange={(e) => setMotif(e.target.value)}
-          rows={4}
-          placeholder="Document illisible / non-conforme / expiré…"
-          className={modalInputClass + " min-h-[100px]"}
-        />
-      </ModalField>
-      <div className="flex justify-end gap-2 pt-3">
-        <button
-          onClick={onClose}
-          className={buttonClasses({ variant: "ghost", size: "sm" })}
-        >
-          Annuler
-        </button>
-        <button
-          onClick={() => onSubmit(motif.trim())}
-          disabled={!motif.trim() || submitting}
-          className={buttonClasses({ variant: "primary", size: "sm" })}
-        >
-          {submitting ? "En cours…" : "Confirmer le rejet"}
-        </button>
-      </div>
-    </Modal>
   );
 }

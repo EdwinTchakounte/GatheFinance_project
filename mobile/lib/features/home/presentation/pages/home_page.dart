@@ -6,6 +6,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/formatters/date_formatter.dart';
+import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/paysika/pa_action_pill.dart';
 import '../../../../core/widgets/paysika/pa_avatar.dart';
@@ -20,17 +21,20 @@ import '../../../security/presentation/widgets/pin_prompt_sheet.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../auth/domain/entities/member.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
-import '../../../booklet/presentation/widgets/order_booklet_sheet.dart';
+import '../widgets/membership_renewal_sheet.dart';
 import '../../data/renewal_status_provider.dart';
 import '../../../home_feed/presentation/state/feed_notifier.dart';
 import '../../../notifications/presentation/state/notifications_notifier.dart';
+import '../../../../core/di/providers.dart';
 import '../../../savings/domain/entities/savings_account.dart';
 import '../../../savings/domain/entities/savings_transaction.dart';
+import '../../../savings/domain/entities/withdrawal_request.dart';
 import '../../../savings/presentation/state/classic_savings_notifier.dart';
 import '../../../savings/presentation/state/savings_notifier.dart';
 import '../../../savings/presentation/widgets/withdraw_sheet.dart';
 import '../widgets/deposit_sheet.dart';
-import '../widgets/membership_fee_sheet.dart';
+import '../../../../core/widgets/paysika/pa_button.dart';
+import '../widgets/activation_sheet.dart';
 import '../state/membership_fees_notifier.dart';
 import '../../../loans/presentation/widgets/transfer_sheet.dart';
 import '../../../../core/widgets/paysika/pa_empty_state.dart';
@@ -185,36 +189,20 @@ class HomePage extends ConsumerWidget {
                       final showFees = fees != null && !fees.isActive;
                       return PaInfoCarousel(
                         slides: [
-                          if (showFees && fees.adhesionAmount > 0)
+                          // Un seul point d'entrée d'activation : les 3 frais
+                          // (adhésion + inscription + carnet) réglés au même
+                          // endroit via l'écran d'activation (parité portail).
+                          if (showFees)
                             PaInfoSlide(
                               icon: Icons.verified_user_outlined,
-                              title: l.carousel_pay_adhesion_title,
-                              subtitle: l.carousel_pay_adhesion_sub,
+                              title: 'Active ton compte',
+                              subtitle:
+                                  "Règle tes trois frais d'adhésion pour "
+                                  'débloquer toutes les fonctionnalités.',
                               gradient: PaGradients.heroAurore,
                               accent: PaColors.teal,
-                              ctaLabel: l.carousel_pay_cta,
-                              onTap: () => MembershipFeeSheet.show(
-                                context,
-                                code: 'ADHESION',
-                                title: l.carousel_pay_adhesion_title,
-                                amount: fees.adhesionAmount,
-                                solvable: fees.adhesionSolvable,
-                              ),
-                            ),
-                          if (showFees && fees.inscriptionAmount > 0)
-                            PaInfoSlide(
-                              icon: Icons.how_to_reg_outlined,
-                              title: l.carousel_pay_inscription_title,
-                              subtitle: l.carousel_pay_inscription_sub,
-                              accent: PaColors.navy,
-                              ctaLabel: l.carousel_pay_cta,
-                              onTap: () => MembershipFeeSheet.show(
-                                context,
-                                code: 'INSCRIPTION',
-                                title: l.carousel_pay_inscription_title,
-                                amount: fees.inscriptionAmount,
-                                solvable: fees.inscriptionSolvable,
-                              ),
+                              ctaLabel: 'Activer',
+                              onTap: () => ActivationSheet.show(context),
                             ),
                           PaInfoSlide(
                             icon: Icons.savings_outlined,
@@ -256,6 +244,12 @@ class HomePage extends ConsumerWidget {
                   ),
                 ),
               ),
+
+              // ── Demandes de retrait en cours (action récente) ─────────
+              // Un retrait initié n'est PAS encore une écriture d'épargne (le
+              // débit n'a lieu qu'au paiement), donc il n'apparaîtrait nulle
+              // part sur la home sans ce rappel. Tap → page États (suivi).
+              const SliverToBoxAdapter(child: _HomeWithdrawalsCard()),
 
               // ── Section "Récent" + Voir tout ───────────────────────────
               SliverToBoxAdapter(
@@ -388,6 +382,8 @@ class _Header extends ConsumerWidget {
     // la cloche suit le compteur d'unread.
     final prenom =
         ref.watch(authProvider.select((m) => m.valueOrNull?.prenom));
+    final photoUrl =
+        ref.watch(authProvider.select((m) => m.valueOrNull?.photoUrl));
     final firstName = prenom ?? l.profile_member_badge;
     final unread = ref.watch(unreadNotifsCountProvider);
     final hour = DateTime.now().hour;
@@ -404,7 +400,7 @@ class _Header extends ConsumerWidget {
       children: [
         const PaLogo(height: 22),
         const Spacer(),
-        PaAvatar(seed: firstName, size: 28),
+        PaAvatar(seed: firstName, size: 28, imageUrl: photoUrl),
         const SizedBox(width: 8),
         Flexible(
           child: Column(
@@ -432,8 +428,74 @@ class _Header extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 10),
+        const _HomeOverflowMenu(),
+        const SizedBox(width: 8),
         _NotifBell(unread: unread),
       ],
+    );
+  }
+}
+
+
+/// Menu « trois points » de l'accueil : accès au détail du compte (ventilation
+/// épargne, gel de garantie, retraits en cours) et à l'historique des écritures
+/// (même page que « voir plus »).
+class _HomeOverflowMenu extends StatelessWidget {
+  const _HomeOverflowMenu();
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: 'Options',
+      offset: const Offset(0, 44),
+      color: PaColors.paper,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      onSelected: (value) {
+        switch (value) {
+          case 'detail':
+            context.push('/account-state');
+          case 'history':
+            context.push('/savings/history');
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem<String>(
+          value: 'detail',
+          child: Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: PaColors.navy, size: 19),
+              SizedBox(width: 10),
+              Text('Détail du compte'),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'history',
+          child: Row(
+            children: [
+              Icon(Icons.receipt_long_outlined, color: PaColors.teal, size: 19),
+              SizedBox(width: 10),
+              Text('Historique'),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: PaColors.paper,
+          shape: BoxShape.circle,
+          border: Border.all(color: PaColors.line, width: 1),
+        ),
+        child: const Center(
+          child: Icon(
+            Icons.more_vert_rounded,
+            color: PaColors.navy,
+            size: 20,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -613,7 +675,7 @@ class _RecentList extends StatelessWidget {
         children: [
           for (var i = 0; i < entries.length; i++) ...[
             PaTransactionTile(
-              kind: _mapKind(entries[i].tx.type),
+              kind: _mapKind(entries[i].tx),
               label: _label(l, entries[i].tx.type, entries[i].collecte),
               time: AppDateFormatter.withTime(entries[i].tx.date),
               amount: entries[i].tx.montant,
@@ -625,8 +687,11 @@ class _RecentList extends StatelessWidget {
     );
   }
 
-  PaTxKind _mapKind(SavingsType t) => switch (t) {
-        SavingsType.depot => PaTxKind.depot,
+  PaTxKind _mapKind(SavingsTransaction tx) => switch (tx.type) {
+        // Un « dépôt » avec isDebit (frais d'étude, reconduction…) sort de
+        // l'argent → kind frais (affiché en négatif).
+        SavingsType.depot =>
+          tx.isDebit ? PaTxKind.frais : PaTxKind.depot,
         SavingsType.interet => PaTxKind.interet,
         SavingsType.retrait => PaTxKind.retrait,
       };
@@ -710,21 +775,38 @@ class _StatusBanner extends ConsumerWidget {
     if (status == null || status == MemberStatus.actif) {
       return const SizedBox.shrink();
     }
+    // Désambiguïsation du statut « suspendu » : un membre qui a DÉJÀ soldé ses
+    // 3 frais d'activation puis a été suspendu (non-renouvellement) relève de la
+    // RÉACTIVATION (frais d'adhésion) ; sinon c'est une première ACTIVATION.
+    final feesAllPaid = ref.watch(
+      membershipFeesProvider.select((a) => a.valueOrNull?.allPaid ?? false),
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-      child: _StatusBannerBody(status: status),
+      child: _StatusBannerBody(status: status, feesAllPaid: feesAllPaid),
     );
   }
 }
 
 class _StatusBannerBody extends StatelessWidget {
-  const _StatusBannerBody({required this.status});
+  const _StatusBannerBody({required this.status, required this.feesAllPaid});
 
   final MemberStatus status;
+  final bool feesAllPaid;
 
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
+    // Le compte se règle in-app (temporaire + suspendu) → vrai CTA au lieu de
+    // « contacte la coopérative ». Suspendu + 3 frais déjà soldés = RÉACTIVATION
+    // (anniversaire dépassé, frais d'adhésion) ; sinon = ACTIVATION initiale.
+    final isReactivation = status == MemberStatus.suspendu && feesAllPaid;
+    final canActivate = status == MemberStatus.temporaire ||
+        status == MemberStatus.suspendu;
+    final suspenduSub = isReactivation
+        ? 'Ton anniversaire annuel est dépassé — réactive ton compte pour le '
+            'cycle suivant.'
+        : 'Règle tes trois frais d’adhésion pour activer ton compte.';
     final (icon, title, sub, bg, fg) = switch (status) {
       MemberStatus.temporaire => (
         Icons.info_outline_rounded,
@@ -736,7 +818,7 @@ class _StatusBannerBody extends StatelessWidget {
       MemberStatus.suspendu => (
         Icons.pause_circle_outline_rounded,
         l.account_suspended_title,
-        l.account_suspended_sub,
+        suspenduSub,
         PaColors.dangerSurface,
         PaColors.danger,
       ),
@@ -762,37 +844,58 @@ class _StatusBannerBody extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: fg.withValues(alpha: 0.25), width: 1),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(icon, color: fg, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (sub.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    sub,
-                    style: const TextStyle(
-                      color: PaColors.inkSecondary,
-                      fontSize: 12,
-                      height: 1.3,
+          Row(
+            children: [
+              Icon(icon, color: fg, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: fg,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                ],
-              ],
-            ),
+                    if (sub.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        sub,
+                        style: const TextStyle(
+                          color: PaColors.inkSecondary,
+                          fontSize: 12,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
+          if (canActivate) ...[
+            const SizedBox(height: 10),
+            PaButton(
+              label: isReactivation
+                  ? 'Réactiver mon compte'
+                  : 'Activer mon compte',
+              icon: Icons.verified_user_rounded,
+              height: 42,
+              onPressed: () => isReactivation
+                  ? MembershipRenewalSheet.show(
+                      context,
+                      MembershipPaymentMode.reactivation,
+                    )
+                  : ActivationSheet.show(context),
+            ),
+          ],
         ],
       ),
     );
@@ -814,21 +917,20 @@ class _RenewalBanner extends ConsumerWidget {
     final l = AppL10n.of(context);
     return async.maybeWhen(
       data: (status) {
-        if (status == null || !status.shouldShowBanner) {
+        // Renouvellement ANNUEL d'un membre encore ACTIF (fenêtre anniversaire).
+        // Le cas « suspendu pour non-renouvellement » est désormais traité par
+        // _StatusBanner (réactivation, frais d'adhésion) — plus de double
+        // bannière contradictoire.
+        if (status == null || !status.needsRenewal || status.isSuspended) {
           return const SizedBox.shrink();
         }
-        final isSuspended = status.isSuspended;
         final daysLeft = status.daysUntilExpiry;
-        final message = isSuspended
-            ? l.renewal_suspended_msg
-            : (daysLeft != null && daysLeft < 0)
-                ? l.renewal_overdue_days(daysLeft.abs())
-                : (daysLeft != null && daysLeft == 0)
-                    ? l.renewal_today
-                    : l.renewal_in_days(daysLeft ?? 0);
-        final accent = isSuspended
-            ? const Color(0xFFBA2121)
-            : PaColors.warning;
+        final message = (daysLeft != null && daysLeft < 0)
+            ? l.renewal_overdue_days(daysLeft.abs())
+            : (daysLeft != null && daysLeft == 0)
+                ? l.renewal_today
+                : l.renewal_in_days(daysLeft ?? 0);
+        const accent = PaColors.warning;
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
           child: Material(
@@ -836,14 +938,10 @@ class _RenewalBanner extends ConsumerWidget {
             borderRadius: AppRadii.card,
             child: InkWell(
               borderRadius: AppRadii.card,
-              onTap: () {
-                showModalBottomSheet<void>(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (_) => const OrderBookletSheet(),
-                );
-              },
+              onTap: () => MembershipRenewalSheet.show(
+                context,
+                MembershipPaymentMode.renewal,
+              ),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
@@ -853,10 +951,8 @@ class _RenewalBanner extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      isSuspended
-                          ? Icons.lock_outline_rounded
-                          : Icons.event_repeat_rounded,
+                    const Icon(
+                      Icons.event_repeat_rounded,
                       color: accent,
                       size: 20,
                     ),
@@ -866,9 +962,7 @@ class _RenewalBanner extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isSuspended
-                                ? l.renewal_title_reactivate
-                                : l.renewal_title_renew,
+                            l.renewal_title_renew,
                             style: PaText.body(size: 13).copyWith(
                               color: PaColors.inkPrimary,
                               fontWeight: FontWeight.w600,
@@ -884,7 +978,7 @@ class _RenewalBanner extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    Icon(
+                    const Icon(
                       Icons.arrow_forward_rounded,
                       color: accent,
                       size: 18,
@@ -897,6 +991,103 @@ class _RenewalBanner extends ConsumerWidget {
         );
       },
       orElse: () => const SizedBox.shrink(),
+    );
+  }
+}
+
+
+/// Rappel home des demandes de retrait ACTIVES (initiée / approuvée / en payout
+/// / échec payout). Un retrait initié n'étant pas encore une écriture d'épargne
+/// (débit au paiement), il n'apparaîtrait nulle part sur la home sans ce
+/// rappel. Invisible s'il n'y en a aucune. Tap → page États (suivi complet).
+class _HomeWithdrawalsCard extends ConsumerWidget {
+  const _HomeWithdrawalsCard();
+
+  static bool _isActive(WithdrawalStatus s) =>
+      s == WithdrawalStatus.enAttente ||
+      s == WithdrawalStatus.approuvee ||
+      s == WithdrawalStatus.enPayout ||
+      s == WithdrawalStatus.payoutFailed;
+
+  ({Color fg, Color bg}) _tone(WithdrawalStatus s) => switch (s) {
+        WithdrawalStatus.approuvee || WithdrawalStatus.enPayout => (
+          fg: PaColors.blue,
+          bg: PaColors.blue.withValues(alpha: 0.10),
+        ),
+        WithdrawalStatus.payoutFailed => (
+          fg: PaColors.danger,
+          bg: PaColors.danger.withValues(alpha: 0.10),
+        ),
+        _ => (
+          fg: PaColors.warning,
+          bg: PaColors.warning.withValues(alpha: 0.12),
+        ),
+      };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(myWithdrawalsProvider);
+    final active = async.valueOrNull
+            ?.where((w) => _isActive(w.statut))
+            .toList() ??
+        const <WithdrawalRequest>[];
+    if (active.isEmpty) return const SizedBox.shrink();
+    final shown = active.take(2).toList();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: PaCard(
+        padding: EdgeInsets.zero,
+        child: InkWell(
+          onTap: () => context.push('/states'),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.north_east_rounded,
+                        size: 16, color: PaColors.inkMuted,),
+                    const SizedBox(width: 8),
+                    Text('Demandes de retrait en cours',
+                        style: PaText.label(size: 13.5),),
+                    const Spacer(),
+                    const Icon(Icons.chevron_right_rounded,
+                        size: 18, color: PaColors.inkMuted,),
+                  ],
+                ),
+                for (final w in shown) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          XAFFormatter.format(w.montant),
+                          style: PaText.label(size: 14.5),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3,),
+                        decoration: BoxDecoration(
+                          color: _tone(w.statut).bg,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          w.statutDisplay,
+                          style: PaText.label(
+                              size: 11, color: _tone(w.statut).fg,),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

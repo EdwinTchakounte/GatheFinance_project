@@ -49,6 +49,16 @@ class TransactionTile extends StatelessWidget {
         break;
     }
 
+    // Le SIGNE vient de isOutflow (retrait OU frais/débit) — pas seulement du
+    // type : un frais (frais_demande_credit, interets_reconduction…) fait
+    // SORTIR de l'argent et doit s'afficher en négatif.
+    final positive = !tx.isOutflow;
+    // Libellé précis fourni par le backend quand dispo (ex. « Frais d'étude »).
+    final label = tx.typeDisplay.isNotEmpty ? tx.typeDisplay : v.label;
+    // Icône/teinte cohérentes avec le sens (un frais n'est pas un dépôt).
+    final icon = tx.isOutflow ? Icons.arrow_upward_rounded : v.icon;
+    final tint = tx.isOutflow ? AppColors.terraDark : v.tint;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
@@ -60,7 +70,7 @@ class TransactionTile extends StatelessWidget {
               color: v.tint.withValues(alpha: 0.12),
               borderRadius: const BorderRadius.all(AppRadii.r12),
             ),
-            child: Icon(v.icon, color: v.tint, size: 20),
+            child: Icon(icon, color: tint, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -68,7 +78,7 @@ class TransactionTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  v.label,
+                  label,
                   style: AppTypography.labelLarge
                       .copyWith(color: scheme.onSurface),
                 ),
@@ -85,9 +95,9 @@ class TransactionTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${v.positive ? '+' : '−'} ${XAFFormatter.formatNumber(tx.montant)}',
+                '${positive ? '+' : '−'} ${XAFFormatter.formatNumber(tx.montant)}',
                 style: AppTypography.labelLarge.copyWith(
-                  color: v.positive ? AppColors.emeraldDark : AppColors.terraDark,
+                  color: positive ? AppColors.emeraldDark : AppColors.terraDark,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),

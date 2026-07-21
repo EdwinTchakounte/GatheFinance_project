@@ -29,11 +29,16 @@ from rest_framework.throttling import ScopedRateThrottle
 from apps_coop.audit.services import client_ip, record
 
 
-def _user_payload(user) -> dict:
+def _user_payload(user, request=None) -> dict:
     """Compact identity payload returned by /me and /login."""
     from .access import effective_resources, has_full_access
 
     member = getattr(user, "member", None)
+    photo_profil_url = None
+    if member is not None and member.photo_profil:
+        photo_profil_url = member.photo_profil.url
+        if request is not None and photo_profil_url and not photo_profil_url.startswith("http"):
+            photo_profil_url = request.build_absolute_uri(photo_profil_url)
     return {
         "id": user.id,
         "email": user.email,
@@ -54,6 +59,7 @@ def _user_payload(user) -> dict:
                 "statut": member.statut,
                 "phone": member.phone,
                 "date_adhesion": member.date_adhesion.isoformat(),
+                "photo_profil_url": photo_profil_url,
             }
             if member is not None
             else None
@@ -156,7 +162,7 @@ def login_view(request):
         ip=client_ip(request),
         user_agent=request.META.get("HTTP_USER_AGENT", ""),
     )
-    return Response(_user_payload(user))
+    return Response(_user_payload(user, request))
 
 
 @extend_schema(
@@ -194,7 +200,7 @@ def logout_view(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def me_view(request):
-    return Response(_user_payload(request.user))
+    return Response(_user_payload(request.user, request))
 
 
 class _PasswordThrottle(ScopedRateThrottle):

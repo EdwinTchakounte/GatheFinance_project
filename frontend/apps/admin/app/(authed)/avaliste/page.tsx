@@ -164,6 +164,37 @@ export default function AvalistePage() {
         ),
     },
     {
+      key: "pieces",
+      label: "Pièces / motif",
+      text: (r) => `${r.cni_avaliste ?? ""} ${r.refus_motif ?? ""}`,
+      render: (r) => {
+        const hasMotif = r.statut === "refused" && !!r.refus_motif;
+        if (!r.cni_avaliste && !r.cni_avaliste_fichier && !hasMotif) {
+          return <span className="text-ink-400">—</span>;
+        }
+        return (
+          <div className="space-y-1 text-xs">
+            {r.cni_avaliste ? (
+              <p className="font-mono text-ink-700">CNI : {r.cni_avaliste}</p>
+            ) : null}
+            {r.cni_avaliste_fichier ? (
+              <a
+                href={r.cni_avaliste_fichier}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-700 hover:underline"
+              >
+                Voir la CNI
+              </a>
+            ) : null}
+            {hasMotif ? (
+              <p className="text-red-700">Motif : {r.refus_motif}</p>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
       key: "statut",
       label: "Statut",
       text: (r) => r.statut_display,

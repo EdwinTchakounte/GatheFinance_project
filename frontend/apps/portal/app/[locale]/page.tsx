@@ -249,16 +249,16 @@ export default function PortalDashboardPage() {
               Active ton compte membre
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm text-ink-700">
-              Ta demande d'adhésion a été approuvée, mais ton compte reste
-              suspendu tant que tu n'as pas réglé tes frais d'adhésion.
-              Une fois payée, tu accèdes à l'épargne, au crédit et à tous les
-              services de la coopérative.
+              Ton compte est suspendu tant que tes frais ne sont pas réglés.
+              Une fois le paiement validé, tu accèdes à l'épargne, au crédit et à
+              tous les services de la coopérative. Ton numéro, ton solde d'épargne
+              et ton historique sont conservés.
             </p>
             <button
               onClick={() => router.push("/activation")}
               className={buttonClasses({ variant: "success", size: "lg" }) + " mt-6"}
             >
-              Payer mes frais d'adhésion
+              Régler mes frais
             </button>
           </section>
         ) : null}

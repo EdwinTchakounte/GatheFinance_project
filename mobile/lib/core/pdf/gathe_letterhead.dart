@@ -166,6 +166,30 @@ pw.Widget _contactItem(
       ],
     );
 
+/// Intercale un point médian discret entre les items du pied, pour les
+/// grouper visuellement (bloc centré) plutôt que de les étirer bord à bord.
+List<pw.Widget> _joinWithDots(List<pw.Widget> items) {
+  final out = <pw.Widget>[];
+  for (var i = 0; i < items.length; i++) {
+    if (i > 0) {
+      out.add(
+        pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 6),
+          child: pw.Text(
+            '•',
+            style: const pw.TextStyle(
+              color: PdfColor.fromInt(0x99FFFFFF),
+              fontSize: 6,
+            ),
+          ),
+        ),
+      );
+    }
+    out.add(items[i]);
+  }
+  return out;
+}
+
 /// En-tête officiel PLEINE LARGEUR : fond gris, logo centré, raison sociale en
 /// gras (auto-ajustée), pastille d'immatriculation, filet tricolore.
 pw.Widget gatheLetterheadHeader(pw.MemoryImage logo) => pw.Container(
@@ -222,26 +246,28 @@ pw.Widget gatheLetterheadFooter() => pw.Column(
         gatheTricolorRule(),
         pw.Container(
           color: gatheBlue,
-          padding: const pw.EdgeInsets.fromLTRB(16, 7, 16, 7),
+          padding: const pw.EdgeInsets.fromLTRB(16, 6, 16, 6),
           child: pw.Column(
             children: [
+              // Contacts groupés et CENTRÉS (au lieu d'être étirés bord à bord),
+              // séparés par un point médian discret : bloc lisible d'un coup d'œil.
               pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
+                mainAxisAlignment: pw.MainAxisAlignment.center,
+                children: _joinWithDots([
                   _contactItem(_paintPhone, _phone1, bold: true),
                   _contactItem(_paintPhone, _phone2, bold: true),
                   _contactItem(_paintMail, _email, bold: true),
                   _contactItem(_paintGlobe, _web, bold: true),
-                ],
+                ]),
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 3.5),
               pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
+                mainAxisAlignment: pw.MainAxisAlignment.center,
+                children: _joinWithDots([
                   _contactItem(null, _nui),
                   _contactItem(null, _bp),
                   _contactItem(_paintPin, _addr),
-                ],
+                ]),
               ),
             ],
           ),

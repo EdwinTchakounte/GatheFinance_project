@@ -49,7 +49,9 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
     with TickerProviderStateMixin {
   // Article 10 : prorogation fixe de +1 mois, non négociable.
   // Article 11 : le membre choisit le mode de règlement des intérêts.
-  bool _comptant = true; // true = au comptant (10 %), false = reportés (15 %)
+  // Volet unique 15 % (2026-07) : plus de choix comptant/reporté. Le backend
+  // ignore ce champ et force le report — on l'envoie false pour la clarté.
+  static const bool _comptant = false;
   _Step _step = _Step.form;
   late final AnimationController _checkCtrl;
 
@@ -183,28 +185,10 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
 
           const SizedBox(height: AppSpacing.xl),
 
-          // Article 11 : choix du mode de règlement des intérêts.
-          Text(l.ren_mode_question, style: AppTypography.labelLarge),
-          const SizedBox(height: AppSpacing.m),
-          _ModeOption(
-            selected: _comptant,
-            title: l.ren_mode_comptant,
-            subtitle: l.ren_mode_comptant_sub,
-            onTap: () => setState(() => _comptant = true),
-          ),
-          const SizedBox(height: 10),
-          _ModeOption(
-            selected: !_comptant,
-            title: l.ren_mode_reporte,
-            subtitle: l.ren_mode_reporte_sub,
-            onTap: () => setState(() => _comptant = false),
-          ),
-
-          const SizedBox(height: AppSpacing.l),
-
-          // Recap live : intérêts de reconduction (taux × capital restant) +
-          // nouveau total. Pas d'intérêt sur intérêt (Article 11).
-          _RecapBlock(loan: widget.loan, comptant: _comptant),
+          // Volet UNIQUE 15 % (plus de choix comptant/reporté) : le coût de
+          // reconduction = 15 % du reste, ajouté au nouveau crédit. Le récap
+          // ci-dessous montre reste + 15 % = nouveau montant à rembourser.
+          _RecapBlock(loan: widget.loan),
 
           const SizedBox(height: AppSpacing.l),
 
@@ -214,16 +198,20 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet>
               color: PaColors.tealSurface,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Row(
+            child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline_rounded,
+                Icon(Icons.info_outline_rounded,
                     size: 18, color: PaColors.teal,),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    l.ren_fees_note,
-                    style: const TextStyle(
+                    'La reconduction proroge ton crédit d’un mois. Le coût '
+                    'est de 15 % du reste à remettre, ajouté à ton nouveau '
+                    'crédit. Tu peux régler ces intérêts d’avance sur ton '
+                    'épargne libre (si elle suffit), sinon ils sont '
+                    'reportés sur ton nouvel échéancier.',
+                    style: TextStyle(
                       color: PaColors.navyDeep,
                       fontSize: 12,
                       height: 1.5,
@@ -371,97 +359,19 @@ class _Grabber extends StatelessWidget {
 }
 
 
-/// Carte de choix de mode de reconduction (comptant / reporté) . Article 11.
-class _ModeOption extends StatelessWidget {
-  const _ModeOption({
-    required this.selected,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final bool selected;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: title,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: selected ? PaColors.tealSurface : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected
-                  ? PaColors.teal
-                  : Theme.of(context).colorScheme.outline,
-              width: selected ? 1.6 : 1,
-            ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                selected
-                    ? Icons.radio_button_checked_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                size: 20,
-                color: selected ? PaColors.teal : PaColors.inkMuted,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: AppTypography.labelLarge.copyWith(
-                        color: selected ? PaColors.navyDeep : PaColors.inkPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: AppTypography.bodySmall.copyWith(
-                        color: PaColors.inkMuted,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
-/// Recap chiffré : intérêts de reconduction + nouveau total (Article 11).
+/// Recap chiffré : reste à remettre + intérêts 15 % = nouveau crédit.
 class _RecapBlock extends StatelessWidget {
-  const _RecapBlock({required this.loan, required this.comptant});
+  const _RecapBlock({required this.loan});
 
   final Loan loan;
-  final bool comptant;
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
-    // Base = le solde restant (tout ce qu'il reste à remettre), pas le seul
-    // capital : c'est la règle métier retenue côté serveur.
-    final interets = renewalInterest(loan.soldeRestant, comptant: comptant);
-    final nouveauTotal = loan.soldeRestant + interets;
+    // Base = le solde restant (tout ce qu'il reste à remettre). Volet unique :
+    // intérêts = 15 % de ce reste, ajoutés au nouveau crédit.
+    final reste = loan.soldeRestant;
+    final interets = renewalInterest(reste, comptant: false);
+    final nouveauTotal = reste + interets;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -471,11 +381,13 @@ class _RecapBlock extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _row(context, l.ren_recap_interest,
-              XAFFormatter.format(interets), strong: false,),
+          _row(context, 'Reste à remettre',
+              XAFFormatter.format(reste), strong: false,),
           const SizedBox(height: 10),
+          _row(context, 'Intérêts de reconduction (15 %)',
+              XAFFormatter.format(interets), strong: false,),
           const SizedBox(height: 12),
-          _row(context, l.ren_recap_total,
+          _row(context, 'Nouveau crédit',
               XAFFormatter.format(nouveauTotal), strong: true,),
         ],
       ),

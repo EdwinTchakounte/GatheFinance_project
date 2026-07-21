@@ -44,6 +44,13 @@ class _ScriptedAuthDs implements AuthRemoteDataSource {
   }
 
   @override
+  Future<Member> updatePhoto(String filePath) async {
+    session = (session ?? Fixtures.member())
+        .copyWith(photoUrl: 'https://example.test/avatar.jpg');
+    return session!;
+  }
+
+  @override
   Future<String?> changePassword({
     required String oldPassword,
     required String newPassword,
