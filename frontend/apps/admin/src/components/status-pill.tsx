@@ -34,6 +34,8 @@ const SHORT_LABELS: Record<string, string> = {
   approuvee_provisoire: "Accord provisoire",
   approuvee: "Approuvée",
   rejetee: "Rejetée",
+  rejetee_avaliste: "Refusée (avaliste)",
+  rejetee_campagne: "Rejetée (campagne)",
   annulee: "Annulée",
 
   // Mandats d'avaliste
@@ -82,6 +84,8 @@ const TONES: Record<string, StatusTone> = {
   solde: "success",
 
   rejetee: "danger",
+  rejetee_avaliste: "danger",
+  rejetee_campagne: "danger",
   rejetee_adhesion: "danger",
   refused: "danger",
   rejete: "danger",

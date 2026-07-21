@@ -188,6 +188,12 @@ export default function PortalActivationPage() {
   const paidCount = rows.filter((r) => r.status === "paid").length;
   const allPaid = paidCount === rows.length;
   const isActivated = identity?.member?.statut === "actif";
+  // Réactivation : les 3 frais ont DÉJÀ été soldés une fois mais le compte est
+  // suspendu (non-renouvellement). Décision métier 2026-07-21 : on réactive en
+  // repayant le frais d'adhésion. Sans ce bloc, /activation était un cul-de-sac
+  // (3/3 « payé » mais aucun frais à régler).
+  const isReactivation = allPaid && !isActivated;
+  const adhesionRow = rows.find((r) => r.code === "ADHESION");
 
   async function onSubmitFee(e: React.FormEvent, row: FeeRow) {
     e.preventDefault();
@@ -255,18 +261,33 @@ export default function PortalActivationPage() {
     <main className="py-12 lg:py-16">
       <Container className="max-w-2xl">
         <header className="mb-8 text-center">
-          <span className="label-num">Activer ton compte</span>
+          <span className="label-num">
+            {isReactivation ? "Réactiver ton compte" : "Activer ton compte"}
+          </span>
           <h1 className="mt-3 font-editorial text-3xl font-medium text-ink-900">
-            Bienvenue{memberName ? `, ${memberName}` : ""} !
+            {isReactivation
+              ? "Réactive ton compte"
+              : `Bienvenue${memberName ? `, ${memberName}` : ""} !`}
           </h1>
           <p className="mt-3 text-sm text-ink-600">
-            Ta demande d'adhésion a été approuvée. Pour activer ton compte,
-            règle les <strong>3 frais d'adhésion</strong> ci-dessous (dans
-            n'importe quel ordre).
+            {isReactivation ? (
+              <>
+                Ton compte est suspendu (anniversaire annuel dépassé). Règle tes{" "}
+                <strong>frais d'adhésion</strong> pour le réactiver. Ton numéro,
+                ton solde d'épargne et ton historique sont conservés.
+              </>
+            ) : (
+              <>
+                Ta demande d'adhésion a été approuvée. Pour activer ton compte,
+                règle les <strong>3 frais d'adhésion</strong> ci-dessous (dans
+                n'importe quel ordre).
+              </>
+            )}
           </p>
         </header>
 
-        {/* Bandeau de progression */}
+        {/* Bandeau de progression (masqué en réactivation : 3/3 déjà réglés) */}
+        {!isReactivation && (
         <div className="mb-6 rounded-md border border-line-200 bg-paper px-5 py-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-ink-700">
@@ -283,6 +304,7 @@ export default function PortalActivationPage() {
             />
           </div>
         </div>
+        )}
 
         {/* Confirmation — Membre activé */}
         {isActivated && (
@@ -303,8 +325,8 @@ export default function PortalActivationPage() {
           </div>
         )}
 
-        {/* Coordonnées Mobile Money — saisies une seule fois pour tous les frais */}
-        {!isActivated && !allPaid && (
+        {/* Coordonnées Mobile Money — saisies une seule fois (activation + réactivation) */}
+        {!isActivated && (
           <div className="mb-6 rounded-md border border-line-200 bg-paper p-5">
             <p className="font-display text-[0.72rem] font-medium uppercase tracking-[0.14em] text-ink-600">
               Tes coordonnées Mobile Money
@@ -339,8 +361,50 @@ export default function PortalActivationPage() {
           </p>
         )}
 
+        {/* Réactivation — 3 frais déjà soldés, compte suspendu (non-renouvellement) */}
+        {isReactivation && adhesionRow && (
+          <div className="mb-6 rounded-md border border-line-200 bg-paper p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-editorial text-lg text-ink-900">
+                  Frais d'adhésion
+                </p>
+                <p className="mt-1 text-xs text-ink-600">
+                  Réactivation instantanée au paiement.
+                </p>
+              </div>
+              <p className="font-editorial text-lg text-ink-900">
+                {adhesionRow.montant.toLocaleString("fr-FR")} XAF
+              </p>
+            </div>
+            {activePayment && activePayment.statut === "en_attente" ? (
+              <p className="mt-4 text-xs text-ink-600">
+                Un code USSD vient d'être poussé sur ton téléphone{" "}
+                <span className="font-mono">{form.phone}</span>. Saisis ton code
+                PIN MoMo pour valider — ton statut se met à jour ensuite.
+              </p>
+            ) : (
+              <form onSubmit={(e) => onSubmitFee(e, adhesionRow)} className="mt-4">
+                <button
+                  type="submit"
+                  disabled={!!submittingCode || !form.phone}
+                  className={buttonClasses({
+                    variant: "success",
+                    size: "sm",
+                    fullWidth: true,
+                  })}
+                >
+                  {submittingCode === adhesionRow.code
+                    ? "Initialisation…"
+                    : `Réactiver — ${adhesionRow.montant.toLocaleString("fr-FR")} XAF`}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
         {/* Liste des 3 frais */}
-        {!isActivated && (
+        {!isActivated && !isReactivation && (
           <ul className="space-y-3">
             {rows.map((row) => {
               const isActiveStep =

@@ -36,6 +36,33 @@ function Inner() {
   const [summary, setSummary] = useState<LenderPoolSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [apportBusy, setApportBusy] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  async function handleApport(t: LenderTranche) {
+    const ok = window.confirm(
+      `Restituer par apport la part de ${t.member.prenom} ${t.member.nom} ` +
+        `(${formatXAF(t.montant)} XAF, crédit ${t.engaged_in_loan_dossier ?? ""}) ? ` +
+        "Le prêteur sera restitué (capital + intérêts placement) et la coop " +
+        "reprend le risque du crédit.",
+    );
+    if (!ok) return;
+    setApportBusy(t.id);
+    setNotice(null);
+    try {
+      const res = await adminApi.lenderTranches.restituteApport(t.id);
+      setNotice(
+        `Apport effectué — ${formatXAF(res.capital)} XAF restitués (+ ${formatXAF(
+          res.interet_placement,
+        )} XAF d'intérêts).`,
+      );
+      await reload();
+    } catch (err) {
+      setError((err as ApiError).detail ?? "Apport impossible.");
+    } finally {
+      setApportBusy(null);
+    }
+  }
 
   async function reload() {
     setLoading(true);
@@ -134,6 +161,25 @@ function Inner() {
           month: "short",
           year: "2-digit",
         }),
+    },
+    {
+      key: "action",
+      label: "Action",
+      text: () => "",
+      render: (t) =>
+        t.statut === "engagee" ? (
+          <button
+            type="button"
+            disabled={apportBusy !== null}
+            onClick={() => handleApport(t)}
+            className={buttonClasses({ variant: "secondary", size: "sm" })}
+            title="Restituer ce prêteur par apport coop (crédit non soldé)"
+          >
+            {apportBusy === t.id ? "…" : "Restituer (apport)"}
+          </button>
+        ) : (
+          <span className="text-xs text-ink-400">—</span>
+        ),
     },
   ];
 
@@ -263,6 +309,15 @@ function Inner() {
       {error ? (
         <div className="mb-5 rounded-md border border-terra-400/40 bg-terra-50/60 px-4 py-2.5 text-sm text-terra-700">
           {error}
+        </div>
+      ) : null}
+
+      {notice ? (
+        <div className="mb-5 flex items-center justify-between gap-3 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
+          <span>{notice}</span>
+          <button type="button" onClick={() => setNotice(null)} className="text-emerald-700 hover:underline">
+            ✕
+          </button>
         </div>
       ) : null}
 

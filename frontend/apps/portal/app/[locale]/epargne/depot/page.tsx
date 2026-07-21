@@ -752,9 +752,26 @@ function DepositForm() {
               ✓ Paiement confirmé
             </p>
             <p className="mt-3 text-sm text-ink-700">
-              Ton dépôt de{" "}
-              <strong>{Number(payment.montant).toLocaleString("fr-FR")} XAF</strong>{" "}
-              a bien été crédité sur ton compte d'épargne.
+              {isLoanRepayment ? (
+                <>
+                  Ton remboursement de{" "}
+                  <strong>{Number(payment.montant).toLocaleString("fr-FR")} XAF</strong>{" "}
+                  a bien été imputé sur ton crédit. Toute épargne gelée en
+                  garantie est libérée dès que le crédit est soldé.
+                </>
+              ) : isCreditFees ? (
+                <>
+                  Ton paiement de{" "}
+                  <strong>{Number(payment.montant).toLocaleString("fr-FR")} XAF</strong>{" "}
+                  a bien été enregistré.
+                </>
+              ) : (
+                <>
+                  Ton dépôt de{" "}
+                  <strong>{Number(payment.montant).toLocaleString("fr-FR")} XAF</strong>{" "}
+                  a bien été crédité sur ton compte d'épargne.
+                </>
+              )}
             </p>
             <div className="mt-6 flex flex-col items-center gap-3">
               <button

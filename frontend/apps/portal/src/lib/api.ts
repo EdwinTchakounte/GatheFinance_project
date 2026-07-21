@@ -714,6 +714,18 @@ export const portalApi = {
     activeMine: () => request<Loan[]>("/loans/me/active/"),
     // P3 . Historique credits cloturees.
     closedMine: () => request<Loan[]>("/loans/me/closed/"),
+    // Remboursement par TRANSFERT depuis l'épargne (parité mobile). Synchrone :
+    // débite l'épargne dispo (classique retirable + collecte), impute au crédit.
+    repayFromSavings: (loanId: number, montant: number) =>
+      request<{
+        payment_id: number;
+        montant: string;
+        solde_restant: string;
+        statut: string;
+      }>(`/loans/me/loans/${loanId}/repay-from-savings/`, {
+        method: "POST",
+        body: JSON.stringify({ montant }),
+      }),
     create: (data: {
       montant_demande: number;
       duree_mois: number;
