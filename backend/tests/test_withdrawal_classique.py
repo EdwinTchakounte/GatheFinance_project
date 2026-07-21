@@ -22,7 +22,12 @@ from apps_coop.savings.models import (
     LenderTranche,
     WithdrawalRequest,
 )
-from apps_coop.savings.services import decide_withdrawal, request_withdrawal
+from apps_coop.savings.services import (
+    classic_withdrawable,
+    decide_withdrawal,
+    mark_withdrawal_paid,
+    request_withdrawal,
+)
 
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -107,7 +112,7 @@ class TestRequestWithdrawalClassique:
 
 
 class TestDecideWithdrawalClassique:
-    def test_approve_debits_classic_account_only(self, active_member, admin_user):
+    def test_debit_happens_at_payment_not_approval(self, active_member, admin_user):
         cacc = _classic(active_member, "80000")
         _place(active_member, "30000")  # 30k bloqué en placement
         wr = request_withdrawal(
@@ -115,21 +120,29 @@ class TestDecideWithdrawalClassique:
             source=WithdrawalRequest.Source.CLASSIQUE_LIBRE,
             classic_account=cacc,
         )
-        decide_withdrawal(wr, decided_by=admin_user, approve=True)
 
+        # 1) Approbation = validation SANS débit : le solde reste intact,
+        #    l'argent est seulement RÉSERVÉ (plus retirable ailleurs).
+        decide_withdrawal(wr, decided_by=admin_user, approve=True)
         wr.refresh_from_db()
         cacc.refresh_from_db()
         assert wr.statut == WithdrawalRequest.Statut.APPROUVEE
-        # Solde classique débité, la collecte reste intacte
-        assert cacc.solde == Decimal("40000.00")
+        assert cacc.solde == Decimal("80000.00")  # INCHANGÉ
+        assert wr.classic_transaction_id is None  # pas encore de transaction
+        # Disponible amputé du réservé : 80000 − 30000 (placement) − 40000 = 10000.
+        assert classic_withdrawable(cacc) == Decimal("10000")
+
+        # 2) Remise espèces par le secrétaire → c'est ICI que le solde est débité.
+        mark_withdrawal_paid(wr, agent=admin_user)
+        wr.refresh_from_db()
+        cacc.refresh_from_db()
+        assert wr.statut == WithdrawalRequest.Statut.COMPLETEE
+        assert cacc.solde == Decimal("40000.00")  # débité maintenant
         assert active_member.savings_account.solde == Decimal("0.00")
-        # Transaction classique de type RETRAIT créée et liée
-        assert wr.classic_transaction_id is not None
         ctx = ClassicSavingsTransaction.objects.get(pk=wr.classic_transaction_id)
         assert ctx.type_op == ClassicSavingsTransaction.TypeOp.RETRAIT
         assert ctx.montant == Decimal("40000")
         assert ctx.solde_apres == Decimal("40000.00")
-        # Placement toujours actif (garantie funding préservée)
         assert cacc.solde_placement_actif == Decimal("30000")
 
     def test_approve_guards_placement_at_decision(self, active_member, admin_user):
@@ -178,7 +191,9 @@ class TestClassiqueEndpoint:
         )
         assert rd.status_code == 200, rd.content
         active_member.classic_savings_account.refresh_from_db()
-        assert active_member.classic_savings_account.solde == Decimal("35000.00")
+        # Approbation = validation, PAS de débit : le solde reste intact tant
+        # que l'argent n'est pas remis (le montant est seulement réservé).
+        assert active_member.classic_savings_account.solde == Decimal("60000.00")
 
     def test_classique_withdrawal_appears_in_my_withdrawals(
         self, client, active_member

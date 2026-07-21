@@ -23,10 +23,12 @@ class FeePaymentError(ValueError):
     """Le règlement du frais est impossible (motif lisible par le membre)."""
 
 
-# Codes de frais membre → Payment.Type correspondant (tous deux activent).
+# Codes des 3 frais d'activation → Payment.Type correspondant (chacun peut être
+# réglé depuis l'épargne ; le carnet passe par son propre hook).
 _FEE_CODE_TO_PAYMENT_TYPE = {
     "ADHESION": "frais_adhesion",
     "INSCRIPTION": "frais_inscription",
+    "CARNET": "frais_carnet",
 }
 
 
@@ -69,7 +71,7 @@ def pay_membership_fee_from_savings(member, fee_code: str) -> "object":
     if payment_type is None:
         raise FeePaymentError(
             "Type de frais non réglable depuis le compte "
-            "(seuls adhésion et inscription le sont)."
+            "(seuls adhésion, inscription et carnet le sont)."
         )
 
     montant = membership_fee_amount(fee_code)
@@ -138,8 +140,13 @@ def pay_membership_fee_from_savings(member, fee_code: str) -> "object":
         details={"payment_id": payment.id, "fee_code": fee_code, "montant": str(montant)},
     )
 
-    # Payment VALIDE → on déclenche le hook d'activation/réactivation.
-    from apps_coop.payments.services import _hook_adhesion
+    # Payment VALIDE → hook métier selon le frais. Le carnet crée en plus la
+    # commande de carnet (BookletOrder) ; adhésion/inscription passent par
+    # _hook_adhesion. Les deux tentent l'activation si les 3 frais sont soldés.
+    from apps_coop.payments.services import _hook_adhesion, _hook_carnet_fees
 
-    _hook_adhesion(payment, {})
+    if fee_code == "CARNET":
+        _hook_carnet_fees(payment, {})
+    else:
+        _hook_adhesion(payment, {})
     return payment

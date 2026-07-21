@@ -1129,6 +1129,14 @@ class LenderAllocation(TimestampedModel):
         default=ZERO,
         help_text="Cumul des intérêts déjà versés à ce prêteur sur ce crédit.",
     )
+    # Apport admin : le prêteur a été RESTITUÉ par anticipation (capital +
+    # intérêts placement) alors que le crédit n'était pas soldé. La coop reprend
+    # le risque → cette allocation est EXCLUE de la part d'intérêts des
+    # remboursements futurs (la coop garde cette quote-part).
+    restitue_par_apport = models.BooleanField(
+        default=False,
+        help_text="True si ce prêteur a été restitué par un apport coop anticipé.",
+    )
 
     class Meta:
         ordering = ["loan", "-created_at"]

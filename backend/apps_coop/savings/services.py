@@ -12,6 +12,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from apps_coop.audit.services import (
@@ -41,15 +42,46 @@ def _add_months(d: date, months: int) -> date:
     return d.replace(year=new_year, month=new_month, day=min(d.day, last_day))
 
 
-def classic_withdrawable(account: ClassicSavingsAccount) -> Decimal:
-    """Part réellement retirable de l'épargne classique (réforme garantie 2026).
+# Statuts d'un retrait ENGAGÉ (réservé) : la demande vit encore, l'argent est
+# promis mais pas encore sorti du solde (le débit n'a lieu qu'au paiement). Ces
+# montants sont « bloqués » — plus allouables ailleurs (2ᵉ retrait, garantie…)
+# tant qu'ils ne sont pas payés (→ débités) ou rejetés (→ libérés).
+_WITHDRAWAL_RESERVED_STATUSES = (
+    WithdrawalRequest.Statut.EN_ATTENTE,
+    WithdrawalRequest.Statut.APPROUVEE,
+    WithdrawalRequest.Statut.EN_PAYOUT,
+    WithdrawalRequest.Statut.PAYOUT_FAILED,
+)
 
-    = solde − max(placement encore actif, gel de garantie crédit).
+
+def reserved_withdrawals(
+    *,
+    classic_account: ClassicSavingsAccount | None = None,
+    account: SavingsAccount | None = None,
+    exclude_id: int | None = None,
+) -> Decimal:
+    """Somme des retraits ENGAGÉS (non payés, non rejetés) sur ce compte.
+
+    C'est la part « réservée » : initiée/validée mais pas encore remise, donc
+    pas encore débitée du solde. On la retranche du disponible pour qu'un même
+    argent ne puisse pas être promis deux fois (``exclude_id`` sert à ignorer la
+    demande elle-même quand on la ré-évalue à l'approbation)."""
+    qs = WithdrawalRequest.objects.filter(statut__in=_WITHDRAWAL_RESERVED_STATUSES)
+    if classic_account is not None:
+        qs = qs.filter(classic_account=classic_account)
+    else:
+        qs = qs.filter(account=account)
+    if exclude_id is not None:
+        qs = qs.exclude(pk=exclude_id)
+    return qs.aggregate(s=Sum("montant"))["s"] or Decimal("0")
+
+
+def _classic_retirable_raw(account: ClassicSavingsAccount) -> Decimal:
+    """Part retirable AVANT réservation = solde − max(placement, gel garantie).
 
     Le placement est déjà bloqué (sous-canal CH-3). Le gel de garantie (caution
-    engagée comme avaliste + collatéral immobilisé comme demandeur) « grise »
-    en plus la part libre — mais uniquement au-delà du placement, puisque le
-    placement compte déjà dans la garantie et est déjà indisponible.
+    avaliste + collatéral demandeur) « grise » en plus la part libre au-delà du
+    placement. Ne retranche PAS les retraits en cours (voir ``classic_withdrawable``).
     """
     solde = Decimal(account.solde)
     placement = Decimal(account.solde_placement_actif)
@@ -64,6 +96,20 @@ def classic_withdrawable(account: ClassicSavingsAccount) -> Decimal:
             account.pk,
         )
     dispo = solde - max(placement, frozen)
+    return dispo if dispo > 0 else Decimal("0")
+
+
+def classic_withdrawable(account: ClassicSavingsAccount) -> Decimal:
+    """Part réellement disponible pour un NOUVEAU retrait classique.
+
+    = ``_classic_retirable_raw`` − retraits déjà engagés (réservés) sur ce
+    compte. Ainsi le solde total ne « ment » pas (il ne bouge qu'au paiement),
+    mais le disponible reflète déjà ce qui est promis : impossible de re-retirer
+    un montant déjà en attente/approuvé.
+    """
+    dispo = _classic_retirable_raw(account) - reserved_withdrawals(
+        classic_account=account
+    )
     return dispo if dispo > 0 else Decimal("0")
 
 
@@ -138,7 +184,10 @@ def request_withdrawal(
         if account is None:
             raise ValueError("Compte de collecte requis pour un retrait collecte.")
         locked = SavingsAccount.objects.select_for_update().get(pk=account.pk)
-        disponible = Decimal(locked.solde)
+        # Disponible = solde − retraits déjà engagés (réservés) sur ce compte.
+        disponible = Decimal(locked.solde) - reserved_withdrawals(account=locked)
+        if disponible < 0:
+            disponible = Decimal("0")
         account_kwargs = {"account": locked}
         pending_filter = {"account": locked}
 
@@ -202,6 +251,36 @@ def request_withdrawal(
             )
         except Exception:  # noqa: BLE001
             logger.warning("withdrawal.requested email skipped", exc_info=True)
+
+    # W2 — alerte STAFF : une demande de retrait attend une décision. Envoyée
+    # à l'adresse ops configurable (AppSetting notifications.ops_email) ; no-op
+    # si vide. Best-effort — ne casse jamais le flow.
+    try:
+        from django.conf import settings as dj_settings
+
+        from apps_coop.audit.services import get_str_setting
+        from apps_coop.notifications.events import emit_event
+
+        ops = (get_str_setting("notifications.ops_email", "") or "").strip()
+        if ops:
+            emit_event(
+                "withdrawal.admin_pending",
+                member=member,  # contexte/prénom ; l'envoi part sur to_email (ops)
+                to_email=ops,
+                context={
+                    "prenom": member.prenom,
+                    "demandeur_nom": member.nom,
+                    "demandeur_numero": member.numero_membre,
+                    "montant": f"{int(montant):,}".replace(",", " "),
+                    "source": source,
+                    "admin_url": (
+                        (get_str_setting("notifications.admin_url", "") or "").strip()
+                        or getattr(dj_settings, "FRONTEND_BASE_URL", "")
+                    ),
+                },
+            )
+    except Exception:  # noqa: BLE001 — best-effort
+        logger.warning("withdrawal.admin_pending staff alert skipped", exc_info=True)
     return wr
 
 
@@ -216,19 +295,24 @@ def decide_withdrawal(
 
     Idempotent : si déjà décidée, renvoie la demande telle quelle.
 
-    À l'**approbation** :
-      1. Revérifie le solde sous verrou + débit + ``SavingsTransaction(retrait)``.
-      2. Si ``mode_paiement = PRESENTIEL`` → statut ``APPROUVEE`` (l'admin
-         cliquera ensuite « Confirmer remise espèces » via ``mark_withdrawal_paid``
-         qui passera à ``COMPLETEE``).
-      3. Si ``mode_paiement = MOMO`` → on crée un ``Payment(decaissement,
-         mobile_money, en_attente)`` lié à la WR, on appelle
-         ``provider.init_payout()``, statut ``EN_PAYOUT``. Le webhook Tara
-         basculera vers ``COMPLETEE`` via ``_hook_decaissement``.
+    À l'**approbation**, on **ne débite PAS** le solde. L'argent reste dans le
+    compte, seulement *engagé* (réservé — cf. ``reserved_withdrawals``) jusqu'au
+    **paiement effectif**. On dissocie ainsi « demande initiée / validée » de
+    « argent réellement sorti » : c'est ``mark_withdrawal_paid`` (remise espèces
+    par le secrétaire) — ou le webhook payout (``_hook_decaissement``) — qui
+    débite au moment où l'argent quitte réellement la caisse.
+
+      1. Revérifie que la part retirable couvre encore le montant (garde contre
+         un placement/gel survenu après la demande) — SANS toucher au solde.
+      2. ``PRESENTIEL`` (ou MOMO payout Tara désactivé) → statut ``APPROUVEE`` ;
+         l'admin cliquera « Confirmer remise » (``mark_withdrawal_paid``) qui
+         **débite** et passe ``COMPLETEE``.
+      3. ``MOMO`` + payout Tara activé → ``Payment(decaissement)`` + init payout,
+         statut ``EN_PAYOUT`` ; le webhook **débite** et passe ``COMPLETEE``.
 
     **Note transaction** : volontairement pas ``@transaction.atomic`` global —
     l'appel HTTP Tara doit pouvoir laisser une trace ``payout_failed`` même si
-    l'init payout lève une exception (sinon rollback complet du débit).
+    l'init payout lève une exception.
     """
     if wr.statut != WithdrawalRequest.Statut.EN_ATTENTE:
         return wr  # déjà traitée — idempotent
@@ -259,55 +343,32 @@ def decide_withdrawal(
         _notify(wr, approved=False)
         return wr
 
-    # --- Approbation : débit du solde, sous verrou (atomique court) ---
+    # --- Approbation : PAS de débit. On vérifie seulement que la part retirable
+    # couvre encore le montant (en excluant CETTE demande de la réserve, déjà
+    # comptée). Le solde ne bougera qu'au paiement effectif. ---
     montant = Decimal(wr.montant)
     with transaction.atomic():
         if wr.source == WithdrawalRequest.Source.CLASSIQUE_LIBRE:
-            # Débit sur l'épargne classique — jamais au-delà de la part libre
-            # (le placement encore actif garantit les engagements crédit).
             cacc = ClassicSavingsAccount.objects.select_for_update().get(
                 pk=wr.classic_account_id
             )
-            disponible = classic_withdrawable(cacc)
+            disponible = _classic_retirable_raw(cacc) - reserved_withdrawals(
+                classic_account=cacc, exclude_id=wr.id
+            )
             if montant > disponible:
                 raise ValueError(
                     f"Solde retirable insuffisant pour approuver : {disponible} "
                     f"< {montant} (placement bloqué + gel garantie crédit)."
                 )
-            nouveau_solde = Decimal(cacc.solde) - montant
-            cacc.solde = nouveau_solde
-            cacc.save(update_fields=["solde", "updated_at"])
-
-            ctx = ClassicSavingsTransaction.objects.create(
-                account=cacc,
-                payment=None,  # mouvement interne, pas un Payment entrant
-                type_op=ClassicSavingsTransaction.TypeOp.RETRAIT,
-                montant=montant,
-                solde_apres=nouveau_solde,
-                date=now,
-            )
-            wr.classic_transaction = ctx
-            tx_field, tx_id = "classic_transaction", ctx.id
         else:
             account = SavingsAccount.objects.select_for_update().get(pk=wr.account_id)
-            if montant > Decimal(account.solde):
-                raise ValueError(
-                    f"Solde insuffisant pour approuver : {account.solde} < {montant}."
-                )
-            nouveau_solde = Decimal(account.solde) - montant
-            account.solde = nouveau_solde
-            account.save(update_fields=["solde", "updated_at"])
-
-            tx = SavingsTransaction.objects.create(
-                account=account,
-                payment=None,  # mouvement interne, pas un Payment entrant
-                type_op=SavingsTransaction.TypeOp.RETRAIT,
-                montant=montant,
-                solde_apres=nouveau_solde,
-                date=now,
+            disponible = Decimal(account.solde) - reserved_withdrawals(
+                account=account, exclude_id=wr.id
             )
-            wr.transaction = tx
-            tx_field, tx_id = "transaction", tx.id
+            if montant > disponible:
+                raise ValueError(
+                    f"Solde insuffisant pour approuver : {disponible} < {montant}."
+                )
 
         wr.decide_par = decided_by
         wr.date_decision = now
@@ -322,18 +383,12 @@ def decide_withdrawal(
         if not _auto_tara:
             wr.statut = WithdrawalRequest.Statut.APPROUVEE
             wr.save(
-                update_fields=[
-                    "statut", tx_field, "decide_par", "date_decision", "updated_at",
-                ]
+                update_fields=["statut", "decide_par", "date_decision", "updated_at"]
             )
         else:
-            # MOMO : statut intermédiaire — on bascule en EN_PAYOUT après init Tara
-            wr.statut = WithdrawalRequest.Statut.EN_ATTENTE  # provisoire, sera écrasé
-            wr.save(
-                update_fields=[
-                    tx_field, "decide_par", "date_decision", "updated_at",
-                ]
-            )
+            # MOMO : reste EN_ATTENTE le temps de l'init payout ; le statut
+            # EN_PAYOUT est posé par _init_payout_for_withdrawal.
+            wr.save(update_fields=["decide_par", "date_decision", "updated_at"])
 
     record_audit(
         action="withdrawal.approved",
@@ -342,8 +397,7 @@ def decide_withdrawal(
         user=decided_by,
         details={
             "montant": str(montant),
-            "solde_apres": str(nouveau_solde),
-            "transaction_id": tx_id,
+            "reserve": True,  # engagé (réservé), PAS encore débité
             "source": wr.source,
             "mode_paiement": wr.mode_paiement,
         },
@@ -646,41 +700,101 @@ def _auto_tara_collecte_payout(member, cash_txn, *, montant, phone, network) -> 
 
 
 @transaction.atomic
+def apply_withdrawal_debit(wr: WithdrawalRequest, *, now=None) -> Decimal:
+    """Débit EFFECTIF du solde au moment du paiement (remise espèces / payout
+    complété). Crée la transaction ``RETRAIT`` et la lie à la ``wr``.
+
+    Point unique de sortie d'argent d'un retrait — appelé par
+    ``mark_withdrawal_paid`` (présentiel) et par le webhook payout
+    (``_hook_decaissement``). **Idempotent** : si la WR a déjà une transaction
+    liée (déjà débitée), ne re-débite pas. Renvoie le nouveau solde.
+    """
+    now = now or timezone.now()
+    montant = Decimal(wr.montant)
+    if wr.source == WithdrawalRequest.Source.CLASSIQUE_LIBRE:
+        if wr.classic_transaction_id:  # déjà débité → idempotent
+            return Decimal(wr.classic_account.solde)
+        cacc = ClassicSavingsAccount.objects.select_for_update().get(
+            pk=wr.classic_account_id
+        )
+        if montant > Decimal(cacc.solde):
+            raise ValueError(
+                f"Solde classique insuffisant au paiement : {cacc.solde} < {montant}."
+            )
+        nouveau_solde = Decimal(cacc.solde) - montant
+        cacc.solde = nouveau_solde
+        cacc.save(update_fields=["solde", "updated_at"])
+        ctx = ClassicSavingsTransaction.objects.create(
+            account=cacc,
+            payment=None,
+            type_op=ClassicSavingsTransaction.TypeOp.RETRAIT,
+            montant=montant,
+            solde_apres=nouveau_solde,
+            date=now,
+        )
+        wr.classic_transaction = ctx
+        wr.save(update_fields=["classic_transaction", "updated_at"])
+    else:
+        if wr.transaction_id:  # déjà débité → idempotent
+            return Decimal(wr.account.solde)
+        account = SavingsAccount.objects.select_for_update().get(pk=wr.account_id)
+        if montant > Decimal(account.solde):
+            raise ValueError(
+                f"Solde collecte insuffisant au paiement : {account.solde} < {montant}."
+            )
+        nouveau_solde = Decimal(account.solde) - montant
+        account.solde = nouveau_solde
+        account.save(update_fields=["solde", "updated_at"])
+        tx = SavingsTransaction.objects.create(
+            account=account,
+            payment=None,
+            type_op=SavingsTransaction.TypeOp.RETRAIT,
+            montant=montant,
+            solde_apres=nouveau_solde,
+            date=now,
+        )
+        wr.transaction = tx
+        wr.save(update_fields=["transaction", "updated_at"])
+    return nouveau_solde
+
+
 def mark_withdrawal_paid(
     wr: WithdrawalRequest,
     *,
     agent,
     note: str = "",
 ) -> WithdrawalRequest:
-    """Marque un retrait **présentiel** comme remis (espèces données au membre).
+    """Marque un retrait comme remis — c'est ICI que le solde est **débité**.
 
-    Précondition : statut == ``APPROUVEE`` (le solde est déjà débité). Idempotent :
-    si déjà ``COMPLETEE``, renvoie tel quel. Une remise espèces ne s'applique
-    qu'aux retraits ``mode_paiement = PRESENTIEL`` (MOMO passe par le webhook).
+    Précondition : statut == ``APPROUVEE``. Le secrétaire remet l'argent puis
+    confirme : on débite réellement le solde (``apply_withdrawal_debit``) et on
+    passe ``COMPLETEE``. Idempotent : si déjà ``COMPLETEE``, renvoie tel quel.
+    S'applique au présentiel (espèces) ET au MOMO réglé à la main sur Tara.
     """
     if wr.statut == WithdrawalRequest.Statut.COMPLETEE:
         return wr  # idempotent
 
-    # Marquage « payé » : présentiel (espèces) OU MOMO réglé à la main sur Tara
-    # (payout plateforme désactivé). Un MOMO auto-payé passe en EN_PAYOUT, pas
-    # APPROUVEE → il reste couvert par la garde de statut ci-dessous.
     if wr.statut != WithdrawalRequest.Statut.APPROUVEE:
         raise ValueError(
             f"Statut {wr.statut!r} — seul un retrait approuvé peut être marqué remis."
         )
 
     now = timezone.now()
-    wr.statut = WithdrawalRequest.Statut.COMPLETEE
-    wr.handed_over_by = agent
-    wr.handed_over_at = now
-    wr.save(update_fields=["statut", "handed_over_by", "handed_over_at", "updated_at"])
+    with transaction.atomic():
+        nouveau_solde = apply_withdrawal_debit(wr, now=now)
+        wr.statut = WithdrawalRequest.Statut.COMPLETEE
+        wr.handed_over_by = agent
+        wr.handed_over_at = now
+        wr.save(
+            update_fields=["statut", "handed_over_by", "handed_over_at", "updated_at"]
+        )
 
     record_audit(
         action="withdrawal.handed_over",
         entite_type="WithdrawalRequest",
         entite_id=wr.id,
         user=agent,
-        details={"note": note[:200]},
+        details={"note": note[:200], "solde_apres": str(nouveau_solde)},
     )
 
     _notify(wr, approved=True, completed=True)
@@ -696,7 +810,8 @@ def retry_withdrawal_payout(
     """Réessaie un payout MOMO en ``PAYOUT_FAILED``.
 
     Repart de zéro côté Tara (nouveau Payment + nouvel ``idempotency_key``),
-    mais réutilise la même ``WithdrawalRequest`` (le solde est déjà débité).
+    mais réutilise la même ``WithdrawalRequest``. Le solde n'est PAS encore
+    débité (il ne l'est qu'à la complétion du payout) — rien à rembourser.
     """
     if wr.mode_paiement != WithdrawalRequest.ModePaiement.MOMO:
         raise ValueError("Réessai applicable uniquement aux retraits MOMO.")

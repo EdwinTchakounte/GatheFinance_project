@@ -896,14 +896,16 @@ def request_loan_renewal(
     from apps_coop.payments.models import RateParam
 
     # Base = tout ce qu'il reste à remettre (capital + intérêts résiduels).
-    # Reconduire 50 000 coûte 15 % de 50 000, EN PLUS des 50 000 à rembourser.
+    # Reconduire 25 000 coûte 15 % de 25 000, EN PLUS des 25 000 à rembourser
+    # (nouveau crédit = 28 750).
     capital_restant, interets_restants = _remaining_capital_and_interest(loan)
     montant_a_reconduire = _q(capital_restant + interets_restants)
-    taux = get_rate(
-        RateParam.Code.RENEWAL_CASH
-        if interets_au_comptant
-        else RateParam.Code.RENEWAL_DEFERRED
-    )
+    # 2026-07 : VOLET UNIQUE 15 %. Plus de choix « comptant 10 % / reporté 15 % » :
+    # le coût de reconduction est TOUJOURS 15 % du reste. Le paiement anticipé de
+    # ces intérêts reste possible (pay_renewal_interest_from_savings) mais ne
+    # change pas le taux — c'est juste régler d'avance ce qui sinon est reporté.
+    interets_au_comptant = False
+    taux = get_rate(RateParam.Code.RENEWAL_DEFERRED)
     interets_dus = _q(Decimal(taux) * montant_a_reconduire)
 
     renewal = LoanRenewal.objects.create(

@@ -220,9 +220,11 @@ def loan_request_create(request):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    # 2) Routage 3 voies. extra_payload contient les flags BRC declares
-    # sur le formulaire (cga_brc_member, cfp_brc_apprenant) qui peuvent
-    # debloquer la Voie 1 SENIOR_BRC sans validation admin prealable.
+    # 2) Routage 3 voies. Les flags BRC declares (cga_brc_member,
+    # cfp_brc_apprenant) et la piece BRC jointe sont DOCUMENTAIRES : ils sont
+    # stockes dans extra_payload et consultes par le comite, mais n'entrent PAS
+    # dans le routage. Depuis 2026-07 la Voie 1 « Ancien sous-couvert » s'ouvre
+    # sur l'anciennete seule (require_brc_for_senior=false par defaut).
     route_eval = evaluate_routes(
         member,
         montant=data["montant_demande"],
@@ -457,7 +459,7 @@ def loan_request_create(request):
 
     return Response(
         {
-            "loan_request": LoanRequestReadSerializer(loan_request).data,
+            "loan_request": LoanRequestReadSerializer(loan_request, context={"request": request}).data,
             "route": route_eval.route,
             "route_details": route_eval.details,
             "frais_a_payer": {
@@ -586,8 +588,15 @@ def admin_list_loan_requests(request):
     member_id = request.query_params.get("member")
     if member_id:
         qs = qs.filter(member_id=member_id)
-    # Admin/staff : serializer étendu (visite terrain incluse).
-    return Response(AdminLoanRequestReadSerializer(qs, many=True).data)
+    # Admin/staff : serializer étendu (visite terrain incluse). On passe le
+    # `request` en contexte pour que les URLs des pièces jointes (titre de
+    # propriété garantie, etc.) soient ABSOLUES → prévisualisables depuis le
+    # dashboard (sinon `/media/...` relatif pointe sur l'hôte admin → 404).
+    return Response(
+        AdminLoanRequestReadSerializer(
+            qs, many=True, context={"request": request}
+        ).data
+    )
 
 
 @extend_schema(
@@ -631,7 +640,7 @@ def loan_request_decide(request, pk: int):
         return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
     loan_request.refresh_from_db()
-    return Response(LoanRequestReadSerializer(loan_request).data)
+    return Response(LoanRequestReadSerializer(loan_request, context={"request": request}).data)
 
 
 @extend_schema(
@@ -1570,7 +1579,7 @@ def loan_request_record_study_fee(request, pk: int):
 
     _hook_loan_request_fees(payment, {})
     lr.refresh_from_db()
-    return Response(LoanRequestReadSerializer(lr).data)
+    return Response(LoanRequestReadSerializer(lr, context={"request": request}).data)
 
 
 @extend_schema(
@@ -1605,7 +1614,7 @@ def loan_request_pay_study_fee_from_savings(request, pk: int):
         return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
 
     lr.refresh_from_db()
-    return Response(LoanRequestReadSerializer(lr).data)
+    return Response(LoanRequestReadSerializer(lr, context={"request": request}).data)
 
 
 @extend_schema(
@@ -1669,7 +1678,7 @@ def loan_request_field_visit(request, pk: int):
     )
 
     # Réponse staff : serializer admin (visite terrain incluse).
-    return Response(AdminLoanRequestReadSerializer(lr).data)
+    return Response(AdminLoanRequestReadSerializer(lr, context={"request": request}).data)
 
 
 # ---------------------------------------------------------------------------

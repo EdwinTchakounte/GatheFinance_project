@@ -21,6 +21,19 @@ from apps_coop.audit.models import AppSetting
 SETTINGS: list[tuple[str, str, str]] = [
     # (clé, valeur par défaut, description)
     (
+        "notifications.ops_email",
+        "",
+        "Adresse e-mail de l'équipe (ops) qui reçoit les alertes staff — ex. "
+        "« un dossier crédit est prêt pour le comité ». Vide = aucune alerte "
+        "staff envoyée.",
+    ),
+    (
+        "notifications.admin_url",
+        "",
+        "URL publique du back-office admin (pour les liens des e-mails staff). "
+        "Vide = repli sur l'URL du portail membre.",
+    ),
+    (
         "loans.contentieux.threshold_days",
         "90",
         "Article 13 — au-delà de ce nombre de jours de retard sur une "
@@ -314,10 +327,11 @@ SETTINGS: list[tuple[str, str, str]] = [
     ),
     (
         "loans.eligibility.require_brc_for_senior",
-        "true",
-        "Si 'true' (défaut), un Ancien doit avoir le statut BRC validé pour "
-        "passer Voie 1. Si 'false', l'ancienneté seule suffit (cas où l'admin "
-        "veut temporairement contourner la validation BRC).",
+        "false",
+        "Défaut 'false' depuis 2026-07 : le BRC est devenu une pièce purement "
+        "documentaire (plus de validation), l'ancienneté seule ouvre la Voie 1 "
+        "et le comité juge la demande. Repasser à 'true' pour re-exiger un "
+        "statut BRC validé sur un Ancien.",
     ),
     (
         "loans.eligibility.route_priority",

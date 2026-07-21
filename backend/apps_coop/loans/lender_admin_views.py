@@ -145,6 +145,29 @@ def _serialize_tranche(t: LenderTranche) -> dict:
 # LA-1 . Liste pool preteurs + totalisateur reserve mobilisable
 # ---------------------------------------------------------------------------
 
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def admin_restitute_tranche_apport(request, tranche_id: int):
+    """Restitue par APPORT coop une tranche ENGAGÉE (crédit non encore soldé).
+
+    Restitue intégralement le prêteur (intérêts placement crédités + capital
+    libéré) ; la coop reprend le risque du crédit et garde la part d'intérêts
+    future de ce prêteur. Décision métier 2026-07-21.
+    """
+    from apps_coop.loans.apport_services import (
+        ApportError,
+        restitute_tranche_by_apport,
+    )
+
+    try:
+        result = restitute_tranche_by_apport(tranche_id, admin_user=request.user)
+    except LenderTranche.DoesNotExist:
+        return Response({"detail": "Tranche introuvable."}, status=404)
+    except ApportError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(result)
+
+
 @api_view(["GET"])
 @permission_classes([IsAdmin])
 def admin_list_lender_tranches(request):

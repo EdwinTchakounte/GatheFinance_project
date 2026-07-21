@@ -205,22 +205,25 @@ def draw_header(c, width, height, *, margin) -> float:
 #  Pied de page
 # =========================================================================
 def _footer_row(c, items, cy, x_left, x_right, *, font, size, icon_size) -> None:
-    """Dispose une rangée d'items ``(icone|None, texte)`` justifiée en largeur."""
+    """Dispose une rangée d'items ``(icone|None, texte)`` GROUPÉS au centre.
+
+    Les contacts sont resserrés (écart fixe + point médian discret) et centrés
+    dans la largeur dispo, au lieu d'être étirés bord à bord — bloc plus lisible.
+    """
     gap = 3.2  # espace icône → texte
+    sep = 11   # écart fixe entre items (groupés)
 
     widths = []
     for icon_fn, text in items:
         tw = c.stringWidth(text, font, size)
         widths.append((icon_size + gap if icon_fn else 0) + tw)
 
-    total = sum(widths)
-    n = len(items)
-    between = (x_right - x_left - total) / (n - 1) if n > 1 else 0
-    if between < 6:
-        between = 6
+    total = sum(widths) + sep * (len(items) - 1)
+    # Centrer le bloc (offset ≥ 0) au lieu de l'étaler sur toute la largeur.
+    x = x_left + max(0.0, (x_right - x_left - total) / 2)
+    baseline = cy - size * 0.34
 
-    x = x_left
-    for (icon_fn, text), iw in zip(items, widths):
+    for idx, ((icon_fn, text), iw) in enumerate(zip(items, widths)):
         if icon_fn:
             icon_fn(c, x + icon_size / 2, cy, icon_size)
             tx = x + icon_size + gap
@@ -228,8 +231,14 @@ def _footer_row(c, items, cy, x_left, x_right, *, font, size, icon_size) -> None
             tx = x
         c.setFillColor(WHITE)
         c.setFont(font, size)
-        c.drawString(tx, cy - size * 0.34, text)
-        x += iw + between
+        c.drawString(tx, baseline, text)
+        x += iw
+        if idx < len(items) - 1:
+            # Point médian séparateur, centré dans l'écart.
+            c.setFillColor(WHITE)
+            c.setFont(font, size)
+            c.drawCentredString(x + sep / 2, baseline, "•")
+            x += sep
 
 
 def draw_footer(c, width, *, margin) -> float:

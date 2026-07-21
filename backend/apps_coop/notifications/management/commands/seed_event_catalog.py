@@ -74,6 +74,13 @@ EVENTS: list[tuple[str, str, str, bool]] = [
         False,
     ),
     (
+        "withdrawal.admin_pending",
+        "Retrait à traiter (staff)",
+        "Une demande de retrait attend une décision. Mail à l'équipe — adresse "
+        "ops configurable via l'AppSetting notifications.ops_email.",
+        True,
+    ),
+    (
         "withdrawal.approved",
         "Retrait approuvé",
         "Confirmation après débit atomique du solde.",
@@ -122,6 +129,13 @@ EVENTS: list[tuple[str, str, str, bool]] = [
         "Remboursement confirmé",
         "Reçu d'imputation FIFO sur les échéances.",
         False,
+    ),
+    (
+        "loan.closed",
+        "Crédit soldé (clôturé)",
+        "Le dernier remboursement solde le crédit : passage en CLÔTURE, "
+        "épargne gelée en garantie libérée. Mail de confirmation au membre.",
+        True,
     ),
     (
         "loan.installment_due_soon",
@@ -222,6 +236,22 @@ EVENTS: list[tuple[str, str, str, bool]] = [
         "Avaliste a refusé la caution",
         "L'avaliste désigné a refusé de se porter caution. Le demandeur peut "
         "désigner un autre avaliste. Mail au demandeur de crédit.",
+        True,
+    ),
+    (
+        "loan.avaliste_gel_released",
+        "Caution avaliste libérée",
+        "La caution gelée sur l'épargne du garant a été libérée (crédit soldé "
+        "ou demande rejetée). Mail au garant pour l'informer que son épargne "
+        "est de nouveau disponible.",
+        True,
+    ),
+    (
+        "loan.credit_dossier_ready",
+        "Dossier crédit prêt pour le comité (staff)",
+        "Un dossier crédit vient de passer en instruction (frais réglés + "
+        "garant accepté le cas échéant). Mail à l'équipe — adresse ops "
+        "configurable via l'AppSetting notifications.ops_email.",
         True,
     ),
     # --- LOT 8 : Funding prêteur 24h §6 ---
@@ -335,6 +365,20 @@ EVENTS: list[tuple[str, str, str, bool]] = [
         "Intérêts placement crédités à la source",
         "CH-12 . Distribution immediate des interets a T0 du decaissement.",
         False,
+    ),
+    (
+        "lender.tranche_released",
+        "Part de placement rendue au pool",
+        "Le crédit financé par cette part est soldé : la part est libérée et "
+        "de nouveau disponible (retrait ou nouveau financement). Mail au prêteur.",
+        True,
+    ),
+    (
+        "lender.apport_restitution",
+        "Placement restitué par apport (anticipé)",
+        "La coop a restitué le prêteur par anticipation (capital + intérêts "
+        "placement) alors que le crédit financé n'était pas soldé. Mail au prêteur.",
+        True,
     ),
     # Microcampagne . cloture
     (

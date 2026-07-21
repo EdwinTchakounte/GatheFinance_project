@@ -164,10 +164,16 @@ class TestFixedFeeCashInAmountLocked:
         ).exists()
 
     def test_epargne_amount_still_free(self, active_member, admin_user):
-        """Un dépôt d'épargne garde un montant LIBRE (pas un frais fixe)."""
+        """Un dépôt d'épargne garde un montant LIBRE (pas un frais fixe).
+
+        Montant 1 500 : libre (n'est pas verrouillé sur un tarif catalogue) tout
+        en respectant les règles collecte désormais appliquées au cash-in agence
+        (multiple de 50 + minimum 1 000/jour). L'ancien 750 servait juste de
+        « petit montant arbitraire » — il violait le plancher collecte.
+        """
         r = _api(admin_user).post(
             self.URL,
-            {"member_id": active_member.id, "type": "epargne", "montant": 750,
+            {"member_id": active_member.id, "type": "epargne", "montant": 1500,
              "nb_jours_couverts": 1},
             format="json",
         )

@@ -68,10 +68,15 @@ def _share_rate() -> Decimal:
 
 
 def _allocations_for_loan(loan: Loan) -> list[LenderAllocation]:
-    """Liste verrouillée des allocations prêteurs du crédit (vide si crédit legacy)."""
+    """Allocations prêteurs ACTIVES du crédit (vide si crédit legacy).
+
+    Exclut les allocations restituées par apport : le prêteur a déjà été fait
+    entièrement (capital + intérêts placement), la coop a repris le risque et
+    garde donc sa quote-part des intérêts des remboursements futurs.
+    """
     return list(
         LenderAllocation.objects.select_for_update()
-        .filter(loan=loan)
+        .filter(loan=loan, restitue_par_apport=False)
         .select_related("lender")
         .order_by("id")
     )
@@ -134,14 +139,24 @@ def distribute_interest_share(
     if pretteurs_total <= 0:
         return []
 
+    # Cible réellement distribuable = part prêteurs × somme des quote-parts
+    # ACTIVES. Sans apport, cette somme vaut 1.0 → target == pretteurs_total
+    # (comportement inchangé). Avec des prêteurs restitués par apport, leur
+    # quote-part n'est plus distribuée : la coop la garde.
+    active_quote_total = sum(
+        (Decimal(a.quote_part) for a in allocations), Decimal("0")
+    )
+    target = _q(pretteurs_total * active_quote_total)
+
     payouts: list[LenderInterestPayout] = []
     now = timezone.now()
     sum_dispatched = Decimal("0")
     for idx, alloc in enumerate(allocations):
         share = _q(pretteurs_total * Decimal(alloc.quote_part))
-        # Dernière allocation absorbe le résidu d'arrondi.
+        # Dernière allocation active absorbe le résidu d'arrondi (borné à la
+        # cible active — jamais la quote-part gardée par la coop).
         if idx == len(allocations) - 1:
-            share = _q(pretteurs_total - sum_dispatched)
+            share = _q(target - sum_dispatched)
         if share <= 0:
             continue
         payout = _credit_lender(
@@ -284,6 +299,44 @@ def release_loan_tranches(loan: Loan) -> int:
             "count": len(engaged),
         },
     )
+
+    # Notif prêteur : « ta part est de nouveau disponible ». On agrège le
+    # montant libéré par prêteur (un même prêteur peut avoir plusieurs tranches
+    # sur ce crédit) et on envoie après commit (best-effort).
+    from collections import defaultdict
+
+    per_member: dict = defaultdict(Decimal)
+    member_by_id: dict = {}
+    for t in engaged:
+        per_member[t.member_id] += Decimal(t.montant)
+        member_by_id[t.member_id] = t.member
+
+    def _notify_lenders() -> None:
+        from django.conf import settings
+
+        from apps_coop.notifications.events import emit_event
+
+        for mid, montant in per_member.items():
+            m = member_by_id.get(mid)
+            if m is None:
+                continue
+            try:
+                emit_event(
+                    "lender.tranche_released",
+                    member=m,
+                    context={
+                        "prenom": m.prenom,
+                        "montant": f"{int(montant):,}".replace(",", " "),
+                        "numero_dossier": loan.numero_dossier,
+                        "portal_url": getattr(
+                            settings, "FRONTEND_BASE_URL", "http://localhost:3200"
+                        ),
+                    },
+                )
+            except Exception:  # pragma: no cover — notif best-effort
+                logger.exception("notif tranche libérée prêteur a échoué")
+
+    transaction.on_commit(_notify_lenders)
     return len(engaged)
 
 

@@ -183,6 +183,13 @@ def admin_avaliste_consents_list(request):
         if not statut:
             rows = attente_frais + rows
 
+    # L5 — Absolutise l'URL du fichier CNI de l'avaliste pour que l'aperçu
+    # documentaire admin (reconstitution des preuves) pointe sur le bon hôte.
+    for r in rows:
+        fichier = r.get("cni_avaliste_fichier")
+        if fichier:
+            r["cni_avaliste_fichier"] = request.build_absolute_uri(fichier)
+
     return Response({"count": len(rows), "counts": counts, "results": rows})
 
 

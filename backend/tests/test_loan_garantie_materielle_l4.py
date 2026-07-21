@@ -62,13 +62,14 @@ class TestRoutingGarantieMaterielle:
         assert res.route == EligibilityRoute.GARANTIE_MATERIELLE
         assert res.details["garantie_materielle"] is True
 
-    def test_selfcover_wins_over_material_guarantee(self):
-        # Auto-couverture est prioritaire : même avec le flag, si le membre se
-        # couvre, on route en direct (pas de garantie matérielle inutile).
+    def test_declared_material_guarantee_is_honored(self):
+        # Le CHOIX prime : si le membre déclare une garantie matérielle (il a
+        # coché la voie), on route GARANTIE_MATERIELLE — même auto-couvert. Pour
+        # se couvrir soi-même, il choisit la voie BRC (sans déclarer de bien).
         m = _new(MemberFactory())
         _classic(m, Decimal("100000"))
         res = evaluate_routes(m, montant=Decimal("100000"), garantie_materielle=True)
-        assert res.route == EligibilityRoute.SENIOR_BRC
+        assert res.route == EligibilityRoute.GARANTIE_MATERIELLE
 
     def test_no_flag_skips_voie(self):
         m = _new(MemberFactory())

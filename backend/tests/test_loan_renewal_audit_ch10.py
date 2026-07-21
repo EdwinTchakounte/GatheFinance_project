@@ -136,11 +136,11 @@ class TestArticle11InterestOnRemainingCapital:
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
         # Reste à remettre = 100k de capital + 10k d'intérêts = 110k.
-        # Intérêts de reconduction = 10 % × 110k = 11k, DÉJÀ versés au
-        # comptant → le nouveau dossier ne porte que les 110k.
+        # Volet unique 15 % → intérêts de reconduction = 15 % × 110k = 16.5k,
+        # ici réglés d'avance → le nouveau dossier ne porte que les 110k.
         assert nouveau.montant == Decimal("110000.00")
         assert nouveau.montant_total_du == Decimal("110000.00")
-        assert renewal.interets_dus == Decimal("11000.00")
+        assert renewal.interets_dus == Decimal("16500.00")
 
     def test_deferred_uses_remaining_capital(self, active_member, comite_user):
         """Mode reporté = 15 % × capital_restant."""
@@ -276,11 +276,11 @@ class TestRenewalUnderSourceMode:
             date_premiere_echeance=date.today() + timedelta(days=30),
         )
         # capital_restant = 90k (rien remboursé). Pas d'intérêts restants
-        # (échéances source = capital pur). Base = 90k. Les 9k d'intérêts de
-        # reconduction ont été versés au comptant → total = base = 90k.
+        # (échéances source = capital pur). Base = 90k. Volet unique 15 % →
+        # 13.5k d'intérêts, réglés d'avance → total = base = 90k.
         assert nouveau.montant == Decimal("90000.00")
         assert nouveau.montant_total_du == Decimal("90000.00")
-        assert renewal.interets_dus == Decimal("9000.00")
+        assert renewal.interets_dus == Decimal("13500.00")
 
 
 # ---------------------------------------------------------------------------

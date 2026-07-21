@@ -125,18 +125,29 @@ def _avaliste_frozen_amount(avaliste: Member) -> Decimal:
     Cas :
       - PENDING → pas encore engagé (zéro).
       - REFUSED → refusé (zéro).
+      - ACCEPTED, demande rejetée/terminée sans Loan (ex. **rejet comité après
+        acceptation avaliste**) → LIBÉRÉ (comme le collatéral demandeur).
       - ACCEPTED sans Loan (instruction en cours) → compté (engagement pris).
       - ACCEPTED + Loan CLOTURE → libéré.
+
+    NB : on aligne la libération sur ``_borrower_frozen_amount`` — sinon une
+    caution acceptée puis rejetée par le comité restait gelée « à vie » alors
+    que les tranches persistées étaient, elles, bien libérées par le signal.
     """
     from .models import AvalisteConsent, Loan
 
     total = Decimal("0")
+    released = _released_request_statuses()
     consents = AvalisteConsent.objects.filter(
         avaliste=avaliste,
         statut=AvalisteConsent.Statut.ACCEPTED,
     ).select_related("loan_request", "loan_request__loan")
     for c in consents:
         lr = c.loan_request
+        # Demande dans un statut « libéré » (rejetée demandeur/avaliste/campagne)
+        # → la caution n'est plus engagée, même si aucun Loan n'a été créé.
+        if lr is not None and lr.statut in released:
+            continue
         loan = getattr(lr, "loan", None)
         if loan is not None and loan.statut == Loan.Statut.CLOTURE:
             continue  # caution libérée

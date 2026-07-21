@@ -713,6 +713,7 @@ def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
     )
     from apps_coop.notifications.events import emit_event
 
+    _portal = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200")
     emit_event(
         "loan.repayment_confirmed",
         member=payment.member,
@@ -721,9 +722,20 @@ def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
             "montant": _fmt_xaf(payment.montant),
             "numero_dossier": loan.numero_dossier,
             "solde_restant": _fmt_xaf(loan.solde_restant),
-            "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": _portal,
         },
     )
+    # Confirmation dédiée « crédit soldé » à la clôture (dernier remboursement).
+    if just_closed:
+        emit_event(
+            "loan.closed",
+            member=payment.member,
+            context={
+                "prenom": payment.member.prenom,
+                "numero_dossier": loan.numero_dossier,
+                "portal_url": _portal,
+            },
+        )
 
 
 def _hook_loan_request_fees(payment: Payment, _raw: dict) -> None:
@@ -998,11 +1010,17 @@ def _hook_decaissement(payment: Payment, _raw: dict) -> None:
     from apps_coop.loans.models import Loan
     from apps_coop.savings.models import WithdrawalRequest
 
-    # Cas 2 : payout de retrait d'épargne.
+    # Cas 2 : payout de retrait d'épargne. Le débit du solde a lieu ICI (à la
+    # complétion effective du payout), pas à l'approbation — cohérent avec le
+    # présentiel (mark_withdrawal_paid). Un payout échoué ne débite donc jamais.
     wr = getattr(payment, "withdrawal_request", None)
     if wr is not None:
-        wr.statut = WithdrawalRequest.Statut.COMPLETEE
-        wr.save(update_fields=["statut", "updated_at"])
+        from apps_coop.savings.services import apply_withdrawal_debit
+
+        with transaction.atomic():
+            apply_withdrawal_debit(wr)
+            wr.statut = WithdrawalRequest.Statut.COMPLETEE
+            wr.save(update_fields=["statut", "updated_at"])
         record_audit(
             action="withdrawal.payout_completed",
             entite_type="WithdrawalRequest",

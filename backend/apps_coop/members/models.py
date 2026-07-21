@@ -40,6 +40,13 @@ class Member(TimestampedModel):
     profession = models.CharField(max_length=120, blank=True)
     statut = models.CharField(max_length=12, choices=Statut.choices, default=Statut.ACTIF, db_index=True)
     date_adhesion = models.DateField()
+    # Photo de profil (avatar) éditable par le membre depuis son espace.
+    photo_profil = models.ImageField(
+        upload_to="coop/profil/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="Avatar de profil choisi par le membre (modifiable).",
+    )
 
     # A2 — Réinscription annuelle (alerte douce, non bloquante).
     # ``date_derniere_reinscription`` est la date à partir de laquelle on

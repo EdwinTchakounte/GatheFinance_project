@@ -183,49 +183,21 @@ def init_payment(request):
     # TODO: REMOVE_FOR_PROD — bypass montant pour tester STK Push réel.
     _test_any_amount = getattr(settings, "PAYMENTS_TEST_ALLOW_ANY_AMOUNT", False)
     if data["type"] == Payment.Type.EPARGNE:
-        from apps_coop.audit.services import get_int_setting
+        # Règles collecte factorisées (partagées avec le cash-in admin).
+        from .deposit_validation import (
+            DepositValidationError,
+            validate_collecte_deposit,
+        )
 
-        min_per_day = get_int_setting("collecte.min_per_day", 1000)
-        max_days = get_int_setting("collecte.prepay.max_days", 30)
-        # Pas du montant : la collecte se verse par multiples de 50 FCFA
-        # (tunable). Le multi-jours autorise un montant LIBRE tant qu'il
-        # respecte ce pas ET le minimum de min_per_day par jour.
-        step = get_int_setting("collecte.amount_step", 50)
-        if nb_jours > max_days:
-            return Response(
-                {
-                    "detail": (
-                        f"Mode multi-jours plafonné à {max_days} jours "
-                        f"(reçu {nb_jours})."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+        try:
+            validate_collecte_deposit(
+                montant=data["montant"],
+                nb_jours=int(nb_jours),
+                allow_any_amount=_test_any_amount,
             )
-        montant = data["montant"]
-        if not _test_any_amount and step > 0 and montant % step != 0:
+        except DepositValidationError as exc:
             return Response(
-                {
-                    "detail": (
-                        f"Le montant de la collecte doit être un multiple "
-                        f"de {step} FCFA (reçu {int(montant)})."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        # Minimum min_per_day PAR JOUR → total ≥ nb_jours × min_per_day.
-        # (Avant : montant figé EXACTEMENT à N × min_per_day. Désormais le
-        # membre peut verser davantage, ex. 10 000 sur 5 j = 2 000/jour.)
-        min_total = nb_jours * min_per_day
-        if not _test_any_amount and montant < min_total:
-            label = (
-                f"Mode multi-jours : montant minimum {nb_jours} × {min_per_day} "
-                f"= {min_total} FCFA"
-                if nb_jours > 1
-                else f"Montant minimum de la collecte : {min_per_day} FCFA par jour"
-            )
-            return Response(
-                {"detail": f"{label} (reçu {int(montant)})."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST,
             )
     elif data["type"] != Payment.Type.EPARGNE and nb_jours != 1:
         return Response(
@@ -241,32 +213,21 @@ def init_payment(request):
     # Épargne classique : produit dissocié de la cotisation, piloté par une
     # config admin (ouverture + bornes de dépôt). Règles fines à venir.
     if data["type"] == Payment.Type.EPARGNE_CLASSIQUE:
-        from apps_coop.savings.models import ClassicSavingsConfig
+        # Règles classique factorisées (partagées avec le cash-in admin) :
+        # gate config.actif + plancher 1 000 + plafond depot_max.
+        from .deposit_validation import (
+            DepositValidationError,
+            validate_classique_deposit,
+        )
 
-        cfg = ClassicSavingsConfig.get_solo()
-        if not cfg.actif:
-            return Response(
-                {"detail": "L'épargne classique n'est pas ouverte aux dépôts pour le moment."},
-                status=status.HTTP_400_BAD_REQUEST,
+        try:
+            validate_classique_deposit(
+                montant=data["montant"],
+                allow_any_amount=_test_any_amount,
             )
-        # Plancher réglementaire : tout versement (collecte OU épargne classique)
-        # a un minimum de 1 000 XAF. La config admin `depot_min` ne peut que le
-        # RELEVER, jamais l'abaisser sous 1 000.
-        min_deposit = max(int(cfg.depot_min or 0), 1000)
-        # TODO: REMOVE_FOR_PROD — bypass min/max pour tester STK Push réel.
-        if not _test_any_amount and data["montant"] < min_deposit:
+        except DepositValidationError as exc:
             return Response(
-                {"detail": f"Dépôt minimum : {min_deposit} XAF."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if (
-            not _test_any_amount
-            and cfg.depot_max is not None
-            and data["montant"] > cfg.depot_max
-        ):
-            return Response(
-                {"detail": f"Dépôt maximum : {int(cfg.depot_max)} XAF."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST,
             )
 
     # CH-3 — placement valable uniquement sur EPARGNE_CLASSIQUE.
@@ -1143,6 +1104,24 @@ def admin_cash_in_payment(request):
                 },
                 status=status.HTTP_404_NOT_FOUND,
             )
+        # Mêmes gardes que le canal membre (init_payment) : sinon un cash-in
+        # remboursement sur un crédit déjà CLÔTURÉ/saisi n'imputerait rien
+        # (argent perdu), et un trop-perçu serait silencieusement écrêté.
+        if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
+            return Response(
+                {"detail": f"Crédit en statut {loan.statut!r} — remboursement impossible."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if montant > loan.solde_restant:
+            return Response(
+                {
+                    "detail": (
+                        f"Montant supérieur au solde restant ({loan.solde_restant} XAF). "
+                        "Réduis le montant pour éviter un trop-perçu."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
     elif payment_type == Payment.Type.EPARGNE:
         try:
             nb_jours_couverts = int(data.get("nb_jours_couverts") or 1)
@@ -1153,8 +1132,44 @@ def admin_cash_in_payment(request):
                 {"detail": "nb_jours_couverts doit etre >= 1."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # R1 — le cash-in agence applique désormais les MÊMES règles montant que
+        # le canal membre (pas de 50 FCFA + minimum/jour + plafond multi-jours).
+        from .deposit_validation import (
+            DepositValidationError,
+            validate_collecte_deposit,
+        )
+
+        _test_any = getattr(settings, "PAYMENTS_TEST_ALLOW_ANY_AMOUNT", False)
+        try:
+            validate_collecte_deposit(
+                montant=montant,
+                nb_jours=nb_jours_couverts,
+                allow_any_amount=_test_any,
+            )
+        except DepositValidationError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST,
+            )
     elif payment_type == Payment.Type.EPARGNE_CLASSIQUE:
         is_placement = bool(data.get("is_placement", False))
+        # R2/R3 — mêmes règles que le canal membre : gate config.actif + plancher
+        # 1 000 + plafond, ET refus d'un placement hors fenêtre (sinon l'écriture
+        # serait marquée « placement » sans tranche → argent non gelé).
+        from .deposit_validation import (
+            DepositValidationError,
+            validate_classique_deposit,
+            validate_placement_window,
+        )
+
+        _test_any = getattr(settings, "PAYMENTS_TEST_ALLOW_ANY_AMOUNT", False)
+        try:
+            validate_classique_deposit(montant=montant, allow_any_amount=_test_any)
+            if is_placement:
+                validate_placement_window(member)
+        except DepositValidationError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST,
+            )
     elif payment_type == Payment.Type.FRAIS_DEMANDE_CREDIT:
         # Anti double-facturation : si le membre a une (ou des) demande(s)
         # EN_ATTENTE et qu'AUCUNE n'attend plus de frais d'étude (elles sont

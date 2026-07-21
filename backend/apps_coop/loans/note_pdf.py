@@ -252,7 +252,10 @@ def build_loan_request_note(loan_request) -> bytes:
         if installments:
             c.setFillColor(MUTED)
             c.setFont("Helvetica-Bold", 9)
-            col_x = [margin, margin + 22, margin + 70, margin + 130, width - margin]
+            # Colonnes élargies : la date est un libellé FR complet ("15
+            # septembre 2026", ~90pt) — avec l'ancien margin+70 pour « Capital »
+            # elle chevauchait le montant. Écart suffisant N°→date→capital→total.
+            col_x = [margin, margin + 24, margin + 132, margin + 210, width - margin]
             headers = ["N°", "Échéance", "Capital", "Total dû"]
             for i, h in enumerate(headers):
                 if i == 0:
