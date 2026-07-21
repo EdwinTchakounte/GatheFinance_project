@@ -58,6 +58,17 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Member> updatePhoto(String filePath) async {
+    try {
+      return await _remote.updatePhoto(filePath);
+    } on NetworkException catch (e) {
+      throw NetworkFailure(e.message);
+    } on ServerException catch (e) {
+      throw ValidationFailure(e.message);
+    }
+  }
+
+  @override
   Future<String?> changePassword({
     required String oldPassword,
     required String newPassword,

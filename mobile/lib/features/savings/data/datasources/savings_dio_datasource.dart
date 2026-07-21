@@ -237,25 +237,8 @@ SavingsAccount _parseAccount(Map<String, dynamic> json) {
 }
 
 SavingsTransaction _parseTransaction(Map<String, dynamic> json) {
-  return SavingsTransaction(
-    id: (json['id'] as num).toInt(),
-    type: _type((json['type_op'] as String?) ?? 'depot'),
-    montant: _num(json['montant']),
-    soldeApres: _num(json['solde_apres']),
-    date: _date(json['date']),
-  );
-}
-
-SavingsType _type(String raw) {
-  switch (raw) {
-    case 'retrait':
-      return SavingsType.retrait;
-    case 'interet':
-      return SavingsType.interet;
-    case 'depot':
-    default:
-      return SavingsType.depot;
-  }
+  // Délègue à l'entité (sens/typeOp/typeDisplay inclus) — source unique.
+  return SavingsTransaction.fromJson(json);
 }
 
 num _num(dynamic value) {

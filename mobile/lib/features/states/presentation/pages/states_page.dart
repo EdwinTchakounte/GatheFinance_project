@@ -322,18 +322,21 @@ class StatesPage extends ConsumerWidget {
     final df = DateFormat('dd/MM/yyyy');
     // Le PDF reflete le compte epargne classique (parite avec la Home).
     // Le total bas-de-page = solde collecte journaliere (passe via param).
-    String txLabel(SavingsType t) => switch (t) {
-          SavingsType.depot => l.tx_deposit,
-          SavingsType.interet => l.tx_interest,
-          SavingsType.retrait => l.tx_withdrawal,
-        };
+    String txLabel(SavingsTransaction t) => t.typeDisplay.isNotEmpty
+        ? t.typeDisplay
+        : switch (t.type) {
+            SavingsType.depot => l.tx_deposit,
+            SavingsType.interet => l.tx_interest,
+            SavingsType.retrait => l.tx_withdrawal,
+          };
     final rows = [
       for (final t in data.transactions)
         [
           df.format(t.date),
-          txLabel(t.type),
-          '${t.type == SavingsType.retrait ? '- ' : '+ '}'
-              '${XAFFormatter.format(t.montant)}',
+          txLabel(t),
+          // Signe piloté par isOutflow : les frais (étude, reconduction…)
+          // sortent de l'argent → négatif, comme les retraits.
+          '${t.isOutflow ? '- ' : '+ '}${XAFFormatter.format(t.montant)}',
         ],
     ];
     final pdfData = RelevePdfData(

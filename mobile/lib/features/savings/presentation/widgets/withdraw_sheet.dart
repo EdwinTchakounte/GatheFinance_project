@@ -35,8 +35,9 @@ extension on _MomoNet {
       };
 }
 
-/// Modale de demande de retrait . crée une demande « en attente » ; le solde
-/// est débité côté backend à l'APPROBATION admin (pas à la soumission).
+/// Modale de demande de retrait . crée une demande « en attente ». Le solde
+/// n'est PAS débité à la soumission ni à l'approbation : le montant est
+/// seulement RÉSERVÉ, et le débit devient effectif à la REMISE / au paiement.
 class WithdrawSheet extends ConsumerStatefulWidget {
   const WithdrawSheet({
     super.key,
@@ -159,7 +160,8 @@ class _WithdrawSheetState extends ConsumerState<WithdrawSheet> {
           );
       if (!mounted) return;
       // La demande est créée en statut « en attente » : le solde n'est PAS
-      // débité à la soumission (il l'est à l'approbation admin). On rafraîchit
+      // débité (il ne l'est qu'à la remise/paiement ; le montant est réservé
+      // entre-temps). On rafraîchit
       // quand même les deux produits + la liste des demandes pour un suivi à
       // jour côté membre.
       ref.invalidate(savingsProvider);

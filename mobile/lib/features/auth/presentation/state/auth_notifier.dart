@@ -67,6 +67,13 @@ class AuthNotifier extends AsyncNotifier<Member?> {
     }
   }
 
+  /// Charge/remplace la photo de profil (avatar) et met à jour le state.
+  Future<void> updatePhoto(String filePath) async {
+    final repo = ref.read(authRepositoryProvider);
+    final updated = await repo.updatePhoto(filePath);
+    state = AsyncValue.data(updated);
+  }
+
   /// Modifie le mot de passe via `POST /api/v1/auth/change-password/`.
   /// Renvoie `null` en cas de succès, une chaîne d'erreur sinon
   /// (pour affichage UI). Les erreurs réseau remontent en exception.

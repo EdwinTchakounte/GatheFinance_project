@@ -19,6 +19,10 @@ abstract class AuthRemoteDataSource {
     required String phone,
   });
 
+  /// PATCH /members/me/ (multipart) — charge/remplace la photo de profil.
+  /// Renvoie le membre à jour (avec [Member.photoUrl] renseigné).
+  Future<Member> updatePhoto(String filePath);
+
   /// POST /auth/change-password/ — modifie le mot de passe.
   /// Renvoie `null` en succès, une chaîne d'erreur sinon (affichage UI).
   Future<String?> changePassword({

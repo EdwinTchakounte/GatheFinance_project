@@ -7,6 +7,7 @@ import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/live_poller.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
+import '../../../../core/widgets/paysika/pa_dialog.dart';
 import '../../../../core/widgets/paysika/pa_error_state.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../core/widgets/paysika/pa_shimmer.dart';
@@ -157,29 +158,18 @@ class _LenderBody extends ConsumerWidget {
   }
 
   Future<void> _doRevoke(BuildContext context, WidgetRef ref) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Révoquer la convention ?'),
-        content: const Text(
+    final ok = await showPaConfirm(
+      context,
+      icon: Icons.gavel_rounded,
+      title: 'Révoquer la convention ?',
+      message:
           "Tu ne pourras plus prêter tant que tu n'auras pas signé une "
           'nouvelle convention. Les tranches engagées restent jusqu’au '
           'remboursement complet.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: PaColors.danger),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Révoquer'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Révoquer',
+      danger: true,
     );
-    if (ok != true) return;
+    if (!ok) return;
     try {
       await ref.read(lenderProvider.notifier).revoke();
     } catch (e) {

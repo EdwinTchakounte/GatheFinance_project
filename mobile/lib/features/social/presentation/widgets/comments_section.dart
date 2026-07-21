@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
+import '../../../../core/widgets/paysika/pa_dialog.dart';
 import '../../../../core/di/providers.dart';
 import '../../domain/entities/comment.dart';
 import '../../domain/entities/reaction.dart';
@@ -76,37 +77,15 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
   }
 
   Future<void> _delete(SocialComment c) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: PaColors.paper,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Supprimer ce commentaire ?',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        content: const Text(
-          'Cette action est définitive. Personne ne pourra plus le voir.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text(
-              'Annuler',
-              style: TextStyle(color: PaColors.inkMuted, fontWeight: FontWeight.w600),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text(
-              'Supprimer',
-              style: TextStyle(color: PaColors.danger, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
+    final ok = await showPaConfirm(
+      context,
+      icon: Icons.delete_outline_rounded,
+      title: 'Supprimer ce commentaire ?',
+      message: 'Cette action est définitive. Personne ne pourra plus le voir.',
+      confirmLabel: 'Supprimer',
+      danger: true,
     );
-    if (ok != true) return;
+    if (!ok) return;
     try {
       await ref.read(socialRepositoryProvider).deleteMyComment(c.id);
       await ref

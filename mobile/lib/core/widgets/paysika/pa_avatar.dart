@@ -13,6 +13,7 @@ class PaAvatar extends StatelessWidget {
     required this.seed,
     this.initials,
     this.size = 44,
+    this.imageUrl,
   });
 
   /// Chaîne servant à dériver le gradient (typiquement le nom complet).
@@ -22,6 +23,10 @@ class PaAvatar extends StatelessWidget {
   final String? initials;
 
   final double size;
+
+  /// URL d'une photo de profil. Si fournie, affichée en cercle ; en cas
+  /// d'échec de chargement, on retombe sur l'avatar génératif (initiales).
+  final String? imageUrl;
 
   /// Palette de gradients « membre » . tons riches mais accordés à la marque.
   /// Choisis pour bien contraster avec le texte blanc.
@@ -56,7 +61,7 @@ class PaAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = _palettes[_hash % _palettes.length];
-    return Container(
+    final generative = Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
@@ -83,6 +88,23 @@ class PaAvatar extends StatelessWidget {
           fontWeight: FontWeight.w700,
           letterSpacing: 0.2,
         ),
+      ),
+    );
+
+    final url = imageUrl;
+    if (url == null || url.isEmpty) return generative;
+
+    // Photo de profil : cercle rogné, repli sur l'avatar génératif si le
+    // chargement échoue (hors-ligne, 404…).
+    return ClipOval(
+      child: Image.network(
+        url,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => generative,
+        loadingBuilder: (context, child, progress) =>
+            progress == null ? child : generative,
       ),
     );
   }

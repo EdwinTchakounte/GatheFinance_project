@@ -12,6 +12,7 @@ class Member {
     required this.phone,
     required this.statut,
     required this.dateAdhesion,
+    this.photoUrl,
   });
 
   final int id;
@@ -22,6 +23,9 @@ class Member {
   final String phone;
   final MemberStatus statut;
   final DateTime dateAdhesion;
+
+  /// URL absolue de la photo de profil (avatar), `null` si non définie.
+  final String? photoUrl;
 
   String get fullName => '$prenom $nom';
 
@@ -34,6 +38,7 @@ class Member {
     String? phone,
     MemberStatus? statut,
     DateTime? dateAdhesion,
+    String? photoUrl,
   }) {
     return Member(
       id: id ?? this.id,
@@ -44,6 +49,7 @@ class Member {
       phone: phone ?? this.phone,
       statut: statut ?? this.statut,
       dateAdhesion: dateAdhesion ?? this.dateAdhesion,
+      photoUrl: photoUrl ?? this.photoUrl,
     );
   }
 }

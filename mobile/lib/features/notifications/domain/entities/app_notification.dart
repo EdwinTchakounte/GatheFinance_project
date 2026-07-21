@@ -1,6 +1,15 @@
 import 'package:flutter/foundation.dart';
 
-enum NotifKind { savings, loan, payment, lender, announcement, support, system }
+enum NotifKind {
+  savings,
+  loan,
+  avaliste,
+  payment,
+  lender,
+  announcement,
+  support,
+  system,
+}
 
 @immutable
 class AppNotification {

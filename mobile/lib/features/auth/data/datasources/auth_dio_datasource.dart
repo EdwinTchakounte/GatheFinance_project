@@ -132,6 +132,30 @@ class AuthDioDataSource implements AuthRemoteDataSource {
   }
 
   @override
+  Future<Member> updatePhoto(String filePath) async {
+    try {
+      final form = FormData();
+      form.files.add(
+        MapEntry(
+          'photo_profil',
+          await MultipartFile.fromFile(filePath),
+        ),
+      );
+      await _dio.patch<Map<String, dynamic>>('/members/me/', data: form);
+      // PATCH /members/me/ ne renvoie pas l'email → on recharge l'identité
+      // complète (avec la nouvelle photo_profil_url) via /auth/me/.
+      final updated = await currentMember();
+      if (updated != null) return updated;
+      throw const ServerException(
+        'Photo enregistrée mais rechargement du profil échoué.',
+        200,
+      );
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
   Future<String?> changePassword({
     required String oldPassword,
     required String newPassword,
@@ -286,6 +310,7 @@ Member _toMember(Map<String, dynamic> data) {
     phone: (m['phone'] as String?) ?? '',
     statut: _toStatus((m['statut'] as String?) ?? 'actif'),
     dateAdhesion: _toDate(m['date_adhesion']),
+    photoUrl: (m['photo_profil_url'] as String?),
   );
 }
 

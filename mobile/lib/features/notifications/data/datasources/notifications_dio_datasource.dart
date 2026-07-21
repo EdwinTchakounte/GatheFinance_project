@@ -152,6 +152,12 @@ NotifKind _kindFromType(String type) {
   if (type.startsWith('savings') || type.startsWith('withdrawal')) {
     return NotifKind.savings;
   }
+  // Sollicitation de garantie envoyée à l'AVALISTE désigné → doit ouvrir la
+  // page « Mes mandats », pas la page crédit du demandeur. Les autres
+  // `loan.avaliste_*` (accepté/refusé) partent au demandeur → restent `loan`.
+  if (type == 'loan.avaliste_consent_requested') {
+    return NotifKind.avaliste;
+  }
   if (type.startsWith('loan') || type.startsWith('repayment')) {
     return NotifKind.loan;
   }

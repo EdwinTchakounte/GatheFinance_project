@@ -35,8 +35,13 @@ class SavingsHistoryPage extends ConsumerStatefulWidget {
       _SavingsHistoryPageState();
 }
 
+/// Fenêtre temporelle du filtre « par période ».
+enum _Period { all, thisMonth, last3, thisYear }
+
 class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
   SavingsType? _type;
+  _Period _period = _Period.all;
+  int? _bookletId; // null = tous les carnets
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +51,22 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
     final savings = ref.watch(classicSavingsProvider);
     final cotisation = ref.watch(savingsProvider);
     final l = AppL10n.of(context);
+
+    // Entrées fusionnées (peut être vide tant que ça charge) — sert à dresser
+    // la liste des carnets disponibles pour le filtre « par carnet ».
+    final classic = savings.valueOrNull?.transactions ??
+        const <SavingsTransaction>[];
+    final coti = cotisation.valueOrNull?.transactions ??
+        const <SavingsTransaction>[];
+    final entries = <_Entry>[
+      for (final t in classic) (tx: t, collecte: false),
+      for (final t in coti) (tx: t, collecte: true),
+    ];
+    final carnets = _carnetOptions(entries);
+    // Si le carnet filtré n'existe plus dans les données, on revient à « tous ».
+    if (_bookletId != null && !carnets.any((c) => c.id == _bookletId)) {
+      _bookletId = null;
+    }
 
     return Scaffold(
       backgroundColor: PaColors.canvas,
@@ -75,6 +96,25 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
               setState(() => _type = t);
             },
           ),
+          // Filtre « par période » — toutes / ce mois / 3 mois / cette année.
+          _PeriodFilters(
+            value: _period,
+            onChanged: (p) {
+              HapticFeedback.selectionClick();
+              setState(() => _period = p);
+            },
+          ),
+          // Filtre « par carnet » — visible seulement si le membre a au moins
+          // un carnet rattaché à ses écritures.
+          if (carnets.isNotEmpty)
+            _BookletFilters(
+              carnets: carnets,
+              value: _bookletId,
+              onChanged: (id) {
+                HapticFeedback.selectionClick();
+                setState(() => _bookletId = id);
+              },
+            ),
           // Choix de fin de mois collecte (cash vs bascule épargne) — piloté
           // par le membre, respecté par le cron mensuel.
           const Padding(
@@ -91,15 +131,12 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
                 ]);
               },
               child: savings.when(
-                data: (data) {
-                  final coti = cotisation.valueOrNull?.transactions ??
-                      const <SavingsTransaction>[];
-                  final entries = <_Entry>[
-                    for (final t in data.transactions) (tx: t, collecte: false),
-                    for (final t in coti) (tx: t, collecte: true),
-                  ];
-                  return _List(entries: entries, typeFilter: _type);
-                },
+                data: (_) => _List(
+                  entries: entries,
+                  typeFilter: _type,
+                  period: _period,
+                  bookletId: _bookletId,
+                ),
                 loading: () => const _LoadingList(),
                 error: (e, _) => _ErrorState(message: friendlyError(e)),
               ),
@@ -110,6 +147,42 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
       ),
     );
   }
+}
+
+/// Dresse la liste ordonnée des carnets présents dans les écritures (année
+/// décroissante), en désambiguïsant les carnets d'une même année (« Carnet
+/// 2026 · 2 »). Sert d'options au filtre « par carnet ».
+List<({int id, String label})> _carnetOptions(List<_Entry> entries) {
+  final annee = <int, int?>{}; // bookletId -> année
+  for (final e in entries) {
+    final id = e.tx.bookletId;
+    if (id != null) annee[id] = e.tx.bookletAnnee;
+  }
+  final ids = annee.keys.toList()
+    ..sort((a, b) {
+      final c = (annee[b] ?? 0).compareTo(annee[a] ?? 0); // année desc
+      return c != 0 ? c : b.compareTo(a); // puis id desc
+    });
+  final perYear = <int?, int>{};
+  for (final y in annee.values) {
+    perYear[y] = (perYear[y] ?? 0) + 1;
+  }
+  final seen = <int?, int>{};
+  return [
+    for (final id in ids)
+      (
+        id: id,
+        label: () {
+          final y = annee[id];
+          if (y == null) return 'Carnet n°$id';
+          if ((perYear[y] ?? 0) > 1) {
+            final n = seen[y] = (seen[y] ?? 0) + 1;
+            return 'Carnet $y · $n';
+          }
+          return 'Carnet $y';
+        }(),
+      ),
+  ];
 }
 
 
@@ -141,6 +214,82 @@ class _TypeFilters extends StatelessWidget {
             label: label,
             selected: t == value,
             onTap: () => onChanged(t),
+          );
+        },
+      ),
+    );
+  }
+}
+
+
+class _PeriodFilters extends StatelessWidget {
+  const _PeriodFilters({required this.value, required this.onChanged});
+
+  final _Period value;
+  final ValueChanged<_Period> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const items = <(_Period, String)>[
+      (_Period.all, 'Toutes'),
+      (_Period.thisMonth, 'Ce mois'),
+      (_Period.last3, '3 mois'),
+      (_Period.thisYear, 'Cette année'),
+    ];
+    return SizedBox(
+      height: 46,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final (p, label) = items[i];
+          return _FilterChip(
+            label: label,
+            selected: p == value,
+            onTap: () => onChanged(p),
+          );
+        },
+      ),
+    );
+  }
+}
+
+
+class _BookletFilters extends StatelessWidget {
+  const _BookletFilters({
+    required this.carnets,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final List<({int id, String label})> carnets;
+  final int? value;
+  final ValueChanged<int?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 46,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        itemCount: carnets.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return _FilterChip(
+              label: 'Tous les carnets',
+              selected: value == null,
+              onTap: () => onChanged(null),
+            );
+          }
+          final c = carnets[i - 1];
+          return _FilterChip(
+            label: c.label,
+            selected: value == c.id,
+            onTap: () => onChanged(c.id),
           );
         },
       ),
@@ -192,17 +341,39 @@ class _FilterChip extends StatelessWidget {
 
 
 class _List extends StatelessWidget {
-  const _List({required this.entries, required this.typeFilter});
+  const _List({
+    required this.entries,
+    required this.typeFilter,
+    required this.period,
+    required this.bookletId,
+  });
 
   final List<_Entry> entries;
   final SavingsType? typeFilter;
+  final _Period period;
+  final int? bookletId;
+
+  bool _inPeriod(DateTime d, DateTime now) => switch (period) {
+        _Period.all => true,
+        _Period.thisMonth => d.year == now.year && d.month == now.month,
+        // Fenêtre glissante de 3 mois (bornes incluses).
+        _Period.last3 =>
+          !d.isBefore(DateTime(now.year, now.month - 2, 1)),
+        _Period.thisYear => d.year == now.year,
+      };
 
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final filtered = typeFilter == null
-        ? entries
-        : entries.where((e) => e.tx.type == typeFilter).toList();
+    final now = DateTime.now();
+    final filtered = entries
+        .where(
+          (e) =>
+              (typeFilter == null || e.tx.type == typeFilter) &&
+              (bookletId == null || e.tx.bookletId == bookletId) &&
+              _inPeriod(e.tx.date, now),
+        )
+        .toList();
 
     if (filtered.isEmpty) {
       return _EmptyState(message: l.savings_empty_period);
@@ -238,13 +409,8 @@ class _MonthGroup {
   num get netTotal {
     num n = 0;
     for (final e in entries) {
-      switch (e.tx.type) {
-        case SavingsType.depot:
-        case SavingsType.interet:
-          n += e.tx.montant;
-        case SavingsType.retrait:
-          n -= e.tx.montant;
-      }
+      // Signé : les débits (retrait, frais…) comptent en négatif.
+      n += e.tx.montantSigne;
     }
     return n;
   }
@@ -304,7 +470,7 @@ class _MonthSection extends StatelessWidget {
               children: [
                 for (var i = 0; i < group.entries.length; i++) ...[
                   PaTransactionTile(
-                    kind: _mapKind(group.entries[i].tx.type),
+                    kind: _mapKind(group.entries[i].tx),
                     label: _label(
                       l,
                       group.entries[i].tx.type,
@@ -324,8 +490,9 @@ class _MonthSection extends StatelessWidget {
     );
   }
 
-  PaTxKind _mapKind(SavingsType t) => switch (t) {
-        SavingsType.depot => PaTxKind.depot,
+  PaTxKind _mapKind(SavingsTransaction tx) => switch (tx.type) {
+        SavingsType.depot =>
+          tx.isDebit ? PaTxKind.frais : PaTxKind.depot,
         SavingsType.interet => PaTxKind.interet,
         SavingsType.retrait => PaTxKind.retrait,
       };
