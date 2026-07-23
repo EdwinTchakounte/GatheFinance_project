@@ -1394,7 +1394,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get lreq_fees_note =>
-      'Processing fees (5,000 XAF) will be payable after approval.';
+      'Study fees may apply, payable after approval. They may be waived for a campaign request.';
 
   @override
   String get lreq_submit => 'Submit the request';

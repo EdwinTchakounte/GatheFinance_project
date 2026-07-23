@@ -464,7 +464,7 @@
   "lreq_motive": "Purpose of the request",
   "lreq_motive_hint": "Explain your project . equipment, working capital, training, etc.",
   "lreq_motive_short": "Motivation too short (min 10 characters).",
-  "lreq_fees_note": "Processing fees (5,000 XAF) will be payable after approval.",
+  "lreq_fees_note": "Study fees may apply, payable after approval. They may be waived for a campaign request.",
   "lreq_submit": "Submit the request",
   "lreq_sending": "Sending…",
   "lreq_sent_title": "Request sent",

@@ -634,7 +634,20 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _Grabber(),
-            const SizedBox(height: AppSpacing.xl),
+            const SizedBox(height: AppSpacing.s),
+            // Bouton retour — ferme le formulaire et revient à la page Crédit.
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.m),
             Text(l.lreq_title, style: AppTypography.headingMedium),
             const SizedBox(height: AppSpacing.s),
             Text(

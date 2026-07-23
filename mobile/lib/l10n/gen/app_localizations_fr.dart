@@ -1401,7 +1401,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get lreq_fees_note =>
-      'Des frais de dossier (5 000 XAF) seront à régler après acceptation.';
+      'Des frais d\'étude de dossier peuvent s\'appliquer, à régler après acceptation. Ils peuvent être offerts pour une demande en campagne.';
 
   @override
   String get lreq_submit => 'Soumettre la demande';

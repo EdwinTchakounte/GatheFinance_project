@@ -731,20 +731,20 @@ class _RequestCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  XAFFormatter.format(request.montantDemande),
-                  style: const TextStyle(
-                    color: PaColors.inkPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              _StatusChip(label: statusLabel, color: statusColor),
-            ],
+          // Montant en haut, statut en dessous : un libellé de statut long ne
+          // chevauche plus le montant sur petit écran.
+          Text(
+            XAFFormatter.format(request.montantDemande),
+            style: const TextStyle(
+              color: PaColors.inkPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _StatusChip(label: statusLabel, color: statusColor),
           ),
           const SizedBox(height: 4),
           Text(

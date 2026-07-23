@@ -159,56 +159,10 @@ LOAN_REQUEST_SCHEMA = {
                 },
             ],
         },
-        {
-            "id": "profil_brc",
-            "title": "Rattachement Broad Range Consulting",
-            "description": (
-                "Le statut « client BRC » ouvre la voie crédit Senior+BRC. Les "
-                "pièces déposées ici partent directement dans la file de "
-                "validation BRC du back-office."
-            ),
-            "fields": [
-                {
-                    "id": "cga_brc_member",
-                    "type": "radio",
-                    # Volontairement non requis : les clients historiques ne
-                    # postent pas ce champ, et un `required` ferait échouer
-                    # apply_form_schema — donc perdre TOUT l'extra_payload.
-                    "required": False,
-                    "label": "Ton CGA est-il Broad Range Consulting ?",
-                    "options": [
-                        {"value": "oui", "label": "Oui, mon CGA est Broad Range Consulting"},
-                        {"value": "non", "label": "Non"},
-                    ],
-                },
-                {
-                    "id": "cga_brc_preuve",
-                    "type": "file",
-                    "label": "Contrat / attestation CGA Broad Range Consulting",
-                    "help": "Photo ou PDF (10 Mo max). Sera soumis à validation BRC.",
-                    "required": False,
-                    "condition": {"field": "cga_brc_member", "operator": "equals", "value": "oui"},
-                },
-                {
-                    "id": "cfp_brc_apprenant",
-                    "type": "radio",
-                    "required": False,
-                    "label": "As-tu été formé au CFP Broad Range Consulting ?",
-                    "options": [
-                        {"value": "oui", "label": "Oui, apprenant CFP Broad Range Consulting"},
-                        {"value": "non", "label": "Non"},
-                    ],
-                },
-                {
-                    "id": "cfp_brc_preuve",
-                    "type": "file",
-                    "label": "Certificat CFP Broad Range Consulting",
-                    "help": "Photo ou PDF (10 Mo max). Sera soumis à validation BRC.",
-                    "required": False,
-                    "condition": {"field": "cfp_brc_apprenant", "operator": "equals", "value": "oui"},
-                },
-            ],
-        },
+        # NOTE 2026-07-23 : section « Rattachement Broad Range Consulting »
+        # (profil_brc) RETIRÉE des questions sur demande. On garde « Votre
+        # parcours de formation » (profil_apprenant) et « Adhésion CGA »
+        # (profil_cga). Ne pas réintroduire sans décision métier.
     ],
 }
 

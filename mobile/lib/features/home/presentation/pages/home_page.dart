@@ -1068,14 +1068,17 @@ class _HomeWithdrawalsCard extends ConsumerWidget {
                 ),
                 for (final w in shown) ...[
                   const SizedBox(height: 10),
-                  Row(
+                  // Montant en haut, statut en dessous : un libellé de statut
+                  // long (« Approuvée · remise espèce · en attente ») ne
+                  // chevauche plus le montant sur petit écran.
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          XAFFormatter.format(w.montant),
-                          style: PaText.label(size: 14.5),
-                        ),
+                      Text(
+                        XAFFormatter.format(w.montant),
+                        style: PaText.label(size: 14.5),
                       ),
+                      const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3,),
