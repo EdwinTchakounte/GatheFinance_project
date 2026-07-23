@@ -8,9 +8,12 @@ la coop **reprend le risque** du crédit, restitue intégralement le prêteur
 part d'intérêts de ce prêteur sur les remboursements futurs.
 
 Effets d'une restitution par apport d'une tranche ENGAGÉE :
-  1. Intérêts placement (prorata, taux placement) crédités au prêteur.
+  1. Intérêts placement à **taux fixe** (capital × taux placement), calculés et
+     crédités au clic sur « Restituer » (décision 2026-07-22 : plus de prorata
+     jours, qui tombait à 0 juste après l'engagement).
   2. Tranche ENGAGÉE → LIBÉRÉE : le capital (qui vit dans le solde classique du
-     prêteur, la tranche n'étant qu'un verrou) redevient retirable.
+     prêteur, la tranche n'étant qu'un verrou) redevient retirable. Une ligne
+     ``RESTITUTION_PLACEMENT`` INFORMATIVE (solde inchangé) le trace au relevé.
   3. ``LenderAllocation.restitue_par_apport = True`` : le prêteur est exclu de la
      distribution d'intérêts des remboursements futurs (la coop garde sa part).
   4. Le crédit reste dû par le membre (statut inchangé) : le recouvrement
@@ -82,10 +85,13 @@ def restitute_tranche_by_apport(tranche_id: int, *, admin_user=None) -> dict:
 
     now = timezone.now()
 
-    # 1) Intérêts placement au prorata (comme la maturité), crédités au prêteur.
+    # 1) Intérêts placement — TAUX FIXE appliqué au clic sur « Restituer »
+    #    (décision 2026-07-22). Plus de prorata jours : le prorata tombait à 0
+    #    dès qu'on restituait peu après l'engagement (jours ≈ 0 → intérêt = 0,
+    #    aucun crédit écrit). Désormais : intérêt = capital × taux_placement,
+    #    calculé et crédité immédiatement à la restitution.
     rate = placement_interest_rate()
-    days = max((now.date() - tranche.created_at.date()).days, 0)
-    interest = _q(Decimal(tranche.montant) * rate * (Decimal(days) / Decimal(30)))
+    interest = _q(Decimal(tranche.montant) * rate)
     if interest > 0:
         nouveau_solde = _q(Decimal(account.solde) + interest)
         ClassicSavingsTransaction.objects.create(
@@ -103,6 +109,20 @@ def restitute_tranche_by_apport(tranche_id: int, *, admin_user=None) -> dict:
     tranche.statut = LenderTranche.Statut.LIBEREE
     tranche.released_at = now
     tranche.save(update_fields=["statut", "released_at", "updated_at"])
+
+    # 2bis) Trace le CAPITAL restitué sur le relevé (décision 2026-07-22). Ligne
+    #    INFORMATIVE : le capital vit déjà dans le solde (la tranche n'était
+    #    qu'un verrou), on ne le RE-crédite donc PAS — ``solde_apres`` reste le
+    #    solde courant (inchangé par le capital). Elle rend juste visible pour le
+    #    prêteur que son capital de placement lui a été restitué (débloqué).
+    ClassicSavingsTransaction.objects.create(
+        account=account,
+        payment=None,
+        type_op=ClassicSavingsTransaction.TypeOp.RESTITUTION_PLACEMENT,
+        montant=_q(Decimal(tranche.montant)),
+        solde_apres=_q(Decimal(account.solde)),
+        date=now,
+    )
 
     # 3) La coop reprend le risque → exclut ce prêteur des intérêts futurs.
     if loan is not None:

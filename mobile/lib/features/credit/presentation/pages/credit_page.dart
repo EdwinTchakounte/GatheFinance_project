@@ -199,7 +199,6 @@ class CreditPage extends ConsumerWidget {
                     final eligibility =
                         ref.watch(eligibilityProvider).valueOrNull;
                     return _LoanRoutesCarousel(
-                      eligibility: eligibility,
                       onSelect: eligibility == null
                           ? null
                           : (voie) => _startLoanRequestFlow(
@@ -1827,59 +1826,43 @@ class _LenderPayoutsEntryTile extends ConsumerWidget {
 
 
 // ───────────────────────────────────────────────────────────────────────────
-// Carousel des voies de crédit éligibles au membre (LOT 12)
+// Carousel des voies de crédit « spéciales » (LOT 12)
 //
-// Avant le chantier juin 2026, le membre voyait un seul bouton « Nouvelle
-// demande ». Depuis la refonte (3 produits + 3 voies), le membre voit
-// désormais ses voies disponibles :
-//   • SENIOR_BRC   . voie senior éligibles BRC, plafond = solde × ratio
-//   • AVALISTE     . voie classique avec garant désigné (LOT 10/18)
+// Le carrousel n'expose que les voies qui nécessitent une SAISIE particulière :
+//   • AVALISTE     . garant désigné qui comble le manque (LOT 10/18)
+//   • CAMPAGNE     . crédit rattaché à une campagne active
+//   • GARANTIE     . bien matériel déclaré en garantie
 //
-// La voie CAMPAGNE n'est PAS exposée ici : elle est réservée aux
-// bénéficiaires non-adhérents (Membre TEMPORAIRE), recrutés via la
-// vitrine web. Les campagnes actives sont affichées séparément sur la
-// Home (cf. Phase 2 . section "Campagnes en cours") avec un bouton de
-// partage, mais elles ne donnent pas accès au formulaire crédit membre.
+// La voie « CLASSIQUE » (par défaut : auto-couverture épargne ou ancienneté)
+// n'a PAS de carte — elle s'ouvre via le FAB « + Nouvelle demande » (sheet sans
+// voie présélectionnée). Une carte « Classique » ferait doublon avec le FAB.
 // ───────────────────────────────────────────────────────────────────────────
 
 class _LoanRoutesCarousel extends StatelessWidget {
   const _LoanRoutesCarousel({
-    required this.eligibility,
     required this.onSelect,
   });
 
-  final Eligibility? eligibility;
   // Callback avec la voie touchée → ouvre le formulaire présélectionné.
+  // Null tant que l'éligibilité n'est pas chargée (cartes désactivées).
   final void Function(LoanRequestVoie voie)? onSelect;
 
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final elig = eligibility;
-    final isEligible = elig != null && elig.eligible;
     final ready = onSelect != null;
 
-    // Les 3 voies tiennent sur UNE ligne (Row + Expanded), hauteurs égalisées
-    // via IntrinsicHeight. Toucher une carte ouvre le formulaire sur la voie.
+    // Carrousel des voies « spéciales » (avaliste, campagne, garantie). La voie
+    // par défaut (« classique » : auto-couverture ou ancienneté) n'a PAS de
+    // carte : elle s'ouvre via le FAB « + Nouvelle demande » (sheet sans voie
+    // présélectionnée). Les 3 cartes tiennent sur UNE ligne (Row + Expanded),
+    // hauteurs égalisées via IntrinsicHeight.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: _LoanRouteCard(
-                icon: Icons.workspace_premium_rounded,
-                iconColor: PaColors.teal,
-                iconBg: PaColors.tealSurface,
-                title: 'BRC',
-                statusOk: isEligible,
-                onTap: ready && isEligible
-                    ? () => onSelect!(LoanRequestVoie.brc)
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 10),
             Expanded(
               child: _LoanRouteCard(
                 icon: Icons.handshake_rounded,
@@ -2001,8 +1984,8 @@ class _LoanRouteCard extends StatelessWidget {
 
 
 /// Badge "Voie empruntee" affiche sur chaque carte LoanRequest pour que le
-/// membre voie clairement par quel chemin sa demande passe (BRC, Avaliste,
-/// Campagne) . aide a comprendre le statut + le delai.
+/// membre voie clairement par quel chemin sa demande passe (Classique,
+/// Avaliste, Campagne) . aide a comprendre le statut + le delai.
 class _RouteBadge extends StatelessWidget {
   const _RouteBadge({required this.route});
 
@@ -2010,12 +1993,12 @@ class _RouteBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Voie 1 . membre du CGA BRC ou ancien apprenant CFP BRC + anciennete
-    // >= 12 mois. Les 2 justificatifs sont uploades au moment de la
-    // demande de credit (un seul suffit).
+    // Voie 1 « Classique » : auto-couverture (épargne classique dispo >=
+    // montant) ou ancienneté >= seuil. Le BRC n'est plus saisi à la demande
+    // (pièce documentaire traitée au back-office).
     final (label, icon, color) = switch (route) {
       LoanRoute.seniorBrc => (
-        'Voie BRC',
+        'Voie classique',
         Icons.workspace_premium_rounded,
         PaColors.teal,
       ),

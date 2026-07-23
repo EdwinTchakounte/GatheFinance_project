@@ -81,7 +81,11 @@ class WithdrawSheet extends ConsumerStatefulWidget {
         ),
       ),
       builder: (_) => WithdrawSheet(
-        soldeCollecte: collecte?.solde ?? 0,
+        // Disponible NET des retraits déjà engagés (réservés) — pas le solde
+        // brut : sinon un membre pouvait re-demander un montant déjà en
+        // attente/approuvé. `soldeRetirable` retombe sur `solde` si le backend
+        // n'envoie pas encore `solde_disponible_retrait`.
+        soldeCollecte: collecte?.soldeRetirable ?? 0,
         soldeClassiqueLibre: classic?.soldeRetirable ?? 0,
         montantGeleClassique: classic?.montantGeleCredit ?? 0,
       ),

@@ -73,12 +73,19 @@ class SavingsAccountReadSerializer(serializers.ModelSerializer):
     """
 
     transactions_recentes = serializers.SerializerMethodField()
+    # Disponible réel au retrait = solde − retraits déjà engagés (réservés).
+    # Le débit n'a lieu qu'au paiement, mais dès qu'une demande est en attente/
+    # approuvée le montant est « promis » : on le retranche ici pour que le
+    # client affiche un disponible qui baisse au moment de la validation (parité
+    # avec le classique ``solde_disponible_retrait``).
+    solde_disponible_retrait = serializers.SerializerMethodField()
 
     class Meta:
         model = SavingsAccount
         fields = (
             "id",
             "solde",
+            "solde_disponible_retrait",
             "date_ouverture",
             "taux_interet_applique",
             "end_of_month_preference",
@@ -87,6 +94,14 @@ class SavingsAccountReadSerializer(serializers.ModelSerializer):
             "transactions_recentes",
         )
         read_only_fields = fields
+
+    def get_solde_disponible_retrait(self, obj: SavingsAccount):
+        from decimal import Decimal
+
+        from .services import reserved_withdrawals
+
+        dispo = Decimal(obj.solde) - reserved_withdrawals(account=obj)
+        return str(dispo if dispo > 0 else Decimal("0"))
 
     def get_transactions_recentes(self, obj: SavingsAccount):
         recent = obj.transactions.select_related("booklet_order").order_by("-date", "-id")[:10]

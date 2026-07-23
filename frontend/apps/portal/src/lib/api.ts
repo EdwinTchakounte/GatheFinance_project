@@ -214,8 +214,13 @@ export type Identity = {
 
 export type SavingsTransaction = {
   id: number;
-  type_op: "depot" | "retrait" | "interet";
+  // Le backend a bien plus de types que ces 3 (interet_placement,
+  // restitution_maturite, restitution_placement, bascule_collecte…). On garde
+  // `string` et on s'appuie sur `type_display` (libellé) + `sens` (credit/debit)
+  // du backend plutôt que de maintenir un switch codé en dur.
+  type_op: string;
   type_display: string;
+  sens?: "credit" | "debit";
   montant: string;
   solde_apres: string;
   date: string;
@@ -224,6 +229,10 @@ export type SavingsTransaction = {
 export type SavingsSnapshot = {
   id: number;
   solde: string;
+  // Disponible réel au retrait = solde − retraits déjà engagés (réservés).
+  // Exposé par le backend depuis 2026-07-22 (parité avec le classique). Peut
+  // être absent d'un ancien backend → l'UI retombe alors sur `solde`.
+  solde_disponible_retrait?: string;
   date_ouverture: string;
   taux_interet_applique: string;
   end_of_month_preference: EomChoice;

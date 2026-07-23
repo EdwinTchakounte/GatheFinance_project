@@ -94,6 +94,9 @@ class StatesPage extends ConsumerWidget {
                 child: RefreshIndicator.adaptive(
                   color: PaColors.teal,
                   onRefresh: () async {
+                    // Inclut la liste des retraits : sinon l'état « en attente »
+                    // d'une demande approuvée par l'admin ne se rafraîchit pas.
+                    ref.invalidate(myWithdrawalsProvider);
                     await Future.wait([
                       ref.read(classicSavingsProvider.notifier).refresh(),
                       ref.read(savingsProvider.notifier).refresh(),

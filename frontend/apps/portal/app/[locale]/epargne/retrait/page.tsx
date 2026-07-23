@@ -67,14 +67,15 @@ export default function WithdrawalRequestPage() {
   }
 
   // Solde disponible pour la source sélectionnée (aligné backend + mobile) :
-  //   collecte         → savings.solde
+  //   collecte         → savings.solde_disponible_retrait (= solde − retraits
+  //                      déjà réservés). Fallback `solde` si backend ancien.
   //   classique libre  → classic.solde_disponible_retrait (= solde − max(placement,
   //                      gel garantie) − retraits déjà réservés). PAS solde_libre,
   //                      qui ignore le gel et le réservé → surestimait le disponible.
   const availableForSource =
     source === "classique_libre"
       ? Number(classic?.solde_disponible_retrait ?? classic?.solde_libre ?? 0)
-      : Number(savings?.solde ?? 0);
+      : Number(savings?.solde_disponible_retrait ?? savings?.solde ?? 0);
   const hasClassic = classic !== null && Number(classic.solde) > 0;
 
   useEffect(() => {
@@ -202,7 +203,7 @@ export default function WithdrawalRequestPage() {
                   onChange={setSource}
                   disabled={submitting}
                   title="Collecte journalière"
-                  subtitle={`Disponible : ${Number(savings?.solde ?? 0).toLocaleString("fr-FR")} FCFA`}
+                  subtitle={`Disponible : ${Number(savings?.solde_disponible_retrait ?? savings?.solde ?? 0).toLocaleString("fr-FR")} FCFA`}
                 />
                 <SourceOption
                   value="classique_libre"
@@ -210,7 +211,7 @@ export default function WithdrawalRequestPage() {
                   onChange={setSource}
                   disabled={submitting}
                   title="Épargne classique (part libre)"
-                  subtitle={`Disponible : ${Number(classic?.solde_libre ?? 0).toLocaleString("fr-FR")} FCFA`}
+                  subtitle={`Disponible : ${Number(classic?.solde_disponible_retrait ?? classic?.solde_libre ?? 0).toLocaleString("fr-FR")} FCFA`}
                 />
               </fieldset>
             ) : null}

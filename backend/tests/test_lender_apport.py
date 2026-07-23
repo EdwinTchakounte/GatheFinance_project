@@ -82,6 +82,37 @@ class TestApport:
             type_op=ClassicSavingsTransaction.TypeOp.INTERET_PLACEMENT,
         ).exists()
 
+    def test_restitution_same_day_credits_fixed_interest_and_traces_capital(
+        self, active_member
+    ):
+        """Régression 2026-07-22 : restitution le jour même (jours ≈ 0) doit
+        quand même créditer des intérêts (taux FIXE, plus de prorata) et tracer
+        le capital sur le relevé."""
+        loan = _build_loan(active_member, montant=Decimal("100000"), suffix="FIX")
+        big = _lender_with_tranche("70000")
+        _lender_with_tranche("30000")
+        fr = request_funding(loan)
+        _accept_all_consents(fr)
+
+        tranche = LenderAllocation.objects.get(loan=loan, lender=big).tranche
+        assert tranche.statut == LenderTranche.Statut.ENGAGEE
+        # PAS d'antidate : la tranche vient d'être engagée (jours = 0).
+
+        acc_before = ClassicSavingsAccount.objects.get(member=big).solde
+        res = restitute_tranche_by_apport(tranche.pk, admin_user=None)
+
+        # Intérêt fixe crédité malgré 0 jour.
+        assert Decimal(res["interet_placement"]) > 0
+        acc_after = ClassicSavingsAccount.objects.get(member=big).solde
+        assert acc_after == acc_before + Decimal(res["interet_placement"])
+        # Ligne capital tracée (informative) : montant = capital, solde inchangé.
+        cap_line = ClassicSavingsTransaction.objects.get(
+            account__member=big,
+            type_op=ClassicSavingsTransaction.TypeOp.RESTITUTION_PLACEMENT,
+        )
+        assert cap_line.montant == Decimal("70000.00")
+        assert cap_line.solde_apres == acc_after  # capital PAS re-crédité
+
     def test_restituted_lender_excluded_from_future_interest(self, active_member):
         loan = _build_loan(active_member, montant=Decimal("100000"), suffix="EXCL")
         big = _lender_with_tranche("70000")

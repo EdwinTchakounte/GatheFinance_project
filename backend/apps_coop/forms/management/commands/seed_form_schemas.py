@@ -105,6 +105,10 @@ LOAN_REQUEST_SCHEMA = {
                 },
             ],
         },
+        # NOTE 2026-07-22 : ces 3 sections (parcours / CGA / BRC) sont
+        # AFFICHÉES pour TOUTES les voies à la soumission (choix métier). Elles
+        # ne vivent QUE dans ce schéma (rendu unique par DynamicFields) — plus
+        # aucun doublon codé en dur côté mobile (bloc BRC hardcodé retiré).
         {
             "id": "profil_apprenant",
             "title": "Votre parcours de formation",

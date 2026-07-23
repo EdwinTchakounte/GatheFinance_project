@@ -77,6 +77,14 @@ class HomePage extends ConsumerWidget {
               branchIndex: 0,
               refresh: () => ref.read(savingsProvider.notifier).refresh(),
             ),
+            // Polling de la liste des retraits : sans lui, l'approbation admin
+            // d'une demande ne se reflétait jamais côté membre (le statut
+            // « en attente » restait figé). FutureProvider → invalidate =
+            // re-fetch complet, pas de dédup toJson en jeu.
+            LivePoller(
+              branchIndex: 0,
+              refresh: () async => ref.invalidate(myWithdrawalsProvider),
+            ),
             // ── Header FIXE (ne défile pas) . logo + greeting + cloche ──
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 10, 16, 8),
@@ -102,6 +110,7 @@ class HomePage extends ConsumerWidget {
           // Refresh global : on rafraîchit les 2 comptes pour que le hero
           // (épargne + cotisation) ET le feed se mettent à jour ensemble.
           onRefresh: () async {
+            ref.invalidate(myWithdrawalsProvider);
             await Future.wait([
               ref.read(classicSavingsProvider.notifier).refresh(),
               ref.read(savingsProvider.notifier).refresh(),
