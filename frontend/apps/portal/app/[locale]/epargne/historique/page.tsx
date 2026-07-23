@@ -51,6 +51,10 @@ function typeBadge(typeOp: string): { bg: string; text: string; label: string } 
       return { bg: "bg-blue-50", text: "text-blue-700", label: "Intérêt placement" };
     case "restitution_maturite":
       return { bg: "bg-blue-50", text: "text-blue-700", label: "Restitution maturité" };
+    // Restitution anticipée d'un placement prêteur (apport) — ligne informative
+    // (le capital était déjà dans le solde, seul l'intérêt le fait bouger).
+    case "restitution_placement":
+      return { bg: "bg-blue-50", text: "text-blue-700", label: "Restitution placement" };
     case "frais_renouvellement":
       return { bg: "bg-amber-50", text: "text-amber-700", label: "Frais renouvellement" };
     case "retrait_force":
@@ -215,8 +219,14 @@ export default function SavingsHistoryPage() {
               <tbody>
                 {items.map((tx) => {
                   const badge = typeBadge(tx.type_op);
+                  // Signe piloté par le `sens` du backend (source de vérité) ;
+                  // fallback sur l'ancienne heuristique si un backend ancien ne
+                  // renvoie pas `sens`. Corrige le signe des crédits non-dépôt
+                  // (intérêts, restitutions) qui étaient affichés en « − ».
                   const isCredit =
-                    tx.type_op === "depot" || tx.type_op === "interet";
+                    tx.sens != null
+                      ? tx.sens === "credit"
+                      : tx.type_op === "depot" || tx.type_op === "interet";
                   return (
                     <tr key={tx.id} className="border-t border-line-200">
                       <td className="px-3 py-2 text-ink-700">{fmtDate(tx.date)}</td>
