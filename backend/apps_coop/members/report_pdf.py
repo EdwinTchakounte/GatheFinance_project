@@ -67,6 +67,9 @@ _CLASSIC_CREDIT_TYPE_VALUES = frozenset({
     "interet_preteur",
     "interet_placement",
     "restitution_maturite",
+    # Restitution placement (apport) : ligne informative, sens « + ». Le solde
+    # ne bouge pas (capital déjà présent) — c'est un déblocage, pas un flux.
+    "restitution_placement",
     "bascule_collecte",
 })
 

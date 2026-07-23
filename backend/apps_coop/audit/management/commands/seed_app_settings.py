@@ -335,10 +335,10 @@ SETTINGS: list[tuple[str, str, str]] = [
     ),
     (
         "loans.eligibility.route_priority",
-        "senior_brc,avaliste,campaign",
-        "Ordre d'évaluation des 3 voies (CSV). Première qui matche gagne. "
-        "Une voie absente est désactivée. Permet à l'admin de promouvoir "
-        "une voie (ex. campagne en avant : 'campaign,senior_brc,avaliste').",
+        "senior_brc,avaliste,garantie_materielle,campaign",
+        "Voies ACTIVÉES (CSV). Une voie absente est désactivée (403 « aucune "
+        "voie »). Contient les 4 voies : senior_brc, avaliste, "
+        "garantie_materielle, campaign. Retirer une entrée pour la couper.",
     ),
     # LOT 13 — Saisie multi-source R1 (§9.2 BUSINESS_RULES_2026).
     (

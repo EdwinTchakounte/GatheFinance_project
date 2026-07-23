@@ -348,6 +348,15 @@ class ClassicSavingsTransaction(TimestampedModel):
             "interet_placement",
             "Intérêt capitalisé à la maturité d'un dépôt placement (refonte 2026)",
         )
+        # Restitution anticipée d'un placement prêteur (apport coop) — LIGNE
+        # INFORMATIVE : le capital vivait déjà dans le solde (la tranche n'était
+        # qu'un verrou), la restitution le débloque au profit de la part libre.
+        # Le solde_apres NE bouge donc PAS pour cette ligne (pas un flux réel) ;
+        # elle sert uniquement à rendre la restitution visible sur le relevé.
+        RESTITUTION_PLACEMENT = (
+            "restitution_placement",
+            "Restitution du capital de placement (débloqué au profit de la part libre)",
+        )
         # Fin de mois collecte (refonte 2026) — entrée épargne provenant d'une
         # bascule de la collecte (choix membre). Rend le virement identifiable
         # sur le relevé épargne (vs un dépôt MoMo classique).
