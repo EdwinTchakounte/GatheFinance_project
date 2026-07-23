@@ -576,7 +576,7 @@
   "lreq_motive": "Motif de la demande",
   "lreq_motive_hint": "Explique ton projet . équipement, fonds de roulement, formation, etc.",
   "lreq_motive_short": "Motivation trop courte (min 10 caractères).",
-  "lreq_fees_note": "Des frais de dossier (5 000 XAF) seront à régler après acceptation.",
+  "lreq_fees_note": "Des frais d'étude de dossier peuvent s'appliquer, à régler après acceptation. Ils peuvent être offerts pour une demande en campagne.",
   "lreq_submit": "Soumettre la demande",
   "lreq_sending": "Envoi en cours…",
   "lreq_sent_title": "Demande envoyée",

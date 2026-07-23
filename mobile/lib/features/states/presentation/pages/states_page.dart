@@ -879,34 +879,36 @@ class _WithdrawalRow extends StatelessWidget {
     final tone = _tone;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Row(
+      // Montant en haut, puis mode + statut en dessous : évite que le pill de
+      // statut long chevauche le montant sur petit écran.
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  XAFFormatter.format(w.montant),
-                  style: PaText.label(size: 14.5),
-                ),
-                const SizedBox(height: 2),
-                Text(
+          Text(
+            XAFFormatter.format(w.montant),
+            style: PaText.label(size: 14.5),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
                   w.modePaiementDisplay,
                   style: PaText.body(size: 12, color: PaColors.inkMuted),
                 ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: tone.bg,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              w.statutDisplay,
-              style: PaText.body(size: 11.5, color: tone.fg),
-            ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: tone.bg,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  w.statutDisplay,
+                  style: PaText.body(size: 11.5, color: tone.fg),
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -2638,7 +2638,7 @@ abstract class AppL10n {
   /// No description provided for @lreq_fees_note.
   ///
   /// In fr, this message translates to:
-  /// **'Des frais de dossier (5 000 XAF) seront à régler après acceptation.'**
+  /// **'Des frais d\'étude de dossier peuvent s\'appliquer, à régler après acceptation. Ils peuvent être offerts pour une demande en campagne.'**
   String get lreq_fees_note;
 
   /// No description provided for @lreq_submit.
