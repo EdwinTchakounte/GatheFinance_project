@@ -172,8 +172,8 @@ class _PayoutTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   isSource
-                      ? 'À la mise à disposition · ta part ${(payout.quotePart * 100).toStringAsFixed(0)} %'
-                      : 'Échéance n°${payout.installmentNumero ?? "?"} · part ${(payout.quotePart * 100).toStringAsFixed(0)} %',
+                      ? 'Intérêt de prêteur · à la mise à disposition'
+                      : 'Intérêt de prêteur · échéance n°${payout.installmentNumero ?? "?"}',
                   style: const TextStyle(
                     color: PaColors.inkSecondary,
                     fontSize: 12,

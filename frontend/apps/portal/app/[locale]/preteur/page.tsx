@@ -15,13 +15,19 @@ import {
 
 
 /**
- * Espace prêteur (épargne-prêteur §6).
+ * Espace prêteur (épargne-prêteur §6) — VUE LECTURE SEULE.
  *
- * Le membre signe la convention (mode A global ou B par tranches) et gère
- * ses tranches d'épargne prêtables. L'engagement d'une tranche dans un
- * crédit est effectué par l'administrateur ; le prêteur est notifié et les
- * intérêts sont crédités automatiquement sur son compte épargne classique.
- * Aucun consentement par-funding-request n'est demandé au prêteur.
+ * Depuis 2026-07-24, le financement placement est piloté côté administrateur
+ * (sélection manuelle des parts + crédit des intérêts automatique). Le membre
+ * devient prêteur en plaçant son épargne via « Épargne › Placement » ; il n'y
+ * a plus d'opt-in explicite, d'ajout de tranche ni de révocation en self-service
+ * (parité avec le mobile, où l'écran de gestion a été retiré). Cette page
+ * présente donc l'état de ses tranches et les intérêts perçus, en lecture seule.
+ *
+ * Rémunération : chaque prêteur perçoit un intérêt égal à un pourcentage fixé
+ * par la coopérative (réglage `loans.lender.interest_rate`) appliqué au montant
+ * qu'il a réellement prêté — versé au décaissement (retenue à la source) ou
+ * réparti au fil des remboursements.
  */
 export default function LenderPage() {
   const router = useRouter();
@@ -32,29 +38,33 @@ export default function LenderPage() {
     text: string;
   } | null>(null);
 
-  async function reload() {
-    setLoading(true);
-    try {
-      await portalApi.primeCsrf();
-      const data = await portalApi.lender.me();
-      setState(data);
-    } catch (err) {
-      const apiErr = err as ApiError;
-      if (apiErr.status === 401 || apiErr.status === 403) {
-        router.replace("/connexion");
-        return;
-      }
-      setMessage({
-        tone: "err",
-        text: apiErr.detail ?? "Impossible de charger ton espace prêteur.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    reload();
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        await portalApi.primeCsrf();
+        const data = await portalApi.lender.me();
+        if (!cancelled) setState(data);
+      } catch (err) {
+        const apiErr = err as ApiError;
+        if (apiErr.status === 401 || apiErr.status === 403) {
+          router.replace("/connexion");
+          return;
+        }
+        if (!cancelled) {
+          setMessage({
+            tone: "err",
+            text: apiErr.detail ?? "Impossible de charger ton espace prêteur.",
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []);
 
@@ -86,9 +96,9 @@ export default function LenderPage() {
             Espace prêteur
           </h1>
           <p className="mt-2 text-sm text-ink-600">
-            Mets ton épargne classique à disposition pour financer les crédits
-            de la coopérative. La coopérative partage à 50/50 les intérêts
-            perçus avec les prêteurs (§6 BUSINESS_RULES_2026).
+            En plaçant ton épargne, tu aides à financer les crédits de la
+            coopérative. En retour, tu perçois un intérêt fixé par la
+            coopérative sur les montants réellement prêtés.
           </p>
         </header>
 
@@ -104,25 +114,16 @@ export default function LenderPage() {
           </div>
         )}
 
-        {/* Convention */}
         {!isActive ? (
-          <OptInBlock
-            onDone={(text) => {
-              setMessage({ tone: "ok", text });
-              reload();
-            }}
-            onError={(text) => setMessage({ tone: "err", text })}
-          />
+          <InactiveBlock onPlace={() => router.push("/epargne")} />
         ) : (
-          <ActiveLenderBlock
-            state={state}
-            onChange={(text) => {
-              setMessage({ tone: "ok", text });
-              reload();
-            }}
-            onError={(text) => setMessage({ tone: "err", text })}
-          />
+          <ActiveLenderBlock state={state} />
         )}
+
+        {/* Historique des intérêts perçus — parité avec le mobile. */}
+        <div className="mt-5">
+          <PayoutsSection />
+        </div>
       </Container>
     </main>
   );
@@ -130,78 +131,30 @@ export default function LenderPage() {
 
 
 // ---------------------------------------------------------------------------
-// Onboarding — opt-in
+// Pas encore prêteur — orienter vers le placement (le seul point d'entrée)
 // ---------------------------------------------------------------------------
 
 
-function OptInBlock({
-  onDone,
-  onError,
-}: {
-  onDone: (msg: string) => void;
-  onError: (msg: string) => void;
-}) {
-  const [mode, setMode] = useState<"global" | "tranches">("tranches");
-  const [submitting, setSubmitting] = useState(false);
-
-  async function onSign() {
-    setSubmitting(true);
-    try {
-      await portalApi.lender.optIn(mode === "global");
-      onDone("Convention signée — tu es maintenant prêteur actif.");
-    } catch (err) {
-      const apiErr = err as ApiError;
-      onError(apiErr.detail ?? "Signature impossible.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
+function InactiveBlock({ onPlace }: { onPlace: () => void }) {
   return (
     <section className="rounded-md border border-line-200 bg-paper p-7">
       <h2 className="font-display text-xl font-medium text-ink-900">
         Devenir prêteur
       </h2>
       <p className="mt-2 text-sm text-ink-600">
-        Choisis le mode qui te convient. Tu pourras changer à tout moment.
+        Tu deviens prêteur simplement en plaçant une partie de ton épargne
+        classique en « Placement ». Le montant placé devient prêtable ; son
+        engagement dans un crédit est géré par la coopérative, et les intérêts
+        te sont crédités automatiquement sur ton compte épargne.
       </p>
-
-      <div className="mt-5 space-y-2">
-        <RadioCard
-          checked={mode === "global"}
-          onClick={() => setMode("global")}
-          title="Mode A — Solde global"
-          hint="L'ensemble de mon épargne classique est prêtable. Plus simple."
-        />
-        <RadioCard
-          checked={mode === "tranches"}
-          onClick={() => setMode("tranches")}
-          title="Mode B — Tranches explicites"
-          hint="Je décide tranche par tranche les montants que je rends prêtables."
-        />
-      </div>
-
-      <div className="mt-6 rounded-md bg-cream p-4 text-xs text-ink-700">
-        <p className="font-medium text-ink-900">⚠️ Engagement</p>
-        <p className="mt-1">
-          En signant la convention, tu acceptes que tes montants prêtables
-          soient temporairement bloqués au financement de crédits validés. Les
-          intérêts perçus sont partagés à 50/50 avec la coopérative.
-        </p>
-      </div>
-
       <button
-        onClick={onSign}
-        disabled={submitting}
+        onClick={onPlace}
         className={
-          buttonClasses({
-            variant: "success",
-            size: "lg",
-            fullWidth: true,
-          }) + " mt-5"
+          buttonClasses({ variant: "success", size: "lg", fullWidth: true }) +
+          " mt-5"
         }
       >
-        {submitting ? "Signature…" : "Signer la convention"}
+        Placer mon épargne
       </button>
     </section>
   );
@@ -209,39 +162,23 @@ function OptInBlock({
 
 
 // ---------------------------------------------------------------------------
-// Membre actif — tranches + révocation
+// Membre prêteur actif — état lecture seule (totaux + tranches)
 // ---------------------------------------------------------------------------
 
 
-function ActiveLenderBlock({
-  state,
-  onChange,
-  onError,
-}: {
-  state: LenderState;
-  onChange: (msg: string) => void;
-  onError: (msg: string) => void;
-}) {
+function ActiveLenderBlock({ state }: { state: LenderState }) {
   const consent = state.consent!;
   return (
     <div className="space-y-5">
-      {/* Convention info */}
       <section className="rounded-md border border-line-200 bg-paper p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="font-display text-lg font-medium text-ink-900">
-              Convention active
-            </h2>
-            <p className="mt-0.5 text-xs text-ink-600">
-              Mode {consent.is_global ? "A (solde global)" : "B (tranches explicites)"}{" "}
-              · signée le {formatDate(consent.convention_signed_at)}
-            </p>
-          </div>
-          <RevokeButton
-            disabled={Decimal(state.totals.engagee) > 0}
-            onDone={onChange}
-            onError={onError}
-          />
+        <div>
+          <h2 className="font-display text-lg font-medium text-ink-900">
+            Ma convention prêteur
+          </h2>
+          <p className="mt-0.5 text-xs text-ink-600">
+            Mode {consent.is_global ? "A (solde global)" : "B (tranches explicites)"}{" "}
+            · signée le {formatDate(consent.convention_signed_at)}
+          </p>
         </div>
 
         <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 text-xs">
@@ -250,27 +187,16 @@ function ActiveLenderBlock({
           <Stat label="Libérée" value={state.totals.liberee} tone="ink" />
           <Stat label="Annulée" value={state.totals.annulee} tone="ink" />
         </dl>
+
+        <p className="mt-4 rounded-md border border-blue-700/20 bg-cream p-3 text-[11px] text-ink-600">
+          ℹ️ L'engagement et la restitution de tes tranches sont pilotés par la
+          coopérative. Tu es notifié à chaque mouvement.
+        </p>
       </section>
 
-      {/* Tranches */}
-      {!consent.is_global && (
-        <TranchesSection
-          tranches={state.tranches}
-          onChange={onChange}
-          onError={onError}
-        />
+      {!consent.is_global && state.tranches.length > 0 && (
+        <TranchesReadOnly tranches={state.tranches} />
       )}
-
-      {consent.is_global && (
-        <p className="rounded-md border border-blue-700/30 bg-cream p-4 text-xs text-ink-700">
-          ℹ️ En mode A (global), tu n'as pas besoin de gérer des tranches : tout
-          ton solde épargne classique est automatiquement disponible pour le
-          funding. Les tranches sont créées par le système à chaque engagement.
-        </p>
-      )}
-
-      {/* A6 . Historique des interets percus (parite mobile). */}
-      <PayoutsSection />
     </div>
   );
 }
@@ -360,175 +286,30 @@ function PayoutsSection() {
 }
 
 
-function RevokeButton({
-  disabled,
-  onDone,
-  onError,
-}: {
-  disabled: boolean;
-  onDone: (msg: string) => void;
-  onError: (msg: string) => void;
-}) {
-  const [confirming, setConfirming] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
-  async function onConfirm() {
-    setSubmitting(true);
-    try {
-      await portalApi.lender.revoke();
-      onDone("Convention révoquée.");
-    } catch (err) {
-      const apiErr = err as ApiError;
-      onError(apiErr.detail ?? "Révocation impossible.");
-    } finally {
-      setSubmitting(false);
-      setConfirming(false);
-    }
-  }
-
-  if (disabled) {
-    return (
-      <span className="text-xs text-ink-500">
-        Révocation impossible — des tranches sont encore engagées dans un crédit.
-      </span>
-    );
-  }
-
-  if (!confirming) {
-    return (
-      <button
-        onClick={() => setConfirming(true)}
-        className={buttonClasses({ variant: "ghost", size: "sm" })}
-      >
-        Révoquer
-      </button>
-    );
-  }
-
-  return (
-    <div className="flex gap-2">
-      <button
-        onClick={() => setConfirming(false)}
-        className={buttonClasses({ variant: "ghost", size: "sm" })}
-      >
-        Annuler
-      </button>
-      <button
-        onClick={onConfirm}
-        disabled={submitting}
-        className={buttonClasses({ variant: "secondary", size: "sm" })}
-      >
-        {submitting ? "…" : "Confirmer la révocation"}
-      </button>
-    </div>
-  );
-}
-
-
-function TranchesSection({
-  tranches,
-  onChange,
-  onError,
-}: {
-  tranches: LenderTranche[];
-  onChange: (msg: string) => void;
-  onError: (msg: string) => void;
-}) {
-  const [adding, setAdding] = useState(false);
-  const [amount, setAmount] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  async function onAdd() {
-    if (!amount) return;
-    setSubmitting(true);
-    try {
-      await portalApi.lender.addTranche(Number(amount));
-      onChange(`Tranche de ${formatXaf(amount)} créée.`);
-      setAdding(false);
-      setAmount("");
-    } catch (err) {
-      const apiErr = err as ApiError;
-      onError(apiErr.detail ?? "Création impossible.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
+function TranchesReadOnly({ tranches }: { tranches: LenderTranche[] }) {
   return (
     <section className="rounded-md border border-line-200 bg-paper p-6">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-lg font-medium text-ink-900">
-          Mes tranches
-        </h2>
-        {!adding && (
-          <button
-            onClick={() => setAdding(true)}
-            className={buttonClasses({ variant: "primary", size: "sm" })}
+      <h2 className="font-display text-lg font-medium text-ink-900">
+        Mes tranches
+      </h2>
+      <ul className="mt-4 divide-y divide-line-200 rounded-md border border-line-200">
+        {tranches.map((t) => (
+          <li
+            key={t.id}
+            className="flex items-center justify-between px-4 py-3"
           >
-            + Nouvelle tranche
-          </button>
-        )}
-      </div>
-
-      {adding && (
-        <div className="mt-4 flex gap-2 rounded-md border border-line-200 bg-cream/40 p-3">
-          <input
-            type="number"
-            min={100}
-            step={1000}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="Montant (XAF)"
-            className="flex-1 rounded-md border border-line-200 bg-paper px-3 py-2 text-sm text-ink-900 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
-          />
-          <button
-            onClick={onAdd}
-            disabled={submitting || !amount}
-            className={buttonClasses({ variant: "success", size: "sm" })}
-          >
-            {submitting ? "…" : "Ajouter"}
-          </button>
-          <button
-            onClick={() => {
-              setAdding(false);
-              setAmount("");
-            }}
-            className={buttonClasses({ variant: "ghost", size: "sm" })}
-          >
-            Annuler
-          </button>
-        </div>
-      )}
-
-      {tranches.length === 0 ? (
-        <p className="mt-4 rounded-md border border-dashed border-line-200 px-4 py-6 text-center text-xs text-ink-500">
-          Aucune tranche pour le moment.
-        </p>
-      ) : (
-        <ul className="mt-4 divide-y divide-line-200 rounded-md border border-line-200">
-          {tranches.map((t) => (
-            <li
-              key={t.id}
-              className="flex items-center justify-between px-4 py-3"
-            >
-              <div>
-                <p className="text-sm font-medium text-ink-900">
-                  {formatXaf(t.montant)}
-                </p>
-                <p className="text-xs text-ink-500">
-                  <TrancheBadge statut={t.statut} display={t.statut_display} />
-                  {t.engaged_in_loan_id && (
-                    <> · Crédit #{t.engaged_in_loan_id}</>
-                  )}
-                </p>
-              </div>
-              {/* La récupération d'une tranche est pilotée par l'ADMIN — le
-                  membre place son argent délibérément et n'annule pas lui-même
-                  ses tranches (il est seulement notifié). */}
-            </li>
-          ))}
-        </ul>
-      )}
+            <div>
+              <p className="text-sm font-medium text-ink-900">
+                {formatXaf(t.montant)}
+              </p>
+              <p className="text-xs text-ink-500">
+                <TrancheBadge statut={t.statut} display={t.statut_display} />
+                {t.engaged_in_loan_id && <> · Crédit #{t.engaged_in_loan_id}</>}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -562,44 +343,6 @@ function TrancheBadge({
 // ---------------------------------------------------------------------------
 
 
-function RadioCard({
-  checked,
-  onClick,
-  title,
-  hint,
-}: {
-  checked: boolean;
-  onClick: () => void;
-  title: string;
-  hint: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`block w-full rounded-md border p-3 text-left transition-colors ${
-        checked
-          ? "border-blue-700 bg-blue-50/40 ring-1 ring-blue-700"
-          : "border-line-200 bg-paper hover:bg-cream"
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        <span
-          className={`inline-block size-3.5 rounded-full border ${
-            checked
-              ? "border-blue-700 bg-blue-700"
-              : "border-ink-400 bg-paper"
-          }`}
-          aria-hidden="true"
-        />
-        <span className="text-sm font-medium text-ink-900">{title}</span>
-      </div>
-      <p className="ml-5.5 mt-1 text-xs text-ink-600">{hint}</p>
-    </button>
-  );
-}
-
-
 function Stat({
   label,
   value,
@@ -622,12 +365,6 @@ function Stat({
       </p>
     </div>
   );
-}
-
-
-function Decimal(s: string): number {
-  const n = parseFloat(s);
-  return Number.isNaN(n) ? 0 : n;
 }
 
 

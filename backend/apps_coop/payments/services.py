@@ -515,8 +515,9 @@ def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
         n'en a pas encore — convention signée implicitement à la date du dépôt.
       • Création d'une ``LenderTranche`` DISPONIBLE du même montant que le
         dépôt. L'admin pourra ensuite l'engager dans un crédit (LOT 8 funding).
-    Le partage des intérêts crédit ainsi générés reste piloté par
-    ``lender.interest_share_rate`` (LOT 9) — éditable depuis Paramètres admin.
+    La rémunération prêteur des intérêts crédit ainsi générés = ``k × sa
+    contribution`` (``loans.lender.interest_rate``, défaut 0.03) — éditable
+    depuis Paramètres admin. Voir ``loans.lender_payouts``.
     """
     from apps_coop.audit.services import get_str_setting
     from apps_coop.savings.models import (
