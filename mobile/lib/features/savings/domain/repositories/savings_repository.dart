@@ -1,9 +1,14 @@
 import '../entities/savings_account.dart';
+import '../entities/savings_transaction.dart';
 import '../entities/withdrawal_request.dart';
 
 abstract class SavingsRepository {
   /// Snapshot du compte d'épargne du membre courant (solde + N dernières opérations).
   Future<SavingsAccount> fetchMine();
+
+  /// Historique COMPLET des transactions (paginé serveur, agrégé). Sert la page
+  /// Historique pour remonter au-delà des 10 dernières du snapshot.
+  Future<List<SavingsTransaction>> fetchAllTransactions({int maxPages});
 
   /// Lance un dépôt — renvoie la version du compte une fois le hook métier
   /// appliqué côté backend.

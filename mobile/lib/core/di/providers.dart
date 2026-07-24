@@ -33,6 +33,7 @@ import '../../features/auth/domain/usecases/sign_out.dart';
 import '../../features/savings/data/datasources/savings_dio_datasource.dart';
 import '../../features/savings/data/datasources/savings_remote_datasource.dart';
 import '../../features/savings/data/repositories/savings_repository_impl.dart';
+import '../../features/savings/domain/entities/savings_transaction.dart';
 import '../../features/savings/domain/repositories/savings_repository.dart';
 import '../../features/savings/domain/usecases/deposit_savings.dart';
 import '../../features/savings/domain/usecases/get_my_savings.dart';
@@ -206,6 +207,23 @@ final getMyClassicSavingsUseCaseProvider = Provider<GetMySavings>(
 
 final depositClassicSavingsUseCaseProvider = Provider<DepositSavings>(
   (ref) => DepositSavings(ref.watch(classicSavingsRepositoryProvider)),
+);
+
+/// Historique COMPLET des transactions (classique + collecte), paginé côté
+/// serveur puis agrégé, pour la page Historique. Contrairement aux snapshots
+/// (`classicSavingsProvider` / `savingsProvider`) qui ne portent que les 10
+/// dernières écritures. Les deux flux sont chargés en parallèle.
+final savingsFullHistoryProvider = FutureProvider.autoDispose<
+    ({List<SavingsTransaction> classic, List<SavingsTransaction> collecte})>(
+  (ref) async {
+    final classicRepo = ref.watch(classicSavingsRepositoryProvider);
+    final collecteRepo = ref.watch(savingsRepositoryProvider);
+    final results = await Future.wait([
+      classicRepo.fetchAllTransactions(),
+      collecteRepo.fetchAllTransactions(),
+    ]);
+    return (classic: results[0], collecte: results[1]);
+  },
 );
 
 

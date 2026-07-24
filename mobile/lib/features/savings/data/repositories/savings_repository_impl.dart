@@ -1,6 +1,7 @@
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/savings_account.dart';
+import '../../domain/entities/savings_transaction.dart';
 import '../../domain/entities/withdrawal_request.dart';
 import '../../domain/repositories/savings_repository.dart';
 import '../datasources/savings_remote_datasource.dart';
@@ -13,6 +14,17 @@ class SavingsRepositoryImpl implements SavingsRepository {
   Future<SavingsAccount> fetchMine() async {
     try {
       return await _remote.fetchMine();
+    } on NetworkException catch (e) {
+      throw NetworkFailure(e.message);
+    } on ServerException catch (e) {
+      throw UnexpectedFailure(e.message);
+    }
+  }
+
+  @override
+  Future<List<SavingsTransaction>> fetchAllTransactions({int maxPages = 40}) async {
+    try {
+      return await _remote.fetchAllTransactions(maxPages: maxPages);
     } on NetworkException catch (e) {
       throw NetworkFailure(e.message);
     } on ServerException catch (e) {
