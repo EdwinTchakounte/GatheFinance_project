@@ -1,11 +1,16 @@
-"""LOT 9 (refonte 2026) — Partage 50/50 des intérêts crédit (§7.5).
+"""LOT 9 (refonte 2026, révisé 2026-07-24) — Rémunération prêteur des intérêts.
+
+Règle unique : chaque prêteur touche ``k × sa contribution`` (montant_alloue),
+``k`` = ``loans.lender.interest_rate`` (défaut 0.03). En mode échéances la cible
+est répartie au prorata de l'intérêt payé → cumul = k × montant_alloue sur toute
+la vie du crédit (borné, jamais de surpaiement).
 
 Couvre :
-  - Split 50/50 sur une échéance entière payée (1 prêteur)
-  - Split au prorata des ``quote_part`` sur plusieurs prêteurs (mode A + mode B)
-  - Imputation partielle : seule la portion **intérêt** alimente le split
-  - Pas de split si le crédit n'a aucune ``LenderAllocation`` (legacy 2025)
-  - ``lender.interest_share_rate=0`` (kill-switch) désactive le split
+  - k × contribution sur une échéance entière payée (1 prêteur)
+  - Répartition entre prêteurs = chacun k × SON montant_alloue (mode A + mode B)
+  - Imputation partielle : la cible est proratisée sur l'intérêt payé
+  - Pas de payout si le crédit n'a aucune ``LenderAllocation`` (legacy 2025)
+  - ``loans.lender.interest_rate=0`` (kill-switch) désactive la rémunération
   - Idempotence : un Payment ne crée pas de doublon de payouts si le hook
     est rejoué deux fois sur le même imputation set
   - Clôture du Loan → tranches passent ENGAGEE → LIBEREE (idempotent)
@@ -15,7 +20,7 @@ Couvre :
 from __future__ import annotations
 
 from datetime import date, timedelta
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 
 import pytest
 from django.utils import timezone
@@ -136,6 +141,18 @@ def _make_repayment_payment(member, loan, *, montant):
     )
 
 
+# Règle 2026-07-24 : rémunération prêteur = k × contribution. On fige k=3 %
+# dans les tests (indépendant de l'état seedé de la DB en --reuse-db).
+K_RATE = Decimal("0.03")
+
+
+def _set_lender_rate(rate=K_RATE):
+    AppSetting.objects.update_or_create(
+        cle="loans.lender.interest_rate",
+        defaults={"valeur": str(rate)},
+    )
+
+
 # ---------------------------------------------------------------------------
 # distribute_interest_share — unitaire
 # ---------------------------------------------------------------------------
@@ -157,20 +174,23 @@ class TestDistributeInterestShare:
         assert Decimal(inst.interets_payes) == Decimal("0")
         assert LenderInterestPayout.objects.count() == 0
 
-    def test_full_installment_single_lender_split_50_50(self, active_member):
-        """1 prêteur 100% : 50% des intérêts vont au prêteur, 50% à la coop."""
+    def test_full_installment_single_lender_k_contribution(self, active_member):
+        """1 prêteur 100% : il touche k × sa contribution (montant_alloue)."""
+        _set_lender_rate()
         loan = _build_loan(active_member, suffix="SOLO50")
         lender = _make_lender_mode_a(solde=Decimal("500000"))
         fr = request_funding(loan)
         _accept_all_consents(fr)
         alloc = LenderAllocation.objects.get(loan=loan)
-        # 100% pour le prêteur.
+        # 100% pour le prêteur → montant_alloue = 90 000.
         assert alloc.quote_part == Decimal("1.00000000")
+        assert Decimal(alloc.montant_alloue) == Decimal("90000")
 
-        # Échéance unique : intérêt = 9 000 ; split 50/50 → 4 500 prêteur.
+        # Échéance unique : intérêt total 9 000 payé en entier → cumul cible
+        # atteint en une fois = k × 90 000 = 0.03 × 90 000 = 2 700.
         inst = loan.installments.order_by("numero_echeance").first()
         interet = Decimal(inst.montant_interets)  # 9 000
-        part_preteur = (interet * Decimal("0.5")).quantize(Decimal("0.01"))
+        part_preteur = (K_RATE * Decimal("90000")).quantize(Decimal("0.01"))  # 2 700
         payment = _make_repayment_payment(
             active_member, loan, montant=Decimal(inst.montant_total)
         )
@@ -200,8 +220,9 @@ class TestDistributeInterestShare:
         assert tx.type_op == ClassicSavingsTransaction.TypeOp.INTERET_PRETEUR
         assert Decimal(tx.montant) == part_preteur
 
-    def test_split_proportional_to_quote_parts(self, active_member):
-        """2 prêteurs avec quote_parts différentes : split au prorata."""
+    def test_each_lender_gets_k_times_own_contribution(self, active_member):
+        """2 prêteurs 70k/30k : chacun touche k × SA contribution (2 100 / 900)."""
+        _set_lender_rate()
         loan = _build_loan(active_member, montant=Decimal("100000"), suffix="PRORATA")
         # Force allocation à 70/30 via mode A : 2 prêteurs disponibles avec
         # capacités 70k et 30k → first_fit donne (70k, 30k).
@@ -217,10 +238,10 @@ class TestDistributeInterestShare:
         assert allocs[1].montant_alloue == Decimal("30000")
         assert allocs[1].lender_id == small.id
 
-        # 1ère échéance : intérêt = 100 000 × 10% / 3 = 3 333.33...
-        # Le générateur arrondit donc on lit l'échéance.
+        # Échéance unique (date butoir) : intérêt total 10 000 payé en entier.
+        # Chaque prêteur atteint sa cible k × montant_alloue en une fois :
+        #   big  = 0.03 × 70 000 = 2 100 ; small = 0.03 × 30 000 = 900.
         inst = loan.installments.order_by("numero_echeance").first()
-        interet_ech = Decimal(inst.montant_interets)
         payment = _make_repayment_payment(
             active_member, loan, montant=Decimal(inst.montant_total)
         )
@@ -232,35 +253,30 @@ class TestDistributeInterestShare:
         )
         assert len(payouts) == 2
 
-        total_pretteurs = sum(Decimal(p.montant) for p in payouts)
-        # Total = intérêt_échéance × 0.5, arrondi 2 décimales ROUND_HALF_UP
-        # (même règle d'arrondi que ``lender_payouts._q``).
-        expected = (interet_ech * Decimal("0.5")).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-        assert total_pretteurs == expected
+        by_lender = {p.allocation.lender_id: Decimal(p.montant) for p in payouts}
+        assert by_lender[big.id] == Decimal("2100.00")
+        assert by_lender[small.id] == Decimal("900.00")
+        assert sum(by_lender.values()) == Decimal("3000.00")
 
-        # Big prend ~70%, small ~30%, avec absorption du résidu par la dernière.
-        by_lender = {p.allocation.lender_id: p.montant for p in payouts}
-        assert by_lender[big.id] > by_lender[small.id]
-
-    def test_partial_payment_only_interest_portion_splits(self, active_member):
-        """Imputation partielle : seule la portion intérêt (priorité intérêt) split."""
+    def test_partial_payment_prorates_the_target(self, active_member):
+        """Imputation partielle : la cible k × contribution est proratisée."""
+        _set_lender_rate()
         loan = _build_loan(active_member, suffix="PART")
         lender = _make_lender_mode_a(solde=Decimal("200000"))
         fr = request_funding(loan)
         _accept_all_consents(fr)
 
         inst = loan.installments.order_by("numero_echeance").first()
-        # Échéance : capital 30k + intérêt 3k = 33k. On impute juste 2 000 :
-        # tout en intérêt → split (1 000 prêteur, 1 000 coop).
+        # montant_alloue = 90 000 → cible totale = 0.03 × 90 000 = 2 700, sur un
+        # intérêt total de 9 000. On impute 2 000, tout en intérêt (priorité) →
+        # part = 2 700 × 2 000 / 9 000 = 600.
         payment = _make_repayment_payment(active_member, loan, montant=Decimal("2000"))
 
         payouts = distribute_interest_share(
             installment=inst, payment=payment, imputation=Decimal("2000")
         )
         assert len(payouts) == 1
-        assert payouts[0].montant == Decimal("1000.00")
+        assert payouts[0].montant == Decimal("600.00")
         inst.refresh_from_db()
         assert Decimal(inst.interets_payes) == Decimal("2000.00")
 
@@ -282,12 +298,9 @@ class TestDistributeInterestShare:
         )
         assert payouts == []
 
-    def test_kill_switch_zero_rate(self, active_member):
-        """``lender.interest_share_rate=0`` désactive complètement le split."""
-        AppSetting.objects.update_or_create(
-            cle="lender.interest_share_rate",
-            defaults={"valeur": "0"},
-        )
+    def test_kill_switch_zero_k(self, active_member):
+        """``loans.lender.interest_rate=0`` désactive la rémunération prêteur."""
+        _set_lender_rate(Decimal("0"))
         loan = _build_loan(active_member, suffix="KILL")
         _make_lender_mode_a(solde=Decimal("500000"))
         fr = request_funding(loan)
@@ -351,9 +364,11 @@ class TestHookIntegration:
         """E2E : funding → paiements successifs → clôture + tranches libérées.
 
         Échéance unique (99 000) : le 1er versement solde d'abord l'intérêt
-        (priorité intérêt) → un seul payout de 4 500. Les versements suivants
-        n'imputent que du capital → pas de nouveau split.
+        (priorité intérêt) → la cible k × 90 000 = 2 700 est atteinte en une
+        fois → un seul payout de 2 700. Les versements suivants n'imputent que
+        du capital → pas de nouveau payout.
         """
+        _set_lender_rate()
         loan = _build_loan(active_member, montant=Decimal("90000"), duree=3, suffix="E2E")
         lender = _make_lender_mode_a(solde=Decimal("200000"))
         fr = request_funding(loan)
@@ -368,22 +383,23 @@ class TestHookIntegration:
 
         loan.refresh_from_db()
         assert loan.statut == Loan.Statut.CLOTURE
-        # 1 seul payout (intérêt total 9 000 soldé au 1er versement) = 4 500.
+        # 1 seul payout (cible atteinte au 1er versement) = 0.03 × 90 000 = 2 700.
         payouts = LenderInterestPayout.objects.filter(allocation__loan=loan)
         assert payouts.count() == 1
-        assert sum(Decimal(p.montant) for p in payouts) == Decimal("4500.00")
+        assert sum(Decimal(p.montant) for p in payouts) == Decimal("2700.00")
 
         # Tranche libérée à la clôture (créée en mode A au moment du funding).
         alloc = LenderAllocation.objects.get(loan=loan)
         assert alloc.tranche.statut == LenderTranche.Statut.LIBEREE
-        # Solde épargne classique crédité de 1 500 × 3.
+        # Solde épargne classique crédité de 2 700.
         lender.classic_savings_account.refresh_from_db()
         assert Decimal(lender.classic_savings_account.solde) == (
-            Decimal("200000") + Decimal("4500")
+            Decimal("200000") + Decimal("2700")
         )
 
     def test_hook_partial_then_complete(self, active_member):
         """Paiement partiel (10k) puis paiement complétant le reste (échéance unique)."""
+        _set_lender_rate()
         loan = _build_loan(active_member, suffix="P2C")
         lender = _make_lender_mode_a(solde=Decimal("200000"))
         fr = request_funding(loan)
@@ -391,10 +407,10 @@ class TestHookIntegration:
 
         inst = loan.installments.order_by("numero_echeance").first()
         interet = Decimal(inst.montant_interets)  # 9 000
-        part_preteur = (interet * Decimal("0.5")).quantize(Decimal("0.01"))  # 4 500
+        part_preteur = (K_RATE * Decimal("90000")).quantize(Decimal("0.01"))  # 2 700
 
         # 1er paiement de 10 000 : solde d'abord l'intérêt (9 000) puis 1 000
-        # de capital → un seul payout = 9 000 × 0.5 = 4 500.
+        # de capital → cible atteinte → un seul payout = k × 90 000 = 2 700.
         p1 = _make_repayment_payment(active_member, loan, montant=Decimal("10000"))
         _hook_loan_repayment(p1, {})
         payouts1 = LenderInterestPayout.objects.filter(allocation__loan=loan)
@@ -433,7 +449,8 @@ class TestHookIntegration:
         assert Decimal(inst.interets_payes) == Decimal("0")
 
     def test_full_repayment_single_installment_splits_once(self, active_member):
-        """Échéance unique soldée en un Payment : 1 payout sur l'intérêt total."""
+        """Échéance unique soldée en un Payment : 1 payout = k × contribution."""
+        _set_lender_rate()
         loan = _build_loan(active_member, suffix="MULTI")
         lender = _make_lender_mode_a(solde=Decimal("200000"))
         fr = request_funding(loan)
@@ -441,7 +458,7 @@ class TestHookIntegration:
 
         inst = loan.installments.order_by("numero_echeance").first()
         interet = Decimal(inst.montant_interets)  # 9 000
-        part_preteur = (interet * Decimal("0.5")).quantize(Decimal("0.01"))  # 4 500
+        part_preteur = (K_RATE * Decimal("90000")).quantize(Decimal("0.01"))  # 2 700
 
         # Solde total dû (99 000) en un seul versement.
         payment = _make_repayment_payment(
@@ -462,6 +479,7 @@ class TestHookIntegration:
 class TestModeBSplit:
     def test_mode_b_two_tranches_same_lender(self, active_member):
         """Un même prêteur a 2 tranches financant 1 crédit : 2 allocations, split correct."""
+        _set_lender_rate()
         loan = _build_loan(active_member, montant=Decimal("90000"), suffix="MB")
         lender = _make_lender_mode_b(tranches=[Decimal("60000"), Decimal("30000")])
         fr = request_funding(loan)
@@ -477,8 +495,8 @@ class TestModeBSplit:
             (Decimal("60000") / Decimal("90000")).quantize(Decimal("0.00000001")),
         ]
 
-        # Échéance unique soldée (99 000) → intérêt total 9 000 → split prêteur
-        # 4 500 réparti entre les 2 allocations au prorata.
+        # Échéance unique soldée (99 000) → chaque allocation touche k × son
+        # montant_alloue : 0.03 × 60 000 = 1 800 et 0.03 × 30 000 = 900.
         inst = loan.installments.order_by("numero_echeance").first()
         payment = _make_repayment_payment(
             active_member, loan, montant=Decimal(inst.montant_total)
@@ -487,8 +505,10 @@ class TestModeBSplit:
 
         payouts = LenderInterestPayout.objects.filter(allocation__loan=loan)
         assert payouts.count() == 2
+        montants = sorted(Decimal(p.montant) for p in payouts)
+        assert montants == [Decimal("900.00"), Decimal("1800.00")]
         total = sum(Decimal(p.montant) for p in payouts)
-        assert total == Decimal("4500.00")
+        assert total == Decimal("2700.00")
         # Le compte épargne du même prêteur est crédité du total.
         lender.classic_savings_account.refresh_from_db()
-        assert Decimal(lender.classic_savings_account.solde) == Decimal("4500.00")
+        assert Decimal(lender.classic_savings_account.solde) == Decimal("2700.00")

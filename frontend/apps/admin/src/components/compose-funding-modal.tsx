@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Coins, AlertCircle, CheckCircle2 } from "lucide-react";
+import { X, Coins, AlertCircle, CheckCircle2, Landmark } from "lucide-react";
 
 import { buttonClasses } from "@gathe/ui";
 
@@ -79,9 +79,14 @@ export function ComposeFundingModal({
   }, [selections]);
 
   const capital = target ? Number(target.capital) : 0;
-  const remaining = capital - totals.total;
-  const isComplete = totals.total === capital && totals.total > 0;
   const isOver = totals.total > capital;
+  // Caisse interne (coop) : appoint qui comble toujours le reste jusqu'à 100 %.
+  // Ce n'est PAS un prêteur → aucune allocation, aucun intérêt prêteur (k %) :
+  // la coop finance ce résidu sur ses fonds propres et garde son intérêt. Non
+  // persisté (le résidu coop est implicite, comme aujourd'hui).
+  const caisseInterne = Math.max(0, capital - totals.total);
+  // La couverture est toujours à 100 % (prêteurs + caisse) sauf dépassement.
+  const isComplete = !isOver && capital > 0;
 
   function toggle(trancheId: number) {
     const current = selections.get(trancheId);
@@ -121,11 +126,22 @@ export function ComposeFundingModal({
 
   async function submit() {
     if (!target) return;
+    if (isOver) {
+      setError("Le total des prêteurs dépasse le capital du crédit.");
+      return;
+    }
     const picks = Array.from(selections.values())
       .filter((s) => s.checked && Number(s.montant) > 0)
       .map((s) => ({ tranche_id: s.trancheId, montant: s.montant }));
+    // Aucun prêteur sélectionné : la caisse interne (coop) finance 100 % du
+    // crédit. Rien à engager côté prêteurs → pas d'appel API, le résidu coop
+    // reste implicite (le crédit est décaissable tel quel).
     if (picks.length === 0) {
-      setError("Selectionne au moins une tranche.");
+      onSuccess(
+        `Crédit financé intégralement par la caisse interne (coop) — ` +
+          `aucun prêteur à engager.`,
+      );
+      onClose();
       return;
     }
     setSubmitting(true);
@@ -134,9 +150,14 @@ export function ComposeFundingModal({
       const res = await adminApi.lenderTranches.composeFunding(target.id, {
         selections: picks,
       });
+      const caisseMsg =
+        caisseInterne > 0
+          ? ` Reste ${formatXAF(caisseInterne)} XAF via la caisse interne (coop).`
+          : "";
       onSuccess(
         `Funding compose : ${res.n_tranches_engagees} tranches engagees ` +
-          `(${res.n_tranches_splittees} splittees). Total ${res.total_engage} XAF.`,
+          `(${res.n_tranches_splittees} splittees). Total ${res.total_engage} XAF.` +
+          caisseMsg,
       );
       onClose();
     } catch (err) {
@@ -208,12 +229,12 @@ export function ComposeFundingModal({
                   {formatXAF(totals.total)} <span className="text-ink-500">/ {formatXAF(capital)}</span> XAF
                 </p>
                 <p className="text-xs text-ink-600">
-                  {totals.count} tranches selectionnees ·{" "}
-                  {remaining > 0
-                    ? `reste ${formatXAF(remaining)} XAF a couvrir`
-                    : remaining < 0
-                      ? `depassement ${formatXAF(-remaining)} XAF`
-                      : "couverture exacte"}
+                  {totals.count} prêteur{totals.count > 1 ? "s" : ""} ·{" "}
+                  {isOver
+                    ? `dépassement ${formatXAF(-(capital - totals.total))} XAF`
+                    : caisseInterne > 0
+                      ? `caisse interne (coop) ${formatXAF(caisseInterne)} XAF · couverture 100 %`
+                      : "couverture exacte (100 % prêteurs)"}
                 </p>
               </div>
             </div>
@@ -250,13 +271,36 @@ export function ComposeFundingModal({
 
           {loading ? (
             <p className="text-ink-600">Chargement des tranches...</p>
-          ) : tranches.length === 0 ? (
-            <p className="rounded-md border border-dashed border-line-200 bg-paper/70 p-12 text-center text-sm text-ink-600">
-              Aucune tranche DISPONIBLE actuellement.
-            </p>
           ) : (
             <div className="space-y-2">
-              {tranches.map((t) => {
+              {/* Caisse interne (coop) — toujours en 1re position, à côté des
+                  prêteurs. Comble automatiquement le reste jusqu'à 100 %. */}
+              <div className="flex items-center gap-3 rounded-md border border-emerald/30 bg-emerald/5 p-3">
+                <Landmark className="size-5 shrink-0 text-emerald" aria-hidden="true" />
+                <div className="flex-1">
+                  <p className="font-medium text-ink-900">
+                    Caisse interne (coopérative)
+                  </p>
+                  <p className="text-xs text-ink-600">
+                    Fonds propres · comble le reste jusqu&apos;à 100 % · sans
+                    intérêt prêteur (la coop garde son intérêt)
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-sm font-semibold text-emerald">
+                    {formatXAF(caisseInterne)} XAF
+                  </p>
+                  <p className="font-mono text-[0.7rem] text-ink-500">appoint auto</p>
+                </div>
+              </div>
+
+              {tranches.length === 0 ? (
+                <p className="rounded-md border border-dashed border-line-200 bg-paper/70 p-8 text-center text-sm text-ink-600">
+                  Aucune tranche placement DISPONIBLE — la caisse interne
+                  finance l&apos;intégralité du crédit.
+                </p>
+              ) : (
+                tranches.map((t) => {
                 const sel = selections.get(t.id);
                 if (!sel) return null;
                 return (
@@ -312,7 +356,8 @@ export function ComposeFundingModal({
                     </div>
                   </div>
                 );
-              })}
+                })
+              )}
             </div>
           )}
         </div>
@@ -330,19 +375,21 @@ export function ComposeFundingModal({
           <button
             type="button"
             onClick={submit}
-            disabled={submitting || isOver || totals.count === 0}
+            disabled={submitting || isOver}
             title={
-              totals.count === 0
-                ? "Selectionne au moins une tranche"
-                : isOver
-                  ? "Total selectionne depasse le capital"
-                  : `Engager ${totals.count} tranches`
+              isOver
+                ? "Le total des prêteurs dépasse le capital"
+                : totals.count === 0
+                  ? "Financer 100 % via la caisse interne (coop)"
+                  : `Engager ${totals.count} prêteur${totals.count > 1 ? "s" : ""} · reste caisse interne`
             }
             className={buttonClasses({ variant: "primary", size: "md" })}
           >
             {submitting
               ? "Engagement..."
-              : `Engager ${totals.count} ${totals.count > 1 ? "tranches" : "tranche"}`}
+              : totals.count === 0
+                ? "Financer via caisse interne"
+                : `Engager ${totals.count} prêteur${totals.count > 1 ? "s" : ""}`}
           </button>
         </footer>
       </div>
