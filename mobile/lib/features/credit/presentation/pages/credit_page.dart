@@ -30,6 +30,7 @@ import '../../../loans/presentation/state/loans_notifier.dart';
 import '../../../loans/presentation/widgets/loan_request_sheet.dart';
 import '../../../loans/presentation/widgets/renewal_sheet.dart';
 import '../../../loans/presentation/widgets/repayment_sheet.dart';
+import '../../../loans/presentation/widgets/transfer_sheet.dart';
 import '../../../../core/error/error_message.dart';
 
 /// Page Crédit . style **Paysika** (palette navy/teal, cards soft).
@@ -657,6 +658,23 @@ class _LoanCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          // Parité portail : rembourser depuis l'épargne accessible aussi
+          // depuis l'écran Crédit (et pas seulement la Home).
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton.icon(
+              onPressed: () => TransferSheet.show(context),
+              icon: const Icon(Icons.account_balance_wallet_outlined, size: 16),
+              label: const Text('Rembourser depuis mon épargne'),
+              style: TextButton.styleFrom(
+                foregroundColor: PaColors.teal,
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
         ],
       ),
