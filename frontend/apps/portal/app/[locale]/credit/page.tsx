@@ -113,8 +113,14 @@ export default function PortalCreditPage() {
   async function submitRepayFromSavings() {
     if (!repayTarget) return;
     const montant = parseInt(repayAmount, 10);
-    if (!montant || montant < 500) {
-      setRepayError("Le montant minimum est de 500 FCFA.");
+    // Plancher 1 000 XAF, sauf pour solder un petit reliquat (< 1 000) : dans
+    // ce cas le minimum = le reste dû.
+    const reste = Number(repayTarget.solde_restant);
+    const floor = reste < 1000 ? reste : 1000;
+    if (!montant || montant < floor) {
+      setRepayError(
+        `Le montant minimum est de ${floor.toLocaleString("fr-FR")} FCFA.`,
+      );
       return;
     }
     setRepaySubmitting(true);

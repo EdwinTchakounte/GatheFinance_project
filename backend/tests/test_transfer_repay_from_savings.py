@@ -141,3 +141,46 @@ class TestEndpoints:
             {"montant": "1000"},
         )
         assert r.status_code == 404
+
+
+class TestMinVersement:
+    """Plancher 1 000 XAF, avec exception « solde le reste dû »."""
+
+    def test_rejette_partiel_sous_1000(self):
+        m = MemberFactory()
+        _classic(m, "30000")
+        loan = _loan(m, solde="80000")
+        with pytest.raises(TransferError):
+            repay_loan_from_savings(loan, Decimal("500"))
+
+    def test_accepte_exactement_1000(self):
+        m = MemberFactory()
+        _classic(m, "30000")
+        loan = _loan(m, solde="80000")
+        p = repay_loan_from_savings(loan, Decimal("1000"))
+        assert p.statut == Payment.Statut.VALIDE
+
+    def test_accepte_reliquat_final_sous_1000(self):
+        # Petit reliquat (700) : payer 700 solde le crédit → autorisé.
+        m = MemberFactory()
+        _classic(m, "30000")
+        loan = _loan(m, solde="700")
+        p = repay_loan_from_savings(loan, Decimal("700"))
+        assert p.statut == Payment.Statut.VALIDE
+
+    def test_surplus_cape_au_reste_solde_le_credit(self):
+        # Demande 5 000 > reste 700 → capé à 700, solde le crédit (exception).
+        m = MemberFactory()
+        _classic(m, "30000")
+        loan = _loan(m, solde="700")
+        p = repay_loan_from_savings(loan, Decimal("5000"))
+        assert p.statut == Payment.Statut.VALIDE
+
+    def test_momo_init_rejette_sous_1000(self):
+        m = MemberFactory()
+        loan = _loan(m, solde="80000")
+        r = _api(m.user).post(
+            "/api/v1/payments/init/",
+            {"type": "remboursement", "montant": "500", "loan_id": loan.id},
+        )
+        assert r.status_code == 400
