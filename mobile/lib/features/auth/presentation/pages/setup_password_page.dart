@@ -97,8 +97,8 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
   Future<void> _confirmPassword() async {
     final pw = _pwCtrl.text;
     final confirm = _pwConfirmCtrl.text;
-    if (pw.length < 8) {
-      setState(() => _error = 'Le mot de passe doit faire au moins 8 caracteres.');
+    if (pw.length < 4) {
+      setState(() => _error = 'Le mot de passe doit faire au moins 4 caracteres.');
       return;
     }
     if (pw != confirm) {
@@ -213,7 +213,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
           enableSuggestions: false,
           decoration: const InputDecoration(
             labelText: 'Nouveau mot de passe',
-            hintText: '8 caracteres minimum',
+            hintText: '4 caracteres minimum',
             border: OutlineInputBorder(),
           ),
         ),

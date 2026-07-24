@@ -61,8 +61,8 @@ export default function AdminForgotPasswordPage() {
       setError("Le code doit contenir 6 chiffres.");
       return;
     }
-    if (newPassword.length < 8) {
-      setError("Le mot de passe doit faire au moins 8 caractères.");
+    if (newPassword.length < 4) {
+      setError("Le mot de passe doit faire au moins 4 caractères.");
       return;
     }
     setSubmitting(true);
@@ -225,7 +225,7 @@ export default function AdminForgotPasswordPage() {
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         className="block w-full rounded-xl border border-line-200 bg-paper px-3.5 py-2.5 pr-14 text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/15"
-                        placeholder="8 caractères minimum"
+                        placeholder="4 caractères minimum"
                       />
                       <button
                         type="button"

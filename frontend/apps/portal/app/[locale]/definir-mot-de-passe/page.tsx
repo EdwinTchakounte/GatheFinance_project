@@ -54,8 +54,8 @@ function SetupPasswordInner() {
     e.preventDefault();
     if (submitting) return;
     setError(null);
-    if (password.length < 8) {
-      setError("Le mot de passe doit faire au moins 8 caracteres.");
+    if (password.length < 4) {
+      setError("Le mot de passe doit faire au moins 4 caracteres.");
       return;
     }
     if (password !== confirm) {
@@ -116,7 +116,7 @@ function SetupPasswordInner() {
           {phase === "form" && emailMask ? (
             <p className="mt-2 text-sm text-ink-600">
               Compte associe a <strong>{emailMask}</strong>. Choisis un mot de
-              passe d'au moins 8 caracteres.
+              passe d'au moins 4 caracteres.
             </p>
           ) : null}
           {phase === "expired" ? (
@@ -161,7 +161,7 @@ function SetupPasswordInner() {
                     type={showPwd ? "text" : "password"}
                     required
                     autoComplete="new-password"
-                    minLength={8}
+                    minLength={4}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Au moins 8 caracteres"
@@ -188,7 +188,7 @@ function SetupPasswordInner() {
                   type={showPwd ? "text" : "password"}
                   required
                   autoComplete="new-password"
-                  minLength={8}
+                  minLength={4}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   placeholder="Repete le meme mot de passe"

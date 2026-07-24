@@ -144,9 +144,13 @@ REST_FRAMEWORK = {
     # taux, sinon DRF lève ImproperlyConfigured ("No default throttle rate set
     # for 'user' scope"). On garde `user` et `auth-login` de base.
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "120/hour",
-        "user": "2000/hour",
+        # Généreux : l'écrêtage fin est délégué au middleware de blacklist IP.
+        # TOUS les scopes utilisés doivent figurer ici (sinon ImproperlyConfigured
+        # dès qu'un throttle est invoqué) — d'où auth-password-reset ci-dessous.
+        "anon": "1000/hour",
+        "user": "5000/hour",
         "form-submit": "10/hour",
         "auth-login": "20/hour",
+        "auth-password-reset": "5/hour",
     },
 }

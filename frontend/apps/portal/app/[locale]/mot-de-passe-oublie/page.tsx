@@ -59,8 +59,8 @@ export default function ForgotPasswordPage() {
       setError("Le code doit contenir exactement 6 chiffres.");
       return;
     }
-    if (newPassword.length < 8) {
-      setError("Le mot de passe doit faire au moins 8 caracteres.");
+    if (newPassword.length < 4) {
+      setError("Le mot de passe doit faire au moins 4 caracteres.");
       return;
     }
     setSubmitting(true);
@@ -197,10 +197,10 @@ export default function ForgotPasswordPage() {
                     type={showPwd ? "text" : "password"}
                     required
                     autoComplete="new-password"
-                    minLength={8}
+                    minLength={4}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Au moins 8 caracteres"
+                    placeholder="Au moins 4 caracteres"
                     className="block w-full rounded-xl border border-line-200 bg-paper px-3.5 py-2.5 pr-14 text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/15"
                   />
                   <button

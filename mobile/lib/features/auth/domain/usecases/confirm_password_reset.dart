@@ -41,9 +41,9 @@ class ConfirmPasswordReset
         field: 'code',
       );
     }
-    if (params.newPassword.length < 8) {
+    if (params.newPassword.length < 4) {
       throw const ValidationFailure(
-        'Mot de passe trop court (minimum 8 caractères).',
+        'Mot de passe trop court (minimum 4 caractères).',
         field: 'new_password',
       );
     }

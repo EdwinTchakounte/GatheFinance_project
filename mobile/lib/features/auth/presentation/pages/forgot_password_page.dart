@@ -76,8 +76,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
 
   Future<void> _confirm() async {
     final pw = _pwCtrl.text;
-    if (pw.length < 8) {
-      setState(() => _error = 'Le mot de passe doit faire au moins 8 caractères.');
+    if (pw.length < 4) {
+      setState(() => _error = 'Le mot de passe doit faire au moins 4 caractères.');
       return;
     }
     if (pw != _pwConfirmCtrl.text) {
@@ -300,7 +300,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             controller: _pwCtrl,
             obscureText: true,
             decoration: const InputDecoration(
-              hintText: '8 caractères minimum',
+              hintText: '4 caractères minimum',
               prefixIcon: Icon(Icons.lock_outline_rounded, size: 20),
               contentPadding:
                   EdgeInsets.symmetric(horizontal: 14, vertical: 14),
