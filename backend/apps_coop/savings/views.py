@@ -125,13 +125,16 @@ class SavingsInfoView(APIView):
         # LOT 6 (refonte 2026) — paramètres collecte / multi-jours pré-payé.
         min_per_day = get_int_setting("collecte.min_per_day", 1000)
         prepay_max_days = get_int_setting("collecte.prepay.max_days", 30)
+        amount_step = get_int_setting("collecte.amount_step", 50)
         commission_rate = get_str_setting("collecte.monthly.commission_rate", "0.01")
         end_of_month_default = get_str_setting("collecte.monthly.default_action", "cash")
 
         return Response(
             {
                 "suggested_daily_amount_xaf": min_per_day,
-                "min_amount_xaf": 100,
+                # Minimum réel = le minimum par jour de collecte (et non 100, qui
+                # était trompeur : l'enforcement backend utilise min_per_day).
+                "min_amount_xaf": min_per_day,
                 "cutoff_hour": DAILY_CUTOFF_HOUR,
                 "cutoff_label": f"{DAILY_CUTOFF_HOUR}h00",
                 "cutoff_note": (
@@ -159,6 +162,7 @@ class SavingsInfoView(APIView):
                 # Refonte 2026 — collecte journalière.
                 "collecte_min_per_day_xaf": min_per_day,
                 "collecte_prepay_max_days": prepay_max_days,
+                "collecte_amount_step_xaf": amount_step,
                 "collecte_monthly_commission_rate": commission_rate,
                 "collecte_end_of_month_default": end_of_month_default,
             }

@@ -273,6 +273,10 @@ class TestSavingsInfoExposesRefonte2026:
         assert "collecte_min_per_day_xaf" in body
         assert body["collecte_min_per_day_xaf"] == 1000
         assert body["collecte_prepay_max_days"] == 30
+        # Le pas du montant est désormais exposé (consommé par les clients).
+        assert body["collecte_amount_step_xaf"] == 50
+        # min_amount_xaf reflète le vrai minimum (plus le 100 trompeur d'avant).
+        assert body["min_amount_xaf"] == 1000
         assert "collecte_monthly_commission_rate" in body
         assert body["collecte_end_of_month_default"] == "cash"
 

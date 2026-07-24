@@ -615,6 +615,14 @@ export const portalApi = {
   savings: () => request<SavingsSnapshot>("/savings/me/"),
   classicSavings: () =>
     request<ClassicSavingsSnapshot>("/savings/classic/me/"),
+  // Règles publiques de la collecte (source de vérité admin) — évite de coder
+  // en dur min/step côté client.
+  savingsInfo: () =>
+    request<{
+      collecte_min_per_day_xaf: number;
+      collecte_prepay_max_days: number;
+      collecte_amount_step_xaf: number;
+    }>("/savings/info/"),
   // Choix fin de mois de la collecte : cash (agence) / mobile_money / epargne.
   collecteEomPreference: () =>
     request<CollecteEomPreference>("/savings/me/end-of-month-preference/"),

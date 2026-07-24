@@ -8,6 +8,7 @@ import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../app/theme/paysika/pa_typography.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/services/tara_checkout_launcher.dart';
+import '../../../../core/di/providers.dart';
 import '../../../../core/services/transaction_fee_provider.dart';
 import '../../../../core/widgets/brand_loader.dart';
 import '../../../../core/widgets/payment_fee_breakdown.dart';
@@ -386,6 +387,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
   // ───────────────────────────────────────────────────────────────────────
   Widget _formStep() {
     final l = AppL10n.of(context);
+    // Règles collecte lues sur /savings/info/ (source de vérité admin), avec
+    // repli sur les constantes réglementaires si l'appel n'a pas (encore) abouti.
+    final info = ref.watch(savingsInfoProvider).valueOrNull;
+    final minPerDay = info?.minPerDay ?? kCollecteMinPerDay;
+    final step = info?.step ?? kCollecteAmountStep;
+    // On conserve le bypass sandbox en debug (100 XAF) ; en release = minPerDay.
+    final effectiveMin = kReleaseMode ? minPerDay : kTestMinDeposit;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 26),
       // Scrollable → pas d'overflow quand le clavier monte ou en grande police.
@@ -502,7 +510,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                         setState(() {
                           _nbJoursCouverts = n;
                           // Pré-remplit le minimum (N × 1 000) ; éditable.
-                          _amountCtrl.text = '${n * kCollecteMinPerDay}';
+                          _amountCtrl.text = '${n * minPerDay}';
                         });
                       },
                     );
@@ -608,15 +616,15 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                 final n = num.tryParse(t);
                 if (n == null) return l.err_enter_amount;
                 if (widget.classic) {
-                  // Plancher : 1 000 en release, 100 en debug (kTestMinDeposit).
-                  if (n < kTestMinDeposit) return l.err_min_1000;
+                  // Plancher : minPerDay en release, 100 en debug (sandbox).
+                  if (n < effectiveMin) return l.err_min_1000;
                   return null;
                 }
-                // Collecte journalière : multiple de 50 ET ≥ plancher par jour.
-                if (n % kCollecteAmountStep != 0) {
+                // Collecte journalière : multiple du pas ET ≥ plancher par jour.
+                if (n % step != 0) {
                   return l.err_amount_multiple_50;
                 }
-                final minTotal = _nbJoursCouverts * kTestMinDeposit;
+                final minTotal = _nbJoursCouverts * effectiveMin;
                 if (n < minTotal) {
                   return l.err_collecte_min_per_day(
                     XAFFormatter.format(minTotal),

@@ -209,6 +209,34 @@ final depositClassicSavingsUseCaseProvider = Provider<DepositSavings>(
   (ref) => DepositSavings(ref.watch(classicSavingsRepositoryProvider)),
 );
 
+/// Règles publiques de la collecte (source de vérité = `GET /savings/info/`,
+/// pilotée par les AppSettings admin). Le mobile s'en sert au lieu de valeurs
+/// codées en dur — repli sur les défauts réglementaires si l'appel échoue.
+class CollecteInfo {
+  const CollecteInfo({
+    required this.minPerDay,
+    required this.prepayMaxDays,
+    required this.step,
+  });
+  final int minPerDay;
+  final int prepayMaxDays;
+  final int step;
+}
+
+final savingsInfoProvider =
+    FutureProvider.autoDispose<CollecteInfo>((ref) async {
+  final dio = ref.watch(apiClientProvider).dio;
+  final res = await dio.get<Map<String, dynamic>>('/savings/info/');
+  final d = res.data ?? const <String, dynamic>{};
+  int readInt(String key, int fallback) =>
+      (d[key] as num?)?.toInt() ?? fallback;
+  return CollecteInfo(
+    minPerDay: readInt('collecte_min_per_day_xaf', 1000),
+    prepayMaxDays: readInt('collecte_prepay_max_days', 30),
+    step: readInt('collecte_amount_step_xaf', 50),
+  );
+});
+
 /// Historique COMPLET des transactions (classique + collecte), paginé côté
 /// serveur puis agrégé, pour la page Historique. Contrairement aux snapshots
 /// (`classicSavingsProvider` / `savingsProvider`) qui ne portent que les 10
