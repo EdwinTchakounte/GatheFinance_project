@@ -762,6 +762,19 @@ export const portalApi = {
         frais_a_payer: { code: string; libelle: string; montant: string };
       }>("/loans/requests/", { method: "POST", body: JSON.stringify(data) }),
 
+    // Réponse du membre à une contre-proposition du comité (débloque le statut
+    // en_attente_acceptation_membre).
+    acceptCounterProposal: (requestId: number) =>
+      request<LoanRequest>(
+        `/loans/me/requests/${requestId}/counter-proposal/accept/`,
+        { method: "POST" },
+      ),
+    refuseCounterProposal: (requestId: number, motif?: string) =>
+      request<LoanRequest>(
+        `/loans/me/requests/${requestId}/counter-proposal/refuse/`,
+        { method: "POST", body: JSON.stringify({ motif: motif ?? "" }) },
+      ),
+
     // CH-9 — URL absolue pour télécharger la note PDF d'une demande.
     noteUrl: (requestId: number) => `${API_BASE}/loans/requests/${requestId}/note/`,
 

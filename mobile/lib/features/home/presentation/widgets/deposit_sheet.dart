@@ -201,10 +201,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               accentSurface: PaColors.tealSurface,
               title: 'Placement',
               subtitle: placementAllowed
-                  ? 'Bloqué 12 mois, rapporte un intérêt versé à maturité. Idéal si vous n\'avez pas besoin de la somme tout de suite.'
+                  ? 'Bloqué jusqu\'à la date de restitution fixée par la coopérative (par défaut le 1er janvier), avec un intérêt versé à la restitution. Idéal si vous n\'avez pas besoin de la somme tout de suite.'
                   : 'Réservé aux $windowLabel suivant l\'adhésion. Cette fenêtre est terminée pour votre compte.',
               pill: placementAllowed
-                  ? '+ Intérêt à 12 mois'
+                  ? '+ Intérêt à la restitution'
                   : 'Fenêtre terminée',
               selected: _isPlacement && placementAllowed,
               disabled: !placementAllowed,
@@ -228,7 +228,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
               text: !placementAllowed
                   ? 'Le placement n\'est ouvert que pendant les $windowLabel suivant l\'adhésion. Votre dépôt sera versé en épargne libre.'
                   : _isPlacement
-                      ? 'Un placement crée une tranche bloquée pendant 12 mois. À maturité, vous récupérez le capital + l\'intérêt sur votre solde épargne.'
+                      ? 'Un placement bloque la somme jusqu\'à la date de restitution fixée par la coopérative (par défaut le 1er janvier). À cette date, vous récupérez le capital + l\'intérêt sur votre solde épargne.'
                       : 'Un dépôt libre est crédité sur votre solde épargne classique et reste à votre disposition.',
             ),
             const SizedBox(height: 18),
@@ -443,7 +443,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                       const SizedBox(width: 6),
                       Text(
                         _isPlacement
-                            ? 'Placement 12 mois'
+                            ? 'Placement'
                             : 'Dépôt libre',
                         style: TextStyle(
                           color: _isPlacement
@@ -912,8 +912,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
 }
 
 /// CH-3 . `kindChoice` est l'écran d'entrée du dépôt **épargne classique** :
-/// le membre y choisit entre placement (bloqué 12 mois, rapporte un intérêt
-/// à maturité) et libre (retrait libre, pas d'intérêt). La cotisation
+/// le membre y choisit entre placement (bloqué jusqu'à la date de restitution
+/// fixe, rapporte un intérêt à la restitution) et libre (retrait libre, pas
+/// d'intérêt). La cotisation
 /// journalière saute directement à `channelChoice`.
 enum _Step { kindChoice, channelChoice, agencyInfo, form, loading, success }
 

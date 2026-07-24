@@ -315,6 +315,23 @@ class LoansDioDataSource implements LoansRemoteDataSource {
   }
 
   @override
+  Future<void> respondCounterProposal({
+    required int requestId,
+    required bool accept,
+    String? motif,
+  }) async {
+    try {
+      final action = accept ? 'accept' : 'refuse';
+      await _dio.post<Map<String, dynamic>>(
+        '/loans/me/requests/$requestId/counter-proposal/$action/',
+        data: accept ? null : {'motif': motif ?? ''},
+      );
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
   Future<FormSchema?> getActiveLoanRequestSchema() async {
     try {
       final res = await _dio.get<Map<String, dynamic>>(

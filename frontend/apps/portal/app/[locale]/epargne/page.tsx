@@ -275,8 +275,8 @@ export default function EpargneIndexPage() {
               Verser sur épargne classique
             </h3>
             <p className="mt-2 text-sm text-ink-600">
-              Dépôt libre (retrait à tout moment) ou placement 12 mois.
-              Minimum 1 000 XAF.
+              Dépôt libre (retrait à tout moment) ou placement (restitué à date
+              fixe). Minimum 1 000 XAF.
             </p>
             <button
               type="button"
@@ -306,11 +306,12 @@ export default function EpargneIndexPage() {
         <section className="mt-5 grid gap-5 md:grid-cols-2">
           <article className="rounded-md border border-line-200 bg-paper p-6">
             <h3 className="font-editorial text-lg font-medium text-ink-900">
-              Placer sur 12 mois
+              Placer mon épargne
             </h3>
             <p className="mt-2 text-sm text-ink-600">
-              Bloquer une partie de ton épargne classique en placement pour
-              12 mois. Restitution automatique à la maturité (CH-3).
+              Bloquer une partie de ton épargne classique en placement. Restitué
+              automatiquement à la date fixée par la coopérative (par défaut le
+              1er janvier), avec un intérêt.
             </p>
             <button
               type="button"

@@ -64,8 +64,10 @@ from .views import (
     loan_request_decide_provisional,
     loan_request_field_visit,
     loan_repay_from_savings,
+    loan_request_accept_counter_proposal,
     loan_request_list,
     loan_request_pay_study_fee_from_savings,
+    loan_request_refuse_counter_proposal,
     loan_request_record_study_fee,
     loan_request_note,
     loan_request_upload_attachment,
@@ -83,6 +85,18 @@ urlpatterns = [
     # Member-facing
     path("me/eligibility/", loan_eligibility, name="eligibility"),
     path("me/requests/", loan_request_list, name="my-requests"),
+    # Réponse du membre à une contre-proposition du comité (débloque le statut
+    # en_attente_acceptation_membre).
+    path(
+        "me/requests/<int:pk>/counter-proposal/accept/",
+        loan_request_accept_counter_proposal,
+        name="counter-proposal-accept",
+    ),
+    path(
+        "me/requests/<int:pk>/counter-proposal/refuse/",
+        loan_request_refuse_counter_proposal,
+        name="counter-proposal-refuse",
+    ),
     path("me/active/", loans_me_active, name="my-active-loans"),
     path("transfer/available/", transfer_available, name="transfer-available"),
     path(
