@@ -8,6 +8,7 @@
 .env.*
 !.env.docker.example
 !.env.prod.example
+!.env.prod.client.example
 infra/.env.prod
 infra/letsencrypt/
 **/.env
