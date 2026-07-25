@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AppSetting, AuditLog
+from .models import AppSetting, AuditLog, BlockedIP
 
 
 @admin.register(AuditLog)
@@ -26,3 +26,17 @@ class AuditLogAdmin(admin.ModelAdmin):
 class AppSettingAdmin(admin.ModelAdmin):
     list_display = ("cle", "valeur", "updated_at")
     search_fields = ("cle", "description")
+
+
+@admin.register(BlockedIP)
+class BlockedIPAdmin(admin.ModelAdmin):
+    """Blacklist IP — l'admin peut bannir/débannir manuellement une IP.
+
+    Bannir = ajouter une ligne (expires_at vide = permanent). Débannir =
+    supprimer la ligne. Les bans auto (trafic anormal) apparaissent aussi ici.
+    """
+
+    list_display = ("ip", "auto", "reason", "expires_at", "created_at")
+    list_filter = ("auto", "created_at")
+    search_fields = ("ip", "reason")
+    date_hierarchy = "created_at"

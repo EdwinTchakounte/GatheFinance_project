@@ -157,6 +157,9 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # Sécurité — blacklist IP (ban global) + auto-ban du trafic anormal. Placé
+    # tôt pour rejeter les IP bannies avant tout travail métier/DB lourd.
+    "apps_coop.audit.ip_blocklist.BlockedIPMiddleware",
     # WhiteNoise is inserted here in prod.py for static-file serving.
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -218,12 +221,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --- Password validation ----------------------------------------------------
 
-AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
-    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
-]
+# 2026-07-24 — Durcissement du mot de passe RETIRÉ sur demande client : les
+# agents/membres définissent des mots de passe simples sur le terrain, les
+# validateurs de complexité (longueur mini, mots courants, tout-numérique,
+# similarité) bloquaient trop de cas légitimes. `validate_password` (appelé
+# dans members.auth_views) devient donc permissif. Pour re-durcir, ré-ajouter
+# ici les validateurs `django.contrib.auth.password_validation.*`.
+AUTH_PASSWORD_VALIDATORS: list[dict] = []
 
 # --- Internationalisation ---------------------------------------------------
 # French is the default; English is the secondary locale. The Next.js front
@@ -303,8 +307,14 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "60/hour",
-        "user": "1000/hour",
+        # Plafonds volontairement GÉNÉREUX : ils ne servent qu'à écrêter les
+        # excès grossiers ; la vraie défense anti-flood est le middleware de
+        # blacklist IP (apps_coop.audit.ip_blocklist), qui bannit les IP au
+        # trafic anormal. On évite ainsi de gêner un usage mobile/web normal
+        # (une page charge plusieurs endpoints).
+        "anon": "1000/hour",
+        "user": "5000/hour",
+        # Scopes sensibles gardés serrés (anti-spam / anti-bruteforce).
         "form-submit": "10/hour",
         "auth-login": "20/hour",
         # Mot de passe oublié — 5/h/IP suffit (cas réels rares + anti-bruteforce).
@@ -446,6 +456,20 @@ CACHES = {
         "TIMEOUT": 60,
     }
 }
+
+# --- Sécurité : blacklist IP / anti-flood -----------------------------------
+# Cf. apps_coop.audit.ip_blocklist.BlockedIPMiddleware. Tout est tunable via
+# l'environnement pour ajuster sans redéploiement de code.
+SECURITY_IP_BLOCK_ENABLED = env.bool("SECURITY_IP_BLOCK_ENABLED", default=True)
+# Seuil anti-flood : au-delà de N requêtes par fenêtre (s) et par IP, ban auto.
+SECURITY_IP_FLOOD_MAX_REQUESTS = env.int("SECURITY_IP_FLOOD_MAX_REQUESTS", default=240)
+SECURITY_IP_FLOOD_WINDOW_SEC = env.int("SECURITY_IP_FLOOD_WINDOW_SEC", default=60)
+# Durée d'un ban automatique (minutes ; 0 = permanent).
+SECURITY_IP_BAN_MINUTES = env.int("SECURITY_IP_BAN_MINUTES", default=30)
+# IP jamais bannies (monitoring interne, IP bureau…).
+SECURITY_IP_WHITELIST = env.list("SECURITY_IP_WHITELIST", default=[])
+# TTL du cache de la liste des IP bannies (s) — évite un accès DB par requête.
+SECURITY_IP_BLOCKLIST_CACHE_SEC = env.int("SECURITY_IP_BLOCKLIST_CACHE_SEC", default=10)
 
 # CSRF — cookie readable by JS so the SPA can attach the X-CSRFToken header.
 CSRF_COOKIE_HTTPONLY = False

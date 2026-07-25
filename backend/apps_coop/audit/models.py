@@ -122,6 +122,44 @@ class CooperativeAsset(TimestampedModel):
         return obj
 
 
+class BlockedIP(TimestampedModel):
+    """Adresse IP bloquée à l'entrée par le middleware de sécurité.
+
+    Un ban est GLOBAL (partagé par tous les workers via la base). Il peut être
+    posé automatiquement (trafic anormal détecté par le middleware) ou
+    manuellement par un admin depuis le Django admin. ``expires_at`` nul = ban
+    permanent. Voir ``apps_coop.audit.ip_blocklist``.
+    """
+
+    ip = models.GenericIPAddressField(unique=True, db_index=True)
+    reason = models.CharField(max_length=255, blank=True)
+    auto = models.BooleanField(
+        default=False,
+        help_text="Posé automatiquement (trafic anormal) plutôt que manuellement.",
+    )
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Fin du ban. Vide = ban permanent.",
+    )
+
+    class Meta:
+        verbose_name = "IP bloquée"
+        verbose_name_plural = "IP bloquées"
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:  # pragma: no cover — repr trivial
+        kind = "auto" if self.auto else "manuel"
+        return f"{self.ip} ({kind})"
+
+    def is_active(self, now=None) -> bool:
+        from django.utils import timezone
+
+        now = now or timezone.now()
+        return self.expires_at is None or self.expires_at > now
+
+
 # --- Invalidation du cache des AppSetting ----------------------------------
 # Le config-cache (apps_coop.audit.services._read_setting_raw) mémoïse chaque
 # valeur ; on la purge dès qu'un admin l'édite/supprime pour une propagation
@@ -137,3 +175,11 @@ def _invalidate_appsetting_cache(sender, instance, **kwargs):  # noqa: ANN001, A
     from .services import setting_cache_key
 
     cache.delete(setting_cache_key(instance.cle))
+
+
+@receiver([post_save, post_delete], sender=BlockedIP)
+def _invalidate_blocklist_cache(sender, instance, **kwargs):  # noqa: ANN001, ARG001, ANN201
+    # Un ban/déban manuel (Django admin) doit prendre effet immédiatement.
+    from .ip_blocklist import invalidate_blocklist_cache
+
+    invalidate_blocklist_cache()

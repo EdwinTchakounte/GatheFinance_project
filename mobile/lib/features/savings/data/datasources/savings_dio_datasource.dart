@@ -39,11 +39,45 @@ class SavingsDioDataSource implements SavingsRemoteDataSource {
         SavingsAccountKind.classique => 'epargne_classique',
       };
 
+  String get _transactionsEndpoint => switch (kind) {
+        SavingsAccountKind.cotisation => '/savings/transactions/',
+        SavingsAccountKind.classique => '/savings/classic/transactions/',
+      };
+
   @override
   Future<SavingsAccount> fetchMine() async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(_meEndpoint);
       return _parseAccount(response.data ?? const {});
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  @override
+  Future<List<SavingsTransaction>> fetchAllTransactions({
+    int maxPages = 40,
+  }) async {
+    // Historique COMPLET (le snapshot `fetchMine` ne renvoie que les 10
+    // dernières). On boucle sur la pagination DRF (`next`) jusqu'à épuisement
+    // ou plafond, pour éviter un chargement non borné sur un très gros compte.
+    try {
+      final out = <SavingsTransaction>[];
+      var page = 1;
+      while (page <= maxPages) {
+        final response = await _dio.get<Map<String, dynamic>>(
+          _transactionsEndpoint,
+          queryParameters: {'page': page},
+        );
+        final data = response.data ?? const {};
+        final results = (data['results'] as List<dynamic>?) ?? const [];
+        out.addAll(
+          results.map((t) => _parseTransaction(t as Map<String, dynamic>)),
+        );
+        if (data['next'] == null) break;
+        page++;
+      }
+      return out;
     } on DioException catch (e) {
       throw mapDioError(e);
     }

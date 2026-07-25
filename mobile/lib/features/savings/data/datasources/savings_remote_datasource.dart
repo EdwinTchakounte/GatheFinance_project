@@ -1,8 +1,13 @@
 import '../../domain/entities/savings_account.dart';
+import '../../domain/entities/savings_transaction.dart';
 import '../../domain/entities/withdrawal_request.dart';
 
 abstract class SavingsRemoteDataSource {
   Future<SavingsAccount> fetchMine();
+
+  /// Historique COMPLET des transactions (paginé côté serveur, agrégé ici).
+  /// Contrairement à [fetchMine] qui ne renvoie que les 10 dernières.
+  Future<List<SavingsTransaction>> fetchAllTransactions({int maxPages});
 
   Future<SavingsAccount> deposit({
     required num amount,

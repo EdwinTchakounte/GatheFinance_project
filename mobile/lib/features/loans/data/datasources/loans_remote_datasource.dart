@@ -49,6 +49,15 @@ abstract class LoansRemoteDataSource {
   /// placement et l'épargne gelée en garantie ne sont pas ponctionnables).
   Future<void> payStudyFeeFromSavings({required int requestId});
 
+  /// Réponse du membre à une contre-proposition du comité (statut
+  /// `en_attente_acceptation_membre`). [accept] true = accepter (montant
+  /// révisé appliqué, demande en instruction), false = refuser (rejetée).
+  Future<void> respondCounterProposal({
+    required int requestId,
+    required bool accept,
+    String? motif,
+  });
+
   /// CH-5 — Récupère le FormSchema actif pour le formulaire de demande.
   /// `null` si aucun schéma actif (mode legacy).
   Future<FormSchema?> getActiveLoanRequestSchema();

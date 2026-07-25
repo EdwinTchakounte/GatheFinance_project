@@ -60,6 +60,13 @@ abstract class LoansRepository {
   /// Synchrone (transfert interne) : au retour, la demande a déjà avancé.
   Future<void> payStudyFeeFromSavings({required int requestId});
 
+  /// Réponse du membre à une contre-proposition du comité.
+  Future<void> respondCounterProposal({
+    required int requestId,
+    required bool accept,
+    String? motif,
+  });
+
   /// CH-5 — Récupère le `FormSchema` actif pour `loan_request`.
   ///
   /// Renvoie `null` si aucun schéma actif n'est défini côté admin (mode

@@ -271,10 +271,21 @@ CATALOG: list[dict] = [
     {
         "key": "lender.interest_share_rate",
         "group": "lender",
-        "label": "Partage intérêts crédit (ratio)",
-        "description": "Fraction des intérêts reversée aux prêteurs (0.5 = 50/50). 0 = legacy (coop garde tout).",
+        "label": "Partage intérêts crédit (ratio) — LEGACY",
+        "description": "Obsolète depuis 2026-07-24 : la rémunération prêteur suit désormais « Taux d'intérêt prêteur (k) » (k × contribution) dans les 2 modes. Ce réglage n'est plus lu.",
         "type": "decimal",
         "default": "0.5",
+        "min": 0,
+        "max": 1,
+    },
+    # 2026-07-24 — Taux d'intérêt prêteur (k × contribution, au décaissement)
+    {
+        "key": "loans.lender.interest_rate",
+        "group": "lender",
+        "label": "Taux d'intérêt prêteur (k)",
+        "description": "Chaque prêteur touche k × sa contribution (0.03 = 3 % de la mise). S'applique aux 2 modes (à la source ET aux échéances). 0 = pas de rémunération prêteur.",
+        "type": "decimal",
+        "default": "0.03",
         "min": 0,
         "max": 1,
     },

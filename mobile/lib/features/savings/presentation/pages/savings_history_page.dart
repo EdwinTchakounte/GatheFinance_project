@@ -12,6 +12,7 @@ import '../../../../core/widgets/paysika/pa_transaction_tile.dart';
 import '../../../../core/widgets/skeleton.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/savings_transaction.dart';
+import '../../../../core/di/providers.dart';
 import '../state/classic_savings_notifier.dart';
 import '../state/savings_notifier.dart';
 import '../widgets/collecte_eom_card.dart';
@@ -48,15 +49,15 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
     // Historique unifié : épargne classique + collecte journalière, pour que
     // les versements collecte soient visibles ici (et plus seulement dans
     // Mes états). Les deux comptes sont fusionnés et triés par date.
-    final savings = ref.watch(classicSavingsProvider);
-    final cotisation = ref.watch(savingsProvider);
+    // Historique COMPLET paginé (au-delà des 10 dernières écritures du snapshot).
+    final history = ref.watch(savingsFullHistoryProvider);
     final l = AppL10n.of(context);
 
     // Entrées fusionnées (peut être vide tant que ça charge) — sert à dresser
     // la liste des carnets disponibles pour le filtre « par carnet ».
-    final classic = savings.valueOrNull?.transactions ??
+    final classic = history.valueOrNull?.classic ??
         const <SavingsTransaction>[];
-    final coti = cotisation.valueOrNull?.transactions ??
+    final coti = history.valueOrNull?.collecte ??
         const <SavingsTransaction>[];
     final entries = <_Entry>[
       for (final t in classic) (tx: t, collecte: false),
@@ -125,12 +126,14 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
             child: RefreshIndicator.adaptive(
               color: PaColors.teal,
               onRefresh: () async {
+                ref.invalidate(savingsFullHistoryProvider);
                 await Future.wait([
                   ref.read(classicSavingsProvider.notifier).refresh(),
                   ref.read(savingsProvider.notifier).refresh(),
+                  ref.read(savingsFullHistoryProvider.future),
                 ]);
               },
-              child: savings.when(
+              child: history.when(
                 data: (_) => _List(
                   entries: entries,
                   typeFilter: _type,

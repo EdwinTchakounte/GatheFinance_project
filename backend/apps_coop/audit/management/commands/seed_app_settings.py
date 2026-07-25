@@ -263,6 +263,17 @@ SETTINGS: list[tuple[str, str, str]] = [
         "imputation (le complément reste à la coop). Décimal entre 0 et 1, "
         "défaut 0.5 (50/50). Mettre 0 désactive le partage (legacy 2025).",
     ),
+    # 2026-07-24 — Rémunération prêteur = k × contribution (source + échéances).
+    (
+        "loans.lender.interest_rate",
+        "0.03",
+        "Taux d'intérêt prêteur (k) : chaque prêteur qui finance un crédit "
+        "touche k × sa contribution (montant engagé). Décimal entre 0 et 1 "
+        "(ex. 0.03 = 3 % de la mise). S'applique aux DEUX modes : au "
+        "décaissement (retenue à la source) et réparti au fil des échéances "
+        "(mode historique) — même total k × contribution. Mettre 0 = pas de "
+        "rémunération prêteur (kill-switch). Éditable par l'admin.",
+    ),
     # LOT 10 — Voie 2 AVALISTE (§7.2 BUSINESS_RULES_2026).
     (
         "loans.avaliste.min_coverage_ratio",

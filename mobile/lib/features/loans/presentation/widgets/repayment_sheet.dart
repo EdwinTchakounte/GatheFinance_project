@@ -240,7 +240,11 @@ class _RepaymentSheetState extends ConsumerState<RepaymentSheet>
                 final t = (v ?? '').trim();
                 if (t.isEmpty) return l.err_enter_amount;
                 final n = num.tryParse(t);
-                if (n == null || n < 100) return l.err_min_100;
+                // Plancher 1 000 XAF, sauf pour solder un petit reliquat
+                // (< 1 000) : dans ce cas le minimum = le reste dû.
+                final reste = widget.loan.soldeRestant;
+                final floor = reste < 1000 ? reste : 1000;
+                if (n == null || n < floor) return l.err_min_1000;
                 return null;
               },
             ),

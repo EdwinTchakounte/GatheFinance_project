@@ -30,6 +30,7 @@ import '../../../loans/presentation/state/loans_notifier.dart';
 import '../../../loans/presentation/widgets/loan_request_sheet.dart';
 import '../../../loans/presentation/widgets/renewal_sheet.dart';
 import '../../../loans/presentation/widgets/repayment_sheet.dart';
+import '../../../loans/presentation/widgets/transfer_sheet.dart';
 import '../../../../core/error/error_message.dart';
 
 /// Page Crédit . style **Paysika** (palette navy/teal, cards soft).
@@ -658,6 +659,23 @@ class _LoanCard extends StatelessWidget {
               ),
             ],
           ),
+          // Parité portail : rembourser depuis l'épargne accessible aussi
+          // depuis l'écran Crédit (et pas seulement la Home).
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton.icon(
+              onPressed: () => TransferSheet.show(context),
+              icon: const Icon(Icons.account_balance_wallet_outlined, size: 16),
+              label: const Text('Rembourser depuis mon épargne'),
+              style: TextButton.styleFrom(
+                foregroundColor: PaColors.teal,
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -945,6 +963,130 @@ class _RequestCard extends ConsumerWidget {
               ),
             ),
           ],
+          // Contre-proposition du comité : le membre accepte (montant révisé
+          // appliqué → instruction) ou refuse (demande rejetée, membre libéré).
+          if (request.statut ==
+                  LoanRequestStatus.enAttenteAcceptationMembre &&
+              request.montantRevise != null) ...[
+            const SizedBox(height: 12),
+            _CounterProposalActions(request: request),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+
+/// Actions de réponse à une contre-proposition (accepter / refuser), avec état
+/// de chargement local et retour utilisateur via SnackBar.
+class _CounterProposalActions extends ConsumerStatefulWidget {
+  const _CounterProposalActions({required this.request});
+  final LoanRequestEntity request;
+
+  @override
+  ConsumerState<_CounterProposalActions> createState() =>
+      _CounterProposalActionsState();
+}
+
+class _CounterProposalActionsState
+    extends ConsumerState<_CounterProposalActions> {
+  bool _busy = false;
+
+  Future<void> _respond(bool accept) async {
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(loanRequestsProvider.notifier).respondCounterProposal(
+            requestId: widget.request.id,
+            accept: accept,
+          );
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            accept
+                ? 'Contre-proposition acceptée — votre demande repart en instruction.'
+                : 'Contre-proposition refusée. Vous pouvez soumettre une nouvelle demande.',
+          ),
+        ),
+      );
+    } catch (err) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text(friendlyError(err))),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = widget.request;
+    final montant = r.montantRevise;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: PaColors.teal.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: PaColors.teal.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Contre-proposition du comité',
+            style: AppTypography.bodySmall.copyWith(
+              color: PaColors.inkPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            montant != null
+                ? 'Montant proposé : ${XAFFormatter.format(montant)}'
+                    '${r.dureeRevisee != null ? " sur ${r.dureeRevisee} mois" : ""}.'
+                : 'Le comité propose des conditions révisées.',
+            style: AppTypography.bodySmall.copyWith(
+              color: PaColors.inkMuted,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _busy ? null : () => _respond(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: PaColors.success,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(_busy ? '…' : 'Accepter'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _busy ? null : () => _respond(false),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: PaColors.inkPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Refuser'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

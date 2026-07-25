@@ -176,6 +176,22 @@ def init_payment(request):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Plancher 1 000 XAF, SAUF si ce versement solde le reste dû.
+        from apps_coop.loans.transfer_services import MIN_REPAYMENT_XAF
+
+        if (
+            data["montant"] < MIN_REPAYMENT_XAF
+            and data["montant"] < loan.solde_restant
+        ):
+            return Response(
+                {
+                    "detail": (
+                        f"Le versement minimum est de {int(MIN_REPAYMENT_XAF)} XAF "
+                        "(sauf pour solder le reste dû)."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     # LOT 6 (refonte 2026) — multi-jours pré-payé sur la collecte journalière.
     # On valide ici car la sérialisation n'a pas accès aux AppSettings.

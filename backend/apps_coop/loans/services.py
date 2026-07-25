@@ -810,6 +810,91 @@ def reject_loan_request(loan_request: LoanRequest, *, decided_by, motif: str) ->
     return loan_request
 
 
+def accept_counter_proposal(loan_request: LoanRequest, *, member) -> LoanRequest:
+    """Le membre ACCEPTE la contre-proposition du comité.
+
+    Applique ``montant_revise`` / ``duree_revisee`` à la demande puis la renvoie
+    en ``EN_INSTRUCTION`` : le comité finalise l'approbation via son flow normal
+    (provisoire → visite → définitive, ou approbation directe). Le membre ne
+    crée pas le prêt lui-même (cela requiert des paramètres comité : date de
+    1re échéance, PV). Débloque le statut ``EN_ATTENTE_ACCEPTATION_MEMBRE`` qui,
+    jusqu'ici, n'avait aucune transition de sortie.
+    """
+    if loan_request.member_id != member.id:
+        raise ValueError("Cette demande ne t'appartient pas.")
+    if loan_request.statut != LoanRequest.Statut.EN_ATTENTE_ACCEPTATION_MEMBRE:
+        raise ValueError("Aucune contre-proposition à accepter pour cette demande.")
+    if loan_request.montant_revise is None:
+        raise ValueError("Contre-proposition incomplète (montant révisé manquant).")
+
+    ancien_montant = str(loan_request.montant_demande)
+    loan_request.montant_demande = Decimal(loan_request.montant_revise)
+    if loan_request.duree_revisee:
+        loan_request.duree_mois = int(loan_request.duree_revisee)
+    loan_request.statut = LoanRequest.Statut.EN_INSTRUCTION
+    loan_request.save(
+        update_fields=["montant_demande", "duree_mois", "statut", "updated_at"],
+    )
+    record_audit(
+        action="loan_request.counter_proposal_accepted",
+        entite_type="LoanRequest",
+        entite_id=loan_request.id,
+        user=getattr(member, "user", None),
+        details={
+            "ancien_montant": ancien_montant,
+            "montant_accepte": str(loan_request.montant_demande),
+            "duree_acceptee": loan_request.duree_mois,
+        },
+    )
+    # Notif best-effort (une plateforme sans catalogue d'events ne casse pas).
+    try:
+        from apps_coop.notifications.events import emit_event
+
+        emit_event(
+            "loan_request.counter_proposal_accepted",
+            member=member,
+            context={
+                "prenom": member.prenom,
+                "montant": str(loan_request.montant_demande),
+            },
+        )
+    except Exception:  # noqa: BLE001 — best-effort
+        logger.warning(
+            "loan_request.counter_proposal_accepted event skipped", exc_info=True
+        )
+    return loan_request
+
+
+def refuse_counter_proposal(
+    loan_request: LoanRequest, *, member, motif: str = ""
+) -> LoanRequest:
+    """Le membre REFUSE la contre-proposition → demande ``REJETEE`` (terminal).
+
+    Libère le membre : il peut soumettre une nouvelle demande.
+    """
+    if loan_request.member_id != member.id:
+        raise ValueError("Cette demande ne t'appartient pas.")
+    if loan_request.statut != LoanRequest.Statut.EN_ATTENTE_ACCEPTATION_MEMBRE:
+        raise ValueError("Aucune contre-proposition à refuser pour cette demande.")
+
+    loan_request.statut = LoanRequest.Statut.REJETEE
+    loan_request.motif_rejet = (
+        (motif or "").strip() or "Contre-proposition refusée par le membre."
+    )
+    loan_request.date_decision = timezone.now()
+    loan_request.save(
+        update_fields=["statut", "motif_rejet", "date_decision", "updated_at"],
+    )
+    record_audit(
+        action="loan_request.counter_proposal_refused",
+        entite_type="LoanRequest",
+        entite_id=loan_request.id,
+        user=getattr(member, "user", None),
+        details={"motif": loan_request.motif_rejet},
+    )
+    return loan_request
+
+
 # ---------------------------------------------------------------------------
 # Loan renewal — member requests an extension before maturity
 # ---------------------------------------------------------------------------

@@ -1,9 +1,10 @@
-"""Partage 50/50 des intérêts crédit (refonte 2026 §7.5 / LOT 9).
+"""Rémunération prêteur des intérêts crédit (refonte 2026 §7.5, révisée 2026-07-24).
 
 Exporté pour ``apps_coop.payments.services._hook_loan_repayment`` qui pose les
 ``LoanRepayment`` puis appelle ``distribute_interest_share`` pour chaque
-imputation. Aussi exporté pour le helper de clôture ``release_loan_tranches``,
-appelé quand toutes les échéances passent à PAYEE.
+imputation (mode échéances). Le mode « à la source » passe par
+``distribute_interest_share_at_source`` au décaissement. Aussi exporté pour le
+helper de clôture ``release_loan_tranches`` (toutes échéances PAYEE).
 
 Contrat de l'API (idempotence + sûreté) :
   * ``distribute_interest_share`` n'agit que sur les imputations dont la
@@ -14,9 +15,13 @@ Contrat de l'API (idempotence + sûreté) :
   * ``release_loan_tranches`` ne libère que les tranches ENGAGEE — toute
     réexécution est un no-op (idempotent).
 
-Le découpage ``intérêt_pretteurs / intérêt_coop`` est tunable via
-``lender.interest_share_rate`` (défaut 0.5). 0 désactive complètement le
-partage (utilisé pour les crédits antérieurs au LOT 7 sans LenderAllocation).
+Règle unique 2026-07-24 : chaque prêteur touche ``k × sa contribution``
+(``k`` = AppSetting ``loans.lender.interest_rate``, éditable admin, défaut 0.03)
+dans les DEUX modes. En mode échéances la cible est répartie au prorata de
+l'intérêt payé (cumul borné par ``interest_share_paid_total``) ; en mode source
+elle est versée en une fois au décaissement. ``k <= 0`` = kill-switch.
+L'ancien ``lender.interest_share_rate`` (partage 50/50 par quote-part) est
+abandonné.
 """
 from __future__ import annotations
 
@@ -49,19 +54,25 @@ def _q(x: Decimal) -> Decimal:
     return Decimal(x).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def _share_rate() -> Decimal:
-    """Lit ``lender.interest_share_rate`` (str AppSetting) en Decimal sûr."""
-    raw = get_str_setting("lender.interest_share_rate", "0.5")
+def _lender_rate() -> Decimal:
+    """Lit ``loans.lender.interest_rate`` (k) en Decimal sûr, clampé [0,1].
+
+    Règle unique 2026-07-24 : chaque prêteur touche ``k × sa contribution``,
+    dans les deux modes (à la source ET aux échéances). ``k <= 0`` = kill-switch
+    (aucune rémunération prêteur). Remplace l'ancien ``lender.interest_share_rate``
+    (partage 50/50 par quote-part), devenu legacy.
+    """
+    raw = get_str_setting("loans.lender.interest_rate", "0.03")
     try:
         rate = Decimal(str(raw).strip())
     except Exception:  # noqa: BLE001 — admin a mis n'importe quoi
         logger.warning(
-            "lender.interest_share_rate invalide (%r), fallback 0.5", raw
+            "loans.lender.interest_rate invalide (%r), fallback 0.03", raw
         )
-        rate = Decimal("0.5")
+        rate = Decimal("0.03")
     if rate < 0 or rate > 1:
         logger.warning(
-            "lender.interest_share_rate hors [0,1] (%s), clamp", rate
+            "loans.lender.interest_rate hors [0,1] (%s), clamp", rate
         )
         rate = max(Decimal("0"), min(Decimal("1"), rate))
     return rate
@@ -111,14 +122,17 @@ def distribute_interest_share(
 ) -> list[LenderInterestPayout]:
     """Calcule + reverse la part prêteurs d'une imputation. Retourne les payouts.
 
+    Règle unique 2026-07-24 : chaque prêteur touche ``k × sa contribution``
+    (``k`` = ``loans.lender.interest_rate``), réparti AU PRORATA de l'intérêt
+    payé à chaque imputation → cumul = ``k × montant_alloue`` sur toute la vie
+    du crédit (même total que le mode « à la source »). Le cumul est borné par
+    ``interest_share_paid_total`` : jamais de surpaiement.
+
     No-op (retourne ``[]``) si :
       • le crédit n'a aucune ``LenderAllocation`` (crédit legacy pré-LOT 7),
       • la portion intérêt de l'imputation est nulle,
-      • ``lender.interest_share_rate == 0`` (kill-switch).
-
-    En cas d'arrondi (la somme des shares ne tombe pas pile sur la part
-    pretteurs cible), l'écart résiduel est attribué à la **dernière**
-    allocation pour que ``somme(payouts) == intérêt_pretteurs``.
+      • l'intérêt total du crédit est nul,
+      • ``k <= 0`` (kill-switch), ou chaque prêteur a déjà atteint sa cible.
     """
     loan = installment.loan
     allocations = _allocations_for_loan(loan)
@@ -131,32 +145,35 @@ def distribute_interest_share(
     if interet_imputation <= 0:
         return []
 
-    share_rate = _share_rate()
-    if share_rate <= 0:
+    k_rate = _lender_rate()
+    if k_rate <= 0:
         return []
 
-    pretteurs_total = _q(interet_imputation * share_rate)
-    if pretteurs_total <= 0:
-        return []
-
-    # Cible réellement distribuable = part prêteurs × somme des quote-parts
-    # ACTIVES. Sans apport, cette somme vaut 1.0 → target == pretteurs_total
-    # (comportement inchangé). Avec des prêteurs restitués par apport, leur
-    # quote-part n'est plus distribuée : la coop la garde.
-    active_quote_total = sum(
-        (Decimal(a.quote_part) for a in allocations), Decimal("0")
+    # Intérêt total du crédit (somme des échéances). Sert à répartir la
+    # rémunération cible « k × contribution » AU PRORATA de l'intérêt
+    # effectivement payé à chaque imputation : sur toute la vie du crédit,
+    # chaque prêteur touche donc k × montant_alloue — identique au mode « à la
+    # source ». (Ancienne règle : quote_part × interest_share_rate × intérêt.)
+    interet_total_loan = sum(
+        (Decimal(i.montant_interets) for i in loan.installments.all()),
+        Decimal("0"),
     )
-    target = _q(pretteurs_total * active_quote_total)
+    if interet_total_loan <= 0:
+        return []
 
     payouts: list[LenderInterestPayout] = []
     now = timezone.now()
-    sum_dispatched = Decimal("0")
-    for idx, alloc in enumerate(allocations):
-        share = _q(pretteurs_total * Decimal(alloc.quote_part))
-        # Dernière allocation active absorbe le résidu d'arrondi (borné à la
-        # cible active — jamais la quote-part gardée par la coop).
-        if idx == len(allocations) - 1:
-            share = _q(target - sum_dispatched)
+    for alloc in allocations:
+        cible_totale = _q(k_rate * Decimal(alloc.montant_alloue))
+        reste = cible_totale - Decimal(alloc.interest_share_paid_total)
+        if reste <= 0:
+            # Prêteur déjà rémunéré à hauteur de k × sa contribution.
+            continue
+        # Part de cette imputation = cible × (intérêt payé / intérêt total),
+        # bornée par le reste dû (jamais de surpaiement ; l'arrondi favorise
+        # la coop, jamais le prêteur).
+        share = _q(cible_totale * interet_imputation / interet_total_loan)
+        share = min(share, reste)
         if share <= 0:
             continue
         payout = _credit_lender(
@@ -167,7 +184,6 @@ def distribute_interest_share(
             when=now,
         )
         payouts.append(payout)
-        sum_dispatched += share
 
     # Mise à jour du tracker installment + cumul allocation.
     installment.interets_payes = _q(
@@ -184,8 +200,8 @@ def distribute_interest_share(
             "payment_id": payment.id,
             "imputation": str(imputation),
             "interet_imputation": str(interet_imputation),
-            "share_rate": str(share_rate),
-            "pretteurs_total": str(pretteurs_total),
+            "interet_total_loan": str(interet_total_loan),
+            "lender_interest_rate": str(k_rate),
             "payouts": [
                 {
                     "allocation_id": p.allocation_id,
@@ -353,20 +369,23 @@ def distribute_interest_share_at_source(
     Activée uniquement si :
       • ``loan.mode_retenue_interets == "source"`` (CH-11),
       • le crédit a au moins une ``LenderAllocation``,
-      • ``loan.interest_share_rate_fige`` > 0 (sinon kill-switch).
+      • ``interets_retenus_source`` > 0,
+      • ``k`` (``loans.lender.interest_rate``) > 0 (sinon kill-switch).
 
     Idempotent : si un ``LenderInterestPayout`` à T0 (installment=None) existe
     déjà pour ce crédit, on no-op. Évite les doubles versements en cas de
     rejeu du webhook ``decaissement`` ou d'auto-validate test.
 
-    Calcul (montants identiques au flux LOT 9, mais sourcés sur
-    ``loan.interets_retenus_source`` au lieu d'une imputation) :
+    Calcul (règle 2026-07-24) : chaque prêteur touche ``k`` % de SA contribution.
 
-        pretteurs_total = interets_retenus_source × share_rate_fige
-        share(alloc)    = pretteurs_total × alloc.quote_part
+        share(alloc) = k × alloc.montant_alloue
 
-    La dernière allocation absorbe le résidu d'arrondi pour que
-    ``somme(payouts) == pretteurs_total``.
+    où ``k`` = AppSetting ``loans.lender.interest_rate`` (éditable par l'admin),
+    lu en direct au décaissement. Ex. k=10 %, contribution 10 000 → 1 000.
+
+    Remplace l'ancienne règle « part = quote_part × (intérêts_source × 0.5) »
+    qui, avec un prêteur unique (résidu absorbé), lui faisait toucher 50 % de
+    TOUT l'intérêt du crédit quelle que soit la fraction réellement financée.
     """
     if loan.mode_retenue_interets != Loan.ModeRetenue.SOURCE:
         return []
@@ -380,8 +399,9 @@ def distribute_interest_share_at_source(
     if interets_retenus <= 0:
         return []
 
-    share_rate = Decimal(loan.interest_share_rate_fige or "0")
-    if share_rate <= 0:
+    # k = taux d'intérêt prêteur, réglage admin dédié (éditable), lu en direct.
+    k_rate = _lender_rate()
+    if k_rate <= 0:
         return []
 
     # Idempotence : un payout T0 (installment=None) déjà posé pour ce crédit
@@ -401,17 +421,13 @@ def distribute_interest_share_at_source(
             )
         )
 
-    pretteurs_total = _q(interets_retenus * share_rate)
-    if pretteurs_total <= 0:
-        return []
-
     payouts: list[LenderInterestPayout] = []
     now = timezone.now()
-    sum_dispatched = Decimal("0")
-    for idx, alloc in enumerate(allocations):
-        share = _q(pretteurs_total * Decimal(alloc.quote_part))
-        if idx == len(allocations) - 1:
-            share = _q(pretteurs_total - sum_dispatched)
+    total_credite = Decimal("0")
+    for alloc in allocations:
+        # Chaque prêteur touche k % de SA contribution (montant_alloue) —
+        # indépendant des autres et de la fraction financée par la coop.
+        share = _q(k_rate * Decimal(alloc.montant_alloue))
         if share <= 0:
             continue
         payout = _credit_lender_at_source(
@@ -421,7 +437,7 @@ def distribute_interest_share_at_source(
             when=now,
         )
         payouts.append(payout)
-        sum_dispatched += share
+        total_credite += share
 
     record_audit(
         action="loan.interest_share_distributed_at_source",
@@ -430,8 +446,8 @@ def distribute_interest_share_at_source(
         details={
             "payment_id": payment.id,
             "interets_retenus_source": str(interets_retenus),
-            "share_rate_fige": str(share_rate),
-            "pretteurs_total": str(pretteurs_total),
+            "lender_interest_rate": str(k_rate),
+            "total_credite_pretteurs": str(total_credite),
             "payouts": [
                 {
                     "allocation_id": p.allocation_id,

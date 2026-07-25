@@ -73,6 +73,15 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
     final amount = num.tryParse(_amountCtrl.text.replaceAll(' ', '')) ?? 0;
     final l = AppL10n.of(context);
     if (loan == null || amount <= 0) return;
+    // Plancher 1 000 XAF, sauf pour solder un petit reliquat (< 1 000).
+    final reste = loan.soldeRestant;
+    final floor = reste < 1000 ? reste : 1000;
+    if (amount < floor) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.err_min_1000)),
+      );
+      return;
+    }
     if (amount > _available) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l.transfer_insufficient)),

@@ -8,6 +8,7 @@ const STATIC_PATHS = [
   "",
   "/a-propos",
   "/services-financiers",
+  "/campagnes",
   "/blog",
   "/contact",
   "/devenir-membre",

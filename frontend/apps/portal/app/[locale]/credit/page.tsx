@@ -99,6 +99,7 @@ export default function PortalCreditPage() {
   const [repaySubmitting, setRepaySubmitting] = useState(false);
   const [repayError, setRepayError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const [cpBusy, setCpBusy] = useState<number | null>(null);
 
   async function reloadLoans() {
     const [list, active] = await Promise.all([
@@ -112,8 +113,14 @@ export default function PortalCreditPage() {
   async function submitRepayFromSavings() {
     if (!repayTarget) return;
     const montant = parseInt(repayAmount, 10);
-    if (!montant || montant < 500) {
-      setRepayError("Le montant minimum est de 500 FCFA.");
+    // Plancher 1 000 XAF, sauf pour solder un petit reliquat (< 1 000) : dans
+    // ce cas le minimum = le reste dû.
+    const reste = Number(repayTarget.solde_restant);
+    const floor = reste < 1000 ? reste : 1000;
+    if (!montant || montant < floor) {
+      setRepayError(
+        `Le montant minimum est de ${floor.toLocaleString("fr-FR")} FCFA.`,
+      );
       return;
     }
     setRepaySubmitting(true);
@@ -133,6 +140,25 @@ export default function PortalCreditPage() {
       setRepaySubmitting(false);
     }
   }
+  async function respondCounterProposal(id: number, accept: boolean) {
+    setCpBusy(id);
+    setError(null);
+    try {
+      if (accept) await portalApi.loans.acceptCounterProposal(id);
+      else await portalApi.loans.refuseCounterProposal(id);
+      await reloadLoans();
+      setFlash(
+        accept
+          ? "Contre-proposition acceptée — ta demande repart en instruction pour finalisation par le comité."
+          : "Contre-proposition refusée. Tu peux soumettre une nouvelle demande.",
+      );
+    } catch (err) {
+      setError((err as ApiError).detail ?? "Action impossible.");
+    } finally {
+      setCpBusy(null);
+    }
+  }
+
   // CH-4 — Schéma + valeurs des champs extras pour la modale reconduction.
   const [renewalSchema, setRenewalSchema] = useState<FormSchemaPublic | null>(null);
   const [renewalValues, setRenewalValues] = useState<FormValues>({});
@@ -569,11 +595,36 @@ export default function PortalCreditPage() {
                     <p className="mt-2 text-sm text-terra-700">Motif : {r.motif_rejet}</p>
                   ) : null}
                   {r.statut === "en_attente_acceptation_membre" && r.montant_revise ? (
-                    <p className="mt-2 rounded-md bg-cream px-3 py-2 text-sm text-ink-700">
-                      Contre-proposition du comité :{" "}
-                      <strong>{formatXAF(r.montant_revise)}</strong> sur{" "}
-                      <strong>{r.duree_revisee} mois</strong>. (UI d'acceptation à venir.)
-                    </p>
+                    <div className="mt-2 rounded-md bg-cream px-3 py-3 text-sm text-ink-700">
+                      <p>
+                        Contre-proposition du comité :{" "}
+                        <strong>{formatXAF(r.montant_revise)}</strong>
+                        {r.duree_revisee ? (
+                          <>
+                            {" "}sur <strong>{r.duree_revisee} mois</strong>
+                          </>
+                        ) : null}
+                        .
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={cpBusy === r.id}
+                          onClick={() => respondCounterProposal(r.id, true)}
+                          className={buttonClasses({ variant: "success", size: "sm" })}
+                        >
+                          {cpBusy === r.id ? "…" : "Accepter"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={cpBusy === r.id}
+                          onClick={() => respondCounterProposal(r.id, false)}
+                          className={buttonClasses({ variant: "ghost", size: "sm" })}
+                        >
+                          Refuser
+                        </button>
+                      </div>
+                    </div>
                   ) : null}
                 </li>
               ))}

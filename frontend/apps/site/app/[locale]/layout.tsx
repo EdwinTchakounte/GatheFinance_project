@@ -46,7 +46,32 @@ export async function generateMetadata(props: { params: Promise<{ locale: string
       url: locale === "fr" ? "/" : "/en",
     },
     twitter: { card: "summary_large_image", title: t("homeTitle"), description: t("homeDescription") },
-    robots: { index: true, follow: true },
+    keywords: [
+      "coopérative épargne crédit Cameroun",
+      "microfinance Douala",
+      "crédit entrepreneur Cameroun",
+      "épargne placement coopérative",
+      "GATHE Finance",
+    ],
+    // Vérification des moteurs (Google Search Console / Bing) — pilotée par
+    // variable d'env, no-op si absente. Colle le code fourni par la console.
+    verification: {
+      google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+      other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+        ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
+        : {},
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
+      },
+    },
     appleWebApp: { capable: true, statusBarStyle: "default", title: "GATHE Finance" },
   };
 }

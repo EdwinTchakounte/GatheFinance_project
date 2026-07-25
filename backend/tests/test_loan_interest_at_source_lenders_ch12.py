@@ -1,10 +1,13 @@
 """CH-12 — Distribution immédiate des intérêts prêteurs (mode source).
 
 Sinora §5.3 : en mode CH-11 "source", les intérêts sont retenus à la
-mise à disposition. Pour que les prêteurs internes (LenderAllocation)
-touchent leur part 50 %, on la distribue à T0 — pas au fil des
-remboursements (le LOT 9 split est inopérant car aucune échéance ne
-contient d'intérêt).
+mise à disposition. Les prêteurs internes (LenderAllocation) touchent leur
+rémunération à T0 — pas au fil des remboursements (le LOT 9 split est inopérant
+car aucune échéance ne contient d'intérêt).
+
+Règle 2026-07-24 : chaque prêteur reçoit ``k × sa contribution`` (montant_alloue),
+où ``k`` = AppSetting ``loans.lender.interest_rate`` (éditable admin). Fini
+l'ancien « part = quote_part × (intérêts × 0.5) ».
 
 Couvre :
   - ``Loan.interest_share_rate_fige`` posé à l'approbation (snapshot
@@ -87,6 +90,11 @@ def _set_share_rate(rate: str):
     _set_setting("lender.interest_share_rate", rate)
 
 
+def _set_lender_rate(rate: str):
+    # k = taux d'intérêt prêteur (règle 2026-07-24 : k × contribution).
+    _set_setting("loans.lender.interest_rate", rate)
+
+
 def _approve(member, comite_user, montant=Decimal("100000")):
     lr = LoanRequest.objects.create(
         member=member,
@@ -162,22 +170,23 @@ class TestDistributionT0:
     def test_two_lenders_50_50_split(self, active_member, comite_user):
         _enable_source_mode(True)
         _set_share_rate("0.5")
+        _set_lender_rate("0.10")  # k = 10 %
         loan = _approve(active_member, comite_user)
         # 100 000 demandés → 10 000 retenus à la source.
-        # Part prêteurs = 10 000 × 0.5 = 5 000 à se partager.
         assert loan.interets_retenus_source == Decimal("10000.00")
 
         l1 = MemberFactory()
         l2 = MemberFactory()
+        # Chacun finance 50 000 (100 000 × 0.5).
         _attach_lender(loan, l1, quote_part=Decimal("0.5"))
         _attach_lender(loan, l2, quote_part=Decimal("0.5"))
 
         payment = _make_payment(loan)
         payouts = distribute_interest_share_at_source(loan, payment)
         assert len(payouts) == 2
-        # Chaque prêteur touche 2 500 (= 5 000 × 0.5).
+        # Chaque prêteur touche k × sa contribution = 0.10 × 50 000 = 5 000.
         montants = sorted(Decimal(p.montant) for p in payouts)
-        assert montants == [Decimal("2500.00"), Decimal("2500.00")]
+        assert montants == [Decimal("5000.00"), Decimal("5000.00")]
         # installment=None car versement à T0.
         for p in payouts:
             assert p.installment is None
@@ -186,46 +195,50 @@ class TestDistributionT0:
     def test_proportional_to_quote_part(self, active_member, comite_user):
         _enable_source_mode(True)
         _set_share_rate("0.5")
+        _set_lender_rate("0.10")  # k = 10 %
         loan = _approve(active_member, comite_user)
         l1 = MemberFactory()
         l2 = MemberFactory()
-        # 70 / 30 split.
+        # l1 finance 70 000, l2 finance 30 000.
         _attach_lender(loan, l1, quote_part=Decimal("0.7"))
         _attach_lender(loan, l2, quote_part=Decimal("0.3"))
 
         payment = _make_payment(loan)
         payouts = distribute_interest_share_at_source(loan, payment)
         assert len(payouts) == 2
-        # 5 000 × 0.7 = 3 500, 5 000 × 0.3 = 1 500.
+        # k × contribution : 0.10 × 70 000 = 7 000, 0.10 × 30 000 = 3 000.
         by_lender = {p.allocation.lender_id: Decimal(p.montant) for p in payouts}
-        assert by_lender[l1.id] == Decimal("3500.00")
-        assert by_lender[l2.id] == Decimal("1500.00")
+        assert by_lender[l1.id] == Decimal("7000.00")
+        assert by_lender[l2.id] == Decimal("3000.00")
 
     def test_credits_lender_classic_savings(self, active_member, comite_user):
         _enable_source_mode(True)
         _set_share_rate("0.5")
+        _set_lender_rate("0.10")  # k = 10 %
         loan = _approve(active_member, comite_user)
         lender = MemberFactory()
+        # Finance 100 % = 100 000 → k × 100 000 = 10 000.
         _attach_lender(loan, lender, quote_part=Decimal("1.0"))
         payment = _make_payment(loan)
 
         distribute_interest_share_at_source(loan, payment)
-        # ClassicSavingsAccount créé à la volée + crédité de 5 000.
+        # ClassicSavingsAccount créé à la volée + crédité de 10 000.
         account = ClassicSavingsAccount.objects.get(member=lender)
-        assert account.solde == Decimal("5000.00")
+        assert account.solde == Decimal("10000.00")
         # Une ClassicSavingsTransaction INTERET_PRETEUR créée.
         tx = ClassicSavingsTransaction.objects.get(
             account=account,
             type_op=ClassicSavingsTransaction.TypeOp.INTERET_PRETEUR,
         )
-        assert tx.montant == Decimal("5000.00")
-        assert tx.solde_apres == Decimal("5000.00")
+        assert tx.montant == Decimal("10000.00")
+        assert tx.solde_apres == Decimal("10000.00")
 
     def test_cumulates_allocation_interest_share_paid_total(
         self, active_member, comite_user
     ):
         _enable_source_mode(True)
         _set_share_rate("0.5")
+        _set_lender_rate("0.10")  # k = 10 %
         loan = _approve(active_member, comite_user)
         lender = MemberFactory()
         alloc = _attach_lender(loan, lender, quote_part=Decimal("1.0"))
@@ -233,7 +246,7 @@ class TestDistributionT0:
 
         distribute_interest_share_at_source(loan, payment)
         alloc.refresh_from_db()
-        assert alloc.interest_share_paid_total == Decimal("5000.00")
+        assert alloc.interest_share_paid_total == Decimal("10000.00")
 
 
 # ---------------------------------------------------------------------------
@@ -243,6 +256,7 @@ class TestIdempotent:
     def test_second_call_returns_existing_payouts(self, active_member, comite_user):
         _enable_source_mode(True)
         _set_share_rate("0.5")
+        _set_lender_rate("0.10")  # k = 10 %
         loan = _approve(active_member, comite_user)
         lender = MemberFactory()
         _attach_lender(loan, lender, quote_part=Decimal("1.0"))
@@ -256,9 +270,9 @@ class TestIdempotent:
         ).count() == 1
         assert len(first) == 1
         assert len(second) == 1
-        # Le solde du prêteur reste à 5 000 (pas 10 000).
+        # Le solde du prêteur reste à 10 000 (pas 20 000).
         account = ClassicSavingsAccount.objects.get(member=lender)
-        assert account.solde == Decimal("5000.00")
+        assert account.solde == Decimal("10000.00")
 
 
 # ---------------------------------------------------------------------------
@@ -284,12 +298,10 @@ class TestNoopGuards:
         payouts = distribute_interest_share_at_source(loan, payment)
         assert payouts == []
 
-    def test_kill_switch_share_rate_zero(self, active_member, comite_user):
+    def test_kill_switch_lender_rate_zero(self, active_member, comite_user):
         _enable_source_mode(True)
-        _set_share_rate("0")
+        _set_lender_rate("0")  # k = 0 → pas de rémunération prêteur
         loan = _approve(active_member, comite_user)
-        # Le loan est figé à 0 → distribution no-op même avec prêteurs.
-        assert loan.interest_share_rate_fige == Decimal("0.0000")
         lender = MemberFactory()
         _attach_lender(loan, lender, quote_part=Decimal("1.0"))
         payment = _make_payment(loan)
@@ -303,7 +315,7 @@ class TestNoopGuards:
 class TestAudit:
     def test_audit_recorded(self, active_member, comite_user):
         _enable_source_mode(True)
-        _set_share_rate("0.5")
+        _set_lender_rate("0.10")  # k = 10 %
         loan = _approve(active_member, comite_user)
         lender = MemberFactory()
         _attach_lender(loan, lender, quote_part=Decimal("1.0"))
@@ -318,6 +330,6 @@ class TestAudit:
         assert audit is not None
         details = audit.details_json
         assert Decimal(details["interets_retenus_source"]) == Decimal("10000")
-        assert Decimal(details["share_rate_fige"]) == Decimal("0.5")
-        assert Decimal(details["pretteurs_total"]) == Decimal("5000")
+        assert Decimal(details["lender_interest_rate"]) == Decimal("0.10")
+        assert Decimal(details["total_credite_pretteurs"]) == Decimal("10000")
         assert len(details["payouts"]) == 1

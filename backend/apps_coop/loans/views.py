@@ -1619,6 +1619,67 @@ def loan_request_pay_study_fee_from_savings(request, pk: int):
 
 @extend_schema(
     tags=["loans"],
+    summary="Membre — accepter la contre-proposition du comité",
+    description=(
+        "Le membre accepte les montant/durée révisés proposés par le comité "
+        "(statut `en_attente_acceptation_membre`). La demande adopte le montant "
+        "révisé et repasse en `en_instruction` pour finalisation par le comité. "
+        "409 si la demande n'attend pas de réponse à une contre-proposition."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsActiveMember])
+def loan_request_accept_counter_proposal(request, pk: int):
+    from .services import accept_counter_proposal
+
+    try:
+        lr = LoanRequest.objects.get(pk=pk, member=request.user.member)
+    except LoanRequest.DoesNotExist:
+        return Response(
+            {"detail": "Demande introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+    try:
+        accept_counter_proposal(lr, member=request.user.member)
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+    lr.refresh_from_db()
+    return Response(LoanRequestReadSerializer(lr, context={"request": request}).data)
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="Membre — refuser la contre-proposition du comité",
+    description=(
+        "Le membre refuse la contre-proposition (statut "
+        "`en_attente_acceptation_membre`) → la demande passe en `rejetee`. "
+        "Motif optionnel dans le corps (`motif`). Le membre peut ensuite "
+        "soumettre une nouvelle demande."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsActiveMember])
+def loan_request_refuse_counter_proposal(request, pk: int):
+    from .services import refuse_counter_proposal
+
+    try:
+        lr = LoanRequest.objects.get(pk=pk, member=request.user.member)
+    except LoanRequest.DoesNotExist:
+        return Response(
+            {"detail": "Demande introuvable."}, status=status.HTTP_404_NOT_FOUND
+        )
+    motif = str(request.data.get("motif", "")).strip()
+    try:
+        refuse_counter_proposal(lr, member=request.user.member, motif=motif)
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+    lr.refresh_from_db()
+    return Response(LoanRequestReadSerializer(lr, context={"request": request}).data)
+
+
+@extend_schema(
+    tags=["loans"],
     summary="🔒 Staff — enregistrer le rapport de visite terrain",
     description=(
         "Enregistre la visite terrain d'une demande APPROUVEE_PROVISOIRE. "

@@ -130,17 +130,32 @@ class TestConfirmEndpoint:
         )
         assert r2.status_code == 410
 
-    def test_weak_password_returns_400(self, pending_user):
+    def test_short_password_now_accepted(self, pending_user):
+        # 2026-07-24 : durcissement mot de passe RETIRÉ → un mot de passe court
+        # ("abc") est désormais accepté (plus de validateurs de complexité).
         token = issue_password_setup_token(user=pending_user)
         c = Client()
         c.get("/api/v1/auth/csrf/")
         r = c.post(
             "/api/v1/auth/setup-password/confirm/",
-            data={"token": token.token, "password": "abc"},  # trop court
+            data={"token": token.token, "password": "abc"},
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        token.refresh_from_db()
+        assert token.used_at is not None
+
+    def test_empty_password_returns_400(self, pending_user):
+        # Le champ reste obligatoire : mot de passe vide → 400, token intact.
+        token = issue_password_setup_token(user=pending_user)
+        c = Client()
+        c.get("/api/v1/auth/csrf/")
+        r = c.post(
+            "/api/v1/auth/setup-password/confirm/",
+            data={"token": token.token, "password": ""},
             content_type="application/json",
         )
         assert r.status_code == 400
-        # Token NON consomme en cas d'echec validation.
         token.refresh_from_db()
         assert token.used_at is None
 

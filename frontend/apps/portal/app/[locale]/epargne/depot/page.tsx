@@ -107,11 +107,31 @@ function DepositForm() {
   // 1 = mode normal (montant libre, min 100). > 1 = montant verrouille a
   // nbJours x kCollecteMinPerDay (1000 par defaut, ajustable backend).
   const [nbJours, setNbJours] = useState<number>(1);
-  const COLLECTE_MIN_PER_DAY = 1000;
-  // Pas du montant : la collecte se verse par multiples de 50 FCFA (aligné
-  // backend `collecte.amount_step`). En multi-jours le montant est LIBRE tant
-  // qu'il respecte ce pas ET le minimum de 1 000/jour (≥ N × 1 000).
-  const COLLECTE_AMOUNT_STEP = 50;
+  // Récupère les seuils collecte réels (repli silencieux sur les défauts).
+  useEffect(() => {
+    let cancelled = false;
+    portalApi
+      .savingsInfo()
+      .then((info) => {
+        if (cancelled) return;
+        setCollecteRules({
+          minPerDay: info.collecte_min_per_day_xaf ?? 1000,
+          step: info.collecte_amount_step_xaf ?? 50,
+        });
+      })
+      .catch(() => {
+        /* repli sur les défauts déjà en place */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  // Règles collecte lues sur /savings/info/ (source de vérité admin), avec
+  // repli sur les défauts réglementaires (voir le useEffect plus bas). Le pas
+  // du montant : la collecte se verse par multiples de 50 FCFA par défaut.
+  const [collecteRules, setCollecteRules] = useState({ minPerDay: 1000, step: 50 });
+  const COLLECTE_MIN_PER_DAY = collecteRules.minPerDay;
+  const COLLECTE_AMOUNT_STEP = collecteRules.step;
   const isCollecte = context === "savings";
   const isMultiJour = isCollecte && nbJours > 1;
   // Minimum applicable selon le contexte (aligné backend) :

@@ -154,6 +154,22 @@ class LoanRequestsNotifier extends AsyncNotifier<List<LoanRequestEntity>>
     return submission;
   }
 
+  /// Réponse à une contre-proposition du comité puis rafraîchit la liste.
+  /// [accept] true = accepter (montant révisé appliqué → en instruction),
+  /// false = refuser (demande rejetée, le membre est libéré).
+  Future<void> respondCounterProposal({
+    required int requestId,
+    required bool accept,
+    String? motif,
+  }) async {
+    await ref.read(loansRepositoryProvider).respondCounterProposal(
+          requestId: requestId,
+          accept: accept,
+          motif: motif,
+        );
+    await refresh();
+  }
+
   /// CH-5 . Upload une pièce jointe sur un LoanRequest existant.
   Future<void> uploadAttachment({
     required int loanRequestId,

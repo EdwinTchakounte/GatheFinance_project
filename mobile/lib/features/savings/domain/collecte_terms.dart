@@ -6,10 +6,10 @@ import 'package:flutter/foundation.dart';
 /// - `collecte.min_per_day` (défaut 1000 XAF)
 /// - `collecte.prepay.max_days` (défaut 30 jours)
 ///
-/// Si l'admin modifie ces seuils côté backend, le mobile continue d'envoyer
-/// la valeur par défaut. La validation backend renverra alors une 400 avec
-/// un message explicite. On pourra ensuite fetcher `/savings/info/` pour
-/// synchroniser, mais ce n'est pas indispensable au MVP multi-jours.
+/// Ces constantes servent désormais de **repli** : le formulaire de dépôt lit
+/// en priorité `GET /savings/info/` (via `savingsInfoProvider`) pour rester
+/// synchronisé avec les seuils admin ; il ne retombe sur ces valeurs que si
+/// l'appel échoue ou n'a pas encore abouti.
 const int kCollecteMinPerDay = 1000;
 
 /// Plancher de versement minimum accepté par la validation client.

@@ -9,6 +9,11 @@ ALLOWED_HOSTS = ["*"]
 # Show e-mails in the console during development unless overridden.
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 
+# Sécurité — blacklist/anti-flood IP DÉSACTIVÉE en dev & en test : la suite
+# tape des milliers de requêtes depuis 127.0.0.1 et s'auto-bannirait. Actif par
+# défaut en prod (base). Les tests dédiés le réactivent via override_settings.
+SECURITY_IP_BLOCK_ENABLED = env.bool("SECURITY_IP_BLOCK_ENABLED", default=False)
+
 # IMPORTANT — Ne PAS utiliser CORS_ALLOW_ALL_ORIGINS=True ici : le spec CORS
 # interdit Access-Control-Allow-Origin: * en présence de credentials, et
 # django-cors-headers retire alors silencieusement l'entête

@@ -615,6 +615,14 @@ export const portalApi = {
   savings: () => request<SavingsSnapshot>("/savings/me/"),
   classicSavings: () =>
     request<ClassicSavingsSnapshot>("/savings/classic/me/"),
+  // Règles publiques de la collecte (source de vérité admin) — évite de coder
+  // en dur min/step côté client.
+  savingsInfo: () =>
+    request<{
+      collecte_min_per_day_xaf: number;
+      collecte_prepay_max_days: number;
+      collecte_amount_step_xaf: number;
+    }>("/savings/info/"),
   // Choix fin de mois de la collecte : cash (agence) / mobile_money / epargne.
   collecteEomPreference: () =>
     request<CollecteEomPreference>("/savings/me/end-of-month-preference/"),
@@ -761,6 +769,19 @@ export const portalApi = {
         route_details: Record<string, unknown>;
         frais_a_payer: { code: string; libelle: string; montant: string };
       }>("/loans/requests/", { method: "POST", body: JSON.stringify(data) }),
+
+    // Réponse du membre à une contre-proposition du comité (débloque le statut
+    // en_attente_acceptation_membre).
+    acceptCounterProposal: (requestId: number) =>
+      request<LoanRequest>(
+        `/loans/me/requests/${requestId}/counter-proposal/accept/`,
+        { method: "POST" },
+      ),
+    refuseCounterProposal: (requestId: number, motif?: string) =>
+      request<LoanRequest>(
+        `/loans/me/requests/${requestId}/counter-proposal/refuse/`,
+        { method: "POST", body: JSON.stringify({ motif: motif ?? "" }) },
+      ),
 
     // CH-9 — URL absolue pour télécharger la note PDF d'une demande.
     noteUrl: (requestId: number) => `${API_BASE}/loans/requests/${requestId}/note/`,

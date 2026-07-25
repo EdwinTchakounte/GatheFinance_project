@@ -82,6 +82,20 @@ class LoansRepositoryImpl implements LoansRepository {
       _run(() => _remote.payStudyFeeFromSavings(requestId: requestId));
 
   @override
+  Future<void> respondCounterProposal({
+    required int requestId,
+    required bool accept,
+    String? motif,
+  }) =>
+      _run(
+        () => _remote.respondCounterProposal(
+          requestId: requestId,
+          accept: accept,
+          motif: motif,
+        ),
+      );
+
+  @override
   Future<FormSchema?> getActiveLoanRequestSchema() =>
       _run(_remote.getActiveLoanRequestSchema);
 

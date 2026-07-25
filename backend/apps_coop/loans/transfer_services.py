@@ -22,6 +22,13 @@ from apps_coop.audit.services import record as record_audit
 from .models import Loan
 
 
+# Versement minimum (règle 2026 « 1 000 partout »). EXCEPTION : un versement qui
+# solde le reste dû est toujours accepté, même s'il est < 1 000 — sinon on
+# bloquerait la clôture d'un petit reliquat. Partagé avec le chemin Mobile Money
+# (apps_coop.payments.views).
+MIN_REPAYMENT_XAF = Decimal("1000")
+
+
 class TransferError(ValueError):
     """Le transfert est impossible (motif lisible par le membre)."""
 
@@ -73,6 +80,13 @@ def repay_loan_from_savings(loan: Loan, montant: Decimal) -> "object":
     # On ne rembourse jamais plus que ce qui reste dû.
     if montant > solde_restant:
         montant = solde_restant
+
+    # Plancher 1 000 XAF, SAUF si ce versement solde le reste dû (petit reliquat).
+    if montant < MIN_REPAYMENT_XAF and montant < solde_restant:
+        raise TransferError(
+            f"Le versement minimum est de {int(MIN_REPAYMENT_XAF)} XAF "
+            "(sauf pour solder le reste dû)."
+        )
 
     member = loan.member
 
