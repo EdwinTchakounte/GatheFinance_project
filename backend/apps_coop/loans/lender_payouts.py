@@ -32,6 +32,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps_coop.audit.services import get_str_setting, record as record_audit
+from apps_coop.portal_urls import portal_url
 from apps_coop.savings.models import (
     ClassicSavingsAccount,
     ClassicSavingsTransaction,
@@ -344,9 +345,7 @@ def release_loan_tranches(loan: Loan) -> int:
                         "prenom": m.prenom,
                         "montant": f"{int(montant):,}".replace(",", " "),
                         "numero_dossier": loan.numero_dossier,
-                        "portal_url": getattr(
-                            settings, "FRONTEND_BASE_URL", "http://localhost:3200"
-                        ),
+                        "portal_url": portal_url(),
                     },
                 )
             except Exception:  # pragma: no cover — notif best-effort

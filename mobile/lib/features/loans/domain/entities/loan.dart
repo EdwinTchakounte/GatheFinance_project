@@ -31,6 +31,8 @@ class Loan {
     this.modeRetenueInterets = LoanInterestMode.echeances,
     this.montantDecaisseNet,
     this.interetsRetenusSource,
+    this.apportGele = 0,
+    this.apportGeleMotif = '',
   });
 
   final int id;
@@ -63,6 +65,13 @@ class Loan {
 
   /// CH-11 — Intérêts ponctionnés à T0 par la coop (mode source uniquement).
   final num? interetsRetenusSource;
+
+  /// Apport personnel GELÉ transférable pour solder ce crédit (2026-07). 0 =
+  /// aucun apport gelé. Le membre peut le mobiliser via « repay-from-frozen ».
+  final num apportGele;
+
+  /// Motif lisible du gel de l'apport (affiché à côté du bouton de transfert).
+  final String apportGeleMotif;
 
   LoanInstallment? get nextDue =>
       installments.where((i) => i.statut != InstallmentStatus.payee).firstOrNull;
@@ -123,6 +132,7 @@ class Loan {
         'soldeRestant': soldeRestant,
         'statut': statut.name,
         'dejaReconduit': dejaReconduit,
+        'apportGele': apportGele,
         'installments': [
           for (final i in installments)
             {

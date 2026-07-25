@@ -92,6 +92,49 @@ def earmark_guarantee_tranches(*, member, montant, loan_request) -> Decimal:
     return gele
 
 
+def consume_guarantee_tranches(loan_request, montant) -> Decimal:
+    """Consomme (retire du placement) jusqu'à ``montant`` de tranches ``GELEE``
+    de ``loan_request``.
+
+    Utilisé quand l'apport gelé est TRANSFÉRÉ pour rembourser un crédit :
+    l'argent quitte réellement le compte, la tranche de placement correspondante
+    disparaît donc du pool (contrairement à ``release_guarantee_tranches`` qui la
+    rendrait disponible). Prend de la plus ancienne à la plus récente ; splitte
+    la dernière tranche si besoin (le reliquat reste ``GELEE``).
+
+    Renvoie le montant réellement consommé sur le placement (le reliquat de
+    ``montant`` provenait de la part libre, non tranchée). À appeler dans une
+    transaction.
+    """
+    besoin = Decimal(montant or 0)
+    if besoin <= 0 or loan_request is None or loan_request.pk is None:
+        return Decimal("0")
+
+    consomme = Decimal("0")
+    tranches = (
+        LenderTranche.objects.select_for_update()
+        .filter(
+            gele_par_loan_request=loan_request,
+            statut=LenderTranche.Statut.GELEE,
+        )
+        .order_by("created_at", "id")
+    )
+    for t in tranches:
+        restant = besoin - consomme
+        if restant <= 0:
+            break
+        montant_t = Decimal(t.montant)
+        if montant_t > restant:
+            # Split : on ne consomme que ``restant``, le surplus reste GELEE.
+            t.montant = montant_t - restant
+            t.save(update_fields=["montant", "updated_at"])
+            consomme += restant
+        else:
+            consomme += montant_t
+            t.delete()
+    return consomme
+
+
 def release_guarantee_tranches(loan_request) -> int:
     """Rend au pool les tranches gelées par ``loan_request``. Idempotent.
 

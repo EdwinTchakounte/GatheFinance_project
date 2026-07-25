@@ -14,7 +14,10 @@ import pytest
 from django.utils import timezone
 
 from apps_coop.loans.models import Loan, LoanInstallment, LoanRequest
-from apps_coop.loans.transfer_services import repay_loan_from_savings
+from apps_coop.loans.transfer_services import (
+    repay_loan_from_frozen,
+    repay_loan_from_savings,
+)
 from apps_coop.members.fee_from_savings_services import (
     pay_membership_fee_from_savings,
 )
@@ -120,3 +123,29 @@ class TestTransferClosureFlow:
         assert loan.statut == Loan.Statut.CLOTURE
         inst = LoanInstallment.objects.get(loan=loan)
         assert inst.statut == LoanInstallment.Statut.PAYEE
+
+    def test_transfert_apport_gele_solde_le_credit(self):
+        # Le membre transfère son apport GELÉ (que le transfert ordinaire ne
+        # peut pas ponctionner) pour éteindre son crédit.
+        m = MemberFactory()
+        classic = ClassicSavingsAccount.objects.create(
+            member=m, solde=Decimal("10000"), date_ouverture=date.today()
+        )
+        loan = self._loan(m, "8000")
+        # Apport gelé sur la demande (10 000), grisé au retrait.
+        loan.loan_request.montant_gele_demandeur = Decimal("10000")
+        loan.loan_request.motif_gel_demandeur = "Apport personnel"
+        loan.loan_request.save(
+            update_fields=["montant_gele_demandeur", "motif_gel_demandeur"]
+        )
+
+        repay_loan_from_frozen(loan)  # défaut = tout l'apport, borné au reste dû
+
+        loan.refresh_from_db()
+        classic.refresh_from_db()
+        assert loan.solde_restant == Decimal("0.00")
+        assert loan.statut == Loan.Statut.CLOTURE
+        # 8 000 ponctionnés (borné au reste dû) ; le gel restant = 2 000.
+        assert classic.solde == Decimal("2000.00")
+        loan.loan_request.refresh_from_db()
+        assert loan.loan_request.montant_gele_demandeur == Decimal("2000")

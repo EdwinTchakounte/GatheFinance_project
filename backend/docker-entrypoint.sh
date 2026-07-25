@@ -32,8 +32,11 @@ if [ "${COLLECT_STATIC:-0}" = "1" ]; then
 fi
 
 echo "[entrypoint] bootstrapping site content (idempotent)..."
-python manage.py bootstrap_site || true
-python manage.py seed_blog || true
+# NE PAS avaler l'échec silencieusement (|| true masquait un arbre Wagtail non
+# semé → /admin/pages 500 + vitrine articles vides). On loggue bien l'erreur
+# pour la voir dans les logs conteneur, sans bloquer le démarrage.
+python manage.py bootstrap_site || echo "[entrypoint] WARNING: bootstrap_site a échoué (voir trace ci-dessus)"
+python manage.py seed_blog || echo "[entrypoint] WARNING: seed_blog a échoué (articles vitrine potentiellement vides)"
 python manage.py seed_fees || true
 python manage.py seed_rates || true
 # Planification des crons django-q2 (suspension annuelle, interets mensuels,

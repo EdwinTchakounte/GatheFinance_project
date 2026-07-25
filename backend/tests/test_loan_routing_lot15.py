@@ -119,12 +119,13 @@ class TestVoieSeniorBrc:
         lr = LoanRequest.objects.get(pk=body["loan_request"]["id"])
         assert lr.montant_gele_demandeur == Decimal("100000")
 
-    def test_ancient_brc_undercovered_creates_lr_with_partial_gel(
+    def test_ancient_brc_undercovered_creates_lr_with_apport_gel(
         self, active_member
     ):
         # Ancien + BRC, épargne classique < montant : dossier accepté en voie 1
-        # (le comité jugera), SANS avaliste. Le gel = son épargne dispo (min),
-        # pas le montant plein — il immobilise ce qu'il a.
+        # (le comité jugera), SANS avaliste. Depuis le garde-fou apport (2026-07),
+        # le gel = l'APPORT personnel (10 % du montant), transférable pour solder,
+        # et non plus toute l'épargne dispo.
         _seed_fee()
         _ancient_brc(active_member)
         _seed_classic(active_member, 30000)
@@ -142,8 +143,8 @@ class TestVoieSeniorBrc:
         body = r.json()
         assert body["route"] == "senior_brc"
         lr = LoanRequest.objects.get(pk=body["loan_request"]["id"])
-        # Gel partiel = min(montant, épargne dispo) = 30 000, pas 100 000.
-        assert lr.montant_gele_demandeur == Decimal("30000")
+        # Gel = apport (10 % × 100 000) = 10 000, borné à l'épargne dispo.
+        assert lr.montant_gele_demandeur == Decimal("10000")
 
     def test_above_self_coverage_without_avaliste_rejects(self, active_member):
         # Plus de plafond ×10 : un NOUVEL adhérent (non ancien) sans avaliste ne

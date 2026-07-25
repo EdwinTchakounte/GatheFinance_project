@@ -307,6 +307,28 @@ CATALOG: list[dict] = [
         "type": "bool",
         "default": "false",
     },
+    # Apport personnel (garde-fou 2026-07) — rejet automatique si la cagnotte
+    # disponible du membre ne couvre pas l'apport minimum requis.
+    {
+        "key": "loans.apport.rate",
+        "group": "apport",
+        "label": "Apport personnel attendu (ratio)",
+        "description": "Apport personnel indicatif attendu sur un crédit (affiché au membre). 0.20 = 20 % du montant. Le rejet automatique s'appuie sur le seuil disponible ci-dessous, pas sur ce taux.",
+        "type": "decimal",
+        "default": "0.20",
+        "min": 0,
+        "max": 1,
+    },
+    {
+        "key": "loans.apport.min_available_rate",
+        "group": "apport",
+        "label": "Apport minimum disponible requis (ratio)",
+        "description": "Part du montant demandé qui DOIT être présente dans la cagnotte (épargnes non gelées placées ou non + collecte) au moment de la demande, sinon rejet automatique. 0.10 = 10 %. 0 = garde-fou désactivé.",
+        "type": "decimal",
+        "default": "0.10",
+        "min": 0,
+        "max": 1,
+    },
     # LOT 11 — Campaign defaults
     {
         "key": "loans.campaign.default_montant_min",

@@ -171,14 +171,29 @@ export function DataTable<T>({
             </thead>
             <tbody>
               {filtered.map((row) => (
-                <tr key={rowKey(row)}>
+                <tr
+                  key={rowKey(row)}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={
+                    onRowClick
+                      ? "cursor-pointer transition-colors hover:bg-blue-50/50"
+                      : undefined
+                  }
+                >
                   {shownCols.map((c) => (
                     <td key={c.key} className={c.align === "right" ? "text-right" : ""}>
                       {c.render ? c.render(row) : c.text(row)}
                     </td>
                   ))}
                   {actions ? (
-                    <td className="text-right">{actions(row)}</td>
+                    // Clic sur les boutons d'action : ne pas déclencher le clic
+                    // de ligne (ex. ouvrir un détail).
+                    <td
+                      className="text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {actions(row)}
+                    </td>
                   ) : null}
                 </tr>
               ))}

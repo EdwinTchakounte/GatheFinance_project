@@ -534,6 +534,8 @@ Loan _parseLoan(Map<String, dynamic> json) {
     interetsRetenusSource: json['interets_retenus_source'] != null
         ? _num(json['interets_retenus_source'])
         : null,
+    apportGele: _num(json['apport_gele'] ?? 0),
+    apportGeleMotif: (json['apport_gele_motif'] as String?) ?? '',
   );
 }
 

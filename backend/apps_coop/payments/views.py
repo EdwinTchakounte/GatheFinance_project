@@ -1284,3 +1284,33 @@ def admin_cash_in_payment(request):
         PaymentReadSerializer(payment).data,
         status=status.HTTP_201_CREATED,
     )
+
+
+@extend_schema(
+    tags=["payments"],
+    summary="🔒 Admin — invalider un paiement validé (contre-passation)",
+    description=(
+        "Passe le paiement `pk` en `rejete` et contre-passe son effet ledger "
+        "(épargne collecte/classique, remboursement crédit). Refuse un "
+        "décaissement ou un paiement déjà rejeté."
+    ),
+    responses={
+        200: OpenApiResponse(description="Paiement invalidé + récap contre-passation"),
+        400: OpenApiResponse(description="Invalidation impossible"),
+        404: OpenApiResponse(description="Paiement introuvable"),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def admin_invalidate_payment(request, pk: int):
+    from .invalidation_services import PaymentInvalidationError, invalidate_payment
+
+    payment = Payment.objects.filter(pk=pk).first()
+    if payment is None:
+        return Response({"detail": "Paiement introuvable."}, status=status.HTTP_404_NOT_FOUND)
+    motif = (request.data.get("motif") or "").strip()
+    try:
+        invalidate_payment(payment, actor=request.user, motif=motif)
+    except PaymentInvalidationError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(PaymentReadSerializer(payment).data)

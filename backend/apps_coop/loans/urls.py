@@ -46,6 +46,7 @@ from .microcampaign_public import (
 )
 from .views import (
     admin_list_installments,
+    admin_delete_loan_request,
     admin_list_loan_requests,
     admin_list_loan_renewals,
     admin_list_loans,
@@ -64,6 +65,7 @@ from .views import (
     loan_request_decide_provisional,
     loan_request_field_visit,
     loan_repay_from_savings,
+    loan_repay_from_frozen,
     loan_request_accept_counter_proposal,
     loan_request_list,
     loan_request_pay_study_fee_from_savings,
@@ -103,6 +105,11 @@ urlpatterns = [
         "me/loans/<int:pk>/repay-from-savings/",
         loan_repay_from_savings,
         name="loan-repay-from-savings",
+    ),
+    path(
+        "me/loans/<int:pk>/repay-from-frozen/",
+        loan_repay_from_frozen,
+        name="loan-repay-from-frozen",
     ),
     # P3 . Historique credits cloturees (parite portail web).
     path("me/closed/", loans_me_closed, name="my-closed-loans"),
@@ -158,6 +165,11 @@ urlpatterns = [
         name="admin-request-avaliste",
     ),
     path("admin/requests/", admin_list_loan_requests, name="admin-list-requests"),
+    path(
+        "admin/requests/<int:pk>/delete/",
+        admin_delete_loan_request,
+        name="admin-delete-request",
+    ),
     path("admin/list/", admin_list_loans, name="admin-list-loans"),
     # A1 . Detail credit (echeances + remboursements) pour drawer admin.
     path(

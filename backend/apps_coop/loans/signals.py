@@ -165,9 +165,8 @@ def _notify_avaliste_gel_released(loan_request) -> None:
 
     def _emit() -> None:
         try:
-            from django.conf import settings
-
             from apps_coop.notifications.events import emit_event
+            from apps_coop.portal_urls import portal_url
 
             emit_event(
                 "loan.avaliste_gel_released",
@@ -177,8 +176,8 @@ def _notify_avaliste_gel_released(loan_request) -> None:
                     "borrower_nom": borrower.nom,
                     "borrower_numero": borrower.numero_membre,
                     "montant": montant,
-                    # {portal_url} du CTA — sans lui, _render retombe sur le brut.
-                    "portal_url": getattr(settings, "FRONTEND_PUBLIC_URL", ""),
+                    # {portal_url} du CTA — helper (fallback PORTAL_DOMAIN inclus).
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # pragma: no cover — notif best-effort

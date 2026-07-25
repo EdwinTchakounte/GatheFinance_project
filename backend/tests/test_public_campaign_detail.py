@@ -43,3 +43,21 @@ def test_detail_clôturée_reste_accessible():
 
 def test_detail_inexistante_404():
     assert APIClient().get("/api/v1/loans/campaigns/999999/").status_code == 404
+
+
+def test_flyer_url_uses_public_base_not_internal_host(settings, tmp_path):
+    # Le flyer uploadé doit produire une URL absolue PUBLIQUE (PUBLIC_BASE_URL),
+    # jamais l'hôte interne Docker de la requête (backend:8000 → image cassée).
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    settings.MEDIA_ROOT = tmp_path
+    settings.MEDIA_URL = "/media/"
+    settings.PUBLIC_BASE_URL = "https://api.example.test"
+    c = _campaign()
+    c.flyer = SimpleUploadedFile("flyer.png", b"\x89PNG\r\n", content_type="image/png")
+    c.save()
+    r = APIClient().get(
+        f"/api/v1/loans/campaigns/{c.id}/", HTTP_HOST="backend:8000"
+    )
+    assert r.status_code == 200
+    assert r.data["flyer_url"].startswith("https://api.example.test/media/")

@@ -123,6 +123,40 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
     }
   }
 
+  /// Transfère l'apport GELÉ du crédit sélectionné pour le solder — l'argent
+  /// gelé (non retirable normalement) est mobilisé côté serveur.
+  Future<void> _submitFrozen() async {
+    final loan = _selected;
+    if (loan == null || loan.apportGele <= 0) return;
+    setState(() => _submitting = true);
+    try {
+      final dio = ref.read(apiClientProvider).dio;
+      await dio.post<Map<String, dynamic>>(
+        '/loans/me/loans/${loan.id}/repay-from-frozen/',
+      );
+      unawaited(HapticFeedback.mediumImpact());
+      ref
+        ..invalidate(loansProvider)
+        ..invalidate(closedLoansProvider)
+        ..invalidate(eligibilityProvider)
+        ..invalidate(savingsProvider)
+        ..invalidate(classicSavingsProvider);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).transfer_success)),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
@@ -273,6 +307,35 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
                   label: _submitting ? '…' : l.transfer_cta,
                   onPressed: _submitting ? null : _submit,
                 ),
+                if ((_selected?.apportGele ?? 0) > 0) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _submitting ? null : _submitFrozen,
+                    icon: const Icon(Icons.lock_open_rounded, size: 18),
+                    label: Text(
+                      'Transférer mon apport gelé '
+                      '(${XAFFormatter.format(_selected!.apportGele)} XAF)',
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      foregroundColor: PaColors.navy,
+                      side: const BorderSide(color: PaColors.teal),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                  if ((_selected?.apportGeleMotif ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      _selected!.apportGeleMotif,
+                      style: const TextStyle(
+                        color: PaColors.inkMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
               ],
             ],
           ),

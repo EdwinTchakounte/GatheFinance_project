@@ -28,6 +28,11 @@ class Command(BaseCommand):
         self.stdout.write(f"Locales: fr (id={fr.pk}), en (id={en.pk}){' [created]' if en_created else ''}")
 
         root = Page.get_first_root_node()
+        if root is None:
+            # Arbre Wagtail vide (cas pathologique : migrations initiales non
+            # jouées / root supprimée). On recrée la racine pour ne pas 500.
+            root = Page.add_root(title="Root", slug="root")
+            self.stdout.write(self.style.WARNING("Recréé le nœud racine Wagtail"))
         site = Site.objects.filter(is_default_site=True).first()
 
         home = HomePage.objects.first()
@@ -63,7 +68,13 @@ class Command(BaseCommand):
                 old_root.delete()
                 self.stdout.write("Removed the default placeholder page")
         elif not site:
-            Site.objects.create(hostname="localhost", port=80, root_page=home, is_default_site=True, site_name="GATHE Finance")
+            # Réassigne `site` : il est réutilisé plus bas (SiteSettings.load,
+            # repointage hostname). Sans ça, load(request_or_site=None) tournait
+            # sur la toute première exécution.
+            site = Site.objects.create(
+                hostname="localhost", port=80, root_page=home,
+                is_default_site=True, site_name="GATHE Finance",
+            )
             self.stdout.write("Created default Site → HomePage")
 
         # Child pages: blog index + legal pages.

@@ -951,6 +951,7 @@ export type WithdrawalStatut =
 
 export type WithdrawalRow = {
   id: number;
+  member_id: number;
   numero_membre: string;
   member_nom: string;
   montant: string;
@@ -1328,6 +1329,13 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify(payload),
       }),
+    // Suppression tracée (admin) : supprime la demande + le crédit et écrit une
+    // ligne dans MEDIA_ROOT/audit/suppressions_credit.txt.
+    remove: (id: number, motif?: string) =>
+      request<{ detail: string; recap: Record<string, unknown> }>(
+        `/loans/admin/requests/${id}/delete/`,
+        { method: "DELETE", body: JSON.stringify(motif ? { motif } : {}) },
+      ),
     // CH-6 — Approbation provisoire (comité) : en_instruction → approuvee_provisoire.
     decideProvisional: (id: number, payload: { avis_provisoire: string }) =>
       request<LoanRequest>(`/loans/requests/${id}/decide-provisional/`, {
@@ -1613,6 +1621,12 @@ export const adminApi = {
       request<PaymentRow>("/payments/admin/cash-in/", {
         method: "POST",
         body: JSON.stringify(payload),
+      }),
+    // Invalidation d'un paiement validé (contre-passation ledger).
+    invalidate: (id: number, motif?: string) =>
+      request<PaymentRow>(`/payments/admin/${id}/invalidate/`, {
+        method: "POST",
+        body: JSON.stringify(motif ? { motif } : {}),
       }),
   },
 

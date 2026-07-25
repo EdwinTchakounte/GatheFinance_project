@@ -181,6 +181,22 @@ function Inner() {
     },
   ];
 
+  async function invalidatePayment(p: PaymentRow) {
+    const motif = window.prompt(
+      `Invalider ce paiement de ${Number(p.montant).toLocaleString("fr-FR")} XAF ?\n` +
+        "Son effet (épargne / remboursement) sera contre-passé. Motif (optionnel) :",
+      "",
+    );
+    if (motif === null) return; // annulé
+    try {
+      await adminApi.payments.invalidate(p.id, motif || undefined);
+      setFlash("Paiement invalidé — effet contre-passé.");
+      await reload();
+    } catch (err) {
+      setError((err as ApiError).detail ?? "Invalidation impossible.");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -294,6 +310,18 @@ function Inner() {
           columns={columns}
           rows={items}
           rowKey={(p) => p.id}
+          actions={(p) =>
+            p.statut === "valide" && p.type !== "decaissement" ? (
+              <button
+                type="button"
+                onClick={() => invalidatePayment(p)}
+                className="rounded-md border border-terra-300 px-2.5 py-1 text-xs font-medium text-terra-700 hover:bg-terra-50"
+                title="Invalider ce paiement (contre-passation)"
+              >
+                Invalider
+              </button>
+            ) : null
+          }
           emptyLabel="Aucun paiement ne correspond à ces filtres."
           exportFilename="paiements"
           exportTitle="Suivi des paiements — GATHE Finance"

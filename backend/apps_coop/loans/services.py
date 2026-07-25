@@ -19,6 +19,8 @@ from apps_coop.members.models import Member
 from apps_coop.payments.models import RateParam
 from apps_coop.payments.rates import get_rate
 
+from apps_coop.portal_urls import portal_url
+
 from .models import Loan, LoanInstallment, LoanRenewal, LoanRequest
 from .terms import (
     PaymentModality,
@@ -466,7 +468,7 @@ def approve_loan_request(
             "duree_mois": loan.duree_mois,
             "taux_pct": f"{float(loan.taux_interet) * 100:.2f}",
             "date_premiere": loan.date_premiere_echeance.isoformat(),
-            "portal_url": getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
     return loan
@@ -800,9 +802,7 @@ def reject_loan_request(loan_request: LoanRequest, *, decided_by, motif: str) ->
                 context={
                     "prenom": member.prenom,
                     "motif": motif,
-                    "portal_url": getattr(
-                        dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"
-                    ),
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001
@@ -955,6 +955,16 @@ def request_loan_renewal(
         raise ValueError(
             "Reconduction impossible : une penalite Article 12 reste a payer "
             "sur ce credit. Solde les echeances en retard avant de reconduire."
+        )
+
+    # Reconduction possible UNIQUEMENT à l'échéance (2026-07) : le crédit doit
+    # être arrivé à terme (date butoir / dernière échéance atteinte). On ne
+    # reconduit pas un crédit encore en cours de remboursement normal.
+    date_terme = loan.date_limite_globale
+    if date_terme is not None and timezone.localdate() < date_terme:
+        raise ValueError(
+            "Reconduction possible uniquement à l'échéance : la date butoir "
+            f"({date_terme:%d/%m/%Y}) n'est pas encore atteinte."
         )
 
     # Durée par défaut : +1 mois (Article 10) ; modifiable via AppSetting
@@ -1202,7 +1212,7 @@ def approve_loan_renewal(
             "duree_mois": renewal.nouvelle_duree_mois,
             "taux_pct": f"{float(taux_annuel) * 100:.2f}",
             "date_premiere": date_premiere_echeance.isoformat(),
-            "portal_url": getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
     return nouveau_loan
@@ -1242,7 +1252,7 @@ def reject_loan_renewal(renewal: LoanRenewal, *, decided_by, motif: str) -> Loan
             "prenom": renewal.loan.member.prenom,
             "numero_dossier": renewal.loan.numero_dossier,
             "motif": motif,
-            "portal_url": getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
     return renewal

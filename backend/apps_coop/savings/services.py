@@ -21,6 +21,8 @@ from apps_coop.audit.services import (
     record as record_audit,
 )
 
+from apps_coop.portal_urls import portal_url
+
 from .models import (
     ClassicSavingsAccount,
     ClassicSavingsTransaction,
@@ -244,9 +246,7 @@ def request_withdrawal(
                 context={
                     "prenom": member.prenom,
                     "montant": f"{int(montant):,}".replace(",", " "),
-                    "portal_url": getattr(
-                        dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"
-                    ),
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001
@@ -861,7 +861,7 @@ def _notify(wr: WithdrawalRequest, *, approved: bool, completed: bool = False) -
                 "montant": f"{int(wr.montant):,}".replace(",", " "),
                 "motif_rejet": wr.motif_rejet,
                 "mode_paiement": wr.get_mode_paiement_display(),
-                "portal_url": getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+                "portal_url": portal_url(),
             },
         )
     except Exception:  # noqa: BLE001

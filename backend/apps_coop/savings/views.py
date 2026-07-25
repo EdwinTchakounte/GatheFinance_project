@@ -490,6 +490,7 @@ def admin_list_withdrawals(request):
     for wr in qs[:200]:
         member = wr.member
         row = WithdrawalRequestReadSerializer(wr).data
+        row["member_id"] = member.id
         row["numero_membre"] = member.numero_membre
         row["member_nom"] = f"{member.prenom} {member.nom}".strip()
         # Hint UI for action buttons

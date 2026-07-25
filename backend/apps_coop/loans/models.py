@@ -345,6 +345,15 @@ class LoanRequest(TimestampedModel):
             "crédit (bloquée au retrait jusqu'à clôture)."
         ),
     )
+    # Motif lisible du gel (apport personnel, auto-couverture…). Affiché au
+    # membre à côté du montant gelé, et rappelé quand il transfère ce gelé pour
+    # solder le crédit. Vide = pas de gel / gel historique sans motif.
+    motif_gel_demandeur = models.CharField(
+        max_length=180,
+        blank=True,
+        default="",
+        help_text="Motif lisible du gel du collatéral demandeur.",
+    )
 
     # Porte des frais d'étude (2026) — les frais sont exigibles AVANT toute
     # instruction et avant même que l'avaliste soit sollicité. Le statut

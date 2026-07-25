@@ -234,7 +234,19 @@ def create_public_application(
         )
     if not is_campaign_open(campaign):
         raise ValueError("Cette campagne n'est plus ouverte aux candidatures.")
-    validate_amount_against_campaign(campaign, Decimal(montant))
+    # Quantifie à 2 décimales (money_field) pour éviter tout débordement de
+    # précision à l'INSERT (source possible d'un 500 non-ValueError).
+    from decimal import ROUND_HALF_UP, InvalidOperation
+
+    from apps_coop.common import MONEY_DECIMAL_PLACES
+
+    try:
+        montant = Decimal(montant).quantize(
+            Decimal(1).scaleb(-MONEY_DECIMAL_PLACES), rounding=ROUND_HALF_UP
+        )
+    except (InvalidOperation, ValueError, TypeError):
+        raise ValueError("Montant invalide.")
+    validate_amount_against_campaign(campaign, montant)
     if not (email or "").strip():
         raise ValueError("Un email est requis pour créer ton accès.")
 

@@ -167,7 +167,6 @@ function DashboardContent() {
       hint: "voie crédit directe débloquée",
       icon: ShieldAlert,
       tone: "emerald",
-      href: "/brc",
     },
   ];
 

@@ -28,6 +28,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps_coop.audit.services import record as record_audit
+from apps_coop.portal_urls import portal_url
 
 
 logger = logging.getLogger(__name__)
@@ -293,7 +294,7 @@ def suivi_retards_quotidien() -> dict:
         from apps_coop.loans.models import Loan
         from apps_coop.notifications.events import emit_event
 
-        portal = getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200")
+        portal = portal_url()
         for loan_id, num_ech, montant_total, penalite in notifs_retard:
             try:
                 loan = Loan.objects.select_related("member__user").get(pk=loan_id)
@@ -384,7 +385,7 @@ def rappel_echeances_proches() -> dict:
     today = timezone.localdate()
     lead_days = get_int_setting("loans.due_soon.lead_days", DUE_SOON_LEAD_DAYS)
     target = today + timedelta(days=lead_days)
-    portal = getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200")
+    portal = portal_url()
 
     qs = (
         LoanInstallment.objects

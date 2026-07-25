@@ -91,6 +91,11 @@ def _approve_initial(member, comite_user, *, montant=Decimal("100000")):
 
 
 def _request_renewal(loan, *, interets_au_comptant=False, duree=1):
+    # Reconduction possible uniquement à l'échéance (2026-07) : on place la date
+    # butoir dans le passé pour simuler un crédit arrivé à terme.
+    if loan.date_butoire is None or loan.date_butoire >= date.today():
+        loan.date_butoire = date.today() - timedelta(days=1)
+        loan.save(update_fields=["date_butoire"])
     renewal = request_loan_renewal(
         loan,
         nouvelle_duree_mois=duree,

@@ -469,6 +469,9 @@ export type Loan = {
   statut: "actif" | "en_retard" | "cloture" | "contentieux";
   statut_display: string;
   installments: LoanInstallment[];
+  /** Apport personnel gelé transférable pour solder ce crédit (2026-07). */
+  apport_gele?: string;
+  apport_gele_motif?: string;
   created_at: string;
 };
 
@@ -742,6 +745,17 @@ export const portalApi = {
       }>(`/loans/me/loans/${loanId}/repay-from-savings/`, {
         method: "POST",
         body: JSON.stringify({ montant }),
+      }),
+    /** Transfère l'apport GELÉ pour solder le crédit (montant optionnel). */
+    repayFromFrozen: (loanId: number, montant?: number) =>
+      request<{
+        payment_id: number;
+        montant: string;
+        solde_restant: string;
+        statut: string;
+      }>(`/loans/me/loans/${loanId}/repay-from-frozen/`, {
+        method: "POST",
+        body: JSON.stringify(montant != null ? { montant } : {}),
       }),
     create: (data: {
       montant_demande: number;

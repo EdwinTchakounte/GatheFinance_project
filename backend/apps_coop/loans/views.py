@@ -6,6 +6,8 @@ Next.js admin is up. In the meantime the Django admin in
 """
 from __future__ import annotations
 
+from decimal import ROUND_HALF_UP, Decimal
+
 
 from django.db import transaction
 from django.utils import timezone
@@ -48,6 +50,7 @@ from .services import (
     request_loan_renewal,
 )
 from apps_coop.payments.providers.base import ProviderError
+from apps_coop.portal_urls import portal_url
 
 
 # Champs « fichier » du formulaire de demande de crédit qui portent une preuve
@@ -262,26 +265,84 @@ def loan_request_create(request):
     # dispo ≥ montant ; avaliste : épargne dem+aval ≥ montant ; campagne :
     # bornes campagne). Rien à re-vérifier ici.
 
-    # Lookup the current adhesion fee from FeeType — admin-editable.
-    try:
-        fee = FeeType.objects.get(code=FeeType.Code.DEMANDE_CREDIT, actif=True)
-        frais_montant = fee.montant
-    except FeeType.DoesNotExist:
-        return Response(
-            {"detail": "Frais de demande de crédit non configurés."},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    # Frais d'étude applicables. Voie CAMPAGNE : on respecte l'override
+    # ``frais_etude_montant`` de la campagne (0 = étude gratuite → le parcours
+    # sautera la porte des frais côté comité via ``status_after_prevoie``).
+    # Hors campagne : ``FeeType.DEMANDE_CREDIT`` (admin-editable), 503 si absent.
+    from .services import study_fee_for
+
+    campaign_fk = None
+    if route_eval.route == EligibilityRoute.CAMPAIGN:
+        campaign_fk = MicrocreditCampaign.objects.get(
+            pk=route_eval.details["campaign_id"]
         )
+        frais_montant = study_fee_for(campaign_fk)
+    else:
+        try:
+            fee = FeeType.objects.get(code=FeeType.Code.DEMANDE_CREDIT, actif=True)
+            frais_montant = fee.montant
+        except FeeType.DoesNotExist:
+            return Response(
+                {"detail": "Frais de demande de crédit non configurés."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+    # Garde-fou « apport personnel » (2026-07) — voies senior_brc et avaliste
+    # (« garant et avaliste, avec attribut BRC ou pas »). Un apport minimum doit
+    # être présent dans la cagnotte (épargnes non gelées placées ou non +
+    # collecte). Sinon la demande est refusée AUTOMATIQUEMENT, avec un motif
+    # explicite affiché au membre. Les 2 taux sont éditables (AppSettings
+    # loans.apport.*). 0 % de seuil = garde-fou désactivé. Exclus : la campagne
+    # (la coop porte le risque) et la garantie matérielle (le collatéral est le
+    # bien apporté, pas un apport en numéraire).
+    if route_eval.route in (
+        EligibilityRoute.SENIOR_BRC,
+        EligibilityRoute.AVALISTE,
+    ):
+        from .avaliste_services import _apport_min_available_rate, member_cagnotte
+
+        _min_rate = _apport_min_available_rate()
+        _required = (data["montant_demande"] * _min_rate).quantize(
+            Decimal("1"), rounding=ROUND_HALF_UP
+        )
+        _cagnotte = member_cagnotte(member)
+        if _required > 0 and _cagnotte < _required:
+            _motif = (
+                f"Apport personnel insuffisant : votre cagnotte disponible "
+                f"({int(_cagnotte):,} XAF) est inférieure au minimum requis de "
+                f"{int(_required):,} XAF ({int(_min_rate * 100)} % du montant "
+                f"demandé). Épargnez davantage avant de refaire une demande."
+            ).replace(",", " ")
+            record_audit(
+                action="loan_request.refused_apport",
+                entite_type="Member",
+                entite_id=member.id,
+                user=request.user,
+                details={
+                    "montant_demande": str(data["montant_demande"]),
+                    "cagnotte_disponible": str(_cagnotte),
+                    "apport_requis": str(_required),
+                    "taux_requis": str(_min_rate),
+                    "route": route_eval.route,
+                },
+                ip=client_ip(request),
+            )
+            return Response(
+                {
+                    "detail": _motif,
+                    "motif": _motif,
+                    "apport_requis": str(_required),
+                    "cagnotte_disponible": str(_cagnotte),
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
     with transaction.atomic():
-        # Statut initial + FK selon la voie.
+        # Statut initial + FK selon la voie (campaign_fk déjà résolu ci-dessus).
         if route_eval.route == EligibilityRoute.CAMPAIGN:
             initial_statut = LoanRequest.Statut.EN_VALIDATION_CAMPAGNE
-            campaign_fk = MicrocreditCampaign.objects.get(
-                pk=route_eval.details["campaign_id"]
-            )
         else:
             initial_statut = LoanRequest.Statut.EN_ATTENTE
-            campaign_fk = None
 
         # CH-4 — Champs ajoutés via FormSchema → extra_payload.
         try:
@@ -318,18 +379,36 @@ def loan_request_create(request):
             if val in ("oui", "non") and compat_key not in extra_payload:
                 extra_payload[compat_key] = val
 
-        # Voie 1 (SENIOR_BRC) : le demandeur gèle sa propre épargne à hauteur de
-        # ``min(montant, épargne disponible)``. En auto-couverture c'est = montant ;
-        # pour un ANCIEN+BRC sous-couvert c'est son épargne dispo (il immobilise
-        # ce qu'il a, le reste est un crédit de confiance jugé par le comité).
-        # Voie avaliste : posé par request_avaliste_consent (le manque). Campagne : 0.
-        if route_eval.route == EligibilityRoute.SENIOR_BRC:
-            from .avaliste_services import _member_available_savings
+        # Gel du collatéral demandeur + motif lisible (2026-07) :
+        #   • SENIOR_BRC auto-couvert (épargne dispo ≥ montant) → gèle le MONTANT
+        #     (inchangé : « votre épargne couvre le crédit »).
+        #   • SENIOR_BRC sous-couvert → gèle l'APPORT personnel
+        #     (min_available_rate × montant, borné à l'épargne dispo),
+        #     transférable ensuite pour solder le crédit.
+        #   • AVALISTE → 0 ici (request_avaliste_consent gèle le manque, inchangé).
+        #   • GARANTIE_MATERIELLE / CAMPAGNE → 0 (bien apporté / la coop porte le risque).
+        from .avaliste_services import (
+            _apport_min_available_rate,
+            _member_available_savings,
+        )
 
+        gel_demandeur_initial = 0
+        motif_gel = ""
+        if route_eval.route == EligibilityRoute.SENIOR_BRC:
             _dispo = _member_available_savings(member)
-            gel_demandeur_initial = min(data["montant_demande"], _dispo)
-        else:
-            gel_demandeur_initial = 0
+            if _dispo >= data["montant_demande"]:
+                gel_demandeur_initial = data["montant_demande"]
+                motif_gel = "Auto-couverture — votre épargne couvre le crédit."
+            else:
+                _apport = (
+                    data["montant_demande"] * _apport_min_available_rate()
+                ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+                gel_demandeur_initial = min(_apport, _dispo)
+                if gel_demandeur_initial > 0:
+                    motif_gel = (
+                        "Apport personnel bloqué — transférable pour solder "
+                        "le crédit."
+                    )
 
         is_garantie_mat = route_eval.route == EligibilityRoute.GARANTIE_MATERIELLE
 
@@ -349,6 +428,7 @@ def loan_request_create(request):
             statut=initial_statut,
             microcampaign=campaign_fk,
             montant_gele_demandeur=gel_demandeur_initial,
+            motif_gel_demandeur=motif_gel,
             # L6 — échéance indicative d'étude commission.
             date_limite_etude=date_limite_etude,
             # L5 — n° CNI du demandeur (saisi à la soumission).
@@ -437,9 +517,7 @@ def loan_request_create(request):
                     "prenom": member.prenom,
                     "montant": f"{int(loan_request.montant_demande):,}".replace(",", " "),
                     "frais_montant": f"{int(frais_montant):,}".replace(",", " "),
-                    "portal_url": getattr(
-                        dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"
-                    ),
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001
@@ -553,9 +631,75 @@ def loan_repay_from_savings(request, pk: int):
     )
 
 
+@extend_schema(
+    tags=["loans"],
+    summary="Transférer l'apport gelé vers un crédit (remboursement)",
+    description=(
+        "Mobilise l'apport personnel GELÉ du demandeur pour rembourser/solder "
+        "le crédit `pk`. `montant` optionnel (défaut = tout l'apport gelé, borné "
+        "au reste dû). Transfert interne (pas de Mobile Money)."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsActiveMember])
+def loan_repay_from_frozen(request, pk: int):
+    from decimal import InvalidOperation
+
+    from .transfer_services import TransferError, repay_loan_from_frozen
+
+    loan = Loan.objects.filter(pk=pk, member=request.user.member).first()
+    if loan is None:
+        return Response({"detail": "Crédit introuvable."}, status=404)
+    montant = None
+    raw = request.data.get("montant")
+    if raw not in (None, ""):
+        try:
+            montant = Decimal(str(raw))
+        except (InvalidOperation, TypeError):
+            return Response({"detail": "Montant invalide."}, status=400)
+    try:
+        payment = repay_loan_from_frozen(loan, montant)
+    except TransferError as exc:
+        return Response({"detail": str(exc)}, status=400)
+    loan.refresh_from_db()
+    return Response(
+        {
+            "payment_id": payment.id,
+            "montant": str(payment.montant),
+            "solde_restant": str(loan.solde_restant),
+            "statut": loan.statut,
+        }
+    )
+
+
 # ---------------------------------------------------------------------------
 # 4. GET /api/v1/loans/me/active/ — current member's active credits
 # ---------------------------------------------------------------------------
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Admin — supprimer une demande de crédit (tracé .txt)",
+    description=(
+        "Supprime la demande `pk` et le crédit associé s'il existe. Trace "
+        "obligatoire : ligne dans `MEDIA_ROOT/audit/suppressions_credit.txt` + "
+        "AuditLog. Bloqué si le crédit a un financement prêteur ou une procédure."
+    ),
+)
+@api_view(["DELETE"])
+@permission_classes([IsAdmin])
+def admin_delete_loan_request(request, pk: int):
+    from .deletion_services import LoanDeletionError, delete_loan_request_traced
+
+    lr = LoanRequest.objects.filter(pk=pk).first()
+    if lr is None:
+        return Response({"detail": "Demande introuvable."}, status=404)
+    motif = (request.data.get("motif") or "").strip() if hasattr(request, "data") else ""
+    try:
+        recap = delete_loan_request_traced(lr, actor=request.user, motif=motif)
+    except LoanDeletionError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+    return Response({"detail": "Demande supprimée.", "recap": recap})
 
 
 @extend_schema(
@@ -920,9 +1064,7 @@ def loan_renewal_request(request, pk: int):
                     "prenom": member.prenom,
                     "numero_dossier": loan.numero_dossier,
                     "duree_mois": renewal.nouvelle_duree_mois,
-                    "portal_url": getattr(
-                        dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"
-                    ),
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001
@@ -1327,7 +1469,7 @@ def loan_notice(request, pk: int):
                     "numero_dossier": loan.numero_dossier,
                     "solde_restant": f"{int(loan.solde_restant):,}".replace(",", " "),
                     "count": loan.mise_en_demeure_count,
-                    "portal_url": getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001

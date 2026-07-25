@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Store, Smartphone, PiggyBank, Check } from "lucide-react";
 
 import { portalApi, type EomChoice } from "@/lib/api";
@@ -39,13 +39,31 @@ export function CollecteEomChoice({
   const [error, setError] = useState<string | null>(null);
   const [savedTick, setSavedTick] = useState(false);
 
-  async function persist(next: EomChoice) {
+  // Debounce de l'auto-enregistrement Mobile Money : dès que le numéro et le
+  // réseau sont valides on persiste sans attendre le bouton (parité avec le tap
+  // immédiat cash/épargne). On passe les valeurs explicitement pour éviter de
+  // lire un état périmé dans le callback différé.
+  const momoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (momoTimer.current) clearTimeout(momoTimer.current);
+    };
+  }, []);
+
+  async function persist(
+    next: EomChoice,
+    momo?: { phone: string; network: string },
+  ) {
     setError(null);
     setSaving(true);
     try {
       await portalApi.setCollecteEomPreference(
         next === "mobile_money"
-          ? { preference: next, payout_phone: phone.trim(), payout_network: network }
+          ? {
+              preference: next,
+              payout_phone: (momo?.phone ?? phone).trim(),
+              payout_network: momo?.network ?? network,
+            }
           : { preference: next },
       );
       setPref(next);
@@ -60,9 +78,20 @@ export function CollecteEomChoice({
   }
 
   function selectMomo() {
-    // On déplie le formulaire sans persister : la destination est requise.
+    // On déplie le formulaire ; l'auto-enregistrement se déclenche dès que la
+    // destination est complète (le numéro reste requis côté serveur).
     setPref("mobile_money");
     setError(null);
+  }
+
+  /** Auto-enregistre la destination Mobile Money quand elle est valide. */
+  function autoSaveMomo(nextPhone: string, nextNetwork: string) {
+    if (momoTimer.current) clearTimeout(momoTimer.current);
+    const digits = nextPhone.replace(/\D/g, "");
+    if (digits.length < 9 || !nextNetwork) return;
+    momoTimer.current = setTimeout(() => {
+      void persist("mobile_money", { phone: nextPhone, network: nextNetwork });
+    }, 600);
   }
 
   return (
@@ -101,7 +130,10 @@ export function CollecteEomChoice({
             <input
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                autoSaveMomo(e.target.value, network);
+              }}
               placeholder="Ex : 690 00 00 00"
               className="mt-1.5 w-full rounded-md border border-line-300 bg-paper px-3 py-2 text-sm text-ink-900 outline-none focus:border-blue-400"
             />
@@ -113,7 +145,12 @@ export function CollecteEomChoice({
                 <button
                   key={net}
                   type="button"
-                  onClick={() => setNetwork(net)}
+                  onClick={() => {
+                    setNetwork(net);
+                    // Réseau = choix discret : on enregistre tout de suite si le
+                    // numéro est déjà valide.
+                    autoSaveMomo(phone, net);
+                  }}
                   className={
                     "rounded-full px-4 py-1.5 text-sm font-medium transition " +
                     (network === net

@@ -588,6 +588,36 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
     }
   }
 
+  /// Porte des frais 2026 — 3e canal : régler les frais sur l'épargne classique
+  /// retirable (hors placement/gel/collecte). Le backend refuse (message lisible)
+  /// si le solde retirable est insuffisant.
+  Future<void> _payStudyFeeFromSavings() async {
+    final requestId = _submission?.request.id;
+    final amount = _submission?.studyFee?.montant.round();
+    if (requestId == null || amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Montant des frais indisponible.')),
+      );
+      return;
+    }
+    unawaited(HapticFeedback.mediumImpact());
+    setState(() => _step = _Step.payLoading);
+    try {
+      await ref
+          .read(loanRequestsProvider.notifier)
+          .payStudyFeeFromSavings(requestId: requestId);
+      if (!mounted) return;
+      setState(() => _step = _Step.paySuccess);
+      unawaited(HapticFeedback.heavyImpact());
+    } catch (err) {
+      if (!mounted) return;
+      setState(() => _step = _Step.payForm);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(err))),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedSize(
@@ -1269,6 +1299,29 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                   ? 'Payer ${XAFFormatter.format(studyFee.montant)}'
                   : 'Payer maintenant',
               onPressed: _payStudyFee,
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _payStudyFeeFromSavings,
+              icon: const Icon(Icons.savings_outlined, size: 18),
+              label: const Text('Payer avec mon épargne'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                foregroundColor: PaColors.navy,
+                side: const BorderSide(color: PaColors.teal),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Prélèvement immédiat sur ton épargne classique retirable '
+              '(hors placement, gel et collecte).',
+              style: AppTypography.bodySmall.copyWith(
+                color: PaColors.inkSecondary,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 8),
             TextButton(

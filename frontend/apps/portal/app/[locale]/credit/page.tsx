@@ -140,6 +140,21 @@ export default function PortalCreditPage() {
       setRepaySubmitting(false);
     }
   }
+  async function transferFrozenApport(loan: Loan) {
+    setError(null);
+    try {
+      const res = await portalApi.loans.repayFromFrozen(loan.id);
+      await reloadLoans();
+      setFlash(
+        res.statut === "cloture"
+          ? "Crédit soldé ✓ grâce à ton apport gelé."
+          : `Apport gelé transféré (${formatXAF(res.montant)}) sur ton crédit.`,
+      );
+    } catch (err) {
+      setError((err as ApiError).detail ?? "Transfert de l'apport impossible.");
+    }
+  }
+
   async function respondCounterProposal(id: number, accept: boolean) {
     setCpBusy(id);
     setError(null);
@@ -469,6 +484,16 @@ export default function PortalCreditPage() {
                       >
                         Demander une reconduction
                       </button>
+                      {Number(loan.apport_gele ?? 0) > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => transferFrozenApport(loan)}
+                          className={buttonClasses({ variant: "secondary", size: "md" })}
+                          title={loan.apport_gele_motif ?? undefined}
+                        >
+                          Transférer mon apport gelé ({formatXAF(loan.apport_gele ?? "0")})
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
 

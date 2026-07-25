@@ -163,8 +163,9 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "garantie_materielle",
             "garantie_description",
             "garantie_valeur_estimee",
-            # Réforme garantie — gel demandeur
+            # Réforme garantie — gel demandeur (+ motif lisible, 2026-07)
             "montant_gele_demandeur",
+            "motif_gel_demandeur",
             # L5 — n° CNI demandeur
             "cni_demandeur",
         )
@@ -557,6 +558,19 @@ class LoanReadSerializer(serializers.ModelSerializer):
 
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     installments = LoanInstallmentReadSerializer(many=True, read_only=True)
+    # Apport personnel gelé transférable pour solder ce crédit (2026-07).
+    apport_gele = serializers.DecimalField(
+        source="loan_request.montant_gele_demandeur",
+        max_digits=14,
+        decimal_places=0,
+        read_only=True,
+        default=0,
+    )
+    apport_gele_motif = serializers.CharField(
+        source="loan_request.motif_gel_demandeur",
+        read_only=True,
+        default="",
+    )
 
     class Meta:
         model = Loan
@@ -573,6 +587,8 @@ class LoanReadSerializer(serializers.ModelSerializer):
             "statut",
             "statut_display",
             "installments",
+            "apport_gele",
+            "apport_gele_motif",
             "created_at",
         )
         read_only_fields = fields

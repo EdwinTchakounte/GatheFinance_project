@@ -31,6 +31,7 @@ def _fmt_xaf(amount) -> str:
 
 from .models import Payment
 from .providers import default_provider_code, get_provider
+from apps_coop.portal_urls import portal_url
 
 
 logger = logging.getLogger(__name__)
@@ -381,7 +382,7 @@ def _activate_member_if_fees_settled(member, *, trigger_payment: Payment) -> Non
             "prenom": member.prenom,
             "numero_membre": member.numero_membre,
             "montant": _fmt_xaf(trigger_payment.montant),
-            "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
 
@@ -497,7 +498,7 @@ def _hook_savings_deposit(payment: Payment, _raw: dict) -> None:
             "prenom": payment.member.prenom,
             "montant": _fmt_xaf(payment.montant),
             "solde_apres": _fmt_xaf(nouveau_solde),
-            "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
 
@@ -714,7 +715,7 @@ def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
     )
     from apps_coop.notifications.events import emit_event
 
-    _portal = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200")
+    _portal = portal_url()
     emit_event(
         "loan.repayment_confirmed",
         member=payment.member,
@@ -808,7 +809,7 @@ def _hook_loan_request_fees(payment: Payment, _raw: dict) -> None:
             "prenom": payment.member.prenom,
             "request_id": pending.id,
             "montant": _fmt_xaf(payment.montant),
-            "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
 
@@ -869,7 +870,7 @@ def _hook_carnet_fees(payment: Payment, raw: dict) -> None:
                 "prenom": payment.member.prenom,
                 "numero_membre": payment.member.numero_membre,
                 "montant": _fmt_xaf(payment.montant),
-                "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+                "portal_url": portal_url(),
             },
         )
 
@@ -1043,9 +1044,7 @@ def _hook_decaissement(payment: Payment, _raw: dict) -> None:
                     "prenom": payment.member.prenom,
                     "montant": _fmt_xaf(payment.montant),
                     "mode_paiement": wr.get_mode_paiement_display(),
-                    "portal_url": getattr(
-                        settings, "FRONTEND_BASE_URL", "http://localhost:3200"
-                    ),
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001
@@ -1130,7 +1129,7 @@ def _hook_decaissement(payment: Payment, _raw: dict) -> None:
             "numero_dossier": loan.numero_dossier,
             "montant": _fmt_xaf(payment.montant),
             "date_premiere": loan.date_premiere_echeance.strftime("%d/%m/%Y"),
-            "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
 
