@@ -36,6 +36,7 @@ GROUPS_ORDER = [
     ("lender", "Épargne-prêteur"),
     ("funding", "Funding crédit"),
     ("eligibility", "Éligibilité (3 voies)"),
+    ("apport", "Apport personnel"),
     ("avaliste", "Avaliste"),
     ("campaign", "Micro-campagne"),
     ("seizure", "Saisie épargne"),

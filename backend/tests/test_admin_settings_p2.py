@@ -195,3 +195,27 @@ class TestPatch:
         )
         assert r.status_code == 400
         assert "≥" in r.json()["detail"]
+
+
+class TestCatalogGroupsIntegrity:
+    """Tout groupe utilisé par une entrée du CATALOG doit exister dans
+    GROUPS_ORDER, sinon la page admin (qui rend par groupe) laisse tomber
+    silencieusement ces réglages — cf. régression apport 2026-07-26."""
+
+    def test_every_catalog_group_is_declared(self):
+        from apps_coop.audit.tunables import CATALOG, GROUPS_ORDER
+
+        declared = {key for key, _label in GROUPS_ORDER}
+        used = {entry["group"] for entry in CATALOG}
+        missing = used - declared
+        assert not missing, f"Groupes utilisés mais non déclarés dans GROUPS_ORDER : {missing}"
+
+    def test_apport_settings_are_rendered_by_admin(self, staff_client):
+        r = staff_client.get("/api/v1/audit/admin/settings/")
+        assert r.status_code == 200
+        payload = r.json()
+        group_keys = {g["key"] for g in payload["groups"]}
+        assert "apport" in group_keys
+        setting_keys = {s["key"] for s in payload["settings"]}
+        assert "loans.apport.rate" in setting_keys
+        assert "loans.apport.min_available_rate" in setting_keys
