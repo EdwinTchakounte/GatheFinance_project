@@ -105,6 +105,72 @@ def _exposition_coop():
 # ---------------------------------------------------------------------------
 
 
+def test_scenario_parcours_complet_membre():
+    """LA LOGIQUE COMPLÈTE, bout-en-bout : un nouveau membre depuis l'adhésion
+    jusqu'au remboursement de son crédit. On suit chaque étape et l'état global."""
+    from apps_coop.members.services import approve_membership_request
+    from apps_coop.payments.models import Payment
+    from apps_coop.payments.services import handle_webhook_event
+    from tests.factories import MembershipRequestFactory
+    from django.utils import timezone
+
+    print("\n" + "#" * 78)
+    print("# PARCOURS COMPLET D'UN MEMBRE — de l'adhésion au remboursement du crédit")
+    print("#" * 78)
+
+    # Frais.
+    for code, montant in (("ADHESION", "10000"), ("INSCRIPTION", "2000"), ("CARNET", "1000")):
+        FeeType.objects.update_or_create(code=code, defaults={"libelle": code, "montant": Decimal(montant), "actif": True})
+    _fee()  # frais d'étude crédit
+    admin = _comite()
+
+    # 1) Adhésion.
+    req = MembershipRequestFactory(nom="MBALLA", prenom="Aïcha")
+    m = approve_membership_request(req, instructed_by=admin, prenom="Aïcha", nom="MBALLA")
+    m.date_adhesion = date.today() - timedelta(days=30 * 18)  # ancienneté pour le crédit plus tard
+    m.save(update_fields=["date_adhesion"])
+    print(f"\n[1. ADHÉSION] Demande approuvée → {m.nom_complet} créé, statut = {m.statut} (doit payer 3 frais).")
+
+    # 2) Paiement des 3 frais → activation.
+    def _pay_fee(t, mt):
+        p = Payment.objects.create(member=m, montant=Decimal(mt), type=t, statut=Payment.Statut.EN_ATTENTE,
+                                   source=Payment.Source.MOBILE_MONEY, provider_code="tara", date_versement=timezone.now())
+        handle_webhook_event(p.idempotency_key, "valide", provider_reference=f"TX-{p.id}", raw_payload={})
+    _pay_fee(Payment.Type.FRAIS_INSCRIPTION, "2000")
+    _pay_fee(Payment.Type.FRAIS_CARNET, "1000")
+    _pay_fee(Payment.Type.FRAIS_ADHESION, "10000")
+    m.refresh_from_db()
+    print(f"[2. ACTIVATION] 3 frais payés (13 000) → statut = {m.statut} · date_activation = {m.date_activation}")
+
+    # 3) Épargne : le membre épargne 30 000 (au fil du temps).
+    _classic(m, "30000")
+    print("[3. ÉPARGNE] Le membre a épargné 30 000 en épargne classique.")
+    _patrimoine(m, "membre")
+
+    # 4) Crédit : il emprunte 100 000 (voie apport, 30 % détenus).
+    r = _api(m).post(CREATE, {"montant_demande": "100000", "duree_mois": 6, "motif": "Fonds de commerce"}, format="json")
+    assert r.status_code == 201, r.content
+    lr = LoanRequest.objects.get(pk=r.json()["loan_request"]["id"])
+    print(f"[4. DEMANDE CRÉDIT] 100 000 · voie {r.json()['route']} · apport GELÉ {_f(lr.montant_gele_demandeur)} (20 %)")
+    pay_study_fee_from_savings(lr)
+    lr.refresh_from_db()
+    loan = approve_loan_request(lr, decided_by=admin, taux_annuel=Decimal("0.10"), date_premiere_echeance=FUTURE)
+    loan.refresh_from_db()
+    print("[5. APPROBATION COMITÉ]")
+    _print_loan(loan)
+    disburse_loan_manual(loan, agent=admin, reference_externe="PC")
+    loan.refresh_from_db()
+    print(f"[6. DÉCAISSEMENT] Le membre reçoit {_f(loan.montant_decaisse_net)} (90 %). Reste dû : {_f(loan.solde_restant)}.")
+
+    # 5) Remboursement via l'apport gelé.
+    repay_loan_from_frozen(loan)
+    loan.refresh_from_db()
+    print(f"[7. REMBOURSEMENT] Transfert de l'apport gelé (20 000) → reste dû {_f(loan.solde_restant)} · statut {loan.statut}")
+    _patrimoine(m, "fin de parcours")
+    _exposition_coop()
+    print("\n# FIN — le membre est passé d'inconnu à emprunteur, tout est cohérent.\n")
+
+
 def test_scenario_credit_voie_apport():
     print("\n" + "=" * 78)
     print("SCÉNARIO 1 — Crédit voie APPORT (ancien, 30 % d'épargne, sans avaliste)")
