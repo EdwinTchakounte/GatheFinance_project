@@ -32,3 +32,12 @@ def brc_proof_field_ids(kind: str = "loan_request") -> set[str]:
 def privilege_declaration_field_ids(kind: str = "loan_request") -> set[str]:
     """Champs marqués déclaration de privilège (→ conservés) dans le schéma actif."""
     return _flagged_field_ids(kind, "is_privilege_declaration")
+
+
+def field_labels(kind: str = "loan_request") -> dict[str, str]:
+    """``{id: label}`` des champs du schéma actif — libellé d'affichage générique
+    (ex. pour la file BRC), sans dictionnaire de noms spécifiques-coop en dur."""
+    row = FormSchema.objects.filter(kind=kind, is_active=True).first()
+    if row is None:
+        return {}
+    return {f["id"]: f.get("label", f["id"]) for f in _iter_fields(row.schema or {})}

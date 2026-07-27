@@ -305,17 +305,19 @@ class BRCDocumentAdminReadSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    _CHAMP_LABELS = {
-        "cga_brc_preuve": "Contrat CGA — Broad Range Consulting",
-        "cfp_brc_preuve": "Certificat CFP — Broad Range Consulting",
-        "ancien_apprenant_preuve": "Attestation CFP — ancien apprenant",
-        "cga_preuve": "Carte CGA — adhérent",
-    }
-
     def get_champ_source_display(self, obj: BRCDocument) -> str:
+        # Modularisation Lot 0.5 : le libellé vient du LABEL du champ dans le
+        # FormSchema actif (générique, par coop), plus d'un dict de noms en dur.
+        # Cache sur l'instance du serializer → 1 requête pour toute la liste.
         if not obj.champ_source:
             return "Dépôt direct par le membre"
-        return self._CHAMP_LABELS.get(obj.champ_source, obj.champ_source)
+        labels = getattr(self, "_field_labels_cache", None)
+        if labels is None:
+            from apps_coop.forms.field_flags import field_labels
+
+            labels = field_labels("loan_request")
+            self._field_labels_cache = labels
+        return labels.get(obj.champ_source, obj.champ_source)
 
     def get_fichier_url(self, obj: BRCDocument) -> str:
         try:

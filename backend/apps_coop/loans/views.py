@@ -53,26 +53,11 @@ from apps_coop.payments.providers.base import ProviderError
 from apps_coop.portal_urls import portal_url
 
 
-# Champs « fichier » du formulaire de demande de crédit qui portent une preuve
-# du rattachement Broad Range Consulting. Toute pièce déposée sur l'un de ces
-# champs est dupliquée dans la file de validation BRC du back-office.
-#
-# Les deux champs historiques (`ancien_apprenant_preuve` = attestation du CFP
-# Broad Range, `cga_preuve` = carte CGA) en font partie : ce sont eux que
-# l'admin regarde pour trancher « ce membre est-il client BRC ? ». Les laisser
-# hors de la file revenait à ne jamais pouvoir décider.
-BRC_PROOF_FIELD_IDS = frozenset(
-    {
-        "cga_brc_preuve",
-        "cfp_brc_preuve",
-        "ancien_apprenant_preuve",
-        "cga_preuve",
-    }
-)
-
-# Flags déclaratifs BRC correspondants — conservés en `extra_payload` même si
-# le FormSchema actif en prod ne les déclare pas encore.
-BRC_DECLARATION_FIELD_IDS = ("cga_brc_member", "cfp_brc_apprenant")
+# Modularisation Lot 0.5 : les champs « preuve de privilège » (→ file BRC) et
+# « déclaration de privilège » (→ extra_payload) ne sont plus des listes de noms
+# en dur. Chaque champ se déclare lui-même dans le FormSchema actif via ses
+# attributs JSON `is_brc_proof` / `is_privilege_declaration`, lus par
+# `apps_coop.forms.field_flags`. Le cœur ne connaît plus aucun nom spécifique-coop.
 
 
 # ---------------------------------------------------------------------------
@@ -370,21 +355,10 @@ def loan_request_create(request):
             )
             extra_payload, schema_version = {}, None
 
-        # Déclarations de privilège conservées en extra_payload même si le
-        # FormSchema actif ne les déclare pas encore (apply_form_schema filtre
-        # sinon les valeurs inconnues). Modularisation Lot 0 : on lit d'abord les
-        # champs marqués ``is_privilege_declaration`` dans le schéma (générique,
-        # par coop), UNIONNÉS aux constantes NHR historiques (pont, retiré en 0.5).
-        from apps_coop.forms.field_flags import privilege_declaration_field_ids
-
-        _decl_keys = (
-            {"ancien_apprenant", "cga_adherent", *BRC_DECLARATION_FIELD_IDS}
-            | privilege_declaration_field_ids("loan_request")
-        )
-        for compat_key in _decl_keys:
-            val = request.data.get(compat_key)
-            if val in ("oui", "non") and compat_key not in extra_payload:
-                extra_payload[compat_key] = val
+        # Les déclarations de privilège sont désormais des champs DÉCLARÉS dans le
+        # FormSchema actif (attribut ``is_privilege_declaration``) : apply_form_schema
+        # les conserve nativement en extra_payload. Plus aucune liste de noms de
+        # champs spécifiques-coop dans le cœur (modularisation Lot 0.5).
 
         # Gel du collatéral demandeur + motif lisible (2026-07) :
         #   • SENIOR_BRC auto-couvert (épargne dispo ≥ montant) → gèle le MONTANT
@@ -1580,13 +1554,13 @@ def loan_request_upload_attachment(request, pk: int):
     # aussi alimenter la file de validation `/brc` du back-office : sans ça, le
     # document dort dans les pièces de la demande et l'admin ne peut jamais
     # poser `Member.is_brc_member` (la voie SENIOR_BRC reste inatteignable).
-    # Modularisation Lot 0 : un champ « preuve de privilège » est reconnu via son
-    # attribut ``is_brc_proof`` dans le schéma (générique, par coop), UNIONNÉ aux
-    # constantes NHR historiques (pont, retiré en 0.5).
+    # Modularisation Lot 0.5 : un champ « preuve de privilège » est reconnu
+    # UNIQUEMENT via son attribut ``is_brc_proof`` dans le schéma actif (générique,
+    # par coopérative) — plus aucune liste de noms en dur dans le cœur.
     from apps_coop.forms.field_flags import brc_proof_field_ids
 
     brc_doc_id = None
-    if schema_field_id in (BRC_PROOF_FIELD_IDS | brc_proof_field_ids("loan_request")):
+    if schema_field_id in brc_proof_field_ids("loan_request"):
         from apps_coop.members.services import upload_brc_document
 
         brc_doc = upload_brc_document(
