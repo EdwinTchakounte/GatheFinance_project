@@ -59,11 +59,12 @@ def _seed_collecte(member, amount):
 
 
 class TestApportGate:
-    def test_reject_when_cagnotte_below_threshold(self, active_member):
-        # Ancien + BRC (voie senior_brc ouverte), mais cagnotte quasi nulle.
+    def test_reject_when_below_30pct(self, active_member):
+        # G4 : le plancher 30 % (éligibilité) refuse un senior_brc sous-couvert
+        # AVANT même le garde-fou apport 10 % (désormais subsumé pour cette voie).
         _seed_fee()
         _ancient_brc(active_member)
-        _seed_classic(active_member, 5000)  # 5 % de 100000 < 10 % requis
+        _seed_classic(active_member, 5000)  # 5 % de 100000 < 30 % requis
         r = _api(active_member).post(
             "/api/v1/loans/requests/",
             {"montant_demande": "100000", "duree_mois": 6, "motif": "Test"},
@@ -71,23 +72,23 @@ class TestApportGate:
         )
         assert r.status_code == 403, r.content
         body = r.json()
-        assert "Apport personnel insuffisant" in body["detail"]
-        assert body["apport_requis"] == "10000"
+        assert any("apport" in m.lower() for m in body["motifs"])
         # Aucune demande créée.
         assert not LoanRequest.objects.filter(member=active_member).exists()
 
-    def test_collecte_counts_towards_cagnotte(self, active_member):
-        # 5000 classique + 6000 collecte = 11000 ≥ 10000 requis → accepté.
+    def test_collecte_ne_compte_pas_pour_eligibilite_senior(self, active_member):
+        # G4 : l'éligibilité senior_brc repose sur l'épargne CLASSIQUE (30 %) ; la
+        # collecte est exclue de la garantie (réforme 2026) → ne sauve pas l'accès.
         _seed_fee()
         _ancient_brc(active_member)
-        _seed_classic(active_member, 5000)
-        _seed_collecte(active_member, 6000)
+        _seed_classic(active_member, 5000)   # 5 % classique
+        _seed_collecte(active_member, 40000)  # collecte abondante mais exclue
         r = _api(active_member).post(
             "/api/v1/loans/requests/",
             {"montant_demande": "100000", "duree_mois": 6, "motif": "Test"},
             format="json",
         )
-        assert r.status_code == 201, r.content
+        assert r.status_code == 403, r.content
 
     def test_freeze_is_apport_not_all_available(self, active_member):
         # Ancien + BRC sous-couvert : gel = APPORT (20 %, G1) et non toute l'épargne.
@@ -123,6 +124,12 @@ class TestApportGate:
 
         AppSetting.objects.update_or_create(
             cle="loans.apport.min_available_rate",
+            defaults={"valeur": "0", "description": ""},
+        )
+        # G4 : désactiver AUSSI le plancher d'éligibilité (30 %), sinon il refuse
+        # avant le garde-fou apport.
+        AppSetting.objects.update_or_create(
+            cle="loans.eligibility.apport_rate",
             defaults={"valeur": "0", "description": ""},
         )
         _seed_fee()

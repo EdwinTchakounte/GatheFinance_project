@@ -759,6 +759,8 @@ def loan_request_decide(request, pk: int):
                 decided_by=request.user,
                 taux_annuel=data["taux_annuel"],
                 date_premiere_echeance=data["date_premiere_echeance"],
+                privilege_accorde=data.get("privilege_accorde", False),
+                privilege_motif=data.get("privilege_motif", ""),
             )
         else:
             reject_loan_request(loan_request, decided_by=request.user, motif=data["motif_rejet"])

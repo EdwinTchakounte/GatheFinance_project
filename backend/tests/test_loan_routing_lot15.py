@@ -417,7 +417,7 @@ class TestUniversalGuards:
         )
         assert r.status_code == 403
         body = r.json()
-        assert len(body["motifs"]) >= 2  # motifs des 3 voies cumulés
+        assert len(body["motifs"]) >= 1  # motif de la voie choisie (plancher apport 30 %)
 
 
 # ---------------------------------------------------------------------------

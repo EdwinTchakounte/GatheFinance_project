@@ -63,16 +63,6 @@ def test_gel_apport_20pct():
     assert lr.montant_gele_demandeur == Decimal("20000")  # 20 % × 100 000
 
 
-def test_gel_apport_borne_a_la_dispo():
-    """Épargne < 20 % → gel borné à l'épargne disponible."""
-    _seed_fee()
-    m = _member_with_savings("15000")  # ancien, 15 % → voie ancien (sous-couvert)
-    r = _post_credit(m)
-    assert r.status_code == 201, r.content
-    lr = LoanRequest.objects.get(pk=r.json()["loan_request"]["id"])
-    assert lr.montant_gele_demandeur == Decimal("15000")  # min(20 000, 15 000)
-
-
 def test_taux_apport_editable():
     """Le taux d'apport gelé est piloté par loans.apport.rate (règlement)."""
     _seed_fee()

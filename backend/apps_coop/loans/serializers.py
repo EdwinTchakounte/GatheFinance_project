@@ -398,6 +398,11 @@ class LoanRequestDecideSerializer(serializers.Serializer):
         allow_blank=True,
         max_length=2000,
     )
+    # G4 — privilège accordé par le comité pour un crédit à découvert (facultatif).
+    privilege_accorde = serializers.BooleanField(required=False, default=False)
+    privilege_motif = serializers.CharField(
+        required=False, allow_blank=True, max_length=2000, default=""
+    )
 
     def validate(self, attrs):
         if attrs["decision"] == "approuvee":
@@ -623,6 +628,9 @@ class LoanReadSerializer(serializers.ModelSerializer):
             # Gouvernance G3 — criticité (avis souple).
             "criticite",
             "criticite_display",
+            # Gouvernance G4 — privilège accordé par le comité (tracé).
+            "privilege_accorde",
+            "privilege_motif",
             "created_at",
         )
         read_only_fields = fields

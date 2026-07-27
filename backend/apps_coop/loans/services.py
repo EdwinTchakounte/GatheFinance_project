@@ -297,6 +297,8 @@ def approve_loan_request(
     date_premiere_echeance: date,
     date_comite: date | None = None,
     pv_comite=None,
+    privilege_accorde: bool = False,
+    privilege_motif: str = "",
 ) -> Loan:
     """Create the Loan + the full installment schedule atomically.
 
@@ -401,6 +403,8 @@ def approve_loan_request(
         taux_interet=taux,
         montant_gage=montant_gage,
         montant_decouvert=montant_decouvert,
+        privilege_accorde=bool(privilege_accorde),
+        privilege_motif=(privilege_motif or "").strip(),
         taux_penalite=taux_penalite_fige,
         duree_mois=duree,
         modalite_paiement=modalite,
@@ -467,6 +471,10 @@ def approve_loan_request(
             "duree_mois": duree,
             "modalite": modalite,
             "request_id": loan_request.id,
+            # G4 — traçabilité du privilège (découvert accordé sur confiance).
+            "montant_decouvert": str(loan.montant_decouvert),
+            "privilege_accorde": loan.privilege_accorde,
+            "privilege_motif": loan.privilege_motif,
         },
     )
 

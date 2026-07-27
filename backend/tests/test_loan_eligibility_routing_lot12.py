@@ -136,67 +136,40 @@ class TestVoieSeniorBrc:
 
 
 # ---------------------------------------------------------------------------
-# Voie 1 (chemin 2) — ANCIEN + BRC, sous-couverture jugée par le comité
-# Un membre établi (ancienneté ≥ seuil) au statut BRC validé peut demander un
-# crédit SANS avaliste et avec une épargne INFÉRIEURE : la demande passe en
-# instruction, c'est le comité qui tranche.
+# Voie 1 — G4 : PLANCHER 30 % OBLIGATOIRE POUR TOUS
+# La souplesse « ancien sous-couvert » (ancien chemin 2) a été RETIRÉE : un
+# membre (ancien ou non) avec moins de 30 % d'apport est INÉLIGIBLE. Le découvert
+# est accordé par le COMITÉ à la validation (privilège tracé), pas à l'entrée.
 # ---------------------------------------------------------------------------
 
 
-class TestVoieAncienBrcSousCouverture:
-    def test_ancient_brc_undercovered_matches(self):
-        m = _ancient_brc(MemberFactory())  # senior + BRC
-        # Épargne SOUS le seuil d'apport (10 % < 30 %) → le chemin « apport »
-        # ne matche pas, c'est le chemin ANCIEN (comité) qui prend le relais.
-        _add_savings(m, Decimal("10000"))
+class TestPlancher30PourTous:
+    def test_ancien_sous_30pct_desormais_ineligible(self):
+        m = _ancient_brc(MemberFactory())  # senior + BRC MAIS < 30 %
+        _add_savings(m, Decimal("10000"))  # 10 %
+        result = evaluate_routes(m, montant=Decimal("100000"))
+        assert result.route == EligibilityRoute.NONE
+        assert any("apport" in mo.lower() for mo in result.motifs)
+
+    def test_ancien_sans_epargne_ineligible(self):
+        m = _ancient_brc(MemberFactory())
+        result = evaluate_routes(m, montant=Decimal("100000"))
+        assert result.route == EligibilityRoute.NONE
+
+    def test_ancien_avec_30pct_eligible(self):
+        m = _ancient_brc(MemberFactory())
+        _add_savings(m, Decimal("30000"))  # 30 % → apport suffisant
         result = evaluate_routes(m, montant=Decimal("100000"))
         assert result.route == EligibilityRoute.SENIOR_BRC
         assert result.eligible is True
-        assert result.details["senior_brc"] is True
-        assert result.details["sous_couverture"] is True
-        assert Decimal(result.details["manque"]) == Decimal("90000")
+        assert result.details.get("apport_couverture") is True
 
-    def test_ancient_brc_no_savings_matches_full_manque(self):
-        m = _ancient_brc(MemberFactory())
-        result = evaluate_routes(m, montant=Decimal("100000"))
-        assert result.route == EligibilityRoute.SENIOR_BRC
-        assert Decimal(result.details["manque"]) == Decimal("100000")
-
-    def test_senior_without_brc_undercovered_matches_by_default(self):
-        # Nouveau défaut 2026-07 : require_brc_for_senior = FALSE (BRC devenu
-        # documentaire) → l'ancienneté seule ouvre la voie sous-couverte.
-        m = _ancient_brc(MemberFactory(), brc=False)
-        _add_savings(m, Decimal("10000"))
-        result = evaluate_routes(m, montant=Decimal("100000"))
-        assert result.route == EligibilityRoute.SENIOR_BRC
-        assert result.details["sous_couverture"] is True
-
-    def test_senior_without_brc_rejected_when_require_brc_reenabled(self):
-        # Si l'admin RE-EXIGE un BRC validé (setting=true), l'ancienneté seule
-        # ne suffit plus — le membre sans BRC est recalé.
-        _setting("loans.eligibility.require_brc_for_senior", "true")
-        m = _ancient_brc(MemberFactory(), brc=False)
-        _add_savings(m, Decimal("10000"))
-        result = evaluate_routes(m, montant=Decimal("100000"))
-        assert result.route == EligibilityRoute.NONE
-        assert any("BRC" in mo for mo in result.motifs)
-
-    def test_senior_without_brc_matches_when_require_brc_false(self):
-        _setting("loans.eligibility.require_brc_for_senior", "false")
-        m = _ancient_brc(MemberFactory(), brc=False)
-        _add_savings(m, Decimal("10000"))
-        result = evaluate_routes(m, montant=Decimal("100000"))
-        assert result.route == EligibilityRoute.SENIOR_BRC
-        assert result.details["sous_couverture"] is True
-
-    def test_new_member_with_brc_flag_still_rejected_not_senior(self):
-        # Nouvel adhérent (2 mois) même avec le flag BRC → pas "ancien".
+    def test_nouveau_membre_sous_30pct_ineligible(self):
         m = _new_member(MemberFactory(), months_ago=2)
-        m.is_brc_member = True
-        m.save(update_fields=["is_brc_member"])
+        _add_savings(m, Decimal("10000"))
         result = evaluate_routes(m, montant=Decimal("100000"))
         assert result.route == EligibilityRoute.NONE
-        assert any("Ancienneté insuffisante" in mo for mo in result.motifs)
+        assert any("apport" in mo.lower() for mo in result.motifs)
 
     def test_auto_coverage_takes_precedence_over_senior_path(self):
         # Ancien + BRC MAIS couvert → chemin 1 (auto-couverture), pas sous-couverture.
@@ -434,8 +407,9 @@ class TestNoneCase:
         result = evaluate_routes(m, montant=Decimal("100000"))
         assert result.route == EligibilityRoute.NONE
         assert result.eligible is False
-        # Doit avoir des motifs pour chaque voie évaluée.
-        assert len(result.motifs) >= 2
+        # Motif de la voie choisie (senior_brc par défaut) — plancher apport 30 %.
+        assert len(result.motifs) >= 1
+        assert any("apport" in m.lower() for m in result.motifs)
 
     def test_motifs_prefixed_by_chosen_voie(self):
         # Seule la voie CHOISIE (ici SENIOR_BRC par défaut, aucune désignation)

@@ -730,6 +730,19 @@ class Loan(TimestampedModel):
         help_text="Part prêtée sur confiance (montant − gagé) = exposition de la coop.",
     )
 
+    # Gouvernance G4 — privilège accordé PAR LE COMITÉ à la validation (coche
+    # manuelle, sous sa responsabilité) pour justifier un crédit à découvert.
+    # Tracé (qui/quand via l'AuditLog + decide_par/date_decision de la demande).
+    privilege_accorde = models.BooleanField(
+        default=False,
+        help_text="Le comité a accordé un découvert sur privilège (ancien apprenant, confiance…).",
+    )
+    privilege_motif = models.TextField(
+        blank=True,
+        default="",
+        help_text="Justification du privilège accordé (éléments retenus par le comité).",
+    )
+
     # CH-12 — Snapshot du taux de partage prêteurs / coop figé à l'approbation
     # du Loan. La valeur courante vit dans l'AppSetting ``lender.interest_share_rate``
     # (modifiable côté admin) ; on la FIGE ici pour éviter qu'un changement
