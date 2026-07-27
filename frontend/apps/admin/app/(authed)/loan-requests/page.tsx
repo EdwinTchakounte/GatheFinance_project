@@ -531,6 +531,15 @@ function Inner() {
                 >
                   <FileText className="size-3" />Note PDF
                 </a>
+                <button
+                  type="button"
+                  onClick={() => deleteRequest(r)}
+                  disabled={actingId === r.id}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
+                  title="Supprimer la demande (tracé dans l'audit)"
+                >
+                  <X className="size-3" />Supprimer
+                </button>
               </div>
             ) : r.statut === "approuvee" && r.loan ? (
               <div className="flex flex-col items-end gap-1.5">
@@ -557,6 +566,15 @@ function Inner() {
                 >
                   <FileText className="size-3" />Note PDF
                 </a>
+                <button
+                  type="button"
+                  onClick={() => deleteRequest(r)}
+                  disabled={actingId === r.id}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
+                  title="Supprimer la demande / le crédit (tracé dans l'audit)"
+                >
+                  <X className="size-3" />Supprimer
+                </button>
               </div>
             ) : (
               <div className="flex flex-col items-end gap-1.5">
