@@ -14,6 +14,7 @@ import {
   type Member,
   type MemberAdhesion,
 } from "@/lib/api";
+import { fullName } from "@/lib/name";
 
 
 // ── Carte recap financier d'un membre ──────────────────────────────────────
@@ -66,7 +67,7 @@ export function MemberRecapModal({
     <Modal
       open
       onClose={onClose}
-      title={`${member.prenom} ${member.nom}`}
+      title={`${fullName(member.prenom, member.nom)}`}
       description={`N° ${member.numero_membre} · ${member.statut_display}`}
     >
       <div className="space-y-4">
@@ -283,7 +284,7 @@ function AdhesionDetails({ adh }: { adh: MemberAdhesion }) {
         <DocumentPreview
           url={preview.url}
           name={preview.label}
-          subtitle={`Fiche d'adhésion · ${adh.identity.prenom} ${adh.identity.nom}`}
+          subtitle={`Fiche d'adhésion · ${fullName(adh.identity.prenom, adh.identity.nom)}`}
           onClose={() => setPreview(null)}
         />
       )}

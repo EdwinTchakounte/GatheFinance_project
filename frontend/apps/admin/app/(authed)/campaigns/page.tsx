@@ -19,6 +19,7 @@ import {
 import { buttonClasses } from "@gathe/ui";
 
 import { DocumentLink, DocumentPreview } from "@/components/document-preview";
+import { fullName } from "@/lib/name";
 import { ExportMenu } from "@/components/export-menu";
 import { Modal } from "@/components/modal";
 import {
@@ -835,7 +836,7 @@ function ApplicationsSection({ campaignId }: { campaignId: number }) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-medium text-ink-900">
-                  {a.prenom} {a.nom}{" "}
+                  {fullName(a.prenom, a.nom)}{" "}
                   <span className="font-normal text-ink-500">· {a.email}</span>
                 </p>
                 <p className="text-ink-500">
@@ -1060,7 +1061,7 @@ function BeneficiairesSection({
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-medium text-ink-900">
-                  {b.prenom} {b.nom}
+                  {fullName(b.prenom, b.nom)}
                 </p>
                 <p className="text-[11px] text-ink-500">
                   {b.numero_membre} ·{" "}
@@ -1256,7 +1257,7 @@ function AudienceSection({
             >
               <div>
                 <p className="text-sm font-medium text-ink-900">
-                  {m.prenom} {m.nom}
+                  {fullName(m.prenom, m.nom)}
                 </p>
                 <p className="text-xs text-ink-500">
                   {m.numero_membre} · {m.statut}

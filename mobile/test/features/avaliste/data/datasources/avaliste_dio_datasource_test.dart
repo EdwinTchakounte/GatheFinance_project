@@ -69,7 +69,8 @@ void main() {
       expect(res.pendingCount, 1);
       expect(res.items.first.id, 1);
       expect(res.items.first.statut, AvalisteStatut.pending);
-      expect(res.items.first.demandeur.fullName, 'Awa Sow');
+      // Nom complet canonique = « nom prénom » dé-dupliqué (P11).
+      expect(res.items.first.demandeur.fullName, 'Sow Awa');
       expect(res.items.first.loanRequest.montantDemande, 250000);
       expect(res.items.first.couverture.ratio, 1.2);
       expect(res.items[1].statut, AvalisteStatut.accepted);

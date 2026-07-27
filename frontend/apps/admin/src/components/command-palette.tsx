@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { adminApi, type ApiError } from "@/lib/api";
+import { fullName } from "@/lib/name";
 
 
 // --- Types --------------------------------------------------------------
@@ -155,7 +156,7 @@ export function CommandPalette({
           items.push({
             kind: "member",
             id: `m:${m.id}`,
-            label: `${m.prenom} ${m.nom}`,
+            label: `${fullName(m.prenom, m.nom)}`,
             sublabel: `${m.numero_membre} · ${m.statut_display}`,
             icon: Users,
             href: `/members?q=${encodeURIComponent(m.numero_membre)}`,
@@ -166,7 +167,7 @@ export function CommandPalette({
             kind: "loan",
             id: `l:${l.id}`,
             label: l.numero_dossier,
-            sublabel: `${l.member.prenom} ${l.member.nom} · ${l.statut_display}`,
+            sublabel: `${fullName(l.member.prenom, l.member.nom)} · ${l.statut_display}`,
             icon: Wallet,
             href: `/loans?q=${encodeURIComponent(l.numero_dossier)}`,
           });

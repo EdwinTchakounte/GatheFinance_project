@@ -409,6 +409,16 @@ CATALOG: list[dict] = [
         "type": "csv",
         "default": "senior_brc,avaliste,campaign",
     },
+    {
+        "key": "loans.eligibility.apport_rate",
+        "group": "eligibility",
+        "label": "Apport minimum pour l'éligibilité (ratio)",
+        "description": "Taux d'apport personnel ouvrant l'éligibilité sur la voie auto-couverture / ancien : l'épargne disponible doit atteindre ce ratio du montant demandé (0.30 = 30 %). En-dessous de 100 %, la demande passe sous-couverte et le comité juge.",
+        "type": "decimal",
+        "default": "0.30",
+        "min": 0,
+        "max": 1,
+    },
     # LOT 13 — Seizure
     {
         "key": "loans.seizure.source_order",

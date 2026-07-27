@@ -156,7 +156,7 @@ def build_loan_request_note(loan_request) -> bytes:
         return anchor_y - 14
 
     y = _section_header("Demandeur", y)
-    y = _row("Nom complet", f"{member.prenom} {member.nom}".strip(), y, bold_value=True)
+    y = _row("Nom complet", member.nom_complet, y, bold_value=True)
     y = _row("Numéro de membre", member.numero_membre, y)
     y = _row("Téléphone", member.phone or "—", y)
 
@@ -301,7 +301,7 @@ def build_loan_request_note(loan_request) -> bytes:
     c.drawRightString(width - margin, sig_y, "Pour la coopérative")
     c.setFillColor(MUTED)
     c.setFont("Helvetica-Oblique", 9)
-    c.drawString(margin, sig_y - 12, f"{member.prenom} {member.nom}".strip())
+    c.drawString(margin, sig_y - 12, member.nom_complet)
     c.drawRightString(width - margin, sig_y - 12, "La Direction")
 
     c.showPage()

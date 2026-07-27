@@ -227,14 +227,16 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
         return str(manque if manque > 0 else Decimal("0"))
 
     def get_frais_etude_montant(self, obj):
-        from apps_coop.payments.models import FeeType
+        # Frais RÉELLEMENT applicables à CETTE demande : override campagne si
+        # la LR est rattachée à une micro-campagne (montant dynamique fixé à la
+        # création — 0 = gratuit), sinon le tarif standard DEMANDE_CREDIT. Le
+        # dashboard (paiement manuel) et les clients lisent ce montant : sans ce
+        # rattachement, une demande de campagne affichait toujours le 5000
+        # générique au lieu du tarif de sa campagne.
+        from .services import study_fee_for
 
-        montant = (
-            FeeType.objects.filter(code=FeeType.Code.DEMANDE_CREDIT, actif=True)
-            .values_list("montant", flat=True)
-            .first()
-        )
-        return str(montant) if montant is not None else None
+        montant = study_fee_for(getattr(obj, "microcampaign", None))
+        return str(montant)
 
     def get_carnet_fee_due(self, obj):
         """Frais de carnet dus (bénéficiaire campagne sans carnet), sinon "0"."""
@@ -571,12 +573,24 @@ class LoanReadSerializer(serializers.ModelSerializer):
         read_only=True,
         default="",
     )
+    # Rang du crédit dans l'historique DU MEMBRE (1 = premier crédit ouvert…).
+    # Sert à un libellé parlant côté client (« Crédit n°1 · #GF-… ») en plus du
+    # numéro de dossier technique, notamment sur la card de clôture.
+    numero_ordre = serializers.SerializerMethodField()
+
+    def get_numero_ordre(self, obj) -> int:
+        # 1-based, par ordre de création chez ce membre. Petit volume par membre
+        # → le count par crédit reste négligeable.
+        return (
+            Loan.objects.filter(member_id=obj.member_id, id__lte=obj.id).count()
+        )
 
     class Meta:
         model = Loan
         fields = (
             "id",
             "numero_dossier",
+            "numero_ordre",
             "montant",
             "taux_interet",
             "duree_mois",

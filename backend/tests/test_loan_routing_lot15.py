@@ -147,11 +147,11 @@ class TestVoieSeniorBrc:
         assert lr.montant_gele_demandeur == Decimal("10000")
 
     def test_above_self_coverage_without_avaliste_rejects(self, active_member):
-        # Plus de plafond ×10 : un NOUVEL adhérent (non ancien) sans avaliste ne
-        # peut pas dépasser sa propre épargne → aucune voie applicable (403).
+        # Un NOUVEL adhérent (non ancien) sans avaliste dont l'épargne n'atteint
+        # même pas l'apport requis (30 % × 500 000 = 150 000) → aucune voie (403).
         _seed_fee()
         _new_member(active_member)
-        _seed_classic(active_member, 10000)
+        _seed_classic(active_member, 10000)  # 2 % < 30 % requis
         client = _api(active_member)
         r = client.post(
             "/api/v1/loans/requests/",
@@ -159,15 +159,15 @@ class TestVoieSeniorBrc:
             format="json",
         )
         assert r.status_code == 403
-        assert any("couvrir soi-même" in m for m in r.json()["motifs"])
+        assert any("apport" in m.lower() for m in r.json()["motifs"])
 
     def test_insufficient_coverage_no_avaliste_falls_through_to_none(
         self, active_member
     ):
-        """Épargne < montant + sans avaliste/campaign → aucune voie."""
+        """Épargne < apport requis (30 %) + sans avaliste/campaign → aucune voie."""
         _seed_fee()
         _new_member(active_member)
-        _seed_classic(active_member, 50000)
+        _seed_classic(active_member, 20000)  # 20 % < 30 % requis
         client = _api(active_member)
         r = client.post(
             "/api/v1/loans/requests/",
@@ -177,7 +177,7 @@ class TestVoieSeniorBrc:
         assert r.status_code == 403
         body = r.json()
         assert "motifs" in body
-        assert any("couvrir soi-même" in m for m in body["motifs"])
+        assert any("apport" in m.lower() for m in body["motifs"])
 
 
 # ---------------------------------------------------------------------------

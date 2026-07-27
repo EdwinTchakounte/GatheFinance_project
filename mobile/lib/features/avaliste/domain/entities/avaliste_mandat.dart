@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/formatters/name_formatter.dart';
+
 enum AvalisteStatut { pending, accepted, refused }
 
 /// Demandeur résumé — l'avaliste a besoin de savoir qui le sollicite.
@@ -17,7 +19,7 @@ class AvalisteDemandeur {
   final String prenom;
   final String nom;
 
-  String get fullName => '$prenom $nom';
+  String get fullName => nomComplet(prenom, nom);
 }
 
 /// Snapshot couverture épargne (au moment de la demande) — affiche à

@@ -1221,13 +1221,19 @@ def my_membership_fees(request):
         ).values_list("type", flat=True)
     )
 
+    # Un compte DÉJÀ ACTIF a terminé son activation : ses 3 frais sont réglés
+    # par définition. On force `paye=True` même si les Payment historiques
+    # manquent — sinon l'écran d'activation les re-proposait à un membre actif.
+    is_active = member.statut == Member.Statut.ACTIF
+
     fees = {}
     for code, ptype in code_to_type.items():
         montant = membership_fee_amount(code)
+        paye = is_active or (ptype in paid_types)
         fees[code] = {
             "montant": str(montant),
-            "solvable": bool(montant > 0 and dispo >= montant),
-            "paye": ptype in paid_types,
+            "solvable": bool(not paye and montant > 0 and dispo >= montant),
+            "paye": paye,
         }
     return Response(
         {

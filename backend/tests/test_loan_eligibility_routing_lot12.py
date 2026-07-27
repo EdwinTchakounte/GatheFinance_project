@@ -107,11 +107,11 @@ class TestVoieSeniorBrc:
 
     def test_insufficient_self_coverage_skips_voie1(self):
         m = _new_member(MemberFactory())
-        _add_savings(m, Decimal("10000"))
-        # Pas d'avaliste/campagne fournis → NONE.
+        _add_savings(m, Decimal("10000"))  # 10 % < apport requis (30 %)
+        # Pas d'avaliste/campagne fournis, apport insuffisant → NONE.
         result = evaluate_routes(m, montant=Decimal("100000"))
         assert result.route == EligibilityRoute.NONE
-        assert any("couvrir soi-même" in motif for motif in result.motifs)
+        assert any("apport" in motif.lower() for motif in result.motifs)
 
     def test_no_savings_skips_voie1(self):
         m = _new_member(MemberFactory())  # aucune épargne classique
@@ -146,13 +146,15 @@ class TestVoieSeniorBrc:
 class TestVoieAncienBrcSousCouverture:
     def test_ancient_brc_undercovered_matches(self):
         m = _ancient_brc(MemberFactory())  # senior + BRC
-        _add_savings(m, Decimal("30000"))  # < montant
+        # Épargne SOUS le seuil d'apport (10 % < 30 %) → le chemin « apport »
+        # ne matche pas, c'est le chemin ANCIEN (comité) qui prend le relais.
+        _add_savings(m, Decimal("10000"))
         result = evaluate_routes(m, montant=Decimal("100000"))
         assert result.route == EligibilityRoute.SENIOR_BRC
         assert result.eligible is True
         assert result.details["senior_brc"] is True
         assert result.details["sous_couverture"] is True
-        assert Decimal(result.details["manque"]) == Decimal("70000")
+        assert Decimal(result.details["manque"]) == Decimal("90000")
 
     def test_ancient_brc_no_savings_matches_full_manque(self):
         m = _ancient_brc(MemberFactory())

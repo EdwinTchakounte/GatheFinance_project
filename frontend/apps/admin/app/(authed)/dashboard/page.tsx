@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { adminApi, type AdminInstallmentRow, type DashboardKpis } from "@/lib/api";
+import { fullName } from "@/lib/name";
 import { LoanDetailModal } from "@/components/loan-detail-modal";
 import { StatusPill } from "@/components/status-pill";
 
@@ -453,7 +454,7 @@ function UpcomingRepayments() {
                   </td>
                   <td>
                     <p className="font-medium text-ink-900">
-                      {r.member.prenom} {r.member.nom}
+                      {fullName(r.member.prenom, r.member.nom)}
                     </p>
                     <p className="font-mono text-xs text-ink-500">
                       {r.member.numero_membre}

@@ -8,6 +8,7 @@ import { CashInModal } from "@/components/cash-in-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { Pagination } from "@/components/pagination";
 import { adminApi, type ApiError, type PaymentRow } from "@/lib/api";
+import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 
 
@@ -107,11 +108,11 @@ function Inner() {
       key: "membre",
       label: "Membre",
       locked: true,
-      text: (p) => `${p.member.prenom} ${p.member.nom} ${p.member.numero_membre}`,
+      text: (p) => `${fullName(p.member.prenom, p.member.nom)} ${p.member.numero_membre}`,
       render: (p) => (
         <div>
           <p className="font-medium text-ink-900">
-            {p.member.prenom} {p.member.nom}
+            {fullName(p.member.prenom, p.member.nom)}
           </p>
           <p className="font-mono text-xs text-ink-500">{p.member.numero_membre}</p>
         </div>

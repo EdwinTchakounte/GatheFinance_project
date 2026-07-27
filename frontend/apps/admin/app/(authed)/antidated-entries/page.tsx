@@ -6,6 +6,7 @@ import { CalendarClock, Check } from "lucide-react";
 import { ModalField, modalInputClass } from "@/components/modal";
 import { buttonClasses } from "@gathe/ui";
 import { adminApi, type ApiError, type Member } from "@/lib/api";
+import { fullName } from "@/lib/name";
 
 
 export default function AntidatedEntriesPage() {
@@ -122,7 +123,7 @@ function MemberPicker({
           <div className="flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-sm">
             <div>
               <p className="font-medium text-ink-900">
-                {selected.prenom} {selected.nom}
+                {fullName(selected.prenom, selected.nom)}
               </p>
               <p className="font-mono text-[10px] text-ink-500">
                 {selected.numero_membre} · {selected.statut}
@@ -162,7 +163,7 @@ function MemberPicker({
                       className="block w-full px-3 py-2 text-left text-xs hover:bg-line-100"
                     >
                       <span className="font-medium text-ink-900">
-                        {m.prenom} {m.nom}
+                        {fullName(m.prenom, m.nom)}
                       </span>
                       <span className="ml-2 font-mono text-[10px] text-ink-500">
                         {m.numero_membre} · {m.statut}

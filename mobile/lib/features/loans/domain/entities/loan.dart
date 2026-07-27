@@ -17,6 +17,7 @@ class Loan {
   const Loan({
     required this.id,
     required this.numeroDossier,
+    this.numeroOrdre = 0,
     required this.montant,
     required this.tauxInteret,
     required this.dureeMois,
@@ -37,6 +38,11 @@ class Loan {
 
   final int id;
   final String numeroDossier;
+
+  /// Rang du crédit dans l'historique du membre (1 = premier crédit ouvert).
+  /// Sert au libellé parlant « Crédit n°X » à côté du numéro de dossier GF.
+  /// 0 = inconnu (snapshot ancien) → l'UI retombe sur le seul numéro de dossier.
+  final int numeroOrdre;
   final num montant;
   final num tauxInteret;
   final int dureeMois;
@@ -127,6 +133,7 @@ class Loan {
   Map<String, dynamic> toJson() => {
         'id': id,
         'numeroDossier': numeroDossier,
+        'numeroOrdre': numeroOrdre,
         'montant': montant,
         'montantTotalDu': montantTotalDu,
         'soldeRestant': soldeRestant,

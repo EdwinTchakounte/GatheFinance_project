@@ -103,7 +103,7 @@ TEMPLATES = [
         "code": "member.rejected",
         "objet": "Ta demande d'adhésion à GATHE Finance",
         "corps_html": _join(
-            hi("{prenom} {nom}"),
+            hi("{prenom}"),
             title("Ta demande n'a pas été retenue"),
             lead(
                 "Après étude de ton dossier, le comité n'a pas pu retenir ta "
@@ -124,7 +124,7 @@ TEMPLATES = [
         "code": "membership.interview_scheduled",
         "objet": "Ton entretien d'admission à GATHE Finance",
         "corps_html": _join(
-            hi("{prenom} {nom}"),
+            hi("{prenom}"),
             title("Ton entretien d'admission a été enregistré"),
             lead(
                 "Conformément à l'Article 3 du Règlement, le comité a tenu "
@@ -148,7 +148,7 @@ TEMPLATES = [
         "code": "campaign.created",
         "objet": "Nouvelle campagne micro-crédit · {nom_campagne}",
         "corps_html": _join(
-            hi("{prenom} {nom}"),
+            hi("{prenom}"),
             title("Nouvelle opportunité de financement"),
             lead(
                 "La coopérative ouvre une nouvelle campagne micro-crédit. "

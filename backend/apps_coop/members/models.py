@@ -107,7 +107,14 @@ class Member(TimestampedModel):
         indexes = [models.Index(fields=["statut", "-date_adhesion"])]
 
     def __str__(self) -> str:
-        return f"{self.numero_membre} · {self.prenom} {self.nom}"
+        return f"{self.numero_membre} · {self.nom_complet}"
+
+    @property
+    def nom_complet(self) -> str:
+        """Nom complet dé-dupliqué « nom prénom » (source unique — cf. naming)."""
+        from .naming import full_name
+
+        return full_name(self.prenom, self.nom)
 
     @property
     def seniority_months(self) -> int:
@@ -386,8 +393,15 @@ class MembershipRequest(TimestampedModel):
         return f"{self.prenom} {self.nom} ({self.statut})".strip()
 
     @property
+    def nom_complet(self) -> str:
+        """Nom complet dé-dupliqué « nom prénom » (source unique — cf. naming)."""
+        from .naming import full_name
+
+        return full_name(self.prenom, self.nom)
+
+    @property
     def display_name(self) -> str:
-        return f"{self.prenom} {self.nom}".strip() or self.email
+        return self.nom_complet or self.email
 
 
 class BookletOrder(TimestampedModel):

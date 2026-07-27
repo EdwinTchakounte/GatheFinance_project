@@ -9,6 +9,7 @@ import { ExportMenu } from "@/components/export-menu";
 import { MemberRecapModal } from "@/components/member-recap-modal";
 import { Pagination } from "@/components/pagination";
 import type { ExportColumn } from "@/lib/export";
+import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 import {
   adminApi,
@@ -66,10 +67,10 @@ const COLUMNS: Col[] = [
     label: "Membre",
     locked: true,
     defaultVisible: true,
-    text: (m) => `${m.prenom} ${m.nom}`,
+    text: (m) => `${fullName(m.prenom, m.nom)}`,
     render: (m) => (
       <span className="font-medium text-ink-900">
-        {m.prenom} {m.nom}
+        {fullName(m.prenom, m.nom)}
       </span>
     ),
   },

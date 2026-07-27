@@ -74,6 +74,18 @@ def pay_membership_fee_from_savings(member, fee_code: str) -> "object":
             "(seuls adhésion, inscription et carnet le sont)."
         )
 
+    # Garde : un compte DÉJÀ ACTIF a terminé son activation — ses 3 frais sont
+    # réglés. On refuse un nouveau paiement (le membre le revoyait/pouvait le
+    # re-payer si les Payment historiques manquaient). On ne bloque PAS sur
+    # « un Payment de ce type existe » : la réactivation post-clôture réutilise
+    # ces mêmes codes sur un membre NON actif — seul le statut ACTIF ferme la porte.
+    from .models import Member
+
+    if member.statut == Member.Statut.ACTIF:
+        raise FeePaymentError(
+            "Compte déjà actif — les frais d'adhésion ont déjà été réglés."
+        )
+
     montant = membership_fee_amount(fee_code)
     if montant <= 0:
         raise FeePaymentError("Montant du frais introuvable ou nul.")

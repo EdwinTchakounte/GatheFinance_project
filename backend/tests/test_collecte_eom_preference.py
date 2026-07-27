@@ -88,6 +88,29 @@ class TestAdminPreferences:
         assert row["preference"] == "epargne"
         assert row["numero_membre"] == a.numero_membre
 
+    def test_momo_destination_remontee_au_dashboard(self):
+        # P9 — un membre choisit « versement MoMo sur mon compte » : la vue admin
+        # doit exposer préférence mobile_money + destination (numéro/réseau),
+        # sinon la coop ne peut pas exécuter le versement.
+        staff = _staff()
+        m = MemberFactory()
+        m.savings_account.solde = Decimal("8000")
+        m.savings_account.end_of_month_preference = "mobile_money"
+        m.savings_account.payout_phone = "699112233"
+        m.savings_account.payout_network = "MTN"
+        m.savings_account.save(
+            update_fields=[
+                "solde", "end_of_month_preference", "payout_phone", "payout_network",
+            ]
+        )
+        r = _api(staff.user).get("/api/v1/savings/admin/collecte-preferences/")
+        assert r.status_code == 200
+        assert r.data["summary"]["mobile_money"] >= 1
+        row = next(x for x in r.data["results"] if x["member_id"] == m.id)
+        assert row["preference"] == "mobile_money"
+        assert row["payout_phone"] == "699112233"
+        assert row["payout_network"] == "MTN"
+
     def test_only_active_filtre_solde_zero(self):
         staff = _staff()
         z = MemberFactory()  # solde 0 par défaut

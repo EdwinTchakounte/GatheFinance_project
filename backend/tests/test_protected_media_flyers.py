@@ -42,3 +42,18 @@ def test_cni_reste_privee_pour_anonyme(tmp_path):
     with override_settings(MEDIA_ROOT=str(tmp_path)):
         resp = Client().get("/media/coop/avaliste/cni/2026/07/cni.jpg")
     assert resp.status_code == 403
+
+
+def test_photo_profil_est_publique(tmp_path):
+    # P10 — l'avatar de profil (coop/profil/) doit être servi sans auth staff,
+    # sinon le membre (non-staff) reçoit 403 et sa propre photo ne s'affiche pas.
+    with override_settings(MEDIA_ROOT=str(tmp_path)):
+        rel = _seed_file(tmp_path, "coop/profil/2026/07/avatar.jpeg")
+        resp = Client().get(f"/media/{rel}")
+    assert resp.status_code == 200, resp.content
+
+
+def test_adhesion_cni_reste_privee(tmp_path):
+    with override_settings(MEDIA_ROOT=str(tmp_path)):
+        resp = Client().get("/media/coop/adhesion/cni/2026/07/cni.jpg")
+    assert resp.status_code == 403

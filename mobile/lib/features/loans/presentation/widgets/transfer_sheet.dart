@@ -83,8 +83,17 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
       return;
     }
     if (amount > _available) {
+      // Si le crédit visé a un apport GELÉ, l'argent existe mais n'est pas
+      // dans le disponible ordinaire (le transfert classique l'exclut) : on
+      // pointe vers le bouton dédié plutôt qu'un « insuffisant » sec.
+      final gele = loan.apportGele;
+      final msg = gele > 0
+          ? '${XAFFormatter.formatNumber(gele)} XAF sont gelés en apport de ce '
+              'crédit. Utilise « Transférer mon apport gelé » ci-dessous pour '
+              'le mobiliser.'
+          : l.transfer_insufficient;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.transfer_insufficient)),
+        SnackBar(content: Text(msg)),
       );
       return;
     }
@@ -220,7 +229,7 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
                     Text(
                       _loadingAvail
                           ? '…'
-                          : '${XAFFormatter.format(_available)} XAF',
+                          : '${XAFFormatter.formatNumber(_available)} XAF',
                       style: const TextStyle(
                         color: PaColors.inkPrimary,
                         fontSize: 14,
@@ -314,7 +323,7 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
                     icon: const Icon(Icons.lock_open_rounded, size: 18),
                     label: Text(
                       'Transférer mon apport gelé '
-                      '(${XAFFormatter.format(_selected!.apportGele)} XAF)',
+                      '(${XAFFormatter.formatNumber(_selected!.apportGele)} XAF)',
                     ),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(48),
@@ -390,7 +399,7 @@ class _LoanRow extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '${l.transfer_remaining}: '
-                      '${XAFFormatter.format(loan.soldeRestant)} XAF',
+                      '${XAFFormatter.formatNumber(loan.soldeRestant)} XAF',
                       style: const TextStyle(
                           color: PaColors.inkMuted, fontSize: 12,),
                     ),

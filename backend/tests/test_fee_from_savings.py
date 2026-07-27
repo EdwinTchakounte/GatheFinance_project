@@ -43,7 +43,9 @@ def _classic(member, solde):
 class TestService:
     def test_regle_adhesion_depuis_epargne(self):
         _fee("ADHESION", "10000")
-        m = MemberFactory()
+        # Un membre règle ses frais quand il est NON actif (activation en cours) :
+        # un compte déjà actif est bloqué (cf. garde P1 « déjà réglés »).
+        m = SuspendedMemberFactory()
         acc = _classic(m, "25000")
 
         payment = pay_membership_fee_from_savings(m, "ADHESION")
@@ -94,7 +96,7 @@ class TestService:
         from apps_coop.members.models import BookletOrder
 
         _fee("CARNET", "1000")
-        m = MemberFactory()
+        m = SuspendedMemberFactory()
         acc = _classic(m, "5000")
 
         payment = pay_membership_fee_from_savings(m, "CARNET")
@@ -112,7 +114,7 @@ class TestEndpoints:
         _fee("ADHESION", "10000")
         _fee("INSCRIPTION", "2000")
         _fee("CARNET", "1000")
-        m = MemberFactory()
+        m = SuspendedMemberFactory()
         _classic(m, "15000")
         r = _api(m.user).get("/api/v1/me/fees/")
         assert r.status_code == 200
@@ -126,7 +128,7 @@ class TestEndpoints:
 
     def test_status_reflects_paid_fee(self):
         _fee("CARNET", "1000")
-        m = MemberFactory()
+        m = SuspendedMemberFactory()
         _classic(m, "5000")
         pay_membership_fee_from_savings(m, "CARNET")
         r = _api(m.user).get("/api/v1/me/fees/")
@@ -141,7 +143,7 @@ class TestEndpoints:
 
     def test_pay_endpoint(self):
         _fee("INSCRIPTION", "2000")
-        m = MemberFactory()
+        m = SuspendedMemberFactory()
         acc = _classic(m, "5000")
         r = _api(m.user).post("/api/v1/me/fees/INSCRIPTION/pay-from-savings/")
         assert r.status_code == 200

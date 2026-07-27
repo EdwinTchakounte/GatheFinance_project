@@ -260,6 +260,12 @@ export type ClassicSavingsSnapshot = {
   // Réforme garantie 2026 : part gelée en garantie d'un crédit (mandat avaliste
   // ou auto-garantie) et solde réellement retirable une fois ce gel déduit.
   montant_gele_credit: string;
+  // Scission du gel par MOTIF (règle « mobilisable ssi motif = ce crédit ») :
+  //   • apport   = collatéral de MES crédits → mobilisable pour les solder ;
+  //   • avaliste = caution sur le crédit d'un AUTRE → non mobilisable, libérée
+  //     à la clôture du crédit garanti.
+  montant_gele_apport?: string;
+  montant_gele_avaliste?: string;
   solde_disponible_retrait: string;
   // Fenêtre placement PAR MEMBRE : true tant que ce membre peut encore verser
   // en placement (verrou global + N premiers mois d'ancienneté). Quand false, le

@@ -8,6 +8,7 @@ import { buttonClasses } from "@gathe/ui";
 import { DocumentPreview } from "@/components/document-preview";
 import { Modal, ModalField, modalInputClass } from "@/components/modal";
 import { adminApi, type ApiError, type MembershipRequest } from "@/lib/api";
+import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 
 
@@ -148,7 +149,7 @@ function Inner() {
                 <tr key={r.id}>
                   <td>
                     <p className="font-medium text-ink-900">
-                      {r.prenom ? `${r.prenom} ` : ""}{r.nom}
+                      {fullName(r.prenom, r.nom)}
                     </p>
                     <p className="text-xs text-ink-600 font-mono">#{r.id}</p>
                   </td>
@@ -415,7 +416,7 @@ function DetailMembershipModal({
     <Modal
       open={!!target}
       onClose={onClose}
-      title={`Demande #${t.id} . ${t.prenom} ${t.nom}`}
+      title={`Demande #${t.id} . ${fullName(t.prenom, t.nom)}`}
       description="Vue complete des informations soumises par le demandeur."
       footer={
         <button
@@ -483,7 +484,7 @@ function DetailMembershipModal({
         <DocumentPreview
           url={preview.url}
           name={preview.label}
-          subtitle={`Demande #${t.id} · ${t.prenom} ${t.nom}`}
+          subtitle={`Demande #${t.id} · ${fullName(t.prenom, t.nom)}`}
           onClose={() => setPreview(null)}
         />
       )}

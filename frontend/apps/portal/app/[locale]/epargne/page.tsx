@@ -211,19 +211,42 @@ export default function EpargneIndexPage() {
               <dl className="mt-4 space-y-1.5 border-t border-emerald/20 pt-3 text-sm">
                 {Number(classic.solde_placement_actif) > 0 ? (
                   <div className="flex items-center justify-between">
-                    <dt className="text-ink-600">En placement</dt>
+                    <dt className="text-ink-600">
+                      En placement (bloqué jusqu&apos;à l&apos;échéance)
+                    </dt>
                     <dd className="font-medium text-ink-900">
                       {formatXAF(classic.solde_placement_actif)}
                     </dd>
                   </div>
                 ) : null}
-                <div className="flex items-center justify-between">
-                  <dt className="text-ink-600">Libre</dt>
-                  <dd className="font-medium text-ink-900">
-                    {formatXAF(classic.solde_libre)}
-                  </dd>
-                </div>
-                {Number(classic.montant_gele_credit) > 0 ? (
+                {/* On n'affiche plus « Libre » (= solde − placement) : il
+                    ignorait le gel et pouvait dépasser le solde une fois le
+                    gelé ajouté. Seul « Disponible au retrait » fait foi. Le gel
+                    est scindé par MOTIF pour rendre lisible la règle
+                    « mobilisable ssi motif = ce crédit ». */}
+                {Number(classic.montant_gele_apport ?? 0) > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-amber-700">
+                      Gelé — apport de mes crédits (mobilisable)
+                    </dt>
+                    <dd className="font-medium text-amber-700">
+                      {formatXAF(classic.montant_gele_apport!)}
+                    </dd>
+                  </div>
+                ) : null}
+                {Number(classic.montant_gele_avaliste ?? 0) > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-amber-700">
+                      Gelé — caution avaliste (libéré à la clôture)
+                    </dt>
+                    <dd className="font-medium text-amber-700">
+                      {formatXAF(classic.montant_gele_avaliste!)}
+                    </dd>
+                  </div>
+                ) : null}
+                {classic.montant_gele_apport == null &&
+                classic.montant_gele_avaliste == null &&
+                Number(classic.montant_gele_credit) > 0 ? (
                   <div className="flex items-center justify-between">
                     <dt className="text-amber-700">Gelé en garantie</dt>
                     <dd className="font-medium text-amber-700">

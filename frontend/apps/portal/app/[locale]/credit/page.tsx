@@ -135,7 +135,16 @@ export default function PortalCreditPage() {
           : `Remboursement de ${montant.toLocaleString("fr-FR")} FCFA imputé depuis ton épargne.`,
       );
     } catch (err) {
-      setRepayError((err as ApiError).detail ?? "Échec du remboursement.");
+      // Si le remboursement échoue faute de disponible ET que ce crédit a un
+      // apport GELÉ, on rappelle la porte dédiée : l'argent existe mais n'est
+      // pas dans le disponible ordinaire (le transfert classique l'exclut).
+      const detail = (err as ApiError).detail ?? "Échec du remboursement.";
+      const gele = Number(repayTarget.apport_gele ?? 0);
+      setRepayError(
+        gele > 0
+          ? `${detail} ${formatXAF(String(gele))} sont gelés en apport de ce crédit : utilise « Transférer mon apport gelé » pour le mobiliser.`
+          : detail,
+      );
     } finally {
       setRepaySubmitting(false);
     }

@@ -40,6 +40,7 @@ _PUBLIC_MEDIA_PREFIXES = (
     "coop/microcampaigns/flyers/",  # Flyers de campagnes micro-credit (publics ; candidatures/ reste prive)
     "coop/blog/",            # Covers d'articles Wagtail
     "coop/announcements/",   # Visuels d'annonces broadcast
+    "coop/profil/",          # Avatars de profil (le membre doit voir sa propre photo ; non-staff)
     "original_images/",      # Wagtail images (mobile/portail recoivent les URLs)
     "images/",               # Wagtail renditions
 )

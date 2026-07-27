@@ -10,6 +10,7 @@ import {
   type ApiError,
   type AvalisteMandat,
 } from "@/lib/api";
+import { fullName } from "@/lib/name";
 
 
 /**
@@ -160,7 +161,7 @@ function MandatCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-ink-900">
-            {mandat.demandeur.prenom} {mandat.demandeur.nom}
+            {fullName(mandat.demandeur.prenom, mandat.demandeur.nom)}
             <span className="ml-2 text-xs font-medium text-ink-500">
               {mandat.demandeur.numero_membre}
             </span>
@@ -313,7 +314,7 @@ function RespondModal({
           Répondre au mandat
         </h2>
         <p className="mt-1 text-xs text-ink-600">
-          Demande de {mandat.demandeur.prenom} {mandat.demandeur.nom} —{" "}
+          Demande de {fullName(mandat.demandeur.prenom, mandat.demandeur.nom)} —{" "}
           {formatXaf(mandat.loan_request.montant_demande)} sur{" "}
           {mandat.loan_request.duree_mois} mois.
         </p>

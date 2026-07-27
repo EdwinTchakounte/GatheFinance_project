@@ -79,7 +79,7 @@ def delete_loan_request_traced(loan_request: LoanRequest, *, actor, motif: str =
         "loan_request_id": loan_request.id,
         "loan_id": getattr(loan, "id", None),
         "numero_dossier": getattr(loan, "numero_dossier", None),
-        "member": f"{member.numero_membre} · {member.nom} {member.prenom}".strip(),
+        "member": f"{member.numero_membre} · {member.nom_complet}",
         "montant_demande": str(loan_request.montant_demande),
         "statut": loan_request.statut,
         "motif": (motif or "").strip(),

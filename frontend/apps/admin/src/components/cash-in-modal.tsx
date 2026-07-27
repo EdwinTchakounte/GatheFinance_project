@@ -9,6 +9,7 @@ import {
   type LoanRequest,
   type Member,
 } from "@/lib/api";
+import { fullName } from "@/lib/name";
 
 
 type CashInType =
@@ -355,7 +356,7 @@ export function CashInModal({
             <div className="flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-sm">
               <div>
                 <p className="font-medium text-ink-900">
-                  {selectedMember.prenom} {selectedMember.nom}
+                  {fullName(selectedMember.prenom, selectedMember.nom)}
                 </p>
                 <p className="font-mono text-[10px] text-ink-500">
                   {selectedMember.numero_membre} · {selectedMember.statut}
@@ -395,7 +396,7 @@ export function CashInModal({
                         className="block w-full px-3 py-2 text-left text-xs hover:bg-line-100"
                       >
                         <span className="font-medium text-ink-900">
-                          {m.prenom} {m.nom}
+                          {fullName(m.prenom, m.nom)}
                         </span>
                         <span className="ml-2 font-mono text-[10px] text-ink-500">
                           {m.numero_membre} · {m.statut}
@@ -489,7 +490,7 @@ export function CashInModal({
                     Ce versement sera{" "}
                     <strong>rattaché à la demande de crédit #
                     {pendingRequests[0].id}</strong>{" "}
-                    de {selectedMember.prenom} {selectedMember.nom} et fera
+                    de {fullName(selectedMember.prenom, selectedMember.nom)} et fera
                     avancer son instruction. Il n'impacte aucun autre compte.
                   </p>
                 ) : null}

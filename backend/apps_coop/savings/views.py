@@ -365,9 +365,13 @@ def admin_collecte_preferences(request):
         {
             "member_id": a.member_id,
             "numero_membre": a.member.numero_membre,
-            "nom": f"{a.member.prenom} {a.member.nom}".strip(),
+            "nom": a.member.nom_complet,
             "solde": str(a.solde),
             "preference": a.end_of_month_preference,
+            # Destination du versement MoMo (préférence mobile_money) : sans
+            # elle, l'admin ne peut pas exécuter le « versement sur mon compte ».
+            "payout_phone": a.payout_phone,
+            "payout_network": a.payout_network,
         }
         for a in qs
     ]

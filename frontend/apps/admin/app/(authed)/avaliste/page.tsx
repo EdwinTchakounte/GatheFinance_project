@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { adminApi, type ApiError, type AvalisteConsentRow } from "@/lib/api";
+import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 
 
@@ -59,7 +60,7 @@ export default function AvalistePage() {
       await adminApi.avaliste.requestConsent(row.loan_request.id);
       setNotice({
         tone: "ok",
-        text: `Mandat émis — ${row.demandeur.prenom} ${row.demandeur.nom}. L'avaliste peut répondre depuis son espace.`,
+        text: `Mandat émis — ${fullName(row.demandeur.prenom, row.demandeur.nom)}. L'avaliste peut répondre depuis son espace.`,
       });
       setFilter((f) => f);
       const res = await adminApi.avaliste.list({});
@@ -101,11 +102,11 @@ export default function AvalistePage() {
     {
       key: "demandeur",
       label: "Demandeur",
-      text: (r) => `${r.demandeur.prenom} ${r.demandeur.nom} ${r.demandeur.numero_membre}`,
+      text: (r) => `${fullName(r.demandeur.prenom, r.demandeur.nom)} ${r.demandeur.numero_membre}`,
       render: (r) => (
         <div>
           <p className="font-medium text-ink-900">
-            {r.demandeur.prenom} {r.demandeur.nom}
+            {fullName(r.demandeur.prenom, r.demandeur.nom)}
           </p>
           <p className="font-mono text-xs text-ink-500">{r.demandeur.numero_membre}</p>
         </div>
@@ -114,11 +115,11 @@ export default function AvalistePage() {
     {
       key: "avaliste",
       label: "Avaliste (garant)",
-      text: (r) => `${r.avaliste.prenom} ${r.avaliste.nom} ${r.avaliste.numero_membre}`,
+      text: (r) => `${fullName(r.avaliste.prenom, r.avaliste.nom)} ${r.avaliste.numero_membre}`,
       render: (r) => (
         <div>
           <p className="font-medium text-ink-900">
-            {`${r.avaliste.prenom} ${r.avaliste.nom}`.trim() || "—"}
+            {fullName(r.avaliste.prenom, r.avaliste.nom) || "—"}
           </p>
           <p className="font-mono text-xs text-ink-500">{r.avaliste.numero_membre}</p>
         </div>

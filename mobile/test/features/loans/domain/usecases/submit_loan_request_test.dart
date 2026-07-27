@@ -103,5 +103,27 @@ void main() {
             motif: 'Achat outillage pro',
           ),).called(1);
     });
+
+    test('voie campagne : accepte un montant < 50 000 (bornes campagne)', () async {
+      // P5 — quand campaign_id est présent, le plancher générique 50 000 ne
+      // s'applique pas : les bornes de la campagne (validées côté form +
+      // backend) font foi, autorisant p.ex. 5 000.
+      final created = LoanRequestSubmission(request: Fixtures.loanRequest());
+      when(() => repo.submitRequest(
+            montantDemande: 5000,
+            dureeMois: 3,
+            motif: 'Petit fonds de roulement boutique',
+            extraValues: {'campaign_id': 7},
+          ),).thenAnswer((_) async => created);
+
+      final result = await useCase.call(const SubmitLoanRequestParams(
+        montantDemande: 5000,
+        dureeMois: 3,
+        motif: 'Petit fonds de roulement boutique',
+        extraValues: {'campaign_id': 7},
+      ),);
+
+      expect(result, created);
+    });
   });
 }

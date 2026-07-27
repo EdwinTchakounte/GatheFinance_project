@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 from django.db.models import QuerySet
@@ -94,6 +94,16 @@ def _bool_setting(key: str, default: bool = True) -> bool:
     """Lit un AppSetting str ``"true"``/``"false"`` (casse-insensible)."""
     raw = (get_str_setting(key, "true" if default else "false") or "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
+
+
+def _decimal_setting(key: str, default: Decimal) -> Decimal:
+    """Lit un AppSetting décimal (ex. un taux ``"0.30"``). Retombe sur ``default``
+    si absent ou illisible."""
+    raw = get_str_setting(key, str(default))
+    try:
+        return Decimal(str(raw).strip())
+    except (InvalidOperation, ValueError, TypeError):
+        return default
 
 
 def _route_priority() -> list[str]:
@@ -180,14 +190,39 @@ def _eval_senior_brc(
 
     epargne = _member_available_savings(member)
 
-    # Chemin 1 — auto-couverture (l'épargne dispo suffit).
+    # Apport personnel (2026-07) : l'éligibilité n'exige plus une couverture à
+    # 100 %. Il suffit que l'épargne classique DISPONIBLE atteigne le taux
+    # d'apport requis (``loans.eligibility.apport_rate``, défaut 0.30) du montant.
+    # Le comité juge le reste (sous-couverture), comme la voie « ancien ».
+    apport_rate = _decimal_setting("loans.eligibility.apport_rate", Decimal("0.30"))
+    apport_requis = (montant_d * apport_rate).quantize(Decimal("1"))
+
+    # Chemin 1a — auto-couverture PLEINE (l'épargne dispo couvre tout : 0 risque).
     if epargne >= montant_d:
         return _VoieResult(
             matched=True,
             details={
                 "epargne_disponible": str(epargne),
                 "montant": str(montant_d),
+                "apport_rate": str(apport_rate),
+                "apport_requis": str(apport_requis),
                 "auto_couverture": True,
+            },
+        )
+
+    # Chemin 1b — APPORT suffisant (épargne ≥ apport_rate × montant) : éligible,
+    # mais sous-couvert → signalé au comité, qui tranche.
+    if epargne >= apport_requis:
+        return _VoieResult(
+            matched=True,
+            details={
+                "epargne_disponible": str(epargne),
+                "montant": str(montant_d),
+                "apport_rate": str(apport_rate),
+                "apport_requis": str(apport_requis),
+                "apport_couverture": True,
+                "sous_couverture": True,
+                "manque": str(montant_d - epargne),
             },
         )
 
@@ -217,10 +252,11 @@ def _eval_senior_brc(
             },
         )
 
-    # Ni couvert, ni ancien+BRC éligible.
+    # Ni apport suffisant, ni ancien+BRC éligible.
     motifs = [
-        f"Épargne classique disponible insuffisante pour se couvrir soi-même : "
-        f"{epargne} XAF < {montant_d} XAF."
+        f"Épargne classique disponible insuffisante : {epargne} XAF < apport "
+        f"requis {apport_requis} XAF ({apport_rate * 100:.0f}% du montant "
+        f"{montant_d} XAF)."
     ]
     if not is_senior:
         motifs.append(

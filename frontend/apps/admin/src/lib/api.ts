@@ -1201,11 +1201,20 @@ export type CollecteEomRow = {
   numero_membre: string;
   nom: string;
   solde: string;
-  preference: "cash" | "epargne";
+  preference: "cash" | "mobile_money" | "epargne";
+  // Destination du versement MoMo (préférence mobile_money) — la coop en a
+  // besoin pour exécuter le « versement sur mon compte ».
+  payout_phone?: string;
+  payout_network?: string;
 };
 
 export type CollecteEomPage = {
-  summary: { cash: number; epargne: number; total: number };
+  summary: {
+    cash: number;
+    mobile_money: number;
+    epargne: number;
+    total: number;
+  };
   results: CollecteEomRow[];
 };
 

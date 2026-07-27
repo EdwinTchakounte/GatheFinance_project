@@ -10,6 +10,7 @@ import { DataTable, type DataColumn } from "@/components/data-table";
 import { DocumentLink } from "@/components/document-preview";
 import { Modal, ModalField, modalInputClass } from "@/components/modal";
 import { adminApi, type ApiError, type LoanRequest } from "@/lib/api";
+import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 
 
@@ -237,13 +238,13 @@ function Inner() {
       locked: true,
       text: (r) =>
         r.member
-          ? `${r.member.prenom} ${r.member.nom} ${r.member.numero_membre} ${r.member.telephone ?? ""}`
+          ? `${fullName(r.member.prenom, r.member.nom)} ${r.member.numero_membre} ${r.member.telephone ?? ""}`
           : "",
       render: (r) =>
         r.member ? (
           <div className="min-w-[10rem]">
             <p className="text-sm font-medium text-ink-900">
-              {r.member.prenom} {r.member.nom}
+              {fullName(r.member.prenom, r.member.nom)}
             </p>
             <p className="font-mono text-[11px] text-ink-500">
               {r.member.numero_membre}
@@ -1358,7 +1359,7 @@ function ProfilEmprunteurBadges({ r }: { r: LoanRequest }) {
             value={row.value}
             proof={row.proof}
             isYes={row.value === "oui"}
-            subtitle={`Demande #${r.id}${r.member ? ` · ${r.member.prenom} ${r.member.nom}` : ""}`}
+            subtitle={`Demande #${r.id}${r.member ? ` · ${fullName(r.member.prenom, r.member.nom)}` : ""}`}
           />
         ))}
       </div>

@@ -9,6 +9,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/formatters/name_formatter.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/brand_loader.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
@@ -209,13 +210,17 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   /// `null` = montant valide. Utilisée à la fois pour l'affichage inline et
   /// pour bloquer le submit.
   String? _amountErrorFor(CampaignFlyer? camp) {
+    // Voie campagne : les bornes min/max définies à la création de la campagne
+    // sont AUTORITAIRES et remplacent le plancher générique (souvent plus haut).
+    if (camp != null) {
+      if (_montant < camp.montantMin || _montant > camp.montantMax) {
+        return 'Cette campagne accepte de ${XAFFormatter.format(camp.montantMin)} '
+            'à ${XAFFormatter.format(camp.montantMax)}.';
+      }
+      return null;
+    }
     if (_montant < kMinLoanAmount) {
       return 'Montant minimum : ${XAFFormatter.format(kMinLoanAmount)}.';
-    }
-    if (camp != null &&
-        (_montant < camp.montantMin || _montant > camp.montantMax)) {
-      return 'Cette campagne accepte de ${XAFFormatter.format(camp.montantMin)} '
-          'à ${XAFFormatter.format(camp.montantMax)}.';
     }
     return null;
   }
@@ -1807,7 +1812,7 @@ class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
                     size: 20,
                   ),
                   title: Text(
-                    '${c.prenom} ${c.nom}',
+                    nomComplet(c.prenom, c.nom),
                     style: TextStyle(
                       color: saturated ? PaColors.inkMuted : PaColors.inkPrimary,
                       fontSize: 14,

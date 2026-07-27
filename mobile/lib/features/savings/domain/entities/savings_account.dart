@@ -14,6 +14,8 @@ class SavingsAccount {
     this.soldePlacementActif,
     this.soldeDisponibleRetrait,
     this.montantGeleCredit,
+    this.montantGeleApport,
+    this.montantGeleAvaliste,
     this.placementOpen,
     this.placementEligibilityMonths,
     this.cachedAt,
@@ -38,6 +40,15 @@ class SavingsAccount {
   /// la collecte / snapshots plus anciens.
   final num? soldeDisponibleRetrait;
   final num? montantGeleCredit;
+
+  /// Scission du gel par MOTIF (règle « mobilisable ssi motif = ce crédit ») :
+  ///   • [montantGeleApport]   = collatéral de MES crédits → mobilisable pour les
+  ///     solder (bouton « Transférer mon apport gelé ») ;
+  ///   • [montantGeleAvaliste] = caution donnée sur le crédit d'un AUTRE membre →
+  ///     NON mobilisable, libérée à la clôture du crédit garanti.
+  /// `null` pour la collecte / snapshots plus anciens.
+  final num? montantGeleApport;
+  final num? montantGeleAvaliste;
 
   /// Épargne classique : `true` tant que CE membre peut encore verser en
   /// PLACEMENT (verrou global + fenêtre des N premiers mois d'ancienneté).
@@ -74,6 +85,8 @@ class SavingsAccount {
       soldePlacementActif: soldePlacementActif,
       soldeDisponibleRetrait: soldeDisponibleRetrait,
       montantGeleCredit: montantGeleCredit,
+      montantGeleApport: montantGeleApport,
+      montantGeleAvaliste: montantGeleAvaliste,
       placementOpen: placementOpen,
       placementEligibilityMonths: placementEligibilityMonths,
       dateOuverture: dateOuverture,
@@ -92,6 +105,9 @@ class SavingsAccount {
         if (soldeDisponibleRetrait != null)
           'solde_disponible_retrait': soldeDisponibleRetrait,
         if (montantGeleCredit != null) 'montant_gele_credit': montantGeleCredit,
+        if (montantGeleApport != null) 'montant_gele_apport': montantGeleApport,
+        if (montantGeleAvaliste != null)
+          'montant_gele_avaliste': montantGeleAvaliste,
         if (placementOpen != null) 'placement_open': placementOpen,
         if (placementEligibilityMonths != null)
           'placement_eligibility_months': placementEligibilityMonths,
@@ -109,6 +125,8 @@ class SavingsAccount {
       soldePlacementActif: json['solde_placement_actif'] as num?,
       soldeDisponibleRetrait: json['solde_disponible_retrait'] as num?,
       montantGeleCredit: json['montant_gele_credit'] as num?,
+      montantGeleApport: json['montant_gele_apport'] as num?,
+      montantGeleAvaliste: json['montant_gele_avaliste'] as num?,
       placementOpen: json['placement_open'] as bool?,
       placementEligibilityMonths:
           (json['placement_eligibility_months'] as num?)?.toInt(),

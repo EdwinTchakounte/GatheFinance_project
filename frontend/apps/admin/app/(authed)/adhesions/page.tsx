@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { adminApi, type AdhesionPipeline, type ApiError } from "@/lib/api";
+import { fullName } from "@/lib/name";
 
 
 function formatXAF(s: string): string {
@@ -172,7 +173,7 @@ export default function AdhesionsPipelinePage() {
                   return (
                     <tr key={m.member_id} className="hover:bg-cream/30">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-ink-900">{m.prenom} {m.nom}</p>
+                        <p className="font-medium text-ink-900">{fullName(m.prenom, m.nom)}</p>
                         <p className="font-mono text-xs text-ink-500">{m.numero_membre}</p>
                       </td>
                       <td className="px-4 py-3 text-ink-700">
@@ -220,7 +221,7 @@ export default function AdhesionsPipelinePage() {
                         {m.email ? (
                           <a
                             href={`mailto:${m.email}?subject=${encodeURIComponent("Rappel des frais d'adhésion - GATHE Finance")}&body=${encodeURIComponent(
-                              `Bonjour ${m.prenom} ${m.nom},\n\nNous notons que vous n'avez pas encore complété le paiement de vos frais d'adhésion (${Number(m.amount_remaining).toLocaleString("fr-FR")} XAF restants).\n\nVotre compte deviendra actif dès que les 3 frais (adhésion + inscription + carnet) seront réglés via l'app mobile ou le portail.\n\nL'équipe GATHE Finance`,
+                              `Bonjour ${m.prenom},\n\nNous notons que vous n'avez pas encore complété le paiement de vos frais d'adhésion (${Number(m.amount_remaining).toLocaleString("fr-FR")} XAF restants).\n\nVotre compte deviendra actif dès que les 3 frais (adhésion + inscription + carnet) seront réglés via l'app mobile ou le portail.\n\nL'équipe GATHE Finance`,
                             )}`}
                             className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800"
                           >
