@@ -41,6 +41,7 @@ GROUPS_ORDER = [
     ("campaign", "Micro-campagne"),
     ("seizure", "Saisie épargne"),
     ("judicial", "Escalade judiciaire"),
+    ("criticity", "Criticité crédit"),
 ]
 
 
@@ -471,6 +472,36 @@ CATALOG: list[dict] = [
         "type": "int",
         "default": "7",
         "min": 0,
+    },
+    # Gouvernance G3 — criticité crédit (avis souple au comité).
+    {
+        "key": "loans.criticality.amount_ref",
+        "group": "criticity",
+        "label": "Montant de référence du découvert (XAF)",
+        "description": "Découvert absolu au-delà duquel le score « montant » est maximal. Sert à pondérer la criticité par la taille de l'exposition.",
+        "type": "int",
+        "default": "500000",
+        "min": 0,
+    },
+    {
+        "key": "loans.criticality.score_eleve",
+        "group": "criticity",
+        "label": "Seuil de score « Élevé »",
+        "description": "Score combiné (taux + montant, 0→1) à partir duquel la criticité est « Élevé ».",
+        "type": "decimal",
+        "default": "0.5",
+        "min": 0,
+        "max": 1,
+    },
+    {
+        "key": "loans.criticality.score_critique",
+        "group": "criticity",
+        "label": "Seuil de score « Critique »",
+        "description": "Score combiné à partir duquel la criticité est « Critique » (alerte visuelle au comité).",
+        "type": "decimal",
+        "default": "0.75",
+        "min": 0,
+        "max": 1,
     },
 ]
 

@@ -585,6 +585,20 @@ class LoanReadSerializer(serializers.ModelSerializer):
             Loan.objects.filter(member_id=obj.member_id, id__lte=obj.id).count()
         )
 
+    # Gouvernance G3 — criticité (avis souple, dérivée du découvert tracé).
+    criticite = serializers.SerializerMethodField()
+    criticite_display = serializers.SerializerMethodField()
+
+    def get_criticite(self, obj) -> str:
+        from .criticality_services import credit_criticality
+
+        return credit_criticality(obj)
+
+    def get_criticite_display(self, obj) -> str:
+        from .criticality_services import credit_criticality_label
+
+        return credit_criticality_label(obj)
+
     class Meta:
         model = Loan
         fields = (
@@ -606,6 +620,9 @@ class LoanReadSerializer(serializers.ModelSerializer):
             # Gouvernance G2 — décomposition couverture / découvert.
             "montant_gage",
             "montant_decouvert",
+            # Gouvernance G3 — criticité (avis souple).
+            "criticite",
+            "criticite_display",
             "created_at",
         )
         read_only_fields = fields
