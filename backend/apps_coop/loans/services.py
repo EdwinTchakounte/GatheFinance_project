@@ -378,12 +378,29 @@ def approve_loan_request(
     except Exception:  # noqa: BLE001 — valeur AppSetting cassée
         share_rate_fige = Decimal("0.5")
 
+    # Gouvernance G2 — décomposition gagé / découvert, FIGÉE à l'octroi.
+    #   gagé = apport gelé + caution avaliste ; = montant si bien matériel ou
+    #   campagne (risque externalisé). découvert = montant − gagé = exposition coop.
+    from .models import AvalisteConsent
+
+    _gage = Decimal(loan_request.montant_gele_demandeur or 0)
+    _consent = getattr(loan_request, "avaliste_consent", None)
+    if _consent is not None and _consent.statut == AvalisteConsent.Statut.ACCEPTED:
+        _gage += Decimal(_consent.montant_caution or 0)
+    if loan_request.garantie_materielle or loan_request.microcampaign_id:
+        _gage = montant
+    _gage = min(_gage, montant)
+    montant_gage = _q(_gage)
+    montant_decouvert = _q(max(Decimal("0"), montant - _gage))
+
     loan = Loan.objects.create(
         loan_request=loan_request,
         member=loan_request.member,
         numero_dossier=_next_numero_dossier(),
         montant=montant,
         taux_interet=taux,
+        montant_gage=montant_gage,
+        montant_decouvert=montant_decouvert,
         taux_penalite=taux_penalite_fige,
         duree_mois=duree,
         modalite_paiement=modalite,

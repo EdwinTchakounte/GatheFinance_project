@@ -713,6 +713,23 @@ class Loan(TimestampedModel):
         ),
     )
 
+    # Gouvernance G2 — décomposition couverture/découvert, figée à l'octroi.
+    #   montant_gage    = part adossée (apport gelé + caution avaliste ; = montant
+    #                     pour garantie matérielle / campagne, risque externalisé).
+    #   montant_decouvert = montant − gagé = part prêtée SUR CONFIANCE = exposition
+    #                       de la coop (plafonnée à 80 % par l'apport 20 %).
+    # NULL = crédit antérieur à G2 (non décomposé).
+    montant_gage = money_field(
+        null=True,
+        blank=True,
+        help_text="Part du crédit adossée à une garantie (apport gelé + caution + bien/campagne).",
+    )
+    montant_decouvert = money_field(
+        null=True,
+        blank=True,
+        help_text="Part prêtée sur confiance (montant − gagé) = exposition de la coop.",
+    )
+
     # CH-12 — Snapshot du taux de partage prêteurs / coop figé à l'approbation
     # du Loan. La valeur courante vit dans l'AppSetting ``lender.interest_share_rate``
     # (modifiable côté admin) ; on la FIGE ici pour éviter qu'un changement

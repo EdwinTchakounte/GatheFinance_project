@@ -603,6 +603,9 @@ class LoanReadSerializer(serializers.ModelSerializer):
             "installments",
             "apport_gele",
             "apport_gele_motif",
+            # Gouvernance G2 — décomposition couverture / découvert.
+            "montant_gage",
+            "montant_decouvert",
             "created_at",
         )
         read_only_fields = fields
