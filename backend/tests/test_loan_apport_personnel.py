@@ -90,7 +90,7 @@ class TestApportGate:
         assert r.status_code == 201, r.content
 
     def test_freeze_is_apport_not_all_available(self, active_member):
-        # Ancien + BRC sous-couvert : gel = APPORT (10 %) et non toute l'épargne.
+        # Ancien + BRC sous-couvert : gel = APPORT (20 %, G1) et non toute l'épargne.
         _seed_fee()
         _ancient_brc(active_member)
         _seed_classic(active_member, 30000)
@@ -101,7 +101,7 @@ class TestApportGate:
         )
         assert r.status_code == 201, r.content
         lr = LoanRequest.objects.get(pk=r.json()["loan_request"]["id"])
-        assert lr.montant_gele_demandeur == Decimal("10000")
+        assert lr.montant_gele_demandeur == Decimal("20000")  # 20 % × 100 000 (G1)
         assert lr.motif_gel_demandeur  # motif renseigné
 
     def test_self_covered_freezes_full_amount_unchanged(self, active_member):

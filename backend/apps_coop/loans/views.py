@@ -363,13 +363,14 @@ def loan_request_create(request):
         # Gel du collatéral demandeur + motif lisible (2026-07) :
         #   • SENIOR_BRC auto-couvert (épargne dispo ≥ montant) → gèle le MONTANT
         #     (inchangé : « votre épargne couvre le crédit »).
-        #   • SENIOR_BRC sous-couvert → gèle l'APPORT personnel
-        #     (min_available_rate × montant, borné à l'épargne dispo),
-        #     transférable ensuite pour solder le crédit.
+        #   • SENIOR_BRC sous-couvert → gèle l'APPORT personnel de 20 %
+        #     (loans.apport.rate × montant, borné à l'épargne dispo), transférable
+        #     ensuite pour solder le crédit. Base 30 % = 20 % apport gelé (ici) +
+        #     10 % intérêt coupé à la mise à disposition (mode source, G1).
         #   • AVALISTE → 0 ici (request_avaliste_consent gèle le manque, inchangé).
         #   • GARANTIE_MATERIELLE / CAMPAGNE → 0 (bien apporté / la coop porte le risque).
         from .avaliste_services import (
-            _apport_min_available_rate,
+            _apport_rate,
             _member_available_savings,
         )
 
@@ -382,7 +383,7 @@ def loan_request_create(request):
                 motif_gel = "Auto-couverture — votre épargne couvre le crédit."
             else:
                 _apport = (
-                    data["montant_demande"] * _apport_min_available_rate()
+                    data["montant_demande"] * _apport_rate()
                 ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
                 gel_demandeur_initial = min(_apport, _dispo)
                 if gel_demandeur_initial > 0:

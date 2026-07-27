@@ -143,8 +143,9 @@ class TestVoieSeniorBrc:
         body = r.json()
         assert body["route"] == "senior_brc"
         lr = LoanRequest.objects.get(pk=body["loan_request"]["id"])
-        # Gel = apport (10 % × 100 000) = 10 000, borné à l'épargne dispo.
-        assert lr.montant_gele_demandeur == Decimal("10000")
+        # Gel = apport personnel 20 % × 100 000 = 20 000 (G1), borné à l'épargne
+        # dispo (30 000 ici → 20 000).
+        assert lr.montant_gele_demandeur == Decimal("20000")
 
     def test_above_self_coverage_without_avaliste_rejects(self, active_member):
         # Un NOUVEL adhérent (non ancien) sans avaliste dont l'épargne n'atteint
