@@ -57,7 +57,8 @@ criticité, palier d'alerte, mode intérêt.
 
 ## 3. Checklist de déploiement
 
-1. **Migrations** : `migrate` (nouvelles : `0042` découvert, `0043` privilège — nullables, safe).
+1. **Migrations** : `migrate` (nouvelles : loans `0042` découvert, `0043` privilège ; members `0020`
+   `date_activation` **avec backfill** — nullables/idempotentes, safe).
 2. **⚠️ Critique (Lot 0.5)** : `python manage.py seed_form_schemas --kind loan_request` + vérifier
    `is_active` **avant/avec** le déploiement. Sinon les champs de privilège (ancien apprenant/CGA)
    seraient ignorés (la boucle compat a été retirée).
@@ -116,9 +117,8 @@ Audit de cohérence (lecture seule) des 8 use cases, **après** les changements 
   valeurs EFFECTIVES, pas seulement re-seeder) : `loans.eligibility.apport_rate=0.30`, `loans.apport.rate=0.20`,
   `loans.apport.min_available_rate`, `loans.interest_withheld_at_source=true`. Si une valeur legacy traîne, la
   règle 30/20/source n'est pas appliquée.
-- **🟡 FAIBLE — Adhésion** : un primo-adhérent est mal routé en « reconduction » si le frais d'adhésion est payé
-  **en dernier** → devient ACTIF (correct) mais sans mail d'activation + date de réinscription posée à tort.
-  Cosmétique, corrigeable post-livraison (`payments/services.py:411-418`).
+- ~~🟡 FAIBLE — Adhésion : primo-adhérent mal routé en reconduction~~ **✅ CORRIGÉ** (commit `cfccaa0`) :
+  marqueur `Member.date_activation` + migration 0020 (backfill). Testé (primo → activation ; revenant → renouvellement).
 - **🟡 FAIBLE — Docstring obsolète** (`savings/views.py:518` « débité à l'approbation ») : sans impact.
 
 ## 8. Go / No-Go
