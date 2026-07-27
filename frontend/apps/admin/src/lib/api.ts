@@ -1245,6 +1245,19 @@ export type SupportThreadDetail = {
   messages: SupportMessageRow[];
 };
 
+// Gouvernance G5/G6 — exposition de la coop au découvert.
+export type CreditExposure = {
+  encours_decouvert_total: string;
+  nb_credits_actifs: number;
+  nb_credits_privilege: number;
+  par_criticite: { faible: number; moyen: number; eleve: number; critique: number };
+  alerte: {
+    palier_step: string;
+    palier_atteint: number;
+    prochain_seuil: string | null;
+  };
+};
+
 
 export const adminApi = {
   primeCsrf: () => request<{ csrfToken: string }>("/auth/csrf/"),
@@ -1387,6 +1400,8 @@ export const adminApi = {
           offset: params.offset ? String(params.offset) : undefined,
         })}`,
       ),
+    // Gouvernance G5/G6 — exposition de la coop au découvert.
+    exposure: () => request<CreditExposure>("/loans/admin/exposure/"),
     disburseTara: (
       loanId: number,
       payload: { recipient_phone: string; network: "MTN" | "ORANGE" | "WAVE" | "AIRTEL" },
