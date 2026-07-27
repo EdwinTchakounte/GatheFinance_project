@@ -42,6 +42,7 @@ GROUPS_ORDER = [
     ("seizure", "Saisie épargne"),
     ("judicial", "Escalade judiciaire"),
     ("criticity", "Criticité crédit"),
+    ("exposure", "Exposition découvert"),
 ]
 
 
@@ -502,6 +503,16 @@ CATALOG: list[dict] = [
         "default": "0.75",
         "min": 0,
         "max": 1,
+    },
+    # Gouvernance G5 — suivi de l'exposition globale au découvert.
+    {
+        "key": "loans.exposure.alert_step",
+        "group": "exposure",
+        "label": "Palier d'alerte d'exposition (XAF)",
+        "description": "Pas des paliers d'alerte sur l'encours total prêté sur confiance (découvert). Ex. 2 000 000 = une alerte à chaque tranche de 2M franchie.",
+        "type": "int",
+        "default": "2000000",
+        "min": 0,
     },
 ]
 

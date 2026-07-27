@@ -1167,6 +1167,58 @@ _ADMIN_LOANS_PAGE_SIZE = 200
 
 @extend_schema(
     tags=["loans"],
+    summary="🔒 Admin — exposition de la coop au découvert (gouvernance G5)",
+    description=(
+        "Encours total prêté SUR CONFIANCE (somme des `montant_decouvert` des "
+        "crédits actifs), répartition par criticité, et statut des paliers "
+        "d'alerte (`loans.exposure.alert_step`). Vue de suivi (le tableau de "
+        "lecture) : la coop voit son risque de bilan en un coup d'œil."
+    ),
+    responses={200: OpenApiResponse(description="Agrégats d'exposition")},
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_credit_exposure(request):
+    from django.db.models import Sum
+
+    from apps_coop.audit.services import get_int_setting
+
+    from .criticality_services import LABELS, credit_criticality
+
+    actifs = Loan.objects.filter(
+        statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD]
+    ).select_related("member")
+
+    total = actifs.aggregate(s=Sum("montant_decouvert"))["s"] or Decimal("0")
+
+    # Répartition par criticité (petit volume de crédits actifs → OK en Python).
+    par_criticite = {k: 0 for k in LABELS}
+    nb_privilege = 0
+    for loan in actifs:
+        par_criticite[credit_criticality(loan)] += 1
+        if loan.privilege_accorde:
+            nb_privilege += 1
+
+    step = get_int_setting("loans.exposure.alert_step", 2000000)
+    palier = int(total // step) if step > 0 else 0
+
+    return Response(
+        {
+            "encours_decouvert_total": str(total),
+            "nb_credits_actifs": actifs.count(),
+            "nb_credits_privilege": nb_privilege,
+            "par_criticite": par_criticite,
+            "alerte": {
+                "palier_step": str(step),
+                "palier_atteint": palier,
+                "prochain_seuil": str(step * (palier + 1)) if step > 0 else None,
+            },
+        }
+    )
+
+
+@extend_schema(
+    tags=["loans"],
     summary="🔒 Staff — liste des crédits",
     description=(
         "Liste paginée de tous les `Loan` pour le dashboard admin. Filtres : "

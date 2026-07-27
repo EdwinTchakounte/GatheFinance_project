@@ -49,6 +49,7 @@ from .views import (
     admin_delete_loan_request,
     admin_list_loan_requests,
     admin_list_loan_renewals,
+    admin_credit_exposure,
     admin_list_loans,
     admin_loan_detail,
     loan_disburse,
@@ -171,6 +172,7 @@ urlpatterns = [
         name="admin-delete-request",
     ),
     path("admin/list/", admin_list_loans, name="admin-list-loans"),
+    path("admin/exposure/", admin_credit_exposure, name="admin-credit-exposure"),
     # A1 . Detail credit (echeances + remboursements) pour drawer admin.
     path(
         "admin/<int:pk>/detail/",
