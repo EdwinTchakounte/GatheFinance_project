@@ -72,7 +72,7 @@ criticité, palier d'alerte, mode intérêt.
 
 ## 4. Validation
 
-- **Backend** : suite complète **VERTE le 2026-07-27 — 1285 passed** (`pytest --create-db`), 4 warnings pré-existants (naive datetime, sans rapport).
+- **Backend** : suite complète **VERTE le 2026-07-27 — 1287 passed** (`pytest --create-db`, incl. fix adhésion), 4 warnings pré-existants (naive datetime, sans rapport).
 - **Mobile** : `flutter test` 150 OK + `analyze` propre.
 - **Frontends** : `tsc` portail + admin exit 0. `ruff` propre.
 
