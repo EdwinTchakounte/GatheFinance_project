@@ -59,7 +59,10 @@ class TestReactivationFlow:
         _paid(m, Payment.Type.FRAIS_CARNET)
         m.statut = Member.Statut.SUSPENDU
         m.date_derniere_reinscription = date.today() - timedelta(days=400)
-        m.save(update_fields=["statut", "date_derniere_reinscription"])
+        # A déjà été activé (le backfill de migration pose ce marqueur pour tout
+        # membre ayant une date de réinscription) → réactivation, pas primo.
+        m.date_activation = date.today() - timedelta(days=400)
+        m.save(update_fields=["statut", "date_derniere_reinscription", "date_activation"])
         ClassicSavingsAccount.objects.create(
             member=m, solde=Decimal("30000"), date_ouverture=date.today()
         )

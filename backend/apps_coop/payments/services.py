@@ -362,7 +362,14 @@ def _activate_member_if_fees_settled(member, *, trigger_payment: Payment) -> Non
         return
 
     member.statut = Member.Statut.ACTIF
-    member.save(update_fields=["statut", "updated_at"])
+    # Marqueur « a déjà été activé » (posé une seule fois, à la 1re activation).
+    _fields = ["statut", "updated_at"]
+    if member.date_activation is None:
+        from django.utils import timezone
+
+        member.date_activation = timezone.localdate()
+        _fields.append("date_activation")
+    member.save(update_fields=_fields)
     record_audit(
         action="member.activated",
         entite_type="Member",
@@ -411,6 +418,11 @@ def _hook_adhesion(payment: Payment, _raw: dict) -> None:
     if (
         member is not None
         and member.statut == Member.Statut.SUSPENDU
+        # Réactivation RÉSERVÉE à un membre DÉJÀ activé une fois : sans ce garde,
+        # un primo-adhérent (SUSPENDU, jamais activé) dont le frais d'adhésion est
+        # payé EN DERNIER passait par le renouvellement → activé mais sans
+        # l'événement member.activated. date_activation NULL = primo → activation.
+        and member.date_activation is not None
         and payment.type == Payment.Type.FRAIS_ADHESION
         and _membership_fees_settled(member)
     ):
