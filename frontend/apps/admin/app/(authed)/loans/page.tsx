@@ -328,7 +328,9 @@ function Inner() {
                     id: l.id,
                     numero_dossier: l.numero_dossier,
                     member_label: `${fullName(l.member.prenom, l.member.nom)}`,
-                    capital: l.montant,
+                    // Le funding porte sur le NET réellement décaissé (les
+                    // intérêts retenus à la source ne sortent pas de la caisse).
+                    capital: l.montant_decaisse_net ?? l.montant,
                   })
                 }
                 title="Composer le funding en selectionnant manuellement les tranches preteur"
