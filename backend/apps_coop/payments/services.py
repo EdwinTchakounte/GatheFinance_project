@@ -698,7 +698,17 @@ def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
     any_late = all_installments.filter(statut=LoanInstallment.Statut.EN_RETARD).exists()
 
     just_closed = False
-    if all_paid:
+    if all_paid and loan.en_attente_decaissement:
+        # Défense en profondeur : un crédit dont l'argent n'a jamais été versé
+        # ne doit pas pouvoir être « soldé » (les gardes amont bloquent déjà tout
+        # remboursement). Si on arrive ici, c'est une anomalie : on NE clôture PAS
+        # et on la trace plutôt que de produire un crédit « clôturé non décaissé ».
+        logger.error(
+            "Remboursement intégral sur un crédit non décaissé (loan=%s) — "
+            "clôture bloquée, à investiguer.",
+            loan.id,
+        )
+    elif all_paid:
         if loan.statut != Loan.Statut.CLOTURE:
             just_closed = True
         loan.statut = Loan.Statut.CLOTURE

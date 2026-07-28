@@ -152,6 +152,13 @@ function MemberStateSection({ ms }: { ms: AdminLoanMemberState }) {
           <Row label="Couverture" value="Sous-couvert — jugé par le comité" accent="warning" />
         ) : null}
         <Row label="Gelé (demandeur)" value={`${fmtMoney(ms.gel_demandeur)} XAF`} />
+        {ms.collateral_deficit && Number(ms.collateral_deficit) > 0 ? (
+          <Row
+            label="Déficit de collatéral"
+            value={`${fmtMoney(ms.collateral_deficit)} XAF (engagé ${fmtMoney(ms.gel_demandeur_engagement ?? ms.gel_demandeur)} — épargne insuffisante)`}
+            accent="warning"
+          />
+        ) : null}
         <Row label="Montant demandé" value={`${fmtMoney(ms.montant_demande)} XAF`} />
         {ms.frais_etude_paye !== null ? (
           <Row

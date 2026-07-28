@@ -12,6 +12,7 @@ from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps_coop.audit.services import get_str_setting, record as record_audit
@@ -73,10 +74,14 @@ def compute_eligibility(member: Member) -> Eligibility:
     if member.statut != Member.Statut.ACTIF:
         motifs.append("Compte membre non actif.")
 
-    # Rule 2
+    # Rule 2 — un crédit compte comme « en cours » s'il est actif/en_retard/
+    # contentieux OU s'il n'a pas encore été décaissé (argent non versé), quel
+    # que soit son statut. Ce dernier cas couvre l'anomalie « clôturé mais non
+    # décaissé » : le membre reste bloqué de façon cohérente jusqu'à résolution.
     active_loans = Loan.objects.filter(
+        Q(statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD, Loan.Statut.CONTENTIEUX])
+        | Q(en_attente_decaissement=True),
         member=member,
-        statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD, Loan.Statut.CONTENTIEUX],
     ).count()
     if active_loans:
         motifs.append(
@@ -954,6 +959,15 @@ def request_loan_renewal(
     if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
         raise ValueError(
             f"Reconduction impossible : crédit en statut {loan.statut!r}."
+        )
+
+    # Un crédit dont l'argent n'a jamais été versé (mise à disposition en attente)
+    # ne peut pas être reconduit : reconduire clôturerait l'original et laisserait
+    # un crédit « clôturé mais non décaissé » (argent perdu, collatéral libéré).
+    if loan.en_attente_decaissement:
+        raise ValueError(
+            "Reconduction impossible : ce crédit n'a pas encore été décaissé "
+            "(argent non versé). Décaisse-le ou annule-le d'abord."
         )
 
     # Une seule reconduction par crédit : un crédit déjà issu d'une reconduction

@@ -83,9 +83,12 @@ def _loan(member, comite_user, montant=Decimal("100000")):
         date_premiere_echeance=date.today() + timedelta(days=30),
     )
     # Reconduction possible uniquement à l'échéance (2026-07) : on simule un
-    # crédit arrivé à terme en plaçant la date butoir dans le passé.
+    # crédit arrivé à terme en plaçant la date butoir dans le passé. Un crédit
+    # reconductible est par définition DÉCAISSÉ (l'argent a été versé) : on lève
+    # le flag en_attente_decaissement, sinon la reconduction est refusée.
     loan.date_butoire = date.today() - timedelta(days=1)
-    loan.save(update_fields=["date_butoire"])
+    loan.en_attente_decaissement = False
+    loan.save(update_fields=["date_butoire", "en_attente_decaissement"])
     return loan
 
 

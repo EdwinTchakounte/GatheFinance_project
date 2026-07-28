@@ -132,18 +132,25 @@ def _universal_blockers(member) -> list[str]:
     la voie 1 (SENIOR_BRC) qui implicite une épargne minimale. Voies 2/3
     n'ont pas ce critère.
     """
+    from django.db.models import Q
+
     from apps_coop.members.models import Member
 
     blockers: list[str] = []
     if member.statut not in {Member.Statut.ACTIF, Member.Statut.TEMPORAIRE}:
         blockers.append("Compte membre non actif.")
+    # Un crédit non décaissé (argent non versé) compte comme « en cours » quel
+    # que soit son statut — couvre l'anomalie « clôturé mais non décaissé ».
     active_loans = Loan.objects.filter(
+        Q(
+            statut__in=[
+                Loan.Statut.ACTIF,
+                Loan.Statut.EN_RETARD,
+                Loan.Statut.CONTENTIEUX,
+            ]
+        )
+        | Q(en_attente_decaissement=True),
         member=member,
-        statut__in=[
-            Loan.Statut.ACTIF,
-            Loan.Statut.EN_RETARD,
-            Loan.Statut.CONTENTIEUX,
-        ],
     ).count()
     if active_loans:
         blockers.append(
@@ -802,7 +809,14 @@ def loan_disburse(request, pk: int):
     except Loan.DoesNotExist:
         return Response({"detail": "Crédit introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-    if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
+    # On décaisse un crédit ACTIF/EN_RETARD, OU un crédit resté « en attente de
+    # décaissement » même si son statut a été forcé à CLÔTURE par une anomalie
+    # (le hook de décaissement le rebascule ACTIF). On refuse en revanche de
+    # « re-décaisser » un crédit normalement soldé (non en_attente).
+    if (
+        loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD)
+        and not loan.en_attente_decaissement
+    ):
         return Response(
             {"detail": f"Crédit en statut {loan.statut!r} — décaissement impossible."},
             status=status.HTTP_400_BAD_REQUEST,
@@ -2190,7 +2204,14 @@ def loan_disburse_now(request, pk: int):
             {"detail": "Crédit introuvable."}, status=status.HTTP_404_NOT_FOUND
         )
 
-    if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
+    # On décaisse un crédit ACTIF/EN_RETARD, OU un crédit resté « en attente de
+    # décaissement » même si son statut a été forcé à CLÔTURE par une anomalie
+    # (le hook de décaissement le rebascule ACTIF). On refuse en revanche de
+    # « re-décaisser » un crédit normalement soldé (non en_attente).
+    if (
+        loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD)
+        and not loan.en_attente_decaissement
+    ):
         return Response(
             {"detail": f"Crédit en statut {loan.statut!r} — décaissement impossible."},
             status=status.HTTP_400_BAD_REQUEST,
@@ -2492,10 +2513,28 @@ def admin_loan_detail(request, pk: int):
             "dispo_retrait": str(classic_withdrawable(classic)),
         }
 
+    # Gel « effectif » du demandeur pour CE crédit : borné à l'épargne réelle
+    # (on ne gèle jamais plus que ce qui existe) et nul si le crédit est clôturé
+    # (collatéral libéré). Le brut `gel_demandeur` reste l'ENGAGEMENT pris à la
+    # demande (utilisé pour « sous-couverture »). L'écart positif = déficit de
+    # collatéral (l'épargne a fondu depuis la demande : placement restitué, etc.).
+    if loan.statut == Loan.Statut.CLOTURE:
+        # Crédit soldé → collatéral libéré, aucun gel ni déficit.
+        gel_demandeur_effectif = Decimal("0")
+        collateral_deficit = Decimal("0")
+    else:
+        solde_classique = Decimal(classic.solde) if classic is not None else Decimal("0")
+        gel_demandeur_effectif = min(gel_demandeur, solde_classique)
+        collateral_deficit = gel_demandeur - gel_demandeur_effectif
+    if collateral_deficit < 0:
+        collateral_deficit = Decimal("0")
+
     member_state = {
         "voie": voie,
         "sous_couverture": sous_couverture,
-        "gel_demandeur": str(gel_demandeur),
+        "gel_demandeur": str(gel_demandeur_effectif),
+        "gel_demandeur_engagement": str(gel_demandeur),
+        "collateral_deficit": str(collateral_deficit),
         "montant_demande": str(montant_demande),
         "frais_etude_paye": bool(getattr(lr, "frais_demande_credit_paye", False)) if lr else None,
         "en_attente_decaissement": bool(loan.en_attente_decaissement),

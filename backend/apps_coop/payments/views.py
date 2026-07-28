@@ -166,6 +166,17 @@ def init_payment(request):
                 {"detail": f"Crédit en statut {loan.statut!r} — remboursement impossible."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if loan.en_attente_decaissement:
+            return Response(
+                {
+                    "detail": (
+                        "Crédit pas encore décaissé (argent non versé) — "
+                        "remboursement impossible tant que la mise à disposition "
+                        "n'a pas eu lieu."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if data["montant"] > loan.solde_restant:
             return Response(
                 {
@@ -1126,6 +1137,17 @@ def admin_cash_in_payment(request):
         if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
             return Response(
                 {"detail": f"Crédit en statut {loan.statut!r} — remboursement impossible."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if loan.en_attente_decaissement:
+            return Response(
+                {
+                    "detail": (
+                        "Crédit pas encore décaissé (argent non versé) — "
+                        "remboursement impossible tant que la mise à disposition "
+                        "n'a pas eu lieu."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if montant > loan.solde_restant:

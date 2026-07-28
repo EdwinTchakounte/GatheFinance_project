@@ -501,6 +501,8 @@ export type AdminLoanMemberState = {
   voie: "senior_brc" | "avaliste" | "campaign" | "garantie_materielle" | null;
   sous_couverture: boolean;
   gel_demandeur: string;
+  gel_demandeur_engagement?: string;
+  collateral_deficit?: string;
   montant_demande: string;
   frais_etude_paye: boolean | null;
   en_attente_decaissement: boolean;

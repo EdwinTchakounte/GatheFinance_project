@@ -247,7 +247,12 @@ class _MembershipFormSheetState extends ConsumerState<MembershipFormSheet>
         if (v != null && v != '') scalarExtras[entry.key] = v;
       }
       final body = <String, Object?>{
-        'name': '${_prenomCtrl.text.trim()} ${_nomCtrl.text.trim()}'.trim(),
+        // On envoie nom et prénom SÉPARÉMENT : coller « prénom nom » dans `name`
+        // pollue le champ nom (« Edwin tchako ») et duplique le prénom à
+        // l'affichage. `name` reste le nom de famille (contrat legacy), `prenom`
+        // est capté à part par le backend.
+        'name': _nomCtrl.text.trim(),
+        'prenom': _prenomCtrl.text.trim(),
         'email': _emailCtrl.text.trim().toLowerCase(),
         'phone': _phoneCtrl.text.trim(),
         'whatsapp': _whatsappCtrl.text.trim(),

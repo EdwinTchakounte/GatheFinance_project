@@ -73,6 +73,11 @@ def repay_loan_from_savings(loan: Loan, montant: Decimal) -> "object":
 
     if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
         raise TransferError("Ce crédit n'est pas remboursable (déjà clôturé ?).")
+    if loan.en_attente_decaissement:
+        raise TransferError(
+            "Ce crédit n'a pas encore été décaissé (argent non versé) : "
+            "remboursement impossible tant que la mise à disposition n'a pas eu lieu."
+        )
 
     solde_restant = Decimal(loan.solde_restant)
     if solde_restant <= 0:
@@ -209,6 +214,11 @@ def repay_loan_from_frozen(loan: Loan, montant: Decimal | None = None) -> "objec
 
     if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
         raise TransferError("Ce crédit n'est pas remboursable (déjà clôturé ?).")
+    if loan.en_attente_decaissement:
+        raise TransferError(
+            "Ce crédit n'a pas encore été décaissé (argent non versé) : "
+            "remboursement impossible tant que la mise à disposition n'a pas eu lieu."
+        )
 
     lr = getattr(loan, "loan_request", None)
     frozen = Decimal(getattr(lr, "montant_gele_demandeur", 0) or 0) if lr else Decimal("0")
