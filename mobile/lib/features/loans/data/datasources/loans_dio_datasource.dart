@@ -525,6 +525,8 @@ Loan _parseLoan(Map<String, dynamic> json) {
     installments: installments
         .map((i) => _parseInstallment(i as Map<String, dynamic>))
         .toList(growable: false),
+    dateSoumission:
+        json['date_soumission'] != null ? _date(json['date_soumission']) : null,
     dateButoire:
         json['date_butoire'] != null ? _date(json['date_butoire']) : null,
     modeRetenueInterets:

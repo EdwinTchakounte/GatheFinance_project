@@ -344,6 +344,7 @@ export type LoanRequest = {
     numero_dossier: string;
     statut: string;
     date_decaissement: string;
+    date_butoire: string | null;
     disbursed: boolean;
     disbursement_pending: boolean;
   } | null;

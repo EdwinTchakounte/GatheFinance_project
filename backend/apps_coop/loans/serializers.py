@@ -332,6 +332,9 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "numero_dossier": loan.numero_dossier,
             "statut": loan.statut,
             "date_decaissement": loan.date_decaissement.isoformat(),
+            "date_butoire": (
+                loan.date_butoire.isoformat() if loan.date_butoire else None
+            ),
             "disbursed": already_disbursed,
             "disbursement_pending": disbursement_pending,
         }
@@ -604,6 +607,14 @@ class LoanReadSerializer(serializers.ModelSerializer):
 
         return credit_criticality_label(obj)
 
+    # Date de soumission de la demande d'origine (affichée sur la card crédit).
+    date_soumission = serializers.SerializerMethodField()
+
+    def get_date_soumission(self, obj) -> str | None:
+        lr = getattr(obj, "loan_request", None)
+        d = getattr(lr, "date_soumission", None) if lr else None
+        return d.isoformat() if d else None
+
     class Meta:
         model = Loan
         fields = (
@@ -613,8 +624,10 @@ class LoanReadSerializer(serializers.ModelSerializer):
             "montant",
             "taux_interet",
             "duree_mois",
+            "date_soumission",
             "date_decaissement",
             "date_premiere_echeance",
+            "date_butoire",
             "montant_total_du",
             "solde_restant",
             "statut",

@@ -314,15 +314,25 @@ function Inner() {
     },
     {
       key: "date",
-      label: "Reçue le",
-      defaultVisible: false,
+      label: "Dates",
+      defaultVisible: true,
       text: (r) => formatDate(r.date_soumission),
       render: (r) => (
-        <div className="whitespace-nowrap">
-          <span>{formatDate(r.date_soumission)}</span>
+        <div className="whitespace-nowrap text-[11px] leading-snug">
+          <p className="text-ink-700">Reçue le {formatDate(r.date_soumission)}</p>
           {r.date_limite_etude ? (
-            <p className="mt-0.5 text-[11px] text-ink-500">
+            <p className="text-ink-500">
               Étude avant le {formatDate(r.date_limite_etude)}
+            </p>
+          ) : null}
+          {r.loan?.disbursed && r.loan.date_decaissement ? (
+            <p className="text-ink-500">
+              Décaissé le {formatDate(r.loan.date_decaissement)}
+            </p>
+          ) : null}
+          {r.loan?.date_butoire ? (
+            <p className="text-ink-500">
+              Butoir : {formatDate(r.loan.date_butoire)}
             </p>
           ) : null}
         </div>
