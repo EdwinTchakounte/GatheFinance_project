@@ -8,6 +8,7 @@ import { CashInModal } from "@/components/cash-in-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { Pagination } from "@/components/pagination";
 import { adminApi, type ApiError, type PaymentRow } from "@/lib/api";
+import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 
 
@@ -107,11 +108,11 @@ function Inner() {
       key: "membre",
       label: "Membre",
       locked: true,
-      text: (p) => `${p.member.prenom} ${p.member.nom} ${p.member.numero_membre}`,
+      text: (p) => `${fullName(p.member.prenom, p.member.nom)} ${p.member.numero_membre}`,
       render: (p) => (
         <div>
           <p className="font-medium text-ink-900">
-            {p.member.prenom} {p.member.nom}
+            {fullName(p.member.prenom, p.member.nom)}
           </p>
           <p className="font-mono text-xs text-ink-500">{p.member.numero_membre}</p>
         </div>
@@ -180,6 +181,22 @@ function Inner() {
       ),
     },
   ];
+
+  async function invalidatePayment(p: PaymentRow) {
+    const motif = window.prompt(
+      `Invalider ce paiement de ${Number(p.montant).toLocaleString("fr-FR")} XAF ?\n` +
+        "Son effet (épargne / remboursement) sera contre-passé. Motif (optionnel) :",
+      "",
+    );
+    if (motif === null) return; // annulé
+    try {
+      await adminApi.payments.invalidate(p.id, motif || undefined);
+      setFlash("Paiement invalidé — effet contre-passé.");
+      await reload();
+    } catch (err) {
+      setError((err as ApiError).detail ?? "Invalidation impossible.");
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -294,6 +311,18 @@ function Inner() {
           columns={columns}
           rows={items}
           rowKey={(p) => p.id}
+          actions={(p) =>
+            p.statut === "valide" && p.type !== "decaissement" ? (
+              <button
+                type="button"
+                onClick={() => invalidatePayment(p)}
+                className="rounded-md border border-terra-300 px-2.5 py-1 text-xs font-medium text-terra-700 hover:bg-terra-50"
+                title="Invalider ce paiement (contre-passation)"
+              >
+                Invalider
+              </button>
+            ) : null
+          }
           emptyLabel="Aucun paiement ne correspond à ces filtres."
           exportFilename="paiements"
           exportTitle="Suivi des paiements — GATHE Finance"

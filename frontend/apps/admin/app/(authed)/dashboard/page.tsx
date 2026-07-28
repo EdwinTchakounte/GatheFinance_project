@@ -18,7 +18,13 @@ import {
   Search,
 } from "lucide-react";
 
-import { adminApi, type AdminInstallmentRow, type DashboardKpis } from "@/lib/api";
+import {
+  adminApi,
+  type AdminInstallmentRow,
+  type CreditExposure,
+  type DashboardKpis,
+} from "@/lib/api";
+import { fullName } from "@/lib/name";
 import { LoanDetailModal } from "@/components/loan-detail-modal";
 import { StatusPill } from "@/components/status-pill";
 
@@ -167,7 +173,6 @@ function DashboardContent() {
       hint: "voie crédit directe débloquée",
       icon: ShieldAlert,
       tone: "emerald",
-      href: "/brc",
     },
   ];
 
@@ -263,6 +268,9 @@ function DashboardContent() {
           ))}
         </div>
       </section>
+
+      {/* Gouvernance G6 — exposition de la coop au découvert (crédit sur confiance) */}
+      <ExposureSection />
 
       {/* A2 . Suivi paiement . echeances a venir + en retard */}
       <UpcomingRepayments />
@@ -454,7 +462,7 @@ function UpcomingRepayments() {
                   </td>
                   <td>
                     <p className="font-medium text-ink-900">
-                      {r.member.prenom} {r.member.nom}
+                      {fullName(r.member.prenom, r.member.nom)}
                     </p>
                     <p className="font-mono text-xs text-ink-500">
                       {r.member.numero_membre}
@@ -498,6 +506,90 @@ function UpcomingRepayments() {
         loanId={checkLoanId}
         onClose={() => setCheckLoanId(null)}
       />
+    </section>
+  );
+}
+
+
+// Gouvernance G6 — carte d'exposition de la coop au découvert (crédit sur confiance).
+const CRIT_LABELS: Record<string, string> = {
+  faible: "Faible",
+  moyen: "Moyen",
+  eleve: "Élevé",
+  critique: "Critique",
+};
+
+function ExposureSection() {
+  const [data, setData] = useState<CreditExposure | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.loans
+      .exposure()
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="mt-10">
+        <SkeletonCard className="h-32" />
+      </section>
+    );
+  }
+  if (!data) return null;
+
+  const palier = data.alerte.palier_atteint;
+  const alerte = palier > 0;
+
+  return (
+    <section className="mt-10">
+      <h2 className="mb-3 font-display text-xs font-semibold uppercase tracking-wider text-ink-500">
+        Exposition au découvert (crédit sur confiance)
+      </h2>
+      <div className="rounded-xl border border-line-200 bg-paper p-5">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs text-ink-500">Encours total prêté sur confiance</p>
+            <p className="mt-1 font-editorial text-3xl font-medium text-ink-900">
+              {formatXAF(data.encours_decouvert_total)} FCFA
+            </p>
+            <p className="mt-1 text-xs text-ink-500">
+              {data.nb_credits_actifs} crédit(s) actif(s) · {data.nb_credits_privilege} sur privilège
+            </p>
+          </div>
+          <div
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${
+              alerte
+                ? "bg-terra-50 text-terra-700 ring-terra-200"
+                : "bg-emerald-50 text-emerald-700 ring-emerald-200"
+            }`}
+          >
+            <ShieldAlert className="size-3.5" />
+            {alerte
+              ? `Palier d'alerte ${palier} franchi`
+              : "Sous le premier palier"}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(["faible", "moyen", "eleve", "critique"] as const).map((k) => (
+            <span
+              key={k}
+              className="inline-flex items-center gap-1.5 rounded-full bg-line-100 px-2.5 py-0.5 text-xs font-medium text-ink-700"
+            >
+              {CRIT_LABELS[k]} : {data.par_criticite[k]}
+            </span>
+          ))}
+        </div>
+
+        {data.alerte.prochain_seuil ? (
+          <p className="mt-3 text-xs text-ink-500">
+            Prochain palier d&apos;alerte : {formatXAF(data.alerte.prochain_seuil)} FCFA
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }

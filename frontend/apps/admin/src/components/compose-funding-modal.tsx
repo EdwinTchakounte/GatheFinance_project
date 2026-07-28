@@ -10,6 +10,7 @@ import {
   type ApiError,
   type LenderTranche,
 } from "@/lib/api";
+import { fullName } from "@/lib/name";
 
 
 type Selection = {
@@ -321,7 +322,7 @@ export function ComposeFundingModal({
                     />
                     <div className="flex-1">
                       <p className="font-medium text-ink-900">
-                        {t.member.prenom} {t.member.nom}
+                        {fullName(t.member.prenom, t.member.nom)}
                       </p>
                       <p className="font-mono text-xs text-ink-600">
                         {t.member.numero_membre} · depot{" "}

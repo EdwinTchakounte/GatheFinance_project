@@ -9,6 +9,7 @@ import {
   type AdminLoanMemberState,
   type ApiError,
 } from "@/lib/api";
+import { fullName } from "@/lib/name";
 
 
 function fmtMoney(value: string | number) {
@@ -87,7 +88,7 @@ export function LoanDetailModal({
       title={data ? `Crédit ${data.loan.numero_dossier}` : "Détail crédit"}
       description={
         data
-          ? `${data.loan.member.prenom} ${data.loan.member.nom} · ${data.loan.member.numero_membre}`
+          ? `${fullName(data.loan.member.prenom, data.loan.member.nom)} · ${data.loan.member.numero_membre}`
           : undefined
       }
     >
@@ -151,6 +152,13 @@ function MemberStateSection({ ms }: { ms: AdminLoanMemberState }) {
           <Row label="Couverture" value="Sous-couvert — jugé par le comité" accent="warning" />
         ) : null}
         <Row label="Gelé (demandeur)" value={`${fmtMoney(ms.gel_demandeur)} XAF`} />
+        {ms.collateral_deficit && Number(ms.collateral_deficit) > 0 ? (
+          <Row
+            label="Déficit de collatéral"
+            value={`${fmtMoney(ms.collateral_deficit)} XAF (engagé ${fmtMoney(ms.gel_demandeur_engagement ?? ms.gel_demandeur)} — épargne insuffisante)`}
+            accent="warning"
+          />
+        ) : null}
         <Row label="Montant demandé" value={`${fmtMoney(ms.montant_demande)} XAF`} />
         {ms.frais_etude_paye !== null ? (
           <Row
@@ -172,7 +180,7 @@ function MemberStateSection({ ms }: { ms: AdminLoanMemberState }) {
         <div className="rounded-md border border-line-200 bg-paper p-2.5 text-xs">
           <p className="mb-1 font-medium text-ink-800">Avaliste (garant)</p>
           <Row
-            label={`${ms.avaliste.prenom} ${ms.avaliste.nom} · ${ms.avaliste.numero_membre}`}
+            label={`${fullName(ms.avaliste.prenom, ms.avaliste.nom)} · ${ms.avaliste.numero_membre}`}
             value={
               ms.avaliste.caution ? `${fmtMoney(ms.avaliste.caution)} XAF` : "—"
             }

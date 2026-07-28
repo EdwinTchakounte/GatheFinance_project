@@ -138,7 +138,7 @@ def build_payment_receipt(payment: Payment) -> bytes:
     # --- Bloc Membre -------------------------------------------------------
     y = title_y - 32
     y = _section_header("Membre", y)
-    y = _row("Nom complet", f"{member.prenom} {member.nom}".strip(), y, bold_value=True)
+    y = _row("Nom complet", member.nom_complet, y, bold_value=True)
     y = _row("Numéro de membre", member.numero_membre, y)
 
     # --- Panneau MONTANT mis en valeur (info clé du reçu) -----------------

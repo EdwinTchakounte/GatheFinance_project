@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/formatters/name_formatter.dart';
+
 /// Membre — entité métier pure. Aucune dépendance framework/data.
 @immutable
 class Member {
@@ -27,7 +29,7 @@ class Member {
   /// URL absolue de la photo de profil (avatar), `null` si non définie.
   final String? photoUrl;
 
-  String get fullName => '$prenom $nom';
+  String get fullName => nomComplet(prenom, nom);
 
   Member copyWith({
     int? id,

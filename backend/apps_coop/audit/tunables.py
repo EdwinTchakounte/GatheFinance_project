@@ -36,10 +36,13 @@ GROUPS_ORDER = [
     ("lender", "Épargne-prêteur"),
     ("funding", "Funding crédit"),
     ("eligibility", "Éligibilité (3 voies)"),
+    ("apport", "Apport personnel"),
     ("avaliste", "Avaliste"),
     ("campaign", "Micro-campagne"),
     ("seizure", "Saisie épargne"),
     ("judicial", "Escalade judiciaire"),
+    ("criticity", "Criticité crédit"),
+    ("exposure", "Exposition découvert"),
 ]
 
 
@@ -307,6 +310,28 @@ CATALOG: list[dict] = [
         "type": "bool",
         "default": "false",
     },
+    # Apport personnel (garde-fou 2026-07) — rejet automatique si la cagnotte
+    # disponible du membre ne couvre pas l'apport minimum requis.
+    {
+        "key": "loans.apport.rate",
+        "group": "apport",
+        "label": "Apport personnel attendu (ratio)",
+        "description": "Apport personnel indicatif attendu sur un crédit (affiché au membre). 0.20 = 20 % du montant. Le rejet automatique s'appuie sur le seuil disponible ci-dessous, pas sur ce taux.",
+        "type": "decimal",
+        "default": "0.20",
+        "min": 0,
+        "max": 1,
+    },
+    {
+        "key": "loans.apport.min_available_rate",
+        "group": "apport",
+        "label": "Apport minimum disponible requis (ratio)",
+        "description": "Part du montant demandé qui DOIT être présente dans la cagnotte (épargnes non gelées placées ou non + collecte) au moment de la demande, sinon rejet automatique. 0.10 = 10 %. 0 = garde-fou désactivé.",
+        "type": "decimal",
+        "default": "0.10",
+        "min": 0,
+        "max": 1,
+    },
     # LOT 11 — Campaign defaults
     {
         "key": "loans.campaign.default_montant_min",
@@ -386,6 +411,16 @@ CATALOG: list[dict] = [
         "type": "csv",
         "default": "senior_brc,avaliste,campaign",
     },
+    {
+        "key": "loans.eligibility.apport_rate",
+        "group": "eligibility",
+        "label": "Apport minimum pour l'éligibilité (ratio)",
+        "description": "Taux d'apport personnel ouvrant l'éligibilité sur la voie auto-couverture / ancien : l'épargne disponible doit atteindre ce ratio du montant demandé (0.30 = 30 %). En-dessous de 100 %, la demande passe sous-couverte et le comité juge.",
+        "type": "decimal",
+        "default": "0.30",
+        "min": 0,
+        "max": 1,
+    },
     # LOT 13 — Seizure
     {
         "key": "loans.seizure.source_order",
@@ -437,6 +472,46 @@ CATALOG: list[dict] = [
         "description": "Jours avant déclenchement auto pendant lesquels l'admin peut intervenir.",
         "type": "int",
         "default": "7",
+        "min": 0,
+    },
+    # Gouvernance G3 — criticité crédit (avis souple au comité).
+    {
+        "key": "loans.criticality.amount_ref",
+        "group": "criticity",
+        "label": "Montant de référence du découvert (XAF)",
+        "description": "Découvert absolu au-delà duquel le score « montant » est maximal. Sert à pondérer la criticité par la taille de l'exposition.",
+        "type": "int",
+        "default": "500000",
+        "min": 0,
+    },
+    {
+        "key": "loans.criticality.score_eleve",
+        "group": "criticity",
+        "label": "Seuil de score « Élevé »",
+        "description": "Score combiné (taux + montant, 0→1) à partir duquel la criticité est « Élevé ».",
+        "type": "decimal",
+        "default": "0.5",
+        "min": 0,
+        "max": 1,
+    },
+    {
+        "key": "loans.criticality.score_critique",
+        "group": "criticity",
+        "label": "Seuil de score « Critique »",
+        "description": "Score combiné à partir duquel la criticité est « Critique » (alerte visuelle au comité).",
+        "type": "decimal",
+        "default": "0.75",
+        "min": 0,
+        "max": 1,
+    },
+    # Gouvernance G5 — suivi de l'exposition globale au découvert.
+    {
+        "key": "loans.exposure.alert_step",
+        "group": "exposure",
+        "label": "Palier d'alerte d'exposition (XAF)",
+        "description": "Pas des paliers d'alerte sur l'encours total prêté sur confiance (découvert). Ex. 2 000 000 = une alerte à chaque tranche de 2M franchie.",
+        "type": "int",
+        "default": "2000000",
         "min": 0,
     },
 ]

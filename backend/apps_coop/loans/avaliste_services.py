@@ -155,13 +155,29 @@ def _avaliste_frozen_amount(avaliste: Member) -> Decimal:
     return total
 
 
-def member_frozen_guarantee(member: Member) -> Decimal:
+def member_frozen_guarantee(member: Member, *, effective: bool = True) -> Decimal:
     """Total de l'épargne classique gelée par ce membre (demandeur + avaliste).
 
     Utilisé par le retrait épargne classique pour « griser » cette part :
     withdrawable = solde − max(placement_actif, ce gel).
+
+    INTÉGRITÉ (2026-07) : le gel *effectif* est **borné à l'épargne classique
+    réellement présente**. On ne peut pas geler plus que ce qui existe : un
+    engagement de gel qui dépasse le solde (collatéral érodé depuis la demande,
+    ex. placement restitué) devient un *déficit de collatéral*, pas un gel
+    fantôme qui « grise » plus que le solde. Ainsi le nombre affiché et le
+    disponible calculé restent toujours cohérents (jamais gel > solde).
+
+    ``effective=False`` renvoie l'engagement brut (somme des snapshots), utile
+    pour mesurer un éventuel déficit de couverture.
     """
-    return _borrower_frozen_amount(member) + _avaliste_frozen_amount(member)
+    raw = _borrower_frozen_amount(member) + _avaliste_frozen_amount(member)
+    if not effective:
+        return raw
+    solde = _member_total_savings(member)
+    if solde <= 0:
+        return Decimal("0")
+    return raw if raw < solde else solde
 
 
 def _member_available_savings(member: Member) -> Decimal:
@@ -172,6 +188,51 @@ def _member_available_savings(member: Member) -> Decimal:
     """
     free = _member_total_savings(member) - member_frozen_guarantee(member)
     return free if free > 0 else Decimal("0")
+
+
+def member_cagnotte(member: Member) -> Decimal:
+    """Cagnotte disponible du membre = épargne classique **non gelée** (part
+    libre + placement) + **collecte journalière**.
+
+    Base du garde-fou « apport personnel » (2026-07) : la demande de crédit est
+    refusée automatiquement si cette cagnotte ne couvre pas l'apport minimum
+    requis. À la différence de la garantie (``_member_total_savings`` exclut la
+    collecte), l'apport TIENT COMPTE de la collecte — c'est de l'épargne
+    mobilisable côté membre, même si elle est reversée en fin de mois.
+    """
+    from apps_coop.savings.models import SavingsAccount
+
+    dispo = _member_available_savings(member)
+    collecte = (
+        SavingsAccount.objects.filter(member=member)
+        .values_list("solde", flat=True)
+        .first()
+    )
+    if collecte:
+        dispo += Decimal(collecte)
+    return dispo if dispo > 0 else Decimal("0")
+
+
+def _apport_rate() -> Decimal:
+    """Taux d'apport personnel attendu (indicatif). AppSetting ``loans.apport.rate``."""
+    raw = get_str_setting("loans.apport.rate", "0.20")
+    try:
+        return max(Decimal("0"), Decimal(str(raw).strip()))
+    except Exception:  # noqa: BLE001
+        logger.warning("loans.apport.rate invalide (%r), fallback 0.20", raw)
+        return Decimal("0.20")
+
+
+def _apport_min_available_rate() -> Decimal:
+    """Seuil de rejet automatique. AppSetting ``loans.apport.min_available_rate``."""
+    raw = get_str_setting("loans.apport.min_available_rate", "0.10")
+    try:
+        return max(Decimal("0"), Decimal(str(raw).strip()))
+    except Exception:  # noqa: BLE001
+        logger.warning(
+            "loans.apport.min_available_rate invalide (%r), fallback 0.10", raw
+        )
+        return Decimal("0.10")
 
 
 def member_caution_capacity(avaliste: Member) -> tuple[Decimal, Decimal, Decimal]:

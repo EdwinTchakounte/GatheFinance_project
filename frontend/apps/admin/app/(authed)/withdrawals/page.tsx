@@ -14,10 +14,12 @@ import { buttonClasses, SkeletonList } from "@gathe/ui";
 
 import { Modal } from "@/components/modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
+import { MemberRecapModal } from "@/components/member-recap-modal";
 import { StatusPill } from "@/components/status-pill";
 import {
   adminApi,
   type ApiError,
+  type Member,
   type WithdrawalRow,
   type WithdrawalStatut,
 } from "@/lib/api";
@@ -45,6 +47,23 @@ function Inner() {
   const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
   const [rejectTarget, setRejectTarget] = useState<WithdrawalRow | null>(null);
+  // Clic sur une ligne → carte annuaire (recap financier) du membre.
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+
+  async function loadAndOpenMember(row: WithdrawalRow) {
+    try {
+      // Réutilise la recherche annuaire (par n° membre) faute d'endpoint
+      // « membre par id » côté admin, puis on cible le bon membre.
+      const res = await adminApi.members.list({ q: row.numero_membre, limit: 10 });
+      const found =
+        res.results.find((m) => m.id === row.member_id) ?? res.results[0] ?? null;
+      if (found) setSelectedMember(found);
+      else setMessage({ tone: "err", text: "Fiche membre introuvable." });
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setMessage({ tone: "err", text: apiErr.detail ?? "Chargement du membre impossible." });
+    }
+  }
 
   async function reload() {
     setLoading(true);
@@ -227,6 +246,7 @@ function Inner() {
           columns={columns}
           rows={items}
           rowKey={(r) => r.id}
+          onRowClick={(r) => loadAndOpenMember(r)}
           emptyLabel="Aucune demande pour ce filtre."
           leftMeta={
             <>
@@ -264,6 +284,11 @@ function Inner() {
           />
         )}
       </Modal>
+
+      <MemberRecapModal
+        member={selectedMember}
+        onClose={() => setSelectedMember(null)}
+      />
     </section>
   );
 }

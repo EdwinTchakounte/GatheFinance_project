@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Container, buttonClasses } from "@gathe/ui";
 
 import { portalApi, type ApiError, type Campaign, type FormSchemaPublic } from "@/lib/api";
+import { fullName } from "@/lib/name";
 import { computeLoanBreakdown, durationMonthsFor, type PaymentModality } from "@/lib/loan-terms";
 import {
   DynamicFields,
@@ -793,7 +794,7 @@ export default function PortalLoanRequestPage() {
               {avalisteSelected ? (
                 <div className="rounded-md border border-blue-300 bg-blue-50/60 p-3">
                   <p className="text-sm font-semibold text-blue-900">
-                    {avalisteSelected.prenom} {avalisteSelected.nom}
+                    {fullName(avalisteSelected.prenom, avalisteSelected.nom)}
                   </p>
                   <p className="mt-0.5 font-mono text-[11px] text-blue-800">
                     {avalisteSelected.numero_membre}
@@ -857,7 +858,7 @@ export default function PortalLoanRequestPage() {
                               ].join(" ")}
                             >
                               <span className="font-medium text-ink-900">
-                                {c.prenom} {c.nom}
+                                {fullName(c.prenom, c.nom)}
                               </span>
                               <span className="ml-2 font-mono text-[11px] text-ink-500">
                                 {c.numero_membre}

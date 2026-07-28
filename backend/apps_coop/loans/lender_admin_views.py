@@ -27,6 +27,7 @@ from apps_coop.audit.services import client_ip, record as record_audit
 from apps_coop.members.permissions import IsAdmin
 from apps_coop.savings.models import LenderTranche
 from apps_coop.loans.models import LenderAllocation, Loan
+from apps_coop.portal_urls import portal_url
 
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ def _notify_lenders_engagement(
         f"{loan.member.prenom} {loan.member.nom}"
         if getattr(loan, "member", None) else "Membre coopérative"
     )
-    portal_url = getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200")
+    portal_link = portal_url()
     date_engagement_str = engaged_at.strftime("%d/%m/%Y a %Hh%M")
 
     for member_id, montant_total in per_lender_total.items():
@@ -74,7 +75,7 @@ def _notify_lenders_engagement(
             "beneficiaire_label": beneficiaire_label,
             "montant_engage": _fmt_xaf(montant_total),
             "date_engagement": date_engagement_str,
-            "portal_url": portal_url,
+            "portal_url": portal_link,
         }
         # 1. Email (via emit_event, qui fallback sur send_template).
         try:

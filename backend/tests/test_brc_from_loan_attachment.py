@@ -20,6 +20,8 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
+from apps_coop.forms.management.commands.seed_form_schemas import LOAN_REQUEST_SCHEMA
+from apps_coop.forms.models import FormSchema
 from apps_coop.loans.models import LoanRequest
 from apps_coop.members.models import BRCDocument
 
@@ -29,6 +31,21 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture(autouse=True)
 def _tmp_media_root(settings, tmp_path):
     settings.MEDIA_ROOT = str(tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def _active_loan_schema(db):
+    # Depuis la modularisation Lot 0.5, une preuve alimente la file BRC via
+    # l'attribut ``is_brc_proof`` du schéma actif (plus de liste en dur). On
+    # active donc le schéma loan_request (qui flagge ancien_apprenant_preuve /
+    # cga_preuve) pour tester le chemin réel.
+    FormSchema.objects.create(
+        kind=FormSchema.Kind.LOAN_REQUEST,
+        version=999,
+        title="Demande de crédit (seed)",
+        schema=LOAN_REQUEST_SCHEMA,
+        is_active=True,
+    )
 
 
 @pytest.fixture
@@ -54,7 +71,7 @@ def _upload(client, loan_request, field_id, name="brc.png"):
     )
 
 
-@pytest.mark.parametrize("field_id", ["cga_brc_preuve", "cfp_brc_preuve"])
+@pytest.mark.parametrize("field_id", ["ancien_apprenant_preuve", "cga_preuve"])
 def test_preuve_brc_alimente_la_file_de_validation(
     loan_request, active_member, field_id
 ):
@@ -86,8 +103,8 @@ def test_reupload_remplace_sans_doublon(loan_request, active_member):
     client = APIClient()
     client.force_authenticate(active_member.user)
 
-    _upload(client, loan_request, "cga_brc_preuve", name="v1.png")
-    _upload(client, loan_request, "cga_brc_preuve", name="v2.png")
+    _upload(client, loan_request, "cga_preuve", name="v1.png")
+    _upload(client, loan_request, "cga_preuve", name="v2.png")
 
     docs = BRCDocument.objects.filter(member=active_member)
     assert docs.count() == 1
@@ -97,7 +114,7 @@ def test_reupload_remplace_sans_doublon(loan_request, active_member):
 def test_file_admin_expose_la_provenance(loan_request, active_member, admin_user):
     member_client = APIClient()
     member_client.force_authenticate(active_member.user)
-    _upload(member_client, loan_request, "cga_brc_preuve")
+    _upload(member_client, loan_request, "cga_preuve")
 
     staff = APIClient()
     staff.force_authenticate(admin_user)
@@ -108,8 +125,9 @@ def test_file_admin_expose_la_provenance(loan_request, active_member, admin_user
     assert len(rows) == 1
     row = rows[0]
     assert row["loan_request_id"] == loan_request.id
-    assert row["champ_source"] == "cga_brc_preuve"
-    assert "Broad Range" in row["champ_source_display"]
+    assert row["champ_source"] == "cga_preuve"
+    # Libellé dérivé du LABEL du champ dans le schéma actif (générique, Lot 0.5).
+    assert row["champ_source_display"] == "Carte / attestation CGA"
     assert row["fichier_url"].startswith("/media/")
 
 
@@ -126,7 +144,7 @@ class TestDecisionAdmin:
     toujours False et la voie SENIOR_BRC était inatteignable.
     """
 
-    def _depose(self, loan_request, active_member, field_id="cfp_brc_preuve"):
+    def _depose(self, loan_request, active_member, field_id="cga_preuve"):
         client = APIClient()
         client.force_authenticate(active_member.user)
         r = _upload(client, loan_request, field_id)
@@ -152,7 +170,7 @@ class TestDecisionAdmin:
     def test_rejet_exige_un_motif_et_laisse_le_membre_non_brc(
         self, loan_request, active_member, admin_user
     ):
-        doc = self._depose(loan_request, active_member, "cga_brc_preuve")
+        doc = self._depose(loan_request, active_member, "ancien_apprenant_preuve")
 
         staff = APIClient()
         staff.force_authenticate(admin_user)

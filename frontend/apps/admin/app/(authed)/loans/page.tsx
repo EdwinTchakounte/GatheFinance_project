@@ -13,6 +13,7 @@ import {
 import { LoanDetailModal } from "@/components/loan-detail-modal";
 import { CashInModal } from "@/components/cash-in-modal";
 import { adminApi, type AdminLoanRow, type ApiError } from "@/lib/api";
+import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 
 
@@ -109,11 +110,11 @@ function Inner() {
     {
       key: "membre",
       label: "Membre",
-      text: (l) => `${l.member.prenom} ${l.member.nom} ${l.member.numero_membre}`,
+      text: (l) => `${fullName(l.member.prenom, l.member.nom)} ${l.member.numero_membre}`,
       render: (l) => (
         <div>
           <p className="font-medium text-ink-900">
-            {l.member.prenom} {l.member.nom}
+            {fullName(l.member.prenom, l.member.nom)}
           </p>
           <p className="font-mono text-xs text-ink-500">{l.member.numero_membre}</p>
         </div>
@@ -325,7 +326,7 @@ function Inner() {
                   setFundingTarget({
                     id: l.id,
                     numero_dossier: l.numero_dossier,
-                    member_label: `${l.member.prenom} ${l.member.nom}`,
+                    member_label: `${fullName(l.member.prenom, l.member.nom)}`,
                     capital: l.montant,
                   })
                 }
@@ -478,7 +479,7 @@ function DisbursementCell({
         const montant = Number(row.montant_decaisse_net ?? row.montant);
         const ok = window.confirm(
           `Décaisser ${montant.toLocaleString("fr-FR")} XAF à ` +
-            `${row.member.prenom} ${row.member.nom} (${row.member.numero_membre}) ` +
+            `${fullName(row.member.prenom, row.member.nom)} (${row.member.numero_membre}) ` +
             `via ${MOYEN_LABEL[moyen] ?? moyen} ?\n\n` +
             `L'argent part immédiatement sur le téléphone du membre — action irréversible.`,
         );

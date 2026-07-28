@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Check, Coins, FileText, Scale, Send, X } from "lucide-react";
 
 import { buttonClasses, SkeletonList } from "@gathe/ui";
@@ -11,6 +10,7 @@ import { DataTable, type DataColumn } from "@/components/data-table";
 import { DocumentLink } from "@/components/document-preview";
 import { Modal, ModalField, modalInputClass } from "@/components/modal";
 import { adminApi, type ApiError, type LoanRequest } from "@/lib/api";
+import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 
 
@@ -47,7 +47,6 @@ type LoanRequestFilter =
   | "en_validation_campagne"
   | "en_instruction"
   | "approuvee_provisoire"
-  | "en_attente_funding"
   | "approuvee"
   | "rejetee"
   | "";
@@ -117,6 +116,26 @@ function Inner() {
     } catch (err) {
       const apiErr = err as ApiError;
       setMessage({ tone: "err", text: apiErr.detail ?? "Rejet impossible." });
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function deleteRequest(r: LoanRequest) {
+    const motif = window.prompt(
+      `Supprimer définitivement la demande #${r.id} (et le crédit associé) ?\n` +
+        "Cette action est tracée dans un fichier d'audit. Motif (optionnel) :",
+      "",
+    );
+    if (motif === null) return; // annulé
+    setActingId(r.id);
+    try {
+      await adminApi.loanRequests.remove(r.id, motif || undefined);
+      setMessage({ tone: "ok", text: `Demande #${r.id} supprimée (tracée).` });
+      await reload();
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setMessage({ tone: "err", text: apiErr.detail ?? "Suppression impossible." });
     } finally {
       setActingId(null);
     }
@@ -219,13 +238,13 @@ function Inner() {
       locked: true,
       text: (r) =>
         r.member
-          ? `${r.member.prenom} ${r.member.nom} ${r.member.numero_membre} ${r.member.telephone ?? ""}`
+          ? `${fullName(r.member.prenom, r.member.nom)} ${r.member.numero_membre} ${r.member.telephone ?? ""}`
           : "",
       render: (r) =>
         r.member ? (
           <div className="min-w-[10rem]">
             <p className="text-sm font-medium text-ink-900">
-              {r.member.prenom} {r.member.nom}
+              {fullName(r.member.prenom, r.member.nom)}
             </p>
             <p className="font-mono text-[11px] text-ink-500">
               {r.member.numero_membre}
@@ -366,7 +385,6 @@ function Inner() {
             { v: "en_validation_campagne", l: "Validation campagne" },
             { v: "en_instruction", l: "En instruction" },
             { v: "approuvee_provisoire", l: "Provisoires" },
-            { v: "en_attente_funding", l: "Attente funding" },
             { v: "approuvee", l: "Approuvées" },
             { v: "rejetee", l: "Rejetées" },
             { v: "", l: "Toutes" },
@@ -513,6 +531,15 @@ function Inner() {
                 >
                   <FileText className="size-3" />Note PDF
                 </a>
+                <button
+                  type="button"
+                  onClick={() => deleteRequest(r)}
+                  disabled={actingId === r.id}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
+                  title="Supprimer la demande (tracé dans l'audit)"
+                >
+                  <X className="size-3" />Supprimer
+                </button>
               </div>
             ) : r.statut === "approuvee" && r.loan ? (
               <div className="flex flex-col items-end gap-1.5">
@@ -539,6 +566,15 @@ function Inner() {
                 >
                   <FileText className="size-3" />Note PDF
                 </a>
+                <button
+                  type="button"
+                  onClick={() => deleteRequest(r)}
+                  disabled={actingId === r.id}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
+                  title="Supprimer la demande / le crédit (tracé dans l'audit)"
+                >
+                  <X className="size-3" />Supprimer
+                </button>
               </div>
             ) : (
               <div className="flex flex-col items-end gap-1.5">
@@ -551,6 +587,15 @@ function Inner() {
                 >
                   <FileText className="size-3" />Note PDF
                 </a>
+                <button
+                  type="button"
+                  onClick={() => deleteRequest(r)}
+                  disabled={actingId === r.id}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
+                  title="Supprimer la demande (tracé dans l'audit)"
+                >
+                  <X className="size-3" />Supprimer
+                </button>
               </div>
             )
           }
@@ -1332,17 +1377,13 @@ function ProfilEmprunteurBadges({ r }: { r: LoanRequest }) {
             value={row.value}
             proof={row.proof}
             isYes={row.value === "oui"}
-            subtitle={`Demande #${r.id}${r.member ? ` · ${r.member.prenom} ${r.member.nom}` : ""}`}
+            subtitle={`Demande #${r.id}${r.member ? ` · ${fullName(r.member.prenom, r.member.nom)}` : ""}`}
           />
         ))}
       </div>
       {hasBrc ? (
         <p className="text-[11px] text-ink-500">
-          Pièce BRC à consulter (ci-dessus, ou dans{" "}
-          <Link href="/brc" className="font-medium text-blue-700 hover:underline">
-            Justificatifs BRC
-          </Link>
-          ) — le comité juge la demande.
+          Pièce BRC à consulter ci-dessus — le comité juge la demande.
         </p>
       ) : null}
     </div>

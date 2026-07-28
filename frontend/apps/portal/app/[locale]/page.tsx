@@ -179,7 +179,7 @@ export default function PortalDashboardPage() {
           <div>
             <span className="label-num">Espace membre</span>
             <h1 className="mt-3 font-editorial text-3xl font-medium leading-tight text-ink-900">
-              Bonjour, {m.prenom} {m.nom}
+              Bonjour, {m.prenom}
             </h1>
             <p className="mt-1 text-sm text-ink-600">
               Membre n° <span className="font-mono">{m.numero_membre}</span>

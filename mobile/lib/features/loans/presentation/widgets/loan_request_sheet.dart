@@ -9,6 +9,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/formatters/name_formatter.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/brand_loader.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
@@ -209,13 +210,17 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   /// `null` = montant valide. Utilisée à la fois pour l'affichage inline et
   /// pour bloquer le submit.
   String? _amountErrorFor(CampaignFlyer? camp) {
+    // Voie campagne : les bornes min/max définies à la création de la campagne
+    // sont AUTORITAIRES et remplacent le plancher générique (souvent plus haut).
+    if (camp != null) {
+      if (_montant < camp.montantMin || _montant > camp.montantMax) {
+        return 'Cette campagne accepte de ${XAFFormatter.format(camp.montantMin)} '
+            'à ${XAFFormatter.format(camp.montantMax)}.';
+      }
+      return null;
+    }
     if (_montant < kMinLoanAmount) {
       return 'Montant minimum : ${XAFFormatter.format(kMinLoanAmount)}.';
-    }
-    if (camp != null &&
-        (_montant < camp.montantMin || _montant > camp.montantMax)) {
-      return 'Cette campagne accepte de ${XAFFormatter.format(camp.montantMin)} '
-          'à ${XAFFormatter.format(camp.montantMax)}.';
     }
     return null;
   }
@@ -576,6 +581,36 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
             network: '',
             montant: amount,
           );
+      if (!mounted) return;
+      setState(() => _step = _Step.paySuccess);
+      unawaited(HapticFeedback.heavyImpact());
+    } catch (err) {
+      if (!mounted) return;
+      setState(() => _step = _Step.payForm);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(err))),
+      );
+    }
+  }
+
+  /// Porte des frais 2026 — 3e canal : régler les frais sur l'épargne classique
+  /// retirable (hors placement/gel/collecte). Le backend refuse (message lisible)
+  /// si le solde retirable est insuffisant.
+  Future<void> _payStudyFeeFromSavings() async {
+    final requestId = _submission?.request.id;
+    final amount = _submission?.studyFee?.montant.round();
+    if (requestId == null || amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Montant des frais indisponible.')),
+      );
+      return;
+    }
+    unawaited(HapticFeedback.mediumImpact());
+    setState(() => _step = _Step.payLoading);
+    try {
+      await ref
+          .read(loanRequestsProvider.notifier)
+          .payStudyFeeFromSavings(requestId: requestId);
       if (!mounted) return;
       setState(() => _step = _Step.paySuccess);
       unawaited(HapticFeedback.heavyImpact());
@@ -1270,6 +1305,29 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                   : 'Payer maintenant',
               onPressed: _payStudyFee,
             ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _payStudyFeeFromSavings,
+              icon: const Icon(Icons.savings_outlined, size: 18),
+              label: const Text('Payer avec mon épargne'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                foregroundColor: PaColors.navy,
+                side: const BorderSide(color: PaColors.teal),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Prélèvement immédiat sur ton épargne classique retirable '
+              '(hors placement, gel et collecte).',
+              style: AppTypography.bodySmall.copyWith(
+                color: PaColors.inkSecondary,
+                height: 1.4,
+              ),
+            ),
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => setState(() => _step = _Step.success),
@@ -1754,7 +1812,7 @@ class _AvalistePickerState extends ConsumerState<_AvalistePicker> {
                     size: 20,
                   ),
                   title: Text(
-                    '${c.prenom} ${c.nom}',
+                    nomComplet(c.prenom, c.nom),
                     style: TextStyle(
                       color: saturated ? PaColors.inkMuted : PaColors.inkPrimary,
                       fontSize: 14,

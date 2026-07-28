@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Banknote, PiggyBank, RefreshCw } from "lucide-react";
+import { Banknote, PiggyBank, RefreshCw, Smartphone } from "lucide-react";
 
 import {
   adminApi,
@@ -18,7 +18,12 @@ function fmtXAF(v: string): string {
 
 export default function CollectePreferencesPage() {
   const [rows, setRows] = useState<CollecteEomRow[]>([]);
-  const [summary, setSummary] = useState({ cash: 0, epargne: 0, total: 0 });
+  const [summary, setSummary] = useState({
+    cash: 0,
+    mobile_money: 0,
+    epargne: 0,
+    total: 0,
+  });
   const [onlyActive, setOnlyActive] = useState(true);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
@@ -65,7 +70,8 @@ export default function CollectePreferencesPage() {
           </h1>
           <p className="mt-1 text-sm text-ink-500">
             Choix de chaque membre à la clôture mensuelle : récupérer sa collecte
-            en cash, ou la basculer vers l&apos;épargne (1 % retenu par la coop).
+            en cash, se la faire verser en Mobile Money (destination indiquée), ou
+            la basculer vers l&apos;épargne (1 % retenu par la coop).
           </p>
         </div>
         <button
@@ -78,12 +84,18 @@ export default function CollectePreferencesPage() {
       </header>
 
       {/* Récap */}
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
           icon={<Banknote className="size-5 text-amber-600" />}
           label="Retrait cash"
           value={summary.cash}
           tint="bg-amber-50"
+        />
+        <SummaryCard
+          icon={<Smartphone className="size-5 text-blue-600" />}
+          label="Versement MoMo"
+          value={summary.mobile_money}
+          tint="bg-blue-50"
         />
         <SummaryCard
           icon={<PiggyBank className="size-5 text-emerald-600" />}
@@ -160,6 +172,17 @@ export default function CollectePreferencesPage() {
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
                         <PiggyBank className="size-3.5" /> Bascule épargne
                       </span>
+                    ) : r.preference === "mobile_money" ? (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200">
+                          <Smartphone className="size-3.5" /> Versement MoMo
+                        </span>
+                        <span className="font-mono text-xs text-ink-600">
+                          {r.payout_phone
+                            ? `${r.payout_phone}${r.payout_network ? ` · ${r.payout_network}` : ""}`
+                            : "destination manquante"}
+                        </span>
+                      </div>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
                         <Banknote className="size-3.5" /> Retrait cash

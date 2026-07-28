@@ -27,6 +27,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps_coop.audit.services import record as record_audit
+from apps_coop.portal_urls import portal_url
 
 
 class ApportError(ValueError):
@@ -160,9 +161,7 @@ def restitute_tranche_by_apport(tranche_id: int, *, admin_user=None) -> dict:
                     "capital": f"{int(Decimal(tranche.montant)):,}".replace(",", " "),
                     "interet": f"{int(interest):,}".replace(",", " "),
                     "numero_dossier": dossier,
-                    "portal_url": getattr(
-                        settings, "FRONTEND_BASE_URL", "http://localhost:3200"
-                    ),
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # pragma: no cover — best-effort

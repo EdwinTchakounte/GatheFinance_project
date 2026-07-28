@@ -124,7 +124,7 @@ class MembershipPublicSerializer(serializers.Serializer):
         # hardcoded keys au helper : il fait le split correctement et ignore
         # les required des hardcoded (déjà validés par DRF plus haut).
         _MEMBERSHIP_HARDCODED = {
-            "name", "email", "phone", "whatsapp", "city",
+            "name", "prenom", "email", "phone", "whatsapp", "city",
             "quartier_localite", "statut_pro", "urgence_nom",
             "urgence_lien", "urgence_phone", "message", "language",
             "cni_recto", "cni_verso", "plan_localisation", "photo_identite",
@@ -147,9 +147,22 @@ class MembershipPublicSerializer(serializers.Serializer):
             )
             extra_payload, schema_version = {}, None
 
+        # Le mobile envoie désormais `prenom` séparément ; la vitrine legacy ne
+        # transmet qu'un `name` (nom complet) → prenom reste vide, l'admin le
+        # renseigne à l'instruction. Quand prenom est fourni, on nettoie le nom
+        # pour ne pas y ré-inclure le prénom en tête (dé-duplication à la source).
+        _nom_in = validated_data["name"].strip()
+        _prenom_in = ""
+        if isinstance(raw_payload, dict) or hasattr(raw_payload, "get"):
+            _prenom_in = (raw_payload.get("prenom") or "").strip()
+        if _prenom_in and _nom_in.lower().startswith(_prenom_in.lower()):
+            _stripped = _nom_in[len(_prenom_in):].strip()
+            if _stripped:
+                _nom_in = _stripped
+
         return MembershipRequest.objects.create(
-            nom=validated_data["name"].strip(),
-            prenom="",  # admin will fill during instruction
+            nom=_nom_in,
+            prenom=_prenom_in,  # vide pour la vitrine legacy → admin complète
             email=validated_data["email"].strip().lower(),
             phone=validated_data.get("phone", "").strip(),
             whatsapp=validated_data.get("whatsapp", "").strip(),
@@ -305,17 +318,19 @@ class BRCDocumentAdminReadSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    _CHAMP_LABELS = {
-        "cga_brc_preuve": "Contrat CGA — Broad Range Consulting",
-        "cfp_brc_preuve": "Certificat CFP — Broad Range Consulting",
-        "ancien_apprenant_preuve": "Attestation CFP — ancien apprenant",
-        "cga_preuve": "Carte CGA — adhérent",
-    }
-
     def get_champ_source_display(self, obj: BRCDocument) -> str:
+        # Modularisation Lot 0.5 : le libellé vient du LABEL du champ dans le
+        # FormSchema actif (générique, par coop), plus d'un dict de noms en dur.
+        # Cache sur l'instance du serializer → 1 requête pour toute la liste.
         if not obj.champ_source:
             return "Dépôt direct par le membre"
-        return self._CHAMP_LABELS.get(obj.champ_source, obj.champ_source)
+        labels = getattr(self, "_field_labels_cache", None)
+        if labels is None:
+            from apps_coop.forms.field_flags import field_labels
+
+            labels = field_labels("loan_request")
+            self._field_labels_cache = labels
+        return labels.get(obj.champ_source, obj.champ_source)
 
     def get_fichier_url(self, obj: BRCDocument) -> str:
         try:

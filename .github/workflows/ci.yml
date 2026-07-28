@@ -16,9 +16,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
   workflow_dispatch:
 
 permissions:
@@ -213,20 +213,10 @@ jobs:
         include:
           - image: site
             target: runner-site
-            build_args: |
-              CMS_API_URL=http://backend:8000
-              NEXT_PUBLIC_SITE_URL=https://gathe-finance.horus-lab.com
-              NEXT_PUBLIC_PORTAL_URL=https://portail.gathe-finance.horus-lab.com
           - image: portal
             target: runner-portal
-            build_args: |
-              BACKEND_INTERNAL_URL=http://backend:8000
-              NEXT_PUBLIC_SITE_URL=https://gathe-finance.horus-lab.com
           - image: admin
             target: runner-admin
-            build_args: |
-              BACKEND_INTERNAL_URL=http://backend:8000
-              NEXT_PUBLIC_PORTAL_URL=https://portail.gathe-finance.horus-lab.com
 
     steps:
       - uses: actions/checkout@v4
@@ -239,6 +229,41 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Domaines figés au build (NEXT_PUBLIC_*) : main → domaines CLIENT,
+      # staging/autre → nos domaines horus-lab. Repli sur horus-lab si les
+      # variables de dépôt ne sont pas encore définies (rien ne casse avant
+      # la config du client). Voir infra/DEPLOY_ENVIRONMENTS.md.
+      - name: Resolve build-time domains (per branch)
+        id: dom
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            SITE="${{ vars.PROD_SITE_DOMAIN || 'gathe-finance.horus-lab.com' }}"
+            PORTAL="${{ vars.PROD_PORTAL_DOMAIN || 'portail.gathe-finance.horus-lab.com' }}"
+          else
+            SITE="${{ vars.STAGING_SITE_DOMAIN || 'gathe-finance.horus-lab.com' }}"
+            PORTAL="${{ vars.STAGING_PORTAL_DOMAIN || 'portail.gathe-finance.horus-lab.com' }}"
+          fi
+          echo "Resolved: SITE=$SITE PORTAL=$PORTAL (branch=${{ github.ref_name }})"
+          {
+            echo 'args<<GHAEOF'
+            case "${{ matrix.image }}" in
+              site)
+                echo "CMS_API_URL=http://backend:8000"
+                echo "NEXT_PUBLIC_SITE_URL=https://$SITE"
+                echo "NEXT_PUBLIC_PORTAL_URL=https://$PORTAL"
+                ;;
+              portal)
+                echo "BACKEND_INTERNAL_URL=http://backend:8000"
+                echo "NEXT_PUBLIC_SITE_URL=https://$SITE"
+                ;;
+              admin)
+                echo "BACKEND_INTERNAL_URL=http://backend:8000"
+                echo "NEXT_PUBLIC_PORTAL_URL=https://$PORTAL"
+                ;;
+            esac
+            echo 'GHAEOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Compute tags
         id: meta
@@ -255,7 +280,7 @@ jobs:
         with:
           context: frontend
           target: ${{ matrix.target }}
-          build-args: ${{ matrix.build_args }}
+          build-args: ${{ steps.dom.outputs.args }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: |
@@ -263,3 +288,137 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,scope=${{ matrix.image }},mode=max
+
+  # -------------------------------------------------------------------------
+  # Deploy STAGING -> NOTRE serveur (Contabo, nginx mutualise externe).
+  #
+  # Auto-contenu : ce job s'execute depuis la branche `staging` elle-meme
+  # (donc AUCUN changement requis sur main / deploy.yml). Ne se declenche que
+  # sur push a `staging` et apres build backend + frontend verts.
+  #
+  # Config cote GitHub -> Settings > Environments > `staging` :
+  #   secrets   : VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY, VPS_DEPLOY_PATH(opt)
+  #   variables : SITE_DOMAIN, API_DOMAIN, PORTAL_DOMAIN, ADMIN_DOMAIN,
+  #               CMS_DOMAIN, SITE_URL, EXTERNAL_NGINX_CONTAINER(opt)
+  # Si VPS_HOST n'est pas encore renseigne, le job s'ignore proprement.
+  # Voir infra/DEPLOY_ENVIRONMENTS.md.
+  # -------------------------------------------------------------------------
+  deploy-staging:
+    name: deploy staging (notre serveur)
+    needs: [build-backend, build-frontend]
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ vars.SITE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard - env staging configure ?
+        id: guard
+        run: |
+          if [ -z "${{ secrets.VPS_HOST }}" ]; then
+            echo "::warning::Environment 'staging' non configure (secret VPS_HOST vide) - deploy ignore. Renseigne Settings > Environments > staging."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Hash infra/
+        id: infra_hash
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          HASH=$(find infra/ -type f \( -name "*.yml" -o -name "*.conf" -o -name "*.sh" \) -print0 \
+            | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-12)
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Upload infra/ vers le serveur
+        if: steps.guard.outputs.skip == 'false'
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          source: "infra/docker-compose.prod.yml,infra/docker-compose.nginx-external.yml,infra/nginx.gathe-finance.container.conf,infra/scripts/*"
+          target: "${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}/"
+          overwrite: true
+          strip_components: 0
+
+      - name: Deploy via SSH (mode nginx externe, tag :staging)
+        if: steps.guard.outputs.skip == 'false'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 12m
+          script: |
+            set -euo pipefail
+            INFRA_HASH="${{ steps.infra_hash.outputs.hash }}"
+            DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
+            EXTERNAL_NGINX="${{ vars.EXTERNAL_NGINX_CONTAINER || 'backend-nginx-1' }}"
+            NEW_TAG="staging"
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml --env-file .env.prod"
+
+            cd "$DEPLOY_PATH/infra"
+
+            HASH_FILE="$DEPLOY_PATH/.infra_hash"
+            PREV_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "none")
+            if [ "$PREV_HASH" != "$INFRA_HASH" ]; then
+              RECREATE_FLAG="--force-recreate"
+            else
+              RECREATE_FLAG=""
+            fi
+            echo "$INFRA_HASH" > "$HASH_FILE"
+
+            CURRENT_TAG=$(grep "^GATHE_IMAGE_TAG=" .env.prod | cut -d= -f2 || echo "latest")
+            echo ">>> staging deploy : current=$CURRENT_TAG -> new=$NEW_TAG"
+            sed -i.bak "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$NEW_TAG/" .env.prod
+
+            echo ">>> Pulling images..."
+            $COMPOSE pull
+
+            echo ">>> Starting services... ${RECREATE_FLAG:-(no recreate)}"
+            $COMPOSE up -d ${RECREATE_FLAG}
+
+            echo ">>> Waiting for backend healthcheck..."
+            for i in $(seq 1 18); do
+              STATUS=$($COMPOSE ps --format json backend 2>/dev/null | grep -o '"Health":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+              echo "  attempt $i/18: backend=$STATUS"
+              [ "$STATUS" = "healthy" ] && break
+              if [ "$i" -eq "18" ]; then
+                echo "!!! Backend never healthy. Rolling back to $CURRENT_TAG."
+                sed -i.bak "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$CURRENT_TAG/" .env.prod
+                $COMPOSE up -d
+                exit 1
+              fi
+              sleep 5
+            done
+
+            echo ">>> Reloading external nginx ($EXTERNAL_NGINX)..."
+            docker restart "$EXTERNAL_NGINX" || true
+            echo ">>> Staging deploy OK (:staging)"
+            $COMPOSE ps
+
+      - name: Smoke tests
+        if: steps.guard.outputs.skip == 'false'
+        env:
+          API_DOMAIN: ${{ vars.API_DOMAIN }}
+          SITE_DOMAIN: ${{ vars.SITE_DOMAIN }}
+          PORTAL_DOMAIN: ${{ vars.PORTAL_DOMAIN }}
+          ADMIN_DOMAIN: ${{ vars.ADMIN_DOMAIN }}
+          CMS_DOMAIN: ${{ vars.CMS_DOMAIN }}
+        run: |
+          set -e
+          FAILED=0
+          for url in \
+            "https://${API_DOMAIN}/healthz/" \
+            "https://${SITE_DOMAIN}/" \
+            "https://${PORTAL_DOMAIN}/" \
+            "https://${ADMIN_DOMAIN}/" \
+            "https://${CMS_DOMAIN}/admin/"
+          do
+            code=$(curl -sLo /dev/null -w "%{http_code}" --max-time 15 "$url" || echo "000")
+            if [[ "$code" =~ ^(2|3) ]]; then echo "OK   $url -> $code"; else echo "FAIL $url -> $code"; FAILED=$((FAILED+1)); fi
+          done
+          [ "$FAILED" -gt 0 ] && { echo "$FAILED endpoint(s) KO"; exit 1; } || echo "Endpoints OK"

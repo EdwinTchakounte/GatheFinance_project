@@ -41,7 +41,11 @@ class SubmitLoanRequest
 
   @override
   Future<LoanRequestSubmission> call(SubmitLoanRequestParams params) async {
-    if (params.montantDemande < _montantMin) {
+    // Voie campagne : les bornes min/max de la campagne (validées côté form et
+    // ré-appliquées par le backend) font foi — on ne rejoue PAS le plancher
+    // générique 50 000, qui écraserait une campagne à petit montant (ex. 5 000).
+    final hasCampaign = params.extraValues['campaign_id'] != null;
+    if (!hasCampaign && params.montantDemande < _montantMin) {
       throw const ValidationFailure(
         'Montant minimum 50 000 XAF.',
         field: 'montant',

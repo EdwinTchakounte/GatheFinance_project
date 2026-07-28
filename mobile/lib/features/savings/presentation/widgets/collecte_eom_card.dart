@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,10 +29,35 @@ class _CollecteEomCardState extends ConsumerState<CollecteEomCard> {
   // formulaire Mobile Money avant l'enregistrement. `null` = on suit le serveur.
   String? _pending;
 
+  // Auto-persistance de la destination Mobile Money : dès que le numéro et le
+  // réseau sont valides on enregistre (parité avec le tap immédiat cash/épargne)
+  // sans attendre le bouton « Enregistrer ». Debounce pour ne pas marteler l'API.
+  Timer? _debounce;
+  bool _saving = false;
+
   @override
   void dispose() {
+    _debounce?.cancel();
     _phoneCtrl.dispose();
     super.dispose();
+  }
+
+  /// Nombre de chiffres saisis dans le numéro (ignore espaces/séparateurs).
+  int _phoneDigits() => _phoneCtrl.text.replaceAll(RegExp(r'\D'), '').length;
+
+  /// Enregistre automatiquement la destination Mobile Money quand elle est
+  /// valide (numéro d'au moins 9 chiffres + réseau). Debounce à la frappe ;
+  /// [immediate] pour un changement discret (sélection du réseau).
+  void _autoSaveMomo({bool immediate = false}) {
+    _debounce?.cancel();
+    if (_phoneDigits() < 9) return;
+    if (immediate) {
+      _saveMomo(silent: true);
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) _saveMomo(silent: true);
+    });
   }
 
   void _hydrate(CollecteEomPref pref) {
@@ -43,26 +70,32 @@ class _CollecteEomCardState extends ConsumerState<CollecteEomCard> {
     }
   }
 
-  Future<void> _saveMomo() async {
+  Future<void> _saveMomo({bool silent = false}) async {
+    if (_saving) return;
     final l = AppL10n.of(context);
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.collecte_eom_momo_phone_required)),
-      );
+      if (!silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.collecte_eom_momo_phone_required)),
+        );
+      }
       return;
     }
+    _saving = true;
     try {
       await ref
           .read(collecteEomProvider.notifier)
           .setPreference('mobile_money', phone: phone, network: _network);
       if (mounted) setState(() => _pending = null);
     } catch (_) {
-      if (mounted) {
+      if (mounted && !silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l.collecte_eom_momo_phone_required)),
         );
       }
+    } finally {
+      _saving = false;
     }
   }
 
@@ -166,6 +199,7 @@ class _CollecteEomCardState extends ConsumerState<CollecteEomCard> {
           TextField(
             controller: _phoneCtrl,
             keyboardType: TextInputType.phone,
+            onChanged: (_) => _autoSaveMomo(),
             decoration: InputDecoration(
               isDense: true,
               hintText: l.collecte_eom_momo_phone_hint,
@@ -193,7 +227,12 @@ class _CollecteEomCardState extends ConsumerState<CollecteEomCard> {
                 ChoiceChip(
                   label: Text(net),
                   selected: _network == net,
-                  onSelected: (_) => setState(() => _network = net),
+                  onSelected: (_) {
+                    setState(() => _network = net);
+                    // Réseau = choix discret : on enregistre tout de suite si le
+                    // numéro est déjà valide.
+                    _autoSaveMomo(immediate: true);
+                  },
                 ),
             ],
           ),

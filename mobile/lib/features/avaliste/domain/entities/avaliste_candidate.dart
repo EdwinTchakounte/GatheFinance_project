@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/formatters/name_formatter.dart';
+
 /// Membre éligible à être avaliste — résultat d'un typeahead.
 ///
 /// Renvoyé par `GET /api/v1/members/search-avaliste/`. SÉCURITÉ : seule la
@@ -25,5 +27,5 @@ class AvalisteCandidate {
   /// candidat saturé (capacité ≤ 0).
   final num capaciteCaution;
 
-  String get displayName => '$prenom $nom · $numeroMembre';
+  String get displayName => '${nomComplet(prenom, nom)} · $numeroMembre';
 }

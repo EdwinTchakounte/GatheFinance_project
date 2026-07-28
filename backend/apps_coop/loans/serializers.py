@@ -163,8 +163,9 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "garantie_materielle",
             "garantie_description",
             "garantie_valeur_estimee",
-            # Réforme garantie — gel demandeur
+            # Réforme garantie — gel demandeur (+ motif lisible, 2026-07)
             "montant_gele_demandeur",
+            "motif_gel_demandeur",
             # L5 — n° CNI demandeur
             "cni_demandeur",
         )
@@ -226,14 +227,16 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
         return str(manque if manque > 0 else Decimal("0"))
 
     def get_frais_etude_montant(self, obj):
-        from apps_coop.payments.models import FeeType
+        # Frais RÉELLEMENT applicables à CETTE demande : override campagne si
+        # la LR est rattachée à une micro-campagne (montant dynamique fixé à la
+        # création — 0 = gratuit), sinon le tarif standard DEMANDE_CREDIT. Le
+        # dashboard (paiement manuel) et les clients lisent ce montant : sans ce
+        # rattachement, une demande de campagne affichait toujours le 5000
+        # générique au lieu du tarif de sa campagne.
+        from .services import study_fee_for
 
-        montant = (
-            FeeType.objects.filter(code=FeeType.Code.DEMANDE_CREDIT, actif=True)
-            .values_list("montant", flat=True)
-            .first()
-        )
-        return str(montant) if montant is not None else None
+        montant = study_fee_for(getattr(obj, "microcampaign", None))
+        return str(montant)
 
     def get_carnet_fee_due(self, obj):
         """Frais de carnet dus (bénéficiaire campagne sans carnet), sinon "0"."""
@@ -394,6 +397,11 @@ class LoanRequestDecideSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
         max_length=2000,
+    )
+    # G4 — privilège accordé par le comité pour un crédit à découvert (facultatif).
+    privilege_accorde = serializers.BooleanField(required=False, default=False)
+    privilege_motif = serializers.CharField(
+        required=False, allow_blank=True, max_length=2000, default=""
     )
 
     def validate(self, attrs):
@@ -557,12 +565,51 @@ class LoanReadSerializer(serializers.ModelSerializer):
 
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     installments = LoanInstallmentReadSerializer(many=True, read_only=True)
+    # Apport personnel gelé transférable pour solder ce crédit (2026-07).
+    apport_gele = serializers.DecimalField(
+        source="loan_request.montant_gele_demandeur",
+        max_digits=14,
+        decimal_places=0,
+        read_only=True,
+        default=0,
+    )
+    apport_gele_motif = serializers.CharField(
+        source="loan_request.motif_gel_demandeur",
+        read_only=True,
+        default="",
+    )
+    # Rang du crédit dans l'historique DU MEMBRE (1 = premier crédit ouvert…).
+    # Sert à un libellé parlant côté client (« Crédit n°1 · #GF-… ») en plus du
+    # numéro de dossier technique, notamment sur la card de clôture.
+    numero_ordre = serializers.SerializerMethodField()
+
+    def get_numero_ordre(self, obj) -> int:
+        # 1-based, par ordre de création chez ce membre. Petit volume par membre
+        # → le count par crédit reste négligeable.
+        return (
+            Loan.objects.filter(member_id=obj.member_id, id__lte=obj.id).count()
+        )
+
+    # Gouvernance G3 — criticité (avis souple, dérivée du découvert tracé).
+    criticite = serializers.SerializerMethodField()
+    criticite_display = serializers.SerializerMethodField()
+
+    def get_criticite(self, obj) -> str:
+        from .criticality_services import credit_criticality
+
+        return credit_criticality(obj)
+
+    def get_criticite_display(self, obj) -> str:
+        from .criticality_services import credit_criticality_label
+
+        return credit_criticality_label(obj)
 
     class Meta:
         model = Loan
         fields = (
             "id",
             "numero_dossier",
+            "numero_ordre",
             "montant",
             "taux_interet",
             "duree_mois",
@@ -573,6 +620,17 @@ class LoanReadSerializer(serializers.ModelSerializer):
             "statut",
             "statut_display",
             "installments",
+            "apport_gele",
+            "apport_gele_motif",
+            # Gouvernance G2 — décomposition couverture / découvert.
+            "montant_gage",
+            "montant_decouvert",
+            # Gouvernance G3 — criticité (avis souple).
+            "criticite",
+            "criticite_display",
+            # Gouvernance G4 — privilège accordé par le comité (tracé).
+            "privilege_accorde",
+            "privilege_motif",
             "created_at",
         )
         read_only_fields = fields

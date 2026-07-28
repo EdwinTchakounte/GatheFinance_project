@@ -156,6 +156,15 @@ def approve_membership_request(
     # was captured at submission.
     final_prenom = (prenom or request_obj.prenom or "").strip()
     final_nom = (nom or request_obj.nom or "").strip()
+    # Normalisation : le prénom ne doit pas rester inclus en tête du nom. Le
+    # formulaire public ne collecte souvent qu'un champ « nom » = nom complet
+    # (« Edwin tchako ») et l'admin renseigne le prénom (« Edwin ») ; sans ce
+    # nettoyage, nom reste « Edwin tchako » et l'affichage « nom + prénom »
+    # duplique le prénom (« Edwin tchako Edwin » / « Edwin Edwin tchako »).
+    if final_prenom and final_nom.lower().startswith(final_prenom.lower()):
+        stripped = final_nom[len(final_prenom):].strip()
+        if stripped:
+            final_nom = stripped
     if not final_nom:
         raise ValueError("Le nom est requis pour approuver la demande.")
 
@@ -300,14 +309,10 @@ def _send_welcome_email(member: Member, to_email: str) -> None:
         # à l'instruction. Résultat fréquent : `nom` contient déjà le prénom, si
         # bien que « {prenom} {nom} » duplique le prénom (« Jean Jean Dupont »).
         # On construit ici un nom propre, affiché une seule fois.
+        from .naming import full_name
+
         _prenom = (member.prenom or "").strip()
-        _nom = (member.nom or "").strip()
-        if _prenom and _nom.lower().startswith(_prenom.lower()):
-            nom_complet = _nom
-        elif _prenom and _nom:
-            nom_complet = f"{_prenom} {_nom}"
-        else:
-            nom_complet = _nom or _prenom
+        nom_complet = full_name(member.prenom, member.nom)
         # Prénom d'affichage (sujet de l'e-mail) : le 1er mot du nom si `prenom`
         # est vide (cas nominal du formulaire public).
         prenom_affiche = _prenom or (nom_complet.split()[0] if nom_complet else "")

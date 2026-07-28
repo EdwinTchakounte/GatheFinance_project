@@ -431,7 +431,9 @@ class _LoanCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  loan.numeroDossier,
+                  loan.numeroOrdre > 0
+                      ? 'Crédit n°${loan.numeroOrdre} · ${loan.numeroDossier}'
+                      : loan.numeroDossier,
                   style: const TextStyle(
                     color: PaColors.inkMuted,
                     fontSize: 12,
@@ -2386,7 +2388,9 @@ class _ClosedLoanCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '#${loan.numeroDossier}',
+                  loan.numeroOrdre > 0
+                      ? 'Crédit n°${loan.numeroOrdre} · #${loan.numeroDossier}'
+                      : '#${loan.numeroDossier}',
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
                     fontSize: 12,

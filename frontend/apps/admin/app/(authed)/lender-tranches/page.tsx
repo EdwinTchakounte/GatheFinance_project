@@ -8,6 +8,7 @@ import { buttonClasses } from "@gathe/ui";
 
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { StatusPill } from "@/components/status-pill";
+import { fullName } from "@/lib/name";
 import {
   adminApi,
   type ApiError,
@@ -41,7 +42,7 @@ function Inner() {
 
   async function handleApport(t: LenderTranche) {
     const ok = window.confirm(
-      `Restituer par apport la part de ${t.member.prenom} ${t.member.nom} ` +
+      `Restituer par apport la part de ${fullName(t.member.prenom, t.member.nom)} ` +
         `(${formatXAF(t.montant)} XAF, crédit ${t.engaged_in_loan_dossier ?? ""}) ? ` +
         "Le prêteur sera restitué (capital + intérêts placement) et la coop " +
         "reprend le risque du crédit.",
@@ -105,11 +106,11 @@ function Inner() {
       key: "membre",
       label: "Membre",
       locked: true,
-      text: (t) => `${t.member.prenom} ${t.member.nom} ${t.member.numero_membre}`,
+      text: (t) => `${fullName(t.member.prenom, t.member.nom)} ${t.member.numero_membre}`,
       render: (t) => (
         <div>
           <p className="font-medium text-ink-900">
-            {t.member.prenom} {t.member.nom}
+            {fullName(t.member.prenom, t.member.nom)}
           </p>
           <p className="font-mono text-xs text-ink-600">{t.member.numero_membre}</p>
         </div>

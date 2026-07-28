@@ -69,7 +69,7 @@ TEMPLATES = [
                 "à l'application mobile, puis régler tes frais par Mobile Money "
                 "ou en espèces à l'agence Akwa Bercy."
             ),
-            cta_secondary("Régler mes frais (après connexion)", "{portal_url}/portal/activation"),
+            cta_secondary("Régler mes frais (après connexion)", "{portal_url}/activation"),
             closing(),
         ),
         "variables": [
@@ -94,7 +94,7 @@ TEMPLATES = [
                 ("Crédit", "BRC, avaliste, microcampagnes"),
                 ("Cotisations", "Journalière, hebdomadaire ou mensuelle"),
             ], tone="success"),
-            cta("Accéder à mon espace", "{portal_url}/portal"),
+            cta("Accéder à mon espace", "{portal_url}"),
             closing(),
         ),
         "variables": ["prenom", "numero_membre", "montant", "portal_url"],
@@ -103,7 +103,7 @@ TEMPLATES = [
         "code": "member.rejected",
         "objet": "Ta demande d'adhésion à GATHE Finance",
         "corps_html": _join(
-            hi("{prenom} {nom}"),
+            hi("{prenom}"),
             title("Ta demande n'a pas été retenue"),
             lead(
                 "Après étude de ton dossier, le comité n'a pas pu retenir ta "
@@ -124,7 +124,7 @@ TEMPLATES = [
         "code": "membership.interview_scheduled",
         "objet": "Ton entretien d'admission à GATHE Finance",
         "corps_html": _join(
-            hi("{prenom} {nom}"),
+            hi("{prenom}"),
             title("Ton entretien d'admission a été enregistré"),
             lead(
                 "Conformément à l'Article 3 du Règlement, le comité a tenu "
@@ -148,7 +148,7 @@ TEMPLATES = [
         "code": "campaign.created",
         "objet": "Nouvelle campagne micro-crédit · {nom_campagne}",
         "corps_html": _join(
-            hi("{prenom} {nom}"),
+            hi("{prenom}"),
             title("Nouvelle opportunité de financement"),
             lead(
                 "La coopérative ouvre une nouvelle campagne micro-crédit. "
@@ -190,7 +190,7 @@ TEMPLATES = [
                 ("Nouveau solde", "<strong>{solde_apres} XAF</strong>"),
                 ("Taux d'intérêt mensuel", "1 % (Art. 4 du Règlement)"),
             ], tone="success"),
-            cta("Voir mon espace", "{portal_url}/portal"),
+            cta("Voir mon espace", "{portal_url}"),
             closing(),
         ),
         "variables": ["prenom", "montant", "solde_apres", "portal_url"],
@@ -232,7 +232,7 @@ TEMPLATES = [
                 "généralement sous 24 à 48 heures ouvrables.",
                 tone="info",
             ),
-            cta("Voir mon espace", "{portal_url}/portal"),
+            cta("Voir mon espace", "{portal_url}"),
             closing(),
         ),
         "variables": ["prenom", "montant", "portal_url"],
@@ -274,7 +274,7 @@ TEMPLATES = [
                 "canal convenu."
             ),
             amount("{montant}", label="Montant remis"),
-            cta("Voir mon historique", "{portal_url}/portal"),
+            cta("Voir mon historique", "{portal_url}"),
             closing(),
         ),
         "variables": ["prenom", "montant", "portal_url"],
@@ -291,7 +291,7 @@ TEMPLATES = [
                 "ton compte d'épargne."
             ),
             callout("<strong>Motif :</strong> {motif_rejet}", tone="warn"),
-            cta_secondary("Mon espace épargne", "{portal_url}/portal"),
+            cta_secondary("Mon espace épargne", "{portal_url}"),
             closing(),
         ),
         "variables": ["prenom", "montant", "motif_rejet", "portal_url"],
@@ -315,7 +315,7 @@ TEMPLATES = [
                 ("Frais de dossier", "<strong>{frais_montant} XAF</strong>"),
                 ("Statut", "En attente de paiement des frais"),
             ], tone="info"),
-            cta("Régler et suivre ma demande", "{portal_url}/portal/credit"),
+            cta("Régler et suivre ma demande", "{portal_url}/credit"),
             p(
                 "Les frais sont non-remboursables (Article 7 du Règlement). Le "
                 "comité statue dans un délai de 7 jours ouvrés après leur "
@@ -341,7 +341,7 @@ TEMPLATES = [
                 "généralement sous 7 jours ouvrés.",
                 tone="info",
             ),
-            cta("Suivre ma demande", "{portal_url}/portal/credit"),
+            cta("Suivre ma demande", "{portal_url}/credit"),
             closing(),
         ),
         "variables": ["prenom", "request_id", "montant", "portal_url"],
@@ -362,7 +362,7 @@ TEMPLATES = [
                 "des remarques. N'hésite pas à solliciter un entretien à l'agence "
                 "pour préparer ton prochain dossier."
             ),
-            cta_secondary("Mon espace crédit", "{portal_url}/portal/credit"),
+            cta_secondary("Mon espace crédit", "{portal_url}/credit"),
             closing(),
         ),
         "variables": ["prenom", "motif", "portal_url"],
@@ -383,7 +383,7 @@ TEMPLATES = [
                 ("Taux", "{taux_pct} %/an"),
                 ("1<sup>re</sup> échéance", "<strong>{date_premiere}</strong>"),
             ], tone="success"),
-            cta("Voir mon échéancier", "{portal_url}/portal/credit"),
+            cta("Voir mon échéancier", "{portal_url}/credit"),
             closing(),
         ),
         "variables": [
@@ -427,7 +427,7 @@ TEMPLATES = [
                 ("Solde restant", "<strong>{solde_restant} XAF</strong>"),
                 ("Imputation", "FIFO sur tes échéances ouvertes"),
             ], tone="success"),
-            cta("Voir mon crédit", "{portal_url}/portal/credit"),
+            cta("Voir mon crédit", "{portal_url}/credit"),
             closing(),
         ),
         "variables": ["prenom", "montant", "numero_dossier", "solde_restant", "portal_url"],
@@ -448,7 +448,7 @@ TEMPLATES = [
                 ("Statut", "<strong>Soldé / clôturé</strong>"),
                 ("Solde restant", "0 XAF"),
             ], tone="success"),
-            cta("Voir mon épargne", "{portal_url}/portal/epargne"),
+            cta("Voir mon épargne", "{portal_url}/epargne"),
             closing(),
         ),
         "variables": ["prenom", "numero_dossier", "portal_url"],
@@ -472,7 +472,7 @@ TEMPLATES = [
                 "Tu recevras un email dès que le comité aura statué.",
                 tone="info",
             ),
-            cta("Suivre ma demande", "{portal_url}/portal/credit"),
+            cta("Suivre ma demande", "{portal_url}/credit"),
             closing(),
         ),
         "variables": ["prenom", "numero_dossier", "duree_mois", "portal_url"],
@@ -541,7 +541,7 @@ TEMPLATES = [
                 ("Date d'échéance", "<strong>{date_echeance}</strong>"),
                 ("Montant attendu", "<strong>{montant_echeance} XAF</strong>"),
             ], tone="info"),
-            cta("Régler maintenant", "{portal_url}/portal/credit"),
+            cta("Régler maintenant", "{portal_url}/credit"),
             closing(),
         ),
         "variables": [
@@ -570,7 +570,7 @@ TEMPLATES = [
                 "éviter d'autres pénalités.",
                 tone="warn",
             ),
-            cta("Régler mon échéance", "{portal_url}/portal/credit"),
+            cta("Régler mon échéance", "{portal_url}/credit"),
             closing(),
         ),
         "variables": [
@@ -697,7 +697,7 @@ TEMPLATES = [
                 ("Montant garanti", "<strong>{montant} XAF</strong>"),
                 ("Toi (avaliste)", "Membre {avaliste_numero}"),
             ], tone="info"),
-            cta("Accepter ou refuser", "{portal_url}/portal/avaliste"),
+            cta("Accepter ou refuser", "{portal_url}/credit"),
             p(
                 "Prends ton temps - cette désignation n'est validée qu'après "
                 "ton consentement explicite depuis ton espace membre."
@@ -724,7 +724,7 @@ TEMPLATES = [
                 ("Montant garanti", "<strong>{montant} XAF</strong>"),
                 ("Statut demande", "Transmise au comité"),
             ], tone="success"),
-            cta("Suivre ma demande", "{portal_url}/portal/credit"),
+            cta("Suivre ma demande", "{portal_url}/credit"),
             closing(),
         ),
         "variables": [
@@ -744,7 +744,7 @@ TEMPLATES = [
                 "caution. Pas de souci - tu peux désigner un autre membre pour "
                 "relancer ta demande."
             ),
-            cta("Désigner un autre avaliste", "{portal_url}/portal/credit"),
+            cta("Désigner un autre avaliste", "{portal_url}/credit"),
             closing(),
         ),
         "variables": [
@@ -769,7 +769,7 @@ TEMPLATES = [
                 ("Caution libérée", "<strong>{montant} XAF</strong>"),
                 ("Garanti pour", "{borrower_nom} ({borrower_numero})"),
             ], tone="success"),
-            cta("Voir mon épargne", "{portal_url}/portal/epargne"),
+            cta("Voir mon épargne", "{portal_url}/epargne"),
             closing(),
         ),
         "variables": [
@@ -814,14 +814,15 @@ TEMPLATES = [
                 "En tant que prêteur de la coopérative, on te propose de "
                 "participer au financement du crédit "
                 "<strong>{loan_dossier}</strong>. Tu reçois en contrepartie "
-                "ta part d'intérêts selon la règle 50/50 (Article 6)."
+                "ta rémunération de prêteur (un pourcentage de ta mise, "
+                "fixé par la coopérative)."
             ),
             info_card([
                 ("Tranche proposée", "<strong>{montant_propose} XAF</strong>"),
                 ("Décision avant", "<strong>{deadline}</strong>"),
                 ("Sans réponse", "Tranche acceptée par défaut"),
             ], tone="info"),
-            cta("Voir et décider", "{portal_url}/portal/preteur"),
+            cta("Voir et décider", "{portal_url}/preteur"),
             closing(),
         ),
         "variables": [
@@ -846,7 +847,7 @@ TEMPLATES = [
                 "seront disponibles.",
                 tone="success",
             ),
-            cta("Suivre mon crédit", "{portal_url}/portal/credit"),
+            cta("Suivre mon crédit", "{portal_url}/credit"),
             closing(),
         ),
         "variables": ["prenom", "loan_dossier", "montant", "portal_url"],
@@ -870,7 +871,7 @@ TEMPLATES = [
                 "La coopérative te contactera pour proposer une solution : "
                 "montant ajusté, report ou alternative."
             ),
-            cta_secondary("Mon espace crédit", "{portal_url}/portal/credit"),
+            cta_secondary("Mon espace crédit", "{portal_url}/credit"),
             closing(),
         ),
         "variables": ["prenom", "loan_dossier", "deficit", "portal_url"],
@@ -898,10 +899,10 @@ TEMPLATES = [
             ], tone="info"),
             p(
                 "Les intérêts seront calculés sur cette portion engagée "
-                "uniquement, selon la règle 50/50 (Article 6) sur chaque "
-                "remboursement du crédit financé."
+                "uniquement, selon le taux prêteur en vigueur (un pourcentage "
+                "de ta mise) sur le crédit financé."
             ),
-            cta("Voir mon espace prêteur", "{portal_url}/portal/preteur"),
+            cta("Voir mon espace prêteur", "{portal_url}/preteur"),
             closing(),
         ),
         "variables": [
@@ -1168,7 +1169,7 @@ TEMPLATES = [
                 ("Part libérée", "<strong>{montant} FCFA</strong>"),
                 ("Crédit", "{numero_dossier} · soldé"),
             ], tone="success"),
-            cta("Voir mon épargne", "{portal_url}/portal/epargne"),
+            cta("Voir mon épargne", "{portal_url}/epargne"),
             closing(),
         ),
         "variables": ["prenom", "montant", "numero_dossier", "portal_url"],
@@ -1190,7 +1191,7 @@ TEMPLATES = [
                 ("Capital libéré", "<strong>{capital} FCFA</strong>"),
                 ("Intérêts placement", "<strong>{interet} FCFA</strong>"),
             ], tone="success"),
-            cta("Voir mon épargne", "{portal_url}/portal/epargne"),
+            cta("Voir mon épargne", "{portal_url}/epargne"),
             closing(),
         ),
         "variables": ["prenom", "capital", "interet", "numero_dossier", "portal_url"],

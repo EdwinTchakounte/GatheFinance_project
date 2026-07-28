@@ -177,7 +177,7 @@ class _AvailableHero extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '${XAFFormatter.format(account.soldeRetirable)} XAF',
+            '${XAFFormatter.formatNumber(account.soldeRetirable)} XAF',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 30,
@@ -195,7 +195,7 @@ class _AvailableHero extends StatelessWidget {
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  '${XAFFormatter.format(account.montantGeleCredit!)} XAF gelés en garantie',
+                  '${XAFFormatter.formatNumber(account.montantGeleCredit!)} XAF gelés en garantie',
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
@@ -213,17 +213,37 @@ class _BreakdownCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Le gel scindé par motif (apport mobilisable vs caution avaliste). Sur un
+    // snapshot ancien ces champs sont null → on retombe sur l'agrégat unique.
+    final apport = account.montantGeleApport ?? 0;
+    final avaliste = account.montantGeleAvaliste ?? 0;
+    final hasSplit = account.montantGeleApport != null ||
+        account.montantGeleAvaliste != null;
     final rows = <(String, String, bool)>[
       ('Solde total', XAFFormatter.format(account.solde), false),
-      if (account.soldePlacementActif != null)
+      if ((account.soldePlacementActif ?? 0) > 0)
         (
-          'En placement',
+          'En placement (bloqué jusqu\'à l\'échéance)',
           XAFFormatter.format(account.soldePlacementActif!),
           false
         ),
-      if (account.soldeLibre != null)
-        ('Libre', XAFFormatter.format(account.soldeLibre!), false),
-      if ((account.montantGeleCredit ?? 0) > 0)
+      // NB : on n'affiche plus la ligne « Libre » (= solde − placement) : elle
+      // ignorait le gel et pouvait dépasser le solde une fois le gelé ajouté.
+      // La seule part réellement mobilisable est « Disponible au retrait ».
+      if (hasSplit) ...[
+        if (apport > 0)
+          (
+            'Gelé — apport de mes crédits (mobilisable)',
+            XAFFormatter.format(apport),
+            false
+          ),
+        if (avaliste > 0)
+          (
+            'Gelé — caution avaliste (libéré à la clôture)',
+            XAFFormatter.format(avaliste),
+            false
+          ),
+      ] else if ((account.montantGeleCredit ?? 0) > 0)
         (
           'Gelé en garantie',
           XAFFormatter.format(account.montantGeleCredit!),
@@ -319,7 +339,7 @@ class _WithdrawalRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${XAFFormatter.format(w.montant)} XAF',
+                  '${XAFFormatter.formatNumber(w.montant)} XAF',
                   style: const TextStyle(
                     color: PaColors.inkPrimary,
                     fontSize: 14.5,

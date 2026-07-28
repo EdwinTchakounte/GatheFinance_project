@@ -7,6 +7,7 @@ import { buttonClasses } from "@gathe/ui";
 
 import { Modal } from "@/components/modal";
 import { adminApi, type ApiError, type RenewalRow } from "@/lib/api";
+import { fullName } from "@/lib/name";
 
 
 /**
@@ -60,7 +61,7 @@ function Inner() {
       const result = await adminApi.renewals.process(row.id);
       setMessage({
         tone: "ok",
-        text: `Compte de ${row.member_prenom} ${row.member_nom} renouvelé (cycle ${result.cycle_courant}).`,
+        text: `Compte de ${fullName(row.member_prenom, row.member_nom)} renouvelé (cycle ${result.cycle_courant}).`,
       });
       setConfirmTarget(null);
       await reload();
@@ -144,7 +145,7 @@ function Inner() {
               >
                 <div className="flex-1 min-w-[280px] space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink-900">
-                    {row.member_prenom} {row.member_nom}
+                    {fullName(row.member_prenom, row.member_nom)}
                     <span className="rounded-full bg-paper-soft px-2 py-0.5 text-xs font-medium text-ink-500">
                       {row.member_numero}
                     </span>
@@ -249,7 +250,7 @@ function ConfirmModal({
     <Modal
       open
       onClose={onClose}
-      title={`Encaisser frais de ${target.member_prenom} ${target.member_nom}`}
+      title={`Encaisser frais de ${fullName(target.member_prenom, target.member_nom)}`}
     >
       <p className="text-sm text-ink-700">
         Confirmer le paiement des frais de ré-inscription va :

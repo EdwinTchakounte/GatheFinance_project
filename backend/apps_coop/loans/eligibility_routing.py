@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 from django.db.models import QuerySet
@@ -94,6 +94,16 @@ def _bool_setting(key: str, default: bool = True) -> bool:
     """Lit un AppSetting str ``"true"``/``"false"`` (casse-insensible)."""
     raw = (get_str_setting(key, "true" if default else "false") or "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
+
+
+def _decimal_setting(key: str, default: Decimal) -> Decimal:
+    """Lit un AppSetting décimal (ex. un taux ``"0.30"``). Retombe sur ``default``
+    si absent ou illisible."""
+    raw = get_str_setting(key, str(default))
+    try:
+        return Decimal(str(raw).strip())
+    except (InvalidOperation, ValueError, TypeError):
+        return default
 
 
 def _route_priority() -> list[str]:
@@ -167,8 +177,6 @@ def _eval_senior_brc(
             motifs=["Voie auto-couverture / ancien désactivée par l'admin."],
         )
 
-    from apps_coop.audit.services import get_int_setting
-
     from .avaliste_services import _member_available_savings
 
     montant_d = Decimal(montant)
@@ -180,65 +188,60 @@ def _eval_senior_brc(
 
     epargne = _member_available_savings(member)
 
-    # Chemin 1 — auto-couverture (l'épargne dispo suffit).
+    # Apport personnel (2026-07) : l'éligibilité n'exige plus une couverture à
+    # 100 %. Il suffit que l'épargne classique DISPONIBLE atteigne le taux
+    # d'apport requis (``loans.eligibility.apport_rate``, défaut 0.30) du montant.
+    # Le comité juge le reste (sous-couverture), comme la voie « ancien ».
+    apport_rate = _decimal_setting("loans.eligibility.apport_rate", Decimal("0.30"))
+    apport_requis = (montant_d * apport_rate).quantize(Decimal("1"))
+
+    # Chemin 1a — auto-couverture PLEINE (l'épargne dispo couvre tout : 0 risque).
     if epargne >= montant_d:
         return _VoieResult(
             matched=True,
             details={
                 "epargne_disponible": str(epargne),
                 "montant": str(montant_d),
+                "apport_rate": str(apport_rate),
+                "apport_requis": str(apport_requis),
                 "auto_couverture": True,
             },
         )
 
-    # Chemin 2 — ancien (+ BRC) : la couverture n'est PAS exigée, le comité juge.
-    threshold = get_int_setting("seniority.threshold_months", 12)
-    # Défaut 2026-07 : le BRC n'est plus un statut à valider (pièce purement
-    # documentaire, consultée par le comité). L'ancienneté seule ouvre donc la
-    # voie « crédit de confiance » ; le comité juge la demande. L'admin peut
-    # re-exiger un BRC validé en repassant ce réglage à true.
-    require_brc = _bool_setting("loans.eligibility.require_brc_for_senior", False)
-    seniority = int(getattr(member, "seniority_months", 0) or 0)
-    has_brc = bool(getattr(member, "is_brc_member", False))
-    is_senior = seniority >= threshold
-
-    if is_senior and (has_brc or not require_brc):
+    # Chemin 1b — APPORT suffisant (épargne ≥ apport_rate × montant) : éligible,
+    # mais sous-couvert → signalé au comité, qui tranche.
+    if epargne >= apport_requis:
         return _VoieResult(
             matched=True,
             details={
                 "epargne_disponible": str(epargne),
                 "montant": str(montant_d),
-                "senior_brc": True,
-                # Signalé au comité : dossier sous-couvert, accordé sur confiance.
+                "apport_rate": str(apport_rate),
+                "apport_requis": str(apport_requis),
+                "apport_couverture": True,
                 "sous_couverture": True,
                 "manque": str(montant_d - epargne),
-                "seniority_months": seniority,
-                "brc_valide": has_brc,
             },
         )
 
-    # Ni couvert, ni ancien+BRC éligible.
-    motifs = [
-        f"Épargne classique disponible insuffisante pour se couvrir soi-même : "
-        f"{epargne} XAF < {montant_d} XAF."
-    ]
-    if not is_senior:
-        motifs.append(
-            f"Ancienneté insuffisante pour un crédit de confiance sans garantie "
-            f"({seniority} mois < {threshold})."
-        )
-    elif require_brc and not has_brc:
-        motifs.append(
-            "Statut BRC non validé — requis pour un crédit de confiance sans "
-            "couverture épargne."
-        )
-    motifs.append("Désigne un avaliste ancien pour compléter, ou baisse le montant.")
+    # Gouvernance G4 — PLANCHER 30 % OBLIGATOIRE POUR TOUS. Plus de souplesse
+    # « ancien sous-couvert » à l'éligibilité : en dessous de l'apport requis, la
+    # demande est INÉLIGIBLE. Le découvert (jusqu'à 80 %) n'est PAS accordé ici —
+    # il l'est par le COMITÉ à la validation (privilège tracé), guidé par la
+    # criticité. L'ancienneté / le statut de confiance jouent donc au moment de la
+    # décision, pas à l'entrée.
     return _VoieResult(
         matched=False,
-        motifs=motifs,
+        motifs=[
+            f"Apport insuffisant : épargne classique disponible {epargne} XAF < "
+            f"apport requis {apport_requis} XAF ({apport_rate * 100:.0f}% du "
+            f"montant {montant_d} XAF). Épargnez davantage, désignez un avaliste, "
+            f"ou baissez le montant.",
+        ],
         details={
             "epargne_disponible": str(epargne),
             "montant": str(montant_d),
+            "apport_requis": str(apport_requis),
         },
     )
 

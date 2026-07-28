@@ -40,6 +40,15 @@ class Member(TimestampedModel):
     profession = models.CharField(max_length=120, blank=True)
     statut = models.CharField(max_length=12, choices=Statut.choices, default=Statut.ACTIF, db_index=True)
     date_adhesion = models.DateField()
+    # Marqueur « a DÉJÀ été activé au moins une fois » (1re activation CH-2).
+    # Distingue un primo-adhérent (NULL) d'un membre revenant (réactivation de
+    # cycle). Sert au routage du hook de paiement adhésion : NULL → activation
+    # initiale (+ événement member.activated) ; non-NULL → renouvellement.
+    date_activation = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date de la 1re activation. NULL = jamais activé (primo-adhérent).",
+    )
     # Photo de profil (avatar) éditable par le membre depuis son espace.
     photo_profil = models.ImageField(
         upload_to="coop/profil/%Y/%m/",
@@ -107,7 +116,14 @@ class Member(TimestampedModel):
         indexes = [models.Index(fields=["statut", "-date_adhesion"])]
 
     def __str__(self) -> str:
-        return f"{self.numero_membre} · {self.prenom} {self.nom}"
+        return f"{self.numero_membre} · {self.nom_complet}"
+
+    @property
+    def nom_complet(self) -> str:
+        """Nom complet dé-dupliqué « nom prénom » (source unique — cf. naming)."""
+        from .naming import full_name
+
+        return full_name(self.prenom, self.nom)
 
     @property
     def seniority_months(self) -> int:
@@ -386,8 +402,15 @@ class MembershipRequest(TimestampedModel):
         return f"{self.prenom} {self.nom} ({self.statut})".strip()
 
     @property
+    def nom_complet(self) -> str:
+        """Nom complet dé-dupliqué « nom prénom » (source unique — cf. naming)."""
+        from .naming import full_name
+
+        return full_name(self.prenom, self.nom)
+
+    @property
     def display_name(self) -> str:
-        return f"{self.prenom} {self.nom}".strip() or self.email
+        return self.nom_complet or self.email
 
 
 class BookletOrder(TimestampedModel):

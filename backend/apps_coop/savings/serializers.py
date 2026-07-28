@@ -162,6 +162,13 @@ class ClassicSavingsAccountReadSerializer(serializers.ModelSerializer):
     # avaliste + collatéral demandeur) et disponible réel au retrait
     # (= solde − max(placement, gel garantie)).
     montant_gele_credit = serializers.SerializerMethodField()
+    # Scission du gel par MOTIF (cf. règle « mobilisable ssi motif = ce crédit ») :
+    #   • apport   = collatéral de MES propres crédits → mobilisable pour les solder
+    #     (bouton « Transférer mon apport gelé » / repay-from-frozen) ;
+    #   • avaliste = caution donnée sur le crédit d'un AUTRE membre → NON mobilisable,
+    #     libérée seulement à la clôture du crédit garanti.
+    montant_gele_apport = serializers.SerializerMethodField()
+    montant_gele_avaliste = serializers.SerializerMethodField()
     solde_disponible_retrait = serializers.SerializerMethodField()
     # True tant que CE membre peut placer : verrou global (date-limite + toggle)
     # ET fenêtre par membre (N premiers mois d'ancienneté, défaut 6). Les clients
@@ -175,7 +182,8 @@ class ClassicSavingsAccountReadSerializer(serializers.ModelSerializer):
         model = ClassicSavingsAccount
         fields = (
             "id", "solde", "solde_libre", "solde_placement_actif",
-            "montant_gele_credit", "solde_disponible_retrait",
+            "montant_gele_credit", "montant_gele_apport",
+            "montant_gele_avaliste", "solde_disponible_retrait",
             "placement_open", "placement_eligibility_months",
             "date_ouverture", "config", "transactions_recentes",
         )
@@ -195,6 +203,20 @@ class ClassicSavingsAccountReadSerializer(serializers.ModelSerializer):
         from apps_coop.loans.avaliste_services import member_frozen_guarantee
 
         return str(member_frozen_guarantee(obj.member))
+
+    def get_montant_gele_apport(self, obj: ClassicSavingsAccount):
+        # Collatéral de MES crédits (LoanRequest.montant_gele_demandeur) →
+        # mobilisable pour les solder via repay-from-frozen.
+        from apps_coop.loans.avaliste_services import _borrower_frozen_amount
+
+        return str(_borrower_frozen_amount(obj.member))
+
+    def get_montant_gele_avaliste(self, obj: ClassicSavingsAccount):
+        # Caution donnée sur le crédit d'un AUTRE membre → NON mobilisable,
+        # libérée à la clôture du crédit garanti.
+        from apps_coop.loans.avaliste_services import _avaliste_frozen_amount
+
+        return str(_avaliste_frozen_amount(obj.member))
 
     def get_solde_disponible_retrait(self, obj: ClassicSavingsAccount):
         from .services import classic_withdrawable

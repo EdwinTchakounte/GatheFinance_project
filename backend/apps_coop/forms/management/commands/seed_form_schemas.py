@@ -117,6 +117,7 @@ LOAN_REQUEST_SCHEMA = {
                 {
                     "id": "ancien_apprenant",
                     "type": "radio",
+                    "is_privilege_declaration": True,
                     "label": "As-tu déjà suivi une formation au CFP Broad Range ?",
                     "required": True,
                     "options": [
@@ -127,6 +128,7 @@ LOAN_REQUEST_SCHEMA = {
                 {
                     "id": "ancien_apprenant_preuve",
                     "type": "file",
+                    "is_brc_proof": True,
                     "label": "Attestation / certificat CFP Broad Range",
                     "help": "Photo ou PDF de ton attestation de formation (10 Mo max).",
                     "required": True,
@@ -142,6 +144,7 @@ LOAN_REQUEST_SCHEMA = {
                 {
                     "id": "cga_adherent",
                     "type": "radio",
+                    "is_privilege_declaration": True,
                     "label": "Es-tu adhérent à un Centre de Gestion Agréé (CGA) ?",
                     "required": True,
                     "options": [
@@ -152,6 +155,7 @@ LOAN_REQUEST_SCHEMA = {
                 {
                     "id": "cga_preuve",
                     "type": "file",
+                    "is_brc_proof": True,
                     "label": "Carte / attestation CGA",
                     "help": "Photo recto-verso ou PDF de ta carte CGA en cours de validité.",
                     "required": True,

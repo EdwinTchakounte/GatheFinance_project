@@ -83,8 +83,17 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
       return;
     }
     if (amount > _available) {
+      // Si le crédit visé a un apport GELÉ, l'argent existe mais n'est pas
+      // dans le disponible ordinaire (le transfert classique l'exclut) : on
+      // pointe vers le bouton dédié plutôt qu'un « insuffisant » sec.
+      final gele = loan.apportGele;
+      final msg = gele > 0
+          ? '${XAFFormatter.formatNumber(gele)} XAF sont gelés en apport de ce '
+              'crédit. Utilise « Transférer mon apport gelé » ci-dessous pour '
+              'le mobiliser.'
+          : l.transfer_insufficient;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.transfer_insufficient)),
+        SnackBar(content: Text(msg)),
       );
       return;
     }
@@ -111,6 +120,40 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l.transfer_success)),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  /// Transfère l'apport GELÉ du crédit sélectionné pour le solder — l'argent
+  /// gelé (non retirable normalement) est mobilisé côté serveur.
+  Future<void> _submitFrozen() async {
+    final loan = _selected;
+    if (loan == null || loan.apportGele <= 0) return;
+    setState(() => _submitting = true);
+    try {
+      final dio = ref.read(apiClientProvider).dio;
+      await dio.post<Map<String, dynamic>>(
+        '/loans/me/loans/${loan.id}/repay-from-frozen/',
+      );
+      unawaited(HapticFeedback.mediumImpact());
+      ref
+        ..invalidate(loansProvider)
+        ..invalidate(closedLoansProvider)
+        ..invalidate(eligibilityProvider)
+        ..invalidate(savingsProvider)
+        ..invalidate(classicSavingsProvider);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).transfer_success)),
       );
     } catch (e) {
       if (mounted) {
@@ -186,7 +229,7 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
                     Text(
                       _loadingAvail
                           ? '…'
-                          : '${XAFFormatter.format(_available)} XAF',
+                          : '${XAFFormatter.formatNumber(_available)} XAF',
                       style: const TextStyle(
                         color: PaColors.inkPrimary,
                         fontSize: 14,
@@ -273,6 +316,35 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
                   label: _submitting ? '…' : l.transfer_cta,
                   onPressed: _submitting ? null : _submit,
                 ),
+                if ((_selected?.apportGele ?? 0) > 0) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _submitting ? null : _submitFrozen,
+                    icon: const Icon(Icons.lock_open_rounded, size: 18),
+                    label: Text(
+                      'Transférer mon apport gelé '
+                      '(${XAFFormatter.formatNumber(_selected!.apportGele)} XAF)',
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      foregroundColor: PaColors.navy,
+                      side: const BorderSide(color: PaColors.teal),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                  if ((_selected?.apportGeleMotif ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      _selected!.apportGeleMotif,
+                      style: const TextStyle(
+                        color: PaColors.inkMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
               ],
             ],
           ),
@@ -327,7 +399,7 @@ class _LoanRow extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '${l.transfer_remaining}: '
-                      '${XAFFormatter.format(loan.soldeRestant)} XAF',
+                      '${XAFFormatter.formatNumber(loan.soldeRestant)} XAF',
                       style: const TextStyle(
                           color: PaColors.inkMuted, fontSize: 12,),
                     ),

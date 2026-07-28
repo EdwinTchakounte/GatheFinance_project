@@ -17,6 +17,7 @@ class Loan {
   const Loan({
     required this.id,
     required this.numeroDossier,
+    this.numeroOrdre = 0,
     required this.montant,
     required this.tauxInteret,
     required this.dureeMois,
@@ -31,10 +32,17 @@ class Loan {
     this.modeRetenueInterets = LoanInterestMode.echeances,
     this.montantDecaisseNet,
     this.interetsRetenusSource,
+    this.apportGele = 0,
+    this.apportGeleMotif = '',
   });
 
   final int id;
   final String numeroDossier;
+
+  /// Rang du crédit dans l'historique du membre (1 = premier crédit ouvert).
+  /// Sert au libellé parlant « Crédit n°X » à côté du numéro de dossier GF.
+  /// 0 = inconnu (snapshot ancien) → l'UI retombe sur le seul numéro de dossier.
+  final int numeroOrdre;
   final num montant;
   final num tauxInteret;
   final int dureeMois;
@@ -63,6 +71,13 @@ class Loan {
 
   /// CH-11 — Intérêts ponctionnés à T0 par la coop (mode source uniquement).
   final num? interetsRetenusSource;
+
+  /// Apport personnel GELÉ transférable pour solder ce crédit (2026-07). 0 =
+  /// aucun apport gelé. Le membre peut le mobiliser via « repay-from-frozen ».
+  final num apportGele;
+
+  /// Motif lisible du gel de l'apport (affiché à côté du bouton de transfert).
+  final String apportGeleMotif;
 
   LoanInstallment? get nextDue =>
       installments.where((i) => i.statut != InstallmentStatus.payee).firstOrNull;
@@ -118,11 +133,13 @@ class Loan {
   Map<String, dynamic> toJson() => {
         'id': id,
         'numeroDossier': numeroDossier,
+        'numeroOrdre': numeroOrdre,
         'montant': montant,
         'montantTotalDu': montantTotalDu,
         'soldeRestant': soldeRestant,
         'statut': statut.name,
         'dejaReconduit': dejaReconduit,
+        'apportGele': apportGele,
         'installments': [
           for (final i in installments)
             {

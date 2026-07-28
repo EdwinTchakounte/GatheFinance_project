@@ -135,11 +135,35 @@ export default function PortalCreditPage() {
           : `Remboursement de ${montant.toLocaleString("fr-FR")} FCFA imputé depuis ton épargne.`,
       );
     } catch (err) {
-      setRepayError((err as ApiError).detail ?? "Échec du remboursement.");
+      // Si le remboursement échoue faute de disponible ET que ce crédit a un
+      // apport GELÉ, on rappelle la porte dédiée : l'argent existe mais n'est
+      // pas dans le disponible ordinaire (le transfert classique l'exclut).
+      const detail = (err as ApiError).detail ?? "Échec du remboursement.";
+      const gele = Number(repayTarget.apport_gele ?? 0);
+      setRepayError(
+        gele > 0
+          ? `${detail} ${formatXAF(String(gele))} sont gelés en apport de ce crédit : utilise « Transférer mon apport gelé » pour le mobiliser.`
+          : detail,
+      );
     } finally {
       setRepaySubmitting(false);
     }
   }
+  async function transferFrozenApport(loan: Loan) {
+    setError(null);
+    try {
+      const res = await portalApi.loans.repayFromFrozen(loan.id);
+      await reloadLoans();
+      setFlash(
+        res.statut === "cloture"
+          ? "Crédit soldé ✓ grâce à ton apport gelé."
+          : `Apport gelé transféré (${formatXAF(res.montant)}) sur ton crédit.`,
+      );
+    } catch (err) {
+      setError((err as ApiError).detail ?? "Transfert de l'apport impossible.");
+    }
+  }
+
   async function respondCounterProposal(id: number, accept: boolean) {
     setCpBusy(id);
     setError(null);
@@ -469,6 +493,16 @@ export default function PortalCreditPage() {
                       >
                         Demander une reconduction
                       </button>
+                      {Number(loan.apport_gele ?? 0) > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => transferFrozenApport(loan)}
+                          className={buttonClasses({ variant: "secondary", size: "md" })}
+                          title={loan.apport_gele_motif ?? undefined}
+                        >
+                          Transférer mon apport gelé ({formatXAF(loan.apport_gele ?? "0")})
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
 

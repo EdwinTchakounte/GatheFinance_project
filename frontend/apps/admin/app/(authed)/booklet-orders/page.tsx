@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { adminApi, type ApiError, type BookletOrderAdmin } from "@/lib/api";
+import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 
 type Tab = "tous" | "payee" | "en_impression" | "delivree";
@@ -73,11 +74,11 @@ export default function BookletOrdersPage() {
       key: "membre",
       label: "Membre",
       locked: true,
-      text: (r) => `${r.member_prenom} ${r.member_nom} ${r.member_numero}`,
+      text: (r) => `${fullName(r.member_prenom, r.member_nom)} ${r.member_numero}`,
       render: (r) => (
         <div>
           <p className="font-medium text-ink-900">
-            {r.member_prenom} {r.member_nom}
+            {fullName(r.member_prenom, r.member_nom)}
           </p>
           <p className="font-mono text-xs text-ink-500">{r.member_numero}</p>
         </div>

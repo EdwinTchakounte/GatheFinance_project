@@ -12,12 +12,15 @@ from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps_coop.audit.services import get_str_setting, record as record_audit
 from apps_coop.members.models import Member
 from apps_coop.payments.models import RateParam
 from apps_coop.payments.rates import get_rate
+
+from apps_coop.portal_urls import portal_url
 
 from .models import Loan, LoanInstallment, LoanRenewal, LoanRequest
 from .terms import (
@@ -71,10 +74,14 @@ def compute_eligibility(member: Member) -> Eligibility:
     if member.statut != Member.Statut.ACTIF:
         motifs.append("Compte membre non actif.")
 
-    # Rule 2
+    # Rule 2 — un crédit compte comme « en cours » s'il est actif/en_retard/
+    # contentieux OU s'il n'a pas encore été décaissé (argent non versé), quel
+    # que soit son statut. Ce dernier cas couvre l'anomalie « clôturé mais non
+    # décaissé » : le membre reste bloqué de façon cohérente jusqu'à résolution.
     active_loans = Loan.objects.filter(
+        Q(statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD, Loan.Statut.CONTENTIEUX])
+        | Q(en_attente_decaissement=True),
         member=member,
-        statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD, Loan.Statut.CONTENTIEUX],
     ).count()
     if active_loans:
         motifs.append(
@@ -295,6 +302,8 @@ def approve_loan_request(
     date_premiere_echeance: date,
     date_comite: date | None = None,
     pv_comite=None,
+    privilege_accorde: bool = False,
+    privilege_motif: str = "",
 ) -> Loan:
     """Create the Loan + the full installment schedule atomically.
 
@@ -376,12 +385,31 @@ def approve_loan_request(
     except Exception:  # noqa: BLE001 — valeur AppSetting cassée
         share_rate_fige = Decimal("0.5")
 
+    # Gouvernance G2 — décomposition gagé / découvert, FIGÉE à l'octroi.
+    #   gagé = apport gelé + caution avaliste ; = montant si bien matériel ou
+    #   campagne (risque externalisé). découvert = montant − gagé = exposition coop.
+    from .models import AvalisteConsent
+
+    _gage = Decimal(loan_request.montant_gele_demandeur or 0)
+    _consent = getattr(loan_request, "avaliste_consent", None)
+    if _consent is not None and _consent.statut == AvalisteConsent.Statut.ACCEPTED:
+        _gage += Decimal(_consent.montant_caution or 0)
+    if loan_request.garantie_materielle or loan_request.microcampaign_id:
+        _gage = montant
+    _gage = min(_gage, montant)
+    montant_gage = _q(_gage)
+    montant_decouvert = _q(max(Decimal("0"), montant - _gage))
+
     loan = Loan.objects.create(
         loan_request=loan_request,
         member=loan_request.member,
         numero_dossier=_next_numero_dossier(),
         montant=montant,
         taux_interet=taux,
+        montant_gage=montant_gage,
+        montant_decouvert=montant_decouvert,
+        privilege_accorde=bool(privilege_accorde),
+        privilege_motif=(privilege_motif or "").strip(),
         taux_penalite=taux_penalite_fige,
         duree_mois=duree,
         modalite_paiement=modalite,
@@ -448,6 +476,10 @@ def approve_loan_request(
             "duree_mois": duree,
             "modalite": modalite,
             "request_id": loan_request.id,
+            # G4 — traçabilité du privilège (découvert accordé sur confiance).
+            "montant_decouvert": str(loan.montant_decouvert),
+            "privilege_accorde": loan.privilege_accorde,
+            "privilege_motif": loan.privilege_motif,
         },
     )
 
@@ -466,7 +498,7 @@ def approve_loan_request(
             "duree_mois": loan.duree_mois,
             "taux_pct": f"{float(loan.taux_interet) * 100:.2f}",
             "date_premiere": loan.date_premiere_echeance.isoformat(),
-            "portal_url": getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
     return loan
@@ -800,9 +832,7 @@ def reject_loan_request(loan_request: LoanRequest, *, decided_by, motif: str) ->
                 context={
                     "prenom": member.prenom,
                     "motif": motif,
-                    "portal_url": getattr(
-                        dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"
-                    ),
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001
@@ -931,6 +961,15 @@ def request_loan_renewal(
             f"Reconduction impossible : crédit en statut {loan.statut!r}."
         )
 
+    # Un crédit dont l'argent n'a jamais été versé (mise à disposition en attente)
+    # ne peut pas être reconduit : reconduire clôturerait l'original et laisserait
+    # un crédit « clôturé mais non décaissé » (argent perdu, collatéral libéré).
+    if loan.en_attente_decaissement:
+        raise ValueError(
+            "Reconduction impossible : ce crédit n'a pas encore été décaissé "
+            "(argent non versé). Décaisse-le ou annule-le d'abord."
+        )
+
     # Une seule reconduction par crédit : un crédit déjà issu d'une reconduction
     # ne peut pas être reconduit à nouveau (bloqué dès la soumission).
     if loan.issu_reconduction:
@@ -955,6 +994,16 @@ def request_loan_renewal(
         raise ValueError(
             "Reconduction impossible : une penalite Article 12 reste a payer "
             "sur ce credit. Solde les echeances en retard avant de reconduire."
+        )
+
+    # Reconduction possible UNIQUEMENT à l'échéance (2026-07) : le crédit doit
+    # être arrivé à terme (date butoir / dernière échéance atteinte). On ne
+    # reconduit pas un crédit encore en cours de remboursement normal.
+    date_terme = loan.date_limite_globale
+    if date_terme is not None and timezone.localdate() < date_terme:
+        raise ValueError(
+            "Reconduction possible uniquement à l'échéance : la date butoir "
+            f"({date_terme:%d/%m/%Y}) n'est pas encore atteinte."
         )
 
     # Durée par défaut : +1 mois (Article 10) ; modifiable via AppSetting
@@ -1202,7 +1251,7 @@ def approve_loan_renewal(
             "duree_mois": renewal.nouvelle_duree_mois,
             "taux_pct": f"{float(taux_annuel) * 100:.2f}",
             "date_premiere": date_premiere_echeance.isoformat(),
-            "portal_url": getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
     return nouveau_loan
@@ -1242,7 +1291,7 @@ def reject_loan_renewal(renewal: LoanRenewal, *, decided_by, motif: str) -> Loan
             "prenom": renewal.loan.member.prenom,
             "numero_dossier": renewal.loan.numero_dossier,
             "motif": motif,
-            "portal_url": getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
     return renewal

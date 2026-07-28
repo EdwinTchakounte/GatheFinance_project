@@ -73,6 +73,11 @@ def repay_loan_from_savings(loan: Loan, montant: Decimal) -> "object":
 
     if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
         raise TransferError("Ce crédit n'est pas remboursable (déjà clôturé ?).")
+    if loan.en_attente_decaissement:
+        raise TransferError(
+            "Ce crédit n'a pas encore été décaissé (argent non versé) : "
+            "remboursement impossible tant que la mise à disposition n'a pas eu lieu."
+        )
 
     solde_restant = Decimal(loan.solde_restant)
     if solde_restant <= 0:
@@ -167,6 +172,127 @@ def repay_loan_from_savings(loan: Loan, montant: Decimal) -> "object":
             "montant": str(montant),
             "pris_classique": str(pris_classique),
             "pris_collecte": str(pris_collecte),
+        },
+    )
+
+    # Le Payment naît VALIDE → on impute nous-mêmes sur les échéances.
+    _hook_loan_repayment(payment, {})
+    return payment
+
+
+def frozen_apport_for(loan: Loan) -> Decimal:
+    """Apport gelé mobilisable pour solder ``loan`` (0 si aucun)."""
+    lr = getattr(loan, "loan_request", None)
+    return Decimal(getattr(lr, "montant_gele_demandeur", 0) or 0) if lr else Decimal("0")
+
+
+@transaction.atomic
+def repay_loan_from_frozen(loan: Loan, montant: Decimal | None = None) -> "object":
+    """Transfère l'apport GELÉ du demandeur pour rembourser/solder ``loan``.
+
+    Le gel (``LoanRequest.montant_gele_demandeur``) « grise » une part de
+    l'épargne classique : normalement elle n'est pas ponctionnable (le transfert
+    ordinaire l'exclut via ``classic_withdrawable``). Ici le membre choisit
+    justement de mobiliser ce collatéral pour éteindre son crédit.
+
+    L'argent gelé EST dans le solde classique (part libre + placement). On le
+    ponctionne directement (en contournant ``classic_withdrawable``, à dessein),
+    on consomme les tranches de placement gelées à due concurrence, et on décrémente
+    le gel. Un éventuel surplus (apport > reste dû) reste en épargne libre.
+
+    Lève ``TransferError`` si le crédit n'a pas d'apport gelé ou n'est pas
+    remboursable.
+    """
+    from apps_coop.payments.models import Payment
+    from apps_coop.payments.services import _hook_loan_repayment
+    from apps_coop.savings.models import (
+        ClassicSavingsAccount,
+        ClassicSavingsTransaction,
+    )
+
+    from .guarantee_tranches import consume_guarantee_tranches
+
+    if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
+        raise TransferError("Ce crédit n'est pas remboursable (déjà clôturé ?).")
+    if loan.en_attente_decaissement:
+        raise TransferError(
+            "Ce crédit n'a pas encore été décaissé (argent non versé) : "
+            "remboursement impossible tant que la mise à disposition n'a pas eu lieu."
+        )
+
+    lr = getattr(loan, "loan_request", None)
+    frozen = Decimal(getattr(lr, "montant_gele_demandeur", 0) or 0) if lr else Decimal("0")
+    if frozen <= 0:
+        raise TransferError("Aucun apport gelé n'est disponible pour ce crédit.")
+
+    solde_restant = Decimal(loan.solde_restant)
+    if solde_restant <= 0:
+        raise TransferError("Ce crédit est déjà soldé.")
+
+    # Montant à transférer : par défaut tout l'apport gelé, borné au reste dû.
+    a_transferer = frozen if montant is None else Decimal(montant)
+    if a_transferer <= 0:
+        raise TransferError("Le montant doit être supérieur à 0.")
+    a_transferer = min(a_transferer, frozen, solde_restant)
+
+    member = loan.member
+    classic = (
+        ClassicSavingsAccount.objects.select_for_update()
+        .filter(member=member)
+        .first()
+    )
+    if classic is None or Decimal(classic.solde) < a_transferer:
+        raise TransferError(
+            "Épargne classique introuvable ou insuffisante pour transférer "
+            "l'apport gelé."
+        )
+
+    now = timezone.now()
+    payment = Payment.objects.create(
+        member=member,
+        loan=loan,
+        montant=a_transferer,
+        type=Payment.Type.REMBOURSEMENT,
+        source=Payment.Source.DEDUCTION_EPARGNE,
+        statut=Payment.Statut.VALIDE,
+        date_versement=now,
+        date_validation=now,
+    )
+
+    # 1) Ponctionne le solde classique (l'apport gelé y est physiquement).
+    classic.solde = Decimal(classic.solde) - a_transferer
+    classic.save(update_fields=["solde", "updated_at"])
+    ClassicSavingsTransaction.objects.create(
+        account=classic,
+        payment=payment,
+        type_op=ClassicSavingsTransaction.TypeOp.RETRAIT,
+        montant=a_transferer,
+        solde_apres=classic.solde,
+        date=now,
+    )
+
+    # 2) Consomme les tranches de placement gelées à due concurrence (le reste
+    #    provenait de la part libre, non tranchée).
+    consume_guarantee_tranches(lr, a_transferer)
+
+    # 3) Décrémente le gel + nettoie le motif s'il est soldé.
+    reste_gel = frozen - a_transferer
+    lr.montant_gele_demandeur = reste_gel if reste_gel > 0 else Decimal("0")
+    if lr.montant_gele_demandeur <= 0:
+        lr.motif_gel_demandeur = ""
+    lr.save(
+        update_fields=["montant_gele_demandeur", "motif_gel_demandeur", "updated_at"]
+    )
+
+    record_audit(
+        action="loan.repayment_from_frozen_apport",
+        entite_type="Loan",
+        entite_id=loan.id,
+        details={
+            "payment_id": payment.id,
+            "montant": str(a_transferer),
+            "apport_gele_avant": str(frozen),
+            "apport_gele_apres": str(lr.montant_gele_demandeur),
         },
     )
 

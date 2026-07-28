@@ -257,6 +257,13 @@ SavingsAccount _parseAccount(Map<String, dynamic> json) {
     montantGeleCredit: json.containsKey('montant_gele_credit')
         ? _num(json['montant_gele_credit'])
         : null,
+    // Scission du gel par motif : apport (mobilisable) vs caution avaliste (non).
+    montantGeleApport: json.containsKey('montant_gele_apport')
+        ? _num(json['montant_gele_apport'])
+        : null,
+    montantGeleAvaliste: json.containsKey('montant_gele_avaliste')
+        ? _num(json['montant_gele_avaliste'])
+        : null,
     // Fenêtre placement par membre (épargne classique) : présent uniquement sur
     // le snapshot classique → null côté collecte (l'UI le traite comme ouvert).
     placementOpen: json['placement_open'] as bool?,

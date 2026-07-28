@@ -61,7 +61,7 @@ def build_attestation_pdf(member) -> bytes:
     c.drawCentredString(width / 2, title_y, "ATTESTATION D'ADHÉSION")
 
     # --- Corps -------------------------------------------------------------
-    nom_complet = f"{member.prenom} {member.nom}".strip()
+    nom_complet = member.nom_complet
     adhesion = _fr_date(member.date_adhesion or date.today())
 
     lines = [

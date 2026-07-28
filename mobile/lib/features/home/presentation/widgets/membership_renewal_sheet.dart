@@ -202,7 +202,7 @@ class _State extends ConsumerState<MembershipRenewalSheet>
                       ),
                     ),
                     Text(
-                      '${XAFFormatter.format(amount)} XAF',
+                      '${XAFFormatter.formatNumber(amount)} XAF',
                       style: const TextStyle(
                         color: PaColors.teal,
                         fontSize: 18,

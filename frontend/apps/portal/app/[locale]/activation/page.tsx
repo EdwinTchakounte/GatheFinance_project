@@ -12,6 +12,7 @@ import {
   type PaymentRead,
   type PaymentInitInput,
 } from "@/lib/api";
+import { fullName } from "@/lib/name";
 
 
 type FormState = {
@@ -254,7 +255,7 @@ export default function PortalActivationPage() {
   }
 
   const memberName = identity?.member
-    ? `${identity.member.prenom} ${identity.member.nom}`.trim()
+    ? fullName(identity.member.prenom, identity.member.nom)
     : "";
 
   return (

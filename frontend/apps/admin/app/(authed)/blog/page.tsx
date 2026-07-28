@@ -21,14 +21,19 @@ import {
 
 const PAGE_SIZE = 12;
 
-// Le panneau d'édition complet vit dans le Wagtail admin (Django).
+// Le panneau d'édition complet vit dans le Wagtail admin (Django), PAS dans
+// l'app Next admin (qui n'a aucune route /admin → un lien relatif "/admin"
+// tombait sur du 404/500 en dev). On cible donc toujours le backend.
 function wagtailAdminBase(): string {
+  const envBase = process.env.NEXT_PUBLIC_WAGTAIL_ADMIN_URL;
+  if (envBase) return envBase.replace(/\/+$/, "");
   if (typeof window === "undefined") return "/admin";
   const host = window.location.hostname;
   if (host.endsWith(".gathe-finance.horus-lab.com")) {
     return "https://api.gathe-finance.horus-lab.com/admin";
   }
-  return "/admin";
+  // Dev local : le backend Django (Wagtail) écoute sur le port 8200.
+  return "http://localhost:8200/admin";
 }
 
 // Anti-cache sur une image fraîchement changée pour forcer le rechargement.

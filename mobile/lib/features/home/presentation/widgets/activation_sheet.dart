@@ -279,7 +279,7 @@ class _ProgressCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '${XAFFormatter.format(total)} XAF',
+                '${XAFFormatter.formatNumber(total)} XAF',
                 style: const TextStyle(
                   color: PaColors.teal,
                   fontSize: 15,
@@ -357,7 +357,7 @@ class _FeeRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 1),
                     Text(
-                      '${XAFFormatter.format(fee.amount)} XAF',
+                      '${XAFFormatter.formatNumber(fee.amount)} XAF',
                       style: const TextStyle(
                         color: PaColors.inkSecondary,
                         fontSize: 12.5,

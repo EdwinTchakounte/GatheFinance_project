@@ -6,6 +6,8 @@ Next.js admin is up. In the meantime the Django admin in
 """
 from __future__ import annotations
 
+from decimal import ROUND_HALF_UP, Decimal
+
 
 from django.db import transaction
 from django.utils import timezone
@@ -48,28 +50,14 @@ from .services import (
     request_loan_renewal,
 )
 from apps_coop.payments.providers.base import ProviderError
+from apps_coop.portal_urls import portal_url
 
 
-# Champs « fichier » du formulaire de demande de crédit qui portent une preuve
-# du rattachement Broad Range Consulting. Toute pièce déposée sur l'un de ces
-# champs est dupliquée dans la file de validation BRC du back-office.
-#
-# Les deux champs historiques (`ancien_apprenant_preuve` = attestation du CFP
-# Broad Range, `cga_preuve` = carte CGA) en font partie : ce sont eux que
-# l'admin regarde pour trancher « ce membre est-il client BRC ? ». Les laisser
-# hors de la file revenait à ne jamais pouvoir décider.
-BRC_PROOF_FIELD_IDS = frozenset(
-    {
-        "cga_brc_preuve",
-        "cfp_brc_preuve",
-        "ancien_apprenant_preuve",
-        "cga_preuve",
-    }
-)
-
-# Flags déclaratifs BRC correspondants — conservés en `extra_payload` même si
-# le FormSchema actif en prod ne les déclare pas encore.
-BRC_DECLARATION_FIELD_IDS = ("cga_brc_member", "cfp_brc_apprenant")
+# Modularisation Lot 0.5 : les champs « preuve de privilège » (→ file BRC) et
+# « déclaration de privilège » (→ extra_payload) ne sont plus des listes de noms
+# en dur. Chaque champ se déclare lui-même dans le FormSchema actif via ses
+# attributs JSON `is_brc_proof` / `is_privilege_declaration`, lus par
+# `apps_coop.forms.field_flags`. Le cœur ne connaît plus aucun nom spécifique-coop.
 
 
 # ---------------------------------------------------------------------------
@@ -144,18 +132,25 @@ def _universal_blockers(member) -> list[str]:
     la voie 1 (SENIOR_BRC) qui implicite une épargne minimale. Voies 2/3
     n'ont pas ce critère.
     """
+    from django.db.models import Q
+
     from apps_coop.members.models import Member
 
     blockers: list[str] = []
     if member.statut not in {Member.Statut.ACTIF, Member.Statut.TEMPORAIRE}:
         blockers.append("Compte membre non actif.")
+    # Un crédit non décaissé (argent non versé) compte comme « en cours » quel
+    # que soit son statut — couvre l'anomalie « clôturé mais non décaissé ».
     active_loans = Loan.objects.filter(
+        Q(
+            statut__in=[
+                Loan.Statut.ACTIF,
+                Loan.Statut.EN_RETARD,
+                Loan.Statut.CONTENTIEUX,
+            ]
+        )
+        | Q(en_attente_decaissement=True),
         member=member,
-        statut__in=[
-            Loan.Statut.ACTIF,
-            Loan.Statut.EN_RETARD,
-            Loan.Statut.CONTENTIEUX,
-        ],
     ).count()
     if active_loans:
         blockers.append(
@@ -262,26 +257,84 @@ def loan_request_create(request):
     # dispo ≥ montant ; avaliste : épargne dem+aval ≥ montant ; campagne :
     # bornes campagne). Rien à re-vérifier ici.
 
-    # Lookup the current adhesion fee from FeeType — admin-editable.
-    try:
-        fee = FeeType.objects.get(code=FeeType.Code.DEMANDE_CREDIT, actif=True)
-        frais_montant = fee.montant
-    except FeeType.DoesNotExist:
-        return Response(
-            {"detail": "Frais de demande de crédit non configurés."},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    # Frais d'étude applicables. Voie CAMPAGNE : on respecte l'override
+    # ``frais_etude_montant`` de la campagne (0 = étude gratuite → le parcours
+    # sautera la porte des frais côté comité via ``status_after_prevoie``).
+    # Hors campagne : ``FeeType.DEMANDE_CREDIT`` (admin-editable), 503 si absent.
+    from .services import study_fee_for
+
+    campaign_fk = None
+    if route_eval.route == EligibilityRoute.CAMPAIGN:
+        campaign_fk = MicrocreditCampaign.objects.get(
+            pk=route_eval.details["campaign_id"]
         )
+        frais_montant = study_fee_for(campaign_fk)
+    else:
+        try:
+            fee = FeeType.objects.get(code=FeeType.Code.DEMANDE_CREDIT, actif=True)
+            frais_montant = fee.montant
+        except FeeType.DoesNotExist:
+            return Response(
+                {"detail": "Frais de demande de crédit non configurés."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+    # Garde-fou « apport personnel » (2026-07) — voies senior_brc et avaliste
+    # (« garant et avaliste, avec attribut BRC ou pas »). Un apport minimum doit
+    # être présent dans la cagnotte (épargnes non gelées placées ou non +
+    # collecte). Sinon la demande est refusée AUTOMATIQUEMENT, avec un motif
+    # explicite affiché au membre. Les 2 taux sont éditables (AppSettings
+    # loans.apport.*). 0 % de seuil = garde-fou désactivé. Exclus : la campagne
+    # (la coop porte le risque) et la garantie matérielle (le collatéral est le
+    # bien apporté, pas un apport en numéraire).
+    if route_eval.route in (
+        EligibilityRoute.SENIOR_BRC,
+        EligibilityRoute.AVALISTE,
+    ):
+        from .avaliste_services import _apport_min_available_rate, member_cagnotte
+
+        _min_rate = _apport_min_available_rate()
+        _required = (data["montant_demande"] * _min_rate).quantize(
+            Decimal("1"), rounding=ROUND_HALF_UP
+        )
+        _cagnotte = member_cagnotte(member)
+        if _required > 0 and _cagnotte < _required:
+            _motif = (
+                f"Apport personnel insuffisant : votre cagnotte disponible "
+                f"({int(_cagnotte):,} XAF) est inférieure au minimum requis de "
+                f"{int(_required):,} XAF ({int(_min_rate * 100)} % du montant "
+                f"demandé). Épargnez davantage avant de refaire une demande."
+            ).replace(",", " ")
+            record_audit(
+                action="loan_request.refused_apport",
+                entite_type="Member",
+                entite_id=member.id,
+                user=request.user,
+                details={
+                    "montant_demande": str(data["montant_demande"]),
+                    "cagnotte_disponible": str(_cagnotte),
+                    "apport_requis": str(_required),
+                    "taux_requis": str(_min_rate),
+                    "route": route_eval.route,
+                },
+                ip=client_ip(request),
+            )
+            return Response(
+                {
+                    "detail": _motif,
+                    "motif": _motif,
+                    "apport_requis": str(_required),
+                    "cagnotte_disponible": str(_cagnotte),
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
     with transaction.atomic():
-        # Statut initial + FK selon la voie.
+        # Statut initial + FK selon la voie (campaign_fk déjà résolu ci-dessus).
         if route_eval.route == EligibilityRoute.CAMPAIGN:
             initial_statut = LoanRequest.Statut.EN_VALIDATION_CAMPAGNE
-            campaign_fk = MicrocreditCampaign.objects.get(
-                pk=route_eval.details["campaign_id"]
-            )
         else:
             initial_statut = LoanRequest.Statut.EN_ATTENTE
-            campaign_fk = None
 
         # CH-4 — Champs ajoutés via FormSchema → extra_payload.
         try:
@@ -309,27 +362,42 @@ def loan_request_create(request):
             )
             extra_payload, schema_version = {}, None
 
-        # Compat layer démo NHR — assure que les réponses CFP Broad Range et
-        # CGA sont stockées en BD même si le seed FormSchema en prod n'a pas
-        # encore été poussé avec ces champs (apply_form_schema filtre sinon
-        # les valeurs inconnues). Le mobile envoie ces clés systématiquement.
-        for compat_key in ("ancien_apprenant", "cga_adherent", *BRC_DECLARATION_FIELD_IDS):
-            val = request.data.get(compat_key)
-            if val in ("oui", "non") and compat_key not in extra_payload:
-                extra_payload[compat_key] = val
+        # Les déclarations de privilège sont désormais des champs DÉCLARÉS dans le
+        # FormSchema actif (attribut ``is_privilege_declaration``) : apply_form_schema
+        # les conserve nativement en extra_payload. Plus aucune liste de noms de
+        # champs spécifiques-coop dans le cœur (modularisation Lot 0.5).
 
-        # Voie 1 (SENIOR_BRC) : le demandeur gèle sa propre épargne à hauteur de
-        # ``min(montant, épargne disponible)``. En auto-couverture c'est = montant ;
-        # pour un ANCIEN+BRC sous-couvert c'est son épargne dispo (il immobilise
-        # ce qu'il a, le reste est un crédit de confiance jugé par le comité).
-        # Voie avaliste : posé par request_avaliste_consent (le manque). Campagne : 0.
+        # Gel du collatéral demandeur + motif lisible (2026-07) :
+        #   • SENIOR_BRC auto-couvert (épargne dispo ≥ montant) → gèle le MONTANT
+        #     (inchangé : « votre épargne couvre le crédit »).
+        #   • SENIOR_BRC sous-couvert → gèle l'APPORT personnel de 20 %
+        #     (loans.apport.rate × montant, borné à l'épargne dispo), transférable
+        #     ensuite pour solder le crédit. Base 30 % = 20 % apport gelé (ici) +
+        #     10 % intérêt coupé à la mise à disposition (mode source, G1).
+        #   • AVALISTE → 0 ici (request_avaliste_consent gèle le manque, inchangé).
+        #   • GARANTIE_MATERIELLE / CAMPAGNE → 0 (bien apporté / la coop porte le risque).
+        from .avaliste_services import (
+            _apport_rate,
+            _member_available_savings,
+        )
+
+        gel_demandeur_initial = 0
+        motif_gel = ""
         if route_eval.route == EligibilityRoute.SENIOR_BRC:
-            from .avaliste_services import _member_available_savings
-
             _dispo = _member_available_savings(member)
-            gel_demandeur_initial = min(data["montant_demande"], _dispo)
-        else:
-            gel_demandeur_initial = 0
+            if _dispo >= data["montant_demande"]:
+                gel_demandeur_initial = data["montant_demande"]
+                motif_gel = "Auto-couverture — votre épargne couvre le crédit."
+            else:
+                _apport = (
+                    data["montant_demande"] * _apport_rate()
+                ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+                gel_demandeur_initial = min(_apport, _dispo)
+                if gel_demandeur_initial > 0:
+                    motif_gel = (
+                        "Apport personnel bloqué — transférable pour solder "
+                        "le crédit."
+                    )
 
         is_garantie_mat = route_eval.route == EligibilityRoute.GARANTIE_MATERIELLE
 
@@ -349,6 +417,7 @@ def loan_request_create(request):
             statut=initial_statut,
             microcampaign=campaign_fk,
             montant_gele_demandeur=gel_demandeur_initial,
+            motif_gel_demandeur=motif_gel,
             # L6 — échéance indicative d'étude commission.
             date_limite_etude=date_limite_etude,
             # L5 — n° CNI du demandeur (saisi à la soumission).
@@ -437,9 +506,7 @@ def loan_request_create(request):
                     "prenom": member.prenom,
                     "montant": f"{int(loan_request.montant_demande):,}".replace(",", " "),
                     "frais_montant": f"{int(frais_montant):,}".replace(",", " "),
-                    "portal_url": getattr(
-                        dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"
-                    ),
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001
@@ -553,9 +620,75 @@ def loan_repay_from_savings(request, pk: int):
     )
 
 
+@extend_schema(
+    tags=["loans"],
+    summary="Transférer l'apport gelé vers un crédit (remboursement)",
+    description=(
+        "Mobilise l'apport personnel GELÉ du demandeur pour rembourser/solder "
+        "le crédit `pk`. `montant` optionnel (défaut = tout l'apport gelé, borné "
+        "au reste dû). Transfert interne (pas de Mobile Money)."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsActiveMember])
+def loan_repay_from_frozen(request, pk: int):
+    from decimal import InvalidOperation
+
+    from .transfer_services import TransferError, repay_loan_from_frozen
+
+    loan = Loan.objects.filter(pk=pk, member=request.user.member).first()
+    if loan is None:
+        return Response({"detail": "Crédit introuvable."}, status=404)
+    montant = None
+    raw = request.data.get("montant")
+    if raw not in (None, ""):
+        try:
+            montant = Decimal(str(raw))
+        except (InvalidOperation, TypeError):
+            return Response({"detail": "Montant invalide."}, status=400)
+    try:
+        payment = repay_loan_from_frozen(loan, montant)
+    except TransferError as exc:
+        return Response({"detail": str(exc)}, status=400)
+    loan.refresh_from_db()
+    return Response(
+        {
+            "payment_id": payment.id,
+            "montant": str(payment.montant),
+            "solde_restant": str(loan.solde_restant),
+            "statut": loan.statut,
+        }
+    )
+
+
 # ---------------------------------------------------------------------------
 # 4. GET /api/v1/loans/me/active/ — current member's active credits
 # ---------------------------------------------------------------------------
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Admin — supprimer une demande de crédit (tracé .txt)",
+    description=(
+        "Supprime la demande `pk` et le crédit associé s'il existe. Trace "
+        "obligatoire : ligne dans `MEDIA_ROOT/audit/suppressions_credit.txt` + "
+        "AuditLog. Bloqué si le crédit a un financement prêteur ou une procédure."
+    ),
+)
+@api_view(["DELETE"])
+@permission_classes([IsAdmin])
+def admin_delete_loan_request(request, pk: int):
+    from .deletion_services import LoanDeletionError, delete_loan_request_traced
+
+    lr = LoanRequest.objects.filter(pk=pk).first()
+    if lr is None:
+        return Response({"detail": "Demande introuvable."}, status=404)
+    motif = (request.data.get("motif") or "").strip() if hasattr(request, "data") else ""
+    try:
+        recap = delete_loan_request_traced(lr, actor=request.user, motif=motif)
+    except LoanDeletionError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+    return Response({"detail": "Demande supprimée.", "recap": recap})
 
 
 @extend_schema(
@@ -633,6 +766,8 @@ def loan_request_decide(request, pk: int):
                 decided_by=request.user,
                 taux_annuel=data["taux_annuel"],
                 date_premiere_echeance=data["date_premiere_echeance"],
+                privilege_accorde=data.get("privilege_accorde", False),
+                privilege_motif=data.get("privilege_motif", ""),
             )
         else:
             reject_loan_request(loan_request, decided_by=request.user, motif=data["motif_rejet"])
@@ -674,7 +809,14 @@ def loan_disburse(request, pk: int):
     except Loan.DoesNotExist:
         return Response({"detail": "Crédit introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-    if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
+    # On décaisse un crédit ACTIF/EN_RETARD, OU un crédit resté « en attente de
+    # décaissement » même si son statut a été forcé à CLÔTURE par une anomalie
+    # (le hook de décaissement le rebascule ACTIF). On refuse en revanche de
+    # « re-décaisser » un crédit normalement soldé (non en_attente).
+    if (
+        loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD)
+        and not loan.en_attente_decaissement
+    ):
         return Response(
             {"detail": f"Crédit en statut {loan.statut!r} — décaissement impossible."},
             status=status.HTTP_400_BAD_REQUEST,
@@ -920,9 +1062,7 @@ def loan_renewal_request(request, pk: int):
                     "prenom": member.prenom,
                     "numero_dossier": loan.numero_dossier,
                     "duree_mois": renewal.nouvelle_duree_mois,
-                    "portal_url": getattr(
-                        dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"
-                    ),
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001
@@ -1037,6 +1177,58 @@ def pay_renewal_interest_from_savings_view(request, pk: int):
 
 
 _ADMIN_LOANS_PAGE_SIZE = 200
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Admin — exposition de la coop au découvert (gouvernance G5)",
+    description=(
+        "Encours total prêté SUR CONFIANCE (somme des `montant_decouvert` des "
+        "crédits actifs), répartition par criticité, et statut des paliers "
+        "d'alerte (`loans.exposure.alert_step`). Vue de suivi (le tableau de "
+        "lecture) : la coop voit son risque de bilan en un coup d'œil."
+    ),
+    responses={200: OpenApiResponse(description="Agrégats d'exposition")},
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_credit_exposure(request):
+    from django.db.models import Sum
+
+    from apps_coop.audit.services import get_int_setting
+
+    from .criticality_services import LABELS, credit_criticality
+
+    actifs = Loan.objects.filter(
+        statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD]
+    ).select_related("member")
+
+    total = actifs.aggregate(s=Sum("montant_decouvert"))["s"] or Decimal("0")
+
+    # Répartition par criticité (petit volume de crédits actifs → OK en Python).
+    par_criticite = {k: 0 for k in LABELS}
+    nb_privilege = 0
+    for loan in actifs:
+        par_criticite[credit_criticality(loan)] += 1
+        if loan.privilege_accorde:
+            nb_privilege += 1
+
+    step = get_int_setting("loans.exposure.alert_step", 2000000)
+    palier = int(total // step) if step > 0 else 0
+
+    return Response(
+        {
+            "encours_decouvert_total": str(total),
+            "nb_credits_actifs": actifs.count(),
+            "nb_credits_privilege": nb_privilege,
+            "par_criticite": par_criticite,
+            "alerte": {
+                "palier_step": str(step),
+                "palier_atteint": palier,
+                "prochain_seuil": str(step * (palier + 1)) if step > 0 else None,
+            },
+        }
+    )
 
 
 @extend_schema(
@@ -1327,7 +1519,7 @@ def loan_notice(request, pk: int):
                     "numero_dossier": loan.numero_dossier,
                     "solde_restant": f"{int(loan.solde_restant):,}".replace(",", " "),
                     "count": loan.mise_en_demeure_count,
-                    "portal_url": getattr(dj_settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001
@@ -1431,8 +1623,13 @@ def loan_request_upload_attachment(request, pk: int):
     # aussi alimenter la file de validation `/brc` du back-office : sans ça, le
     # document dort dans les pièces de la demande et l'admin ne peut jamais
     # poser `Member.is_brc_member` (la voie SENIOR_BRC reste inatteignable).
+    # Modularisation Lot 0.5 : un champ « preuve de privilège » est reconnu
+    # UNIQUEMENT via son attribut ``is_brc_proof`` dans le schéma actif (générique,
+    # par coopérative) — plus aucune liste de noms en dur dans le cœur.
+    from apps_coop.forms.field_flags import brc_proof_field_ids
+
     brc_doc_id = None
-    if schema_field_id in BRC_PROOF_FIELD_IDS:
+    if schema_field_id in brc_proof_field_ids("loan_request"):
         from apps_coop.members.services import upload_brc_document
 
         brc_doc = upload_brc_document(
@@ -2007,7 +2204,14 @@ def loan_disburse_now(request, pk: int):
             {"detail": "Crédit introuvable."}, status=status.HTTP_404_NOT_FOUND
         )
 
-    if loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD):
+    # On décaisse un crédit ACTIF/EN_RETARD, OU un crédit resté « en attente de
+    # décaissement » même si son statut a été forcé à CLÔTURE par une anomalie
+    # (le hook de décaissement le rebascule ACTIF). On refuse en revanche de
+    # « re-décaisser » un crédit normalement soldé (non en_attente).
+    if (
+        loan.statut not in (Loan.Statut.ACTIF, Loan.Statut.EN_RETARD)
+        and not loan.en_attente_decaissement
+    ):
         return Response(
             {"detail": f"Crédit en statut {loan.statut!r} — décaissement impossible."},
             status=status.HTTP_400_BAD_REQUEST,
@@ -2309,10 +2513,28 @@ def admin_loan_detail(request, pk: int):
             "dispo_retrait": str(classic_withdrawable(classic)),
         }
 
+    # Gel « effectif » du demandeur pour CE crédit : borné à l'épargne réelle
+    # (on ne gèle jamais plus que ce qui existe) et nul si le crédit est clôturé
+    # (collatéral libéré). Le brut `gel_demandeur` reste l'ENGAGEMENT pris à la
+    # demande (utilisé pour « sous-couverture »). L'écart positif = déficit de
+    # collatéral (l'épargne a fondu depuis la demande : placement restitué, etc.).
+    if loan.statut == Loan.Statut.CLOTURE:
+        # Crédit soldé → collatéral libéré, aucun gel ni déficit.
+        gel_demandeur_effectif = Decimal("0")
+        collateral_deficit = Decimal("0")
+    else:
+        solde_classique = Decimal(classic.solde) if classic is not None else Decimal("0")
+        gel_demandeur_effectif = min(gel_demandeur, solde_classique)
+        collateral_deficit = gel_demandeur - gel_demandeur_effectif
+    if collateral_deficit < 0:
+        collateral_deficit = Decimal("0")
+
     member_state = {
         "voie": voie,
         "sous_couverture": sous_couverture,
-        "gel_demandeur": str(gel_demandeur),
+        "gel_demandeur": str(gel_demandeur_effectif),
+        "gel_demandeur_engagement": str(gel_demandeur),
+        "collateral_deficit": str(collateral_deficit),
         "montant_demande": str(montant_demande),
         "frais_etude_paye": bool(getattr(lr, "frais_demande_credit_paye", False)) if lr else None,
         "en_attente_decaissement": bool(loan.en_attente_decaissement),

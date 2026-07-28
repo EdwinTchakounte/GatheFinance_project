@@ -501,6 +501,8 @@ export type AdminLoanMemberState = {
   voie: "senior_brc" | "avaliste" | "campaign" | "garantie_materielle" | null;
   sous_couverture: boolean;
   gel_demandeur: string;
+  gel_demandeur_engagement?: string;
+  collateral_deficit?: string;
   montant_demande: string;
   frais_etude_paye: boolean | null;
   en_attente_decaissement: boolean;
@@ -951,6 +953,7 @@ export type WithdrawalStatut =
 
 export type WithdrawalRow = {
   id: number;
+  member_id: number;
   numero_membre: string;
   member_nom: string;
   montant: string;
@@ -1200,11 +1203,20 @@ export type CollecteEomRow = {
   numero_membre: string;
   nom: string;
   solde: string;
-  preference: "cash" | "epargne";
+  preference: "cash" | "mobile_money" | "epargne";
+  // Destination du versement MoMo (préférence mobile_money) — la coop en a
+  // besoin pour exécuter le « versement sur mon compte ».
+  payout_phone?: string;
+  payout_network?: string;
 };
 
 export type CollecteEomPage = {
-  summary: { cash: number; epargne: number; total: number };
+  summary: {
+    cash: number;
+    mobile_money: number;
+    epargne: number;
+    total: number;
+  };
   results: CollecteEomRow[];
 };
 
@@ -1233,6 +1245,19 @@ export type SupportThreadDetail = {
   member_numero: string;
   member_nom: string;
   messages: SupportMessageRow[];
+};
+
+// Gouvernance G5/G6 — exposition de la coop au découvert.
+export type CreditExposure = {
+  encours_decouvert_total: string;
+  nb_credits_actifs: number;
+  nb_credits_privilege: number;
+  par_criticite: { faible: number; moyen: number; eleve: number; critique: number };
+  alerte: {
+    palier_step: string;
+    palier_atteint: number;
+    prochain_seuil: string | null;
+  };
 };
 
 
@@ -1328,6 +1353,13 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify(payload),
       }),
+    // Suppression tracée (admin) : supprime la demande + le crédit et écrit une
+    // ligne dans MEDIA_ROOT/audit/suppressions_credit.txt.
+    remove: (id: number, motif?: string) =>
+      request<{ detail: string; recap: Record<string, unknown> }>(
+        `/loans/admin/requests/${id}/delete/`,
+        { method: "DELETE", body: JSON.stringify(motif ? { motif } : {}) },
+      ),
     // CH-6 — Approbation provisoire (comité) : en_instruction → approuvee_provisoire.
     decideProvisional: (id: number, payload: { avis_provisoire: string }) =>
       request<LoanRequest>(`/loans/requests/${id}/decide-provisional/`, {
@@ -1370,6 +1402,8 @@ export const adminApi = {
           offset: params.offset ? String(params.offset) : undefined,
         })}`,
       ),
+    // Gouvernance G5/G6 — exposition de la coop au découvert.
+    exposure: () => request<CreditExposure>("/loans/admin/exposure/"),
     disburseTara: (
       loanId: number,
       payload: { recipient_phone: string; network: "MTN" | "ORANGE" | "WAVE" | "AIRTEL" },
@@ -1613,6 +1647,12 @@ export const adminApi = {
       request<PaymentRow>("/payments/admin/cash-in/", {
         method: "POST",
         body: JSON.stringify(payload),
+      }),
+    // Invalidation d'un paiement validé (contre-passation ledger).
+    invalidate: (id: number, motif?: string) =>
+      request<PaymentRow>(`/payments/admin/${id}/invalidate/`, {
+        method: "POST",
+        body: JSON.stringify(motif ? { motif } : {}),
       }),
   },
 

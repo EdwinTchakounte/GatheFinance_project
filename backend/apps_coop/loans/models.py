@@ -345,6 +345,15 @@ class LoanRequest(TimestampedModel):
             "crédit (bloquée au retrait jusqu'à clôture)."
         ),
     )
+    # Motif lisible du gel (apport personnel, auto-couverture…). Affiché au
+    # membre à côté du montant gelé, et rappelé quand il transfère ce gelé pour
+    # solder le crédit. Vide = pas de gel / gel historique sans motif.
+    motif_gel_demandeur = models.CharField(
+        max_length=180,
+        blank=True,
+        default="",
+        help_text="Motif lisible du gel du collatéral demandeur.",
+    )
 
     # Porte des frais d'étude (2026) — les frais sont exigibles AVANT toute
     # instruction et avant même que l'avaliste soit sollicité. Le statut
@@ -702,6 +711,36 @@ class Loan(TimestampedModel):
             "mode 'source' = montant × taux_interet. En mode 'echeances' = 0. "
             "NULL = legacy pre-CH-11."
         ),
+    )
+
+    # Gouvernance G2 — décomposition couverture/découvert, figée à l'octroi.
+    #   montant_gage    = part adossée (apport gelé + caution avaliste ; = montant
+    #                     pour garantie matérielle / campagne, risque externalisé).
+    #   montant_decouvert = montant − gagé = part prêtée SUR CONFIANCE = exposition
+    #                       de la coop (plafonnée à 80 % par l'apport 20 %).
+    # NULL = crédit antérieur à G2 (non décomposé).
+    montant_gage = money_field(
+        null=True,
+        blank=True,
+        help_text="Part du crédit adossée à une garantie (apport gelé + caution + bien/campagne).",
+    )
+    montant_decouvert = money_field(
+        null=True,
+        blank=True,
+        help_text="Part prêtée sur confiance (montant − gagé) = exposition de la coop.",
+    )
+
+    # Gouvernance G4 — privilège accordé PAR LE COMITÉ à la validation (coche
+    # manuelle, sous sa responsabilité) pour justifier un crédit à découvert.
+    # Tracé (qui/quand via l'AuditLog + decide_par/date_decision de la demande).
+    privilege_accorde = models.BooleanField(
+        default=False,
+        help_text="Le comité a accordé un découvert sur privilège (ancien apprenant, confiance…).",
+    )
+    privilege_motif = models.TextField(
+        blank=True,
+        default="",
+        help_text="Justification du privilège accordé (éléments retenus par le comité).",
     )
 
     # CH-12 — Snapshot du taux de partage prêteurs / coop figé à l'approbation

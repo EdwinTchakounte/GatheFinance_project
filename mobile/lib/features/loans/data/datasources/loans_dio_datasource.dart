@@ -513,6 +513,7 @@ Loan _parseLoan(Map<String, dynamic> json) {
   return Loan(
     id: (json['id'] as num).toInt(),
     numeroDossier: (json['numero_dossier'] as String?) ?? '',
+    numeroOrdre: (json['numero_ordre'] as num?)?.toInt() ?? 0,
     montant: _num(json['montant']),
     tauxInteret: _num(json['taux_interet']),
     dureeMois: (json['duree_mois'] as num?)?.toInt() ?? 0,
@@ -534,6 +535,8 @@ Loan _parseLoan(Map<String, dynamic> json) {
     interetsRetenusSource: json['interets_retenus_source'] != null
         ? _num(json['interets_retenus_source'])
         : null,
+    apportGele: _num(json['apport_gele'] ?? 0),
+    apportGeleMotif: (json['apport_gele_motif'] as String?) ?? '',
   );
 }
 

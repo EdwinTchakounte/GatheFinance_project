@@ -6,6 +6,8 @@ quelqu'un qu'il connaît et partager le flyer. Distinct des endpoints
 admin qui pilotent la création/modification.
 """
 
+import logging
+
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework.decorators import api_view, permission_classes
@@ -15,16 +17,34 @@ from rest_framework.response import Response
 from .models import MicrocreditCampaign
 
 
+logger = logging.getLogger(__name__)
+
+
 def _flyer_url(c: MicrocreditCampaign, request) -> str:
-    """Toujours retourner une URL : flyer uploadé si présent, sinon photo
-    stock Unsplash CDN choisie d'après le profil ciblé. Source unique de
-    vérité — le mobile / portail / admin consomment cette URL directement.
+    """Toujours retourner une URL ABSOLUE et PUBLIQUE : flyer uploadé si présent,
+    sinon photo stock Unsplash CDN d'après le profil ciblé. Source unique de
+    vérité — mobile / portail / vitrine / admin consomment cette URL directement.
+
+    ⚠️ La vitrine (Next.js) fetche côté serveur via l'hôte INTERNE Docker
+    (``backend:8000``), injoignable depuis le navigateur. On NE construit donc
+    jamais l'URL du flyer à partir de l'hôte de la requête : on préfère une base
+    publique (``MEDIA_DOMAIN`` → ``flyer.url`` déjà absolue ; sinon
+    ``PUBLIC_BASE_URL``, le domaine public du backend). Repli sur l'hôte de la
+    requête seulement si aucune base publique n'est configurée (dev).
     """
     try:
         relative = c.flyer.url if c.flyer else None
     except (ValueError, AttributeError):
         relative = None
     if relative:
+        # Déjà absolue (MEDIA_DOMAIN posé) → telle quelle.
+        if relative.startswith(("http://", "https://")):
+            return relative
+        from django.conf import settings
+
+        base = (getattr(settings, "PUBLIC_BASE_URL", "") or "").rstrip("/")
+        if base:
+            return base + relative
         return request.build_absolute_uri(relative)
     from apps_cms.cms.stock_images import campaign_image_for
     return campaign_image_for(c.nom, c.profil_cible)
@@ -211,6 +231,18 @@ def public_campaign_apply(request, pk):
         )
     except ValueError as exc:
         return Response({"detail": str(exc)}, status=400)
+    except Exception:  # noqa: BLE001 — jamais de 500 pour un candidat public
+        logger.exception("public_campaign_apply a échoué (campagne #%s)", pk)
+        return Response(
+            {
+                "detail": (
+                    "Une erreur est survenue à l'enregistrement de votre "
+                    "candidature. Réessayez, ou contactez la coopérative si le "
+                    "problème persiste."
+                )
+            },
+            status=400,
+        )
 
     return Response(
         {

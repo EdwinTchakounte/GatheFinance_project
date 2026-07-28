@@ -31,6 +31,7 @@ def _fmt_xaf(amount) -> str:
 
 from .models import Payment
 from .providers import default_provider_code, get_provider
+from apps_coop.portal_urls import portal_url
 
 
 logger = logging.getLogger(__name__)
@@ -361,7 +362,14 @@ def _activate_member_if_fees_settled(member, *, trigger_payment: Payment) -> Non
         return
 
     member.statut = Member.Statut.ACTIF
-    member.save(update_fields=["statut", "updated_at"])
+    # Marqueur « a déjà été activé » (posé une seule fois, à la 1re activation).
+    _fields = ["statut", "updated_at"]
+    if member.date_activation is None:
+        from django.utils import timezone
+
+        member.date_activation = timezone.localdate()
+        _fields.append("date_activation")
+    member.save(update_fields=_fields)
     record_audit(
         action="member.activated",
         entite_type="Member",
@@ -381,7 +389,7 @@ def _activate_member_if_fees_settled(member, *, trigger_payment: Payment) -> Non
             "prenom": member.prenom,
             "numero_membre": member.numero_membre,
             "montant": _fmt_xaf(trigger_payment.montant),
-            "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
 
@@ -410,6 +418,11 @@ def _hook_adhesion(payment: Payment, _raw: dict) -> None:
     if (
         member is not None
         and member.statut == Member.Statut.SUSPENDU
+        # Réactivation RÉSERVÉE à un membre DÉJÀ activé une fois : sans ce garde,
+        # un primo-adhérent (SUSPENDU, jamais activé) dont le frais d'adhésion est
+        # payé EN DERNIER passait par le renouvellement → activé mais sans
+        # l'événement member.activated. date_activation NULL = primo → activation.
+        and member.date_activation is not None
         and payment.type == Payment.Type.FRAIS_ADHESION
         and _membership_fees_settled(member)
     ):
@@ -497,7 +510,7 @@ def _hook_savings_deposit(payment: Payment, _raw: dict) -> None:
             "prenom": payment.member.prenom,
             "montant": _fmt_xaf(payment.montant),
             "solde_apres": _fmt_xaf(nouveau_solde),
-            "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
 
@@ -685,7 +698,17 @@ def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
     any_late = all_installments.filter(statut=LoanInstallment.Statut.EN_RETARD).exists()
 
     just_closed = False
-    if all_paid:
+    if all_paid and loan.en_attente_decaissement:
+        # Défense en profondeur : un crédit dont l'argent n'a jamais été versé
+        # ne doit pas pouvoir être « soldé » (les gardes amont bloquent déjà tout
+        # remboursement). Si on arrive ici, c'est une anomalie : on NE clôture PAS
+        # et on la trace plutôt que de produire un crédit « clôturé non décaissé ».
+        logger.error(
+            "Remboursement intégral sur un crédit non décaissé (loan=%s) — "
+            "clôture bloquée, à investiguer.",
+            loan.id,
+        )
+    elif all_paid:
         if loan.statut != Loan.Statut.CLOTURE:
             just_closed = True
         loan.statut = Loan.Statut.CLOTURE
@@ -714,7 +737,7 @@ def _hook_loan_repayment(payment: Payment, _raw: dict) -> None:
     )
     from apps_coop.notifications.events import emit_event
 
-    _portal = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200")
+    _portal = portal_url()
     emit_event(
         "loan.repayment_confirmed",
         member=payment.member,
@@ -808,7 +831,7 @@ def _hook_loan_request_fees(payment: Payment, _raw: dict) -> None:
             "prenom": payment.member.prenom,
             "request_id": pending.id,
             "montant": _fmt_xaf(payment.montant),
-            "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
 
@@ -869,7 +892,7 @@ def _hook_carnet_fees(payment: Payment, raw: dict) -> None:
                 "prenom": payment.member.prenom,
                 "numero_membre": payment.member.numero_membre,
                 "montant": _fmt_xaf(payment.montant),
-                "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+                "portal_url": portal_url(),
             },
         )
 
@@ -1043,9 +1066,7 @@ def _hook_decaissement(payment: Payment, _raw: dict) -> None:
                     "prenom": payment.member.prenom,
                     "montant": _fmt_xaf(payment.montant),
                     "mode_paiement": wr.get_mode_paiement_display(),
-                    "portal_url": getattr(
-                        settings, "FRONTEND_BASE_URL", "http://localhost:3200"
-                    ),
+                    "portal_url": portal_url(),
                 },
             )
         except Exception:  # noqa: BLE001
@@ -1130,7 +1151,7 @@ def _hook_decaissement(payment: Payment, _raw: dict) -> None:
             "numero_dossier": loan.numero_dossier,
             "montant": _fmt_xaf(payment.montant),
             "date_premiere": loan.date_premiere_echeance.strftime("%d/%m/%Y"),
-            "portal_url": getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3200"),
+            "portal_url": portal_url(),
         },
     )
 

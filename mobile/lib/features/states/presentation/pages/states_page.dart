@@ -183,15 +183,24 @@ class StatesPage extends ConsumerWidget {
                           lines: [
                             (l.states_balance_today,
                                 XAFFormatter.format(d.solde)),
-                            // Détail épargne classique : part placée (bloquée /
-                            // finance des crédits) vs part libre vs gel garantie
-                            // vs réellement retirable.
-                            if (d.soldePlacementActif != null)
-                              ('En placement',
+                            // Détail épargne classique : part placée (bloquée
+                            // jusqu'à l'échéance) vs gel scindé par motif (apport
+                            // mobilisable / caution avaliste) vs réellement
+                            // retirable. On n'affiche plus « Libre » (= solde −
+                            // placement) : il ignorait le gel et pouvait dépasser
+                            // le solde. Seul « Disponible au retrait » fait foi.
+                            if ((d.soldePlacementActif ?? 0) > 0)
+                              ('En placement (bloqué jusqu\'à l\'échéance)',
                                   XAFFormatter.format(d.soldePlacementActif!)),
-                            if (d.soldeLibre != null)
-                              ('Libre', XAFFormatter.format(d.soldeLibre!)),
-                            if ((d.montantGeleCredit ?? 0) > 0)
+                            if ((d.montantGeleApport ?? 0) > 0)
+                              ('Gelé — apport de mes crédits (mobilisable)',
+                                  XAFFormatter.format(d.montantGeleApport!)),
+                            if ((d.montantGeleAvaliste ?? 0) > 0)
+                              ('Gelé — caution avaliste (libéré à la clôture)',
+                                  XAFFormatter.format(d.montantGeleAvaliste!)),
+                            if (d.montantGeleApport == null &&
+                                d.montantGeleAvaliste == null &&
+                                (d.montantGeleCredit ?? 0) > 0)
                               ('Gelé en garantie',
                                   XAFFormatter.format(d.montantGeleCredit!)),
                             if (d.soldeDisponibleRetrait != null)
