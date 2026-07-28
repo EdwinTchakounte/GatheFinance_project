@@ -132,25 +132,22 @@ def _universal_blockers(member) -> list[str]:
     la voie 1 (SENIOR_BRC) qui implicite une épargne minimale. Voies 2/3
     n'ont pas ce critère.
     """
-    from django.db.models import Q
-
     from apps_coop.members.models import Member
 
     blockers: list[str] = []
     if member.statut not in {Member.Statut.ACTIF, Member.Statut.TEMPORAIRE}:
         blockers.append("Compte membre non actif.")
-    # Un crédit non décaissé (argent non versé) compte comme « en cours » quel
-    # que soit son statut — couvre l'anomalie « clôturé mais non décaissé ».
+    # Un crédit CLÔTURÉ ne bloque jamais une nouvelle demande (même avec un flag
+    # `en_attente_decaissement` legacy) : sinon un membre qui a remboursé reste
+    # bloqué à tort. Un crédit non décaissé encore ouvert est de toute façon
+    # ACTIF, donc déjà couvert par les statuts ci-dessous.
     active_loans = Loan.objects.filter(
-        Q(
-            statut__in=[
-                Loan.Statut.ACTIF,
-                Loan.Statut.EN_RETARD,
-                Loan.Statut.CONTENTIEUX,
-            ]
-        )
-        | Q(en_attente_decaissement=True),
         member=member,
+        statut__in=[
+            Loan.Statut.ACTIF,
+            Loan.Statut.EN_RETARD,
+            Loan.Statut.CONTENTIEUX,
+        ],
     ).count()
     if active_loans:
         blockers.append(

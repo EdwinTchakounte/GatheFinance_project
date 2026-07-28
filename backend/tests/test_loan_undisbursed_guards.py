@@ -73,10 +73,25 @@ def test_reconduction_blocked_while_undisbursed(active_member, admin_user):
 
 
 def test_eligibility_counts_undisbursed_loan_as_in_progress(active_member, admin_user):
+    # Un crédit ACTIF non décaissé bloque (couvert par le statut ACTIF).
     _approve_loan(active_member, admin_user)
     elig = compute_eligibility(active_member)
     assert elig.eligible is False
     assert any("en cours" in m for m in elig.motifs)
+
+
+def test_cloture_loan_with_stale_undisbursed_flag_does_not_block(active_member, admin_user):
+    """Régression 2026-07-28 : un membre qui a remboursé (crédit CLÔTURÉ) ne doit
+    PAS rester bloqué à cause d'un flag `en_attente_decaissement` legacy."""
+    loan = _approve_loan(active_member, admin_user)
+    loan.statut = Loan.Statut.CLOTURE
+    # Le flag legacy reste à True (donnée corrompue par l'ancien bug).
+    loan.save(update_fields=["statut"])
+    assert loan.en_attente_decaissement is True
+
+    elig = compute_eligibility(active_member)
+    assert elig.eligible is True  # plus de blocage : le crédit est clôturé
+    assert not any("en cours" in m for m in elig.motifs)
 
 
 def test_admin_can_disburse_a_stuck_cloture_loan(active_member, admin_user):
