@@ -27,7 +27,10 @@ from apps_coop.loans.models import (
     MicrocreditCampaign,
 )
 from apps_coop.loans.services import approve_loan_request, disburse_loan_manual
-from apps_coop.loans.study_fee_services import pay_study_fee_from_savings
+from apps_coop.loans.study_fee_services import (
+    open_instruction_after_fees,
+    pay_study_fee_from_savings,
+)
 from apps_coop.loans.transfer_services import (
     repay_loan_from_frozen,
     repay_loan_from_savings,
@@ -173,8 +176,10 @@ class TestVoieSeniorApportAndFrozenTransfer:
 
 
 class TestVoieAvaliste:
-    """Avaliste : create (désignation mémorisée) → frais → sollicitation + gel
-    réparti → acceptation avaliste → instruction → approbation."""
+    """Avaliste « D'ABORD » (2026-07-28) : create → sollicitation + gel réparti
+    (EN_ATTENTE_AVALISTE) → acceptation avaliste → frais exigibles (EN_ATTENTE)
+    → règlement → instruction → approbation. Les frais ne sont payables
+    qu'APRÈS l'acceptation de l'avaliste."""
 
     def test_full_lifecycle(self, active_member, comite):
         _seed_fee("1000")
@@ -192,20 +197,27 @@ class TestVoieAvaliste:
         assert r.status_code == 201, r.content
         assert r.json()["route"] == "avaliste"
         lr = LoanRequest.objects.get(pk=r.json()["loan_request"]["id"])
-        assert lr.statut == LoanRequest.Statut.EN_ATTENTE
-        assert not hasattr(lr, "avaliste_consent")  # aucun tiers sollicité
-
-        pay_study_fee_from_savings(lr)  # → sollicite l'avaliste + pose le gel
-        lr.refresh_from_db()
+        # Avaliste sollicité DÈS la création : frais pas encore exigibles.
         assert lr.statut == LoanRequest.Statut.EN_ATTENTE_AVALISTE
+        assert lr.frais_demande_credit_paye is False
         consent = lr.avaliste_consent
         assert consent.statut == AvalisteConsent.Statut.PENDING
         assert consent.montant_caution > 0  # l'avaliste comble le manque
 
+        # Acceptation → la porte des frais s'ouvre (EN_ATTENTE).
         respond_to_avaliste_consent(consent, accept=True)
         lr.refresh_from_db()
-        assert lr.statut == LoanRequest.Statut.EN_INSTRUCTION
+        assert lr.statut == LoanRequest.Statut.EN_ATTENTE
         assert lr.avaliste_id == avaliste.id
+
+        # Frais réglés APRÈS acceptation → instruction. En voie avaliste, toute
+        # l'épargne classique du demandeur est gelée en garantie → il règle les
+        # frais par Mobile Money / agence (canal représenté ici par le hook
+        # d'ouverture d'instruction), pas depuis son épargne.
+        open_instruction_after_fees(lr)
+        lr.refresh_from_db()
+        assert lr.frais_demande_credit_paye is True
+        assert lr.statut == LoanRequest.Statut.EN_INSTRUCTION
 
         loan = approve_loan_request(lr, decided_by=comite, taux_annuel=Decimal("0.10"), date_premiere_echeance=FUTURE)
         assert loan.statut == Loan.Statut.ACTIF
@@ -222,11 +234,12 @@ class TestVoieAvaliste:
             "avaliste_numero": avaliste.numero_membre, "avaliste_nom": "DUPONT",
         }, format="json")
         lr = LoanRequest.objects.get(pk=r.json()["loan_request"]["id"])
-        pay_study_fee_from_savings(lr)
-        lr.refresh_from_db()
+        # Avaliste sollicité d'abord ; refus AVANT tout paiement de frais.
+        assert lr.statut == LoanRequest.Statut.EN_ATTENTE_AVALISTE
         respond_to_avaliste_consent(lr.avaliste_consent, accept=False, motif="indispo")
         lr.refresh_from_db()
         assert lr.statut == LoanRequest.Statut.REJETEE_AVALISTE
+        assert lr.frais_demande_credit_paye is False  # rien encaissé
 
 
 class TestVoieCampaignMember:

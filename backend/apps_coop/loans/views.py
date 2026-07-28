@@ -428,6 +428,9 @@ def loan_request_create(request):
             ),
             extra_payload=extra_payload,
             form_schema_version=schema_version,
+            # Étude gratuite (frais = 0) → déjà « réglée » : le parcours saute la
+            # porte des frais (status_after_prevoie renverra EN_INSTRUCTION).
+            frais_demande_credit_paye=(frais_montant <= 0),
             # CH-9 — Canal de réception choisi à la soumission.
             moyen_reception=data.get("moyen_reception") or "",
             recipient_phone=(data.get("recipient_phone") or "").strip(),
@@ -445,15 +448,8 @@ def loan_request_create(request):
                 loan_request=loan_request,
             )
 
-        # Voie AVALISTE — « frais d'abord, avaliste ensuite » : on mémorise la
-        # désignation, on ne sollicite personne. Le consentement est posé par
-        # open_instruction_after_fees, une fois les frais encaissés.
-        #
-        # On enregistre dès qu'un avaliste est DÉSIGNÉ, sans exiger que le
-        # routeur ait retenu cette voie. Avant, un demandeur qui se
-        # couvrait lui-même (route SENIOR_BRC, évaluée en premier) voyait sa
-        # désignation jetée en silence : plus aucune trace côté admin, et
-        # l'avaliste n'était évidemment jamais sollicité.
+        # On mémorise toujours l'avaliste DÉSIGNÉ (même si le routeur a retenu une
+        # autre voie, ex. auto-couverture) : trace côté admin.
         avaliste_numero = (data.get("avaliste_numero") or "").strip()
         avaliste_nom = (data.get("avaliste_nom") or "").strip()
         if avaliste_numero and avaliste_nom:
@@ -467,12 +463,27 @@ def loan_request_create(request):
                 ]
             )
 
-        if route_eval.route == EligibilityRoute.AVALISTE:
-            # Étude gratuite → rien à encaisser, on enchaîne tout de suite.
-            if frais_montant <= 0:
-                from .study_fee_services import open_instruction_after_fees
+        # Voie AVALISTE — « AVALISTE D'ABORD, frais ensuite » (2026-07-28).
+        # On sollicite l'avaliste DÈS la soumission → statut EN_ATTENTE_AVALISTE.
+        # Les frais d'étude ne sont donc PAS exigibles tant que l'avaliste n'a pas
+        # accepté (le paiement direct mobile est bloqué côté serveur). À
+        # l'acceptation, le handler route vers la porte « frais » (ou directement
+        # l'instruction si l'étude est gratuite) via status_after_prevoie.
+        # Un avaliste introuvable / une couverture insuffisante échoue ici (400)
+        # et annule la création (fail-fast, avant tout paiement).
+        if route_eval.route == EligibilityRoute.AVALISTE and avaliste_numero and avaliste_nom:
+            from rest_framework.exceptions import ValidationError as _DRFValidationError
 
-                open_instruction_after_fees(loan_request)
+            from .avaliste_services import request_avaliste_consent
+
+            try:
+                request_avaliste_consent(
+                    loan_request,
+                    numero_identification=avaliste_numero,
+                    nom=avaliste_nom,
+                )
+            except ValueError as _exc:
+                raise _DRFValidationError({"avaliste": str(_exc)})
 
         record_audit(
             action="loan_request.submitted",

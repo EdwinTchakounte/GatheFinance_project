@@ -231,15 +231,17 @@ def test_scenario_credit_voie_avaliste():
     lr = LoanRequest.objects.get(pk=r.json()["loan_request"]["id"])
     print(f"[Étape 1] Demande créée — voie {r.json()['route']}")
 
-    pay_study_fee_from_savings(lr)
-    from apps_coop.loans.study_fee_services import open_instruction_after_fees
-    open_instruction_after_fees(lr)
     lr.refresh_from_db()
-    consent = lr.avaliste_consent
-    print(f"[Étape 2] Frais payés → avaliste sollicité | caution demandée = {_f(consent.montant_caution)}")
+    consent = lr.avaliste_consent  # sollicité DÈS la création (« avaliste d'abord »)
+    print(f"[Étape 2] Avaliste sollicité (statut {lr.statut}) | caution = {_f(consent.montant_caution)}")
     respond_to_avaliste_consent(consent, accept=True)
     lr.refresh_from_db()
     print(f"[Étape 3] Avaliste ACCEPTE → statut {lr.statut}")
+    # Frais réglés APRÈS acceptation. L'épargne du demandeur étant gelée en
+    # garantie, le canal est MoMo/agence (représenté ici par le hook).
+    from apps_coop.loans.study_fee_services import open_instruction_after_fees
+    open_instruction_after_fees(lr)
+    lr.refresh_from_db()
 
     loan = approve_loan_request(lr, decided_by=_comite(), taux_annuel=Decimal("0.10"), date_premiere_echeance=FUTURE)
     loan.refresh_from_db()

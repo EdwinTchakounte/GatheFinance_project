@@ -130,18 +130,37 @@ def init_payment(request):
         en_attente = LoanRequest.objects.filter(
             member=member, statut=LoanRequest.Statut.EN_ATTENTE,
         )
-        if (
-            en_attente.exists()
-            and not en_attente.filter(frais_demande_credit_paye=False).exists()
-        ):
-            return Response(
-                {
-                    "detail": (
-                        "Les frais d'étude de votre demande sont déjà réglés."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # On bloque l'initiation des frais SEULEMENT si le membre a une demande
+        # dans un état où les frais ne sont pas (encore) exigibles, avec message
+        # adapté. Sans demande du tout on laisse passer (cas dégénéré legacy →
+        # Payment tracé, hook no-op).
+        if not en_attente.filter(frais_demande_credit_paye=False).exists():
+            # Voie avaliste EN ATTENTE d'acceptation → frais exigibles seulement
+            # APRÈS l'acceptation de l'avaliste.
+            if LoanRequest.objects.filter(
+                member=member,
+                statut=LoanRequest.Statut.EN_ATTENTE_AVALISTE,
+            ).exists():
+                return Response(
+                    {
+                        "detail": (
+                            "Votre demande de crédit est en attente de la réponse "
+                            "de l'avaliste. Les frais d'étude ne seront payables "
+                            "qu'après son acceptation."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Frais déjà réglés (cas campagne le temps du carnet) → rien à payer.
+            if en_attente.exists():
+                return Response(
+                    {
+                        "detail": (
+                            "Les frais d'étude de votre demande sont déjà réglés."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
     # For repayments, the Loan must exist, belong to the member, and the
     # amount must not exceed what's still owed (anti-surplus).
