@@ -1,4 +1,5 @@
-# Continuous Deployment vers le serveur de la CLIENTE (Coolify + Traefik).
+# Continuous Deployment vers le serveur de la CLIENTE (VPS Contabo, DMZ durcie :
+# Traefik v3.3 + Postgres/MinIO existants, réseaux edge/data).
 #
 # Déclenchement :
 #   - workflow_run "CI" succeeded sur main -> deploy automatique (prod client)
@@ -101,7 +102,7 @@ jobs:
           host: ${{ secrets.CLIENT_VPS_HOST }}
           username: ${{ secrets.CLIENT_VPS_USER }}
           key: ${{ secrets.CLIENT_VPS_SSH_PRIVATE_KEY }}
-          source: "infra/docker-compose.prod.yml,infra/docker-compose.coolify.yml,infra/scripts/*"
+          source: "infra/docker-compose.prod.yml,infra/docker-compose.client.yml,infra/scripts/*"
           target: "${{ secrets.CLIENT_VPS_DEPLOY_PATH || '/opt/gathe-finance' }}/"
           overwrite: true
           strip_components: 0
@@ -121,10 +122,11 @@ jobs:
             DEPLOY_PATH="${{ secrets.CLIENT_VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
             NEW_TAG="${{ steps.tag.outputs.tag }}"
 
-            # Mode Coolify : Traefik de la plateforme + réseau proxy externe.
-            # On NE lance PAS notre propre Traefik (profile non passé). L'override
-            # coolify rattache les services au réseau Traefik existant.
-            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.coolify.yml --env-file .env.prod"
+            # Architecture DMZ cliente : on se rattache au Traefik v3.3 existant
+            # (réseau `edge`) + Postgres/MinIO (réseau `data`). On NE lance PAS
+            # notre db/traefik/backup/beszel → --no-deps + services nommés.
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.client.yml --env-file .env.prod"
+            APP_SERVICES="backend qcluster site portal admin"
 
             cd "$DEPLOY_PATH/infra"
 
@@ -143,10 +145,10 @@ jobs:
             sed -i.bak "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$NEW_TAG/" .env.prod
 
             echo ">>> Pulling images..."
-            $COMPOSE pull
+            $COMPOSE pull $APP_SERVICES
 
-            echo ">>> Starting services... ${RECREATE_FLAG:-(no recreate)}"
-            $COMPOSE up -d ${RECREATE_FLAG}
+            echo ">>> Starting services (--no-deps)... ${RECREATE_FLAG:-(no recreate)}"
+            $COMPOSE up -d --no-deps ${RECREATE_FLAG} $APP_SERVICES
 
             echo ">>> Waiting for backend healthcheck..."
             for i in $(seq 1 18); do
@@ -156,7 +158,7 @@ jobs:
               if [ "$i" -eq "18" ]; then
                 echo "!!! Backend never healthy. Rolling back to $CURRENT_TAG."
                 sed -i.bak "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$CURRENT_TAG/" .env.prod
-                $COMPOSE up -d
+                $COMPOSE up -d --no-deps $APP_SERVICES
                 exit 1
               fi
               sleep 5
