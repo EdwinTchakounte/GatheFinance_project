@@ -5,6 +5,7 @@ import { SkeletonList } from "@gathe/ui";
 import { Search, Plus } from "lucide-react";
 
 import { CashInModal } from "@/components/cash-in-modal";
+import { ConfirmModal } from "@/components/confirm-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { Pagination } from "@/components/pagination";
 import { adminApi, type ApiError, type PaymentRow } from "@/lib/api";
@@ -46,6 +47,8 @@ function Inner() {
   // B1 . Cash-in modal admin (saisie versement agence).
   const [cashInOpen, setCashInOpen] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  // Invalidation : cible de la modale de confirmation (remplace window.prompt).
+  const [invalidateTarget, setInvalidateTarget] = useState<PaymentRow | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -182,19 +185,19 @@ function Inner() {
     },
   ];
 
-  async function invalidatePayment(p: PaymentRow) {
-    const motif = window.prompt(
-      `Invalider ce paiement de ${Number(p.montant).toLocaleString("fr-FR")} XAF ?\n` +
-        "Son effet (épargne / remboursement) sera contre-passé. Motif (optionnel) :",
-      "",
-    );
-    if (motif === null) return; // annulé
+  // Confirmée depuis la modale custom (remplace le window.prompt natif qui
+  // gelait l'onglet). Le motif saisi part dans la contre-passation.
+  async function confirmInvalidate(motif: string) {
+    const p = invalidateTarget;
+    if (!p) return;
     try {
       await adminApi.payments.invalidate(p.id, motif || undefined);
       setFlash("Paiement invalidé — effet contre-passé.");
+      setInvalidateTarget(null);
       await reload();
     } catch (err) {
       setError((err as ApiError).detail ?? "Invalidation impossible.");
+      setInvalidateTarget(null);
     }
   }
 
@@ -315,7 +318,7 @@ function Inner() {
             p.statut === "valide" && p.type !== "decaissement" ? (
               <button
                 type="button"
-                onClick={() => invalidatePayment(p)}
+                onClick={() => setInvalidateTarget(p)}
                 className="rounded-md border border-terra-300 px-2.5 py-1 text-xs font-medium text-terra-700 hover:bg-terra-50"
                 title="Invalider ce paiement (contre-passation)"
               >
@@ -364,6 +367,35 @@ function Inner() {
           setFlash(msg);
           setTimeout(() => setFlash(null), 4500);
           reload();
+        }}
+      />
+
+      {/* Invalidation — modale custom (remplace le window.prompt natif qui
+          gelait l'onglet). L'effet ledger du paiement est contre-passé. */}
+      <ConfirmModal
+        open={invalidateTarget !== null}
+        onClose={() => setInvalidateTarget(null)}
+        onConfirm={confirmInvalidate}
+        title="Invalider ce paiement ?"
+        tone="danger"
+        confirmLabel="Invalider"
+        message={
+          invalidateTarget ? (
+            <>
+              Le paiement de{" "}
+              <strong>
+                {Number(invalidateTarget.montant).toLocaleString("fr-FR")} XAF
+              </strong>{" "}
+              ({invalidateTarget.type_display}) sera marqué rejeté et son effet
+              (épargne / remboursement / décaissement) <strong>contre-passé</strong>.
+              Action tracée et irréversible.
+            </>
+          ) : null
+        }
+        input={{
+          label: "Motif de l'invalidation (optionnel)",
+          placeholder: "ex. erreur de saisie, doublon…",
+          multiline: true,
         }}
       />
     </div>
