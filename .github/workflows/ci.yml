@@ -237,9 +237,13 @@ jobs:
       - name: Resolve build-time domains (per branch)
         id: dom
         run: |
+          # Noms DISSOCIÉS par cible : main → CLIENT_* (serveur cliente Coolify),
+          # staging/autre → STAGING_* (notre Contabo horus-lab). Aucun repli
+          # croisé possible. Repli sur horus-lab tant que les variables ne sont
+          # pas posées (rien ne casse avant la config client).
           if [ "${{ github.ref_name }}" = "main" ]; then
-            SITE="${{ vars.PROD_SITE_DOMAIN || 'gathe-finance.horus-lab.com' }}"
-            PORTAL="${{ vars.PROD_PORTAL_DOMAIN || 'portail.gathe-finance.horus-lab.com' }}"
+            SITE="${{ vars.CLIENT_SITE_DOMAIN || 'gathe-finance.horus-lab.com' }}"
+            PORTAL="${{ vars.CLIENT_PORTAL_DOMAIN || 'portail.gathe-finance.horus-lab.com' }}"
           else
             SITE="${{ vars.STAGING_SITE_DOMAIN || 'gathe-finance.horus-lab.com' }}"
             PORTAL="${{ vars.STAGING_PORTAL_DOMAIN || 'portail.gathe-finance.horus-lab.com' }}"

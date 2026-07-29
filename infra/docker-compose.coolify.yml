@@ -1,0 +1,45 @@
+# Override CLIENT — serveur cliente sous Coolify (Traefik + TLS gérés par la
+# plateforme). À COMBINER avec docker-compose.prod.yml. On NE lance PAS notre
+# propre Traefik (son profile n'est pas passé) : on rattache les services web
+# au réseau Traefik EXISTANT de Coolify, qui fait le routage + Let's Encrypt.
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.coolify.yml \
+#     --env-file .env.prod up -d          # (PAS de --profile traefik)
+#
+# Requiert dans .env.prod (serveur cliente) :
+#   PROXY_NETWORK        nom du réseau Docker du Traefik Coolify (ex. coolify)
+#   TRAEFIK_CERTRESOLVER nom du certresolver Coolify (ex. letsencrypt)
+#
+# ⚠️ Les labels Traefik (Host rules, ports, certresolver) restent définis dans
+# docker-compose.prod.yml. Ici on ajoute seulement :
+#   - le rattachement au réseau proxy externe de Coolify,
+#   - le label `traefik.docker.network` (indispensable quand un service est sur
+#     plusieurs réseaux : dit à Traefik quelle IP/réseau utiliser).
+
+networks:
+  # Réseau Traefik de Coolify, déjà créé par la plateforme.
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-coolify}
+
+services:
+  backend:
+    # internal = inter-services (db, redis, front) ; proxy = ingress Coolify.
+    networks: [internal, proxy]
+    labels:
+      - "traefik.docker.network=${PROXY_NETWORK:-coolify}"
+
+  site:
+    networks: [internal, proxy]
+    labels:
+      - "traefik.docker.network=${PROXY_NETWORK:-coolify}"
+
+  portal:
+    networks: [internal, proxy]
+    labels:
+      - "traefik.docker.network=${PROXY_NETWORK:-coolify}"
+
+  admin:
+    networks: [internal, proxy]
+    labels:
+      - "traefik.docker.network=${PROXY_NETWORK:-coolify}"

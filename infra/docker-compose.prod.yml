@@ -126,13 +126,13 @@ services:
       - "traefik.http.routers.gathe-api.rule=Host(`${API_DOMAIN}`)"
       - "traefik.http.routers.gathe-api.entrypoints=websecure"
       - "traefik.http.routers.gathe-api.tls=true"
-      - "traefik.http.routers.gathe-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gathe-api.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
       - "traefik.http.routers.gathe-api.service=gathe-backend"
       # CMS / Wagtail admin
       - "traefik.http.routers.gathe-cms.rule=Host(`${CMS_DOMAIN}`)"
       - "traefik.http.routers.gathe-cms.entrypoints=websecure"
       - "traefik.http.routers.gathe-cms.tls=true"
-      - "traefik.http.routers.gathe-cms.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gathe-cms.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
       - "traefik.http.routers.gathe-cms.service=gathe-backend"
       - "traefik.http.services.gathe-backend.loadbalancer.server.port=8000"
 
@@ -177,7 +177,7 @@ services:
       - "traefik.http.routers.gathe-site.rule=Host(`${SITE_DOMAIN}`)"
       - "traefik.http.routers.gathe-site.entrypoints=websecure"
       - "traefik.http.routers.gathe-site.tls=true"
-      - "traefik.http.routers.gathe-site.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gathe-site.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
       - "traefik.http.services.gathe-site.loadbalancer.server.port=3000"
 
   portal:
@@ -194,7 +194,7 @@ services:
       - "traefik.http.routers.gathe-portal.rule=Host(`${PORTAL_DOMAIN}`)"
       - "traefik.http.routers.gathe-portal.entrypoints=websecure"
       - "traefik.http.routers.gathe-portal.tls=true"
-      - "traefik.http.routers.gathe-portal.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gathe-portal.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
       - "traefik.http.services.gathe-portal.loadbalancer.server.port=3000"
 
   admin:
@@ -211,7 +211,7 @@ services:
       - "traefik.http.routers.gathe-admin.rule=Host(`${ADMIN_DOMAIN}`)"
       - "traefik.http.routers.gathe-admin.entrypoints=websecure"
       - "traefik.http.routers.gathe-admin.tls=true"
-      - "traefik.http.routers.gathe-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gathe-admin.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
       - "traefik.http.services.gathe-admin.loadbalancer.server.port=3000"
 
   # ---------------------------------------------------------------------------
@@ -303,7 +303,7 @@ services:
       - "traefik.http.routers.gathe-monitor.rule=Host(`${MONITOR_DOMAIN}`)"
       - "traefik.http.routers.gathe-monitor.entrypoints=websecure"
       - "traefik.http.routers.gathe-monitor.tls=true"
-      - "traefik.http.routers.gathe-monitor.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gathe-monitor.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
       - "traefik.http.routers.gathe-monitor.service=gathe-monitor"
       - "traefik.http.services.gathe-monitor.loadbalancer.server.port=8090"
 
