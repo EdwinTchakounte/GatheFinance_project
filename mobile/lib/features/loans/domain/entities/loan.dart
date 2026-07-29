@@ -28,6 +28,7 @@ class Loan {
     required this.statut,
     required this.installments,
     this.dejaReconduit = false,
+    this.dateSoumission,
     this.dateButoire,
     this.modeRetenueInterets = LoanInterestMode.echeances,
     this.montantDecaisseNet,
@@ -56,6 +57,9 @@ class Loan {
   /// Vrai si ce crédit a déjà été reconduit (Article 11 : une seule
   /// reconduction par crédit, bloquée même à la soumission).
   final bool dejaReconduit;
+
+  /// Date de soumission de la demande d'origine. Null = snapshot ancien.
+  final DateTime? dateSoumission;
 
   /// CH-8 — Date butoire formelle pour solder le crédit. Les échéances sont
   /// indicatives ; seule la date butoire engage. Modifiable côté admin

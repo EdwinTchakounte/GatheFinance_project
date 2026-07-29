@@ -12,7 +12,6 @@ from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
-from django.db.models import Q
 from django.utils import timezone
 
 from apps_coop.audit.services import get_str_setting, record as record_audit
@@ -74,14 +73,14 @@ def compute_eligibility(member: Member) -> Eligibility:
     if member.statut != Member.Statut.ACTIF:
         motifs.append("Compte membre non actif.")
 
-    # Rule 2 — un crédit compte comme « en cours » s'il est actif/en_retard/
-    # contentieux OU s'il n'a pas encore été décaissé (argent non versé), quel
-    # que soit son statut. Ce dernier cas couvre l'anomalie « clôturé mais non
-    # décaissé » : le membre reste bloqué de façon cohérente jusqu'à résolution.
+    # Rule 2 — un crédit compte comme « en cours » s'il est actif / en_retard /
+    # contentieux. Un crédit NON décaissé est de toute façon créé ACTIF, donc
+    # déjà couvert. Un crédit CLÔTURÉ ne bloque JAMAIS une nouvelle demande, même
+    # si un flag `en_attente_decaissement` legacy y traîne — sinon un membre qui a
+    # remboursé reste bloqué à tort (régression 2026-07-28).
     active_loans = Loan.objects.filter(
-        Q(statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD, Loan.Statut.CONTENTIEUX])
-        | Q(en_attente_decaissement=True),
         member=member,
+        statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD, Loan.Statut.CONTENTIEUX],
     ).count()
     if active_loans:
         motifs.append(

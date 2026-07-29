@@ -12,6 +12,7 @@ import {
 } from "@/components/compose-funding-modal";
 import { LoanDetailModal } from "@/components/loan-detail-modal";
 import { CashInModal } from "@/components/cash-in-modal";
+import { ConfirmModal } from "@/components/confirm-modal";
 import { adminApi, type AdminLoanRow, type ApiError } from "@/lib/api";
 import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
@@ -327,7 +328,9 @@ function Inner() {
                     id: l.id,
                     numero_dossier: l.numero_dossier,
                     member_label: `${fullName(l.member.prenom, l.member.nom)}`,
-                    capital: l.montant,
+                    // Le funding porte sur le NET réellement décaissé (les
+                    // intérêts retenus à la source ne sortent pas de la caisse).
+                    capital: l.montant_decaisse_net ?? l.montant,
                   })
                 }
                 title="Composer le funding en selectionnant manuellement les tranches preteur"
@@ -418,6 +421,7 @@ function DisbursementCell({
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const dis = row.disbursement;
   // Validé = badge "Versé".
@@ -449,46 +453,18 @@ function DisbursementCell({
   // Rejeté = badge "Échec" + bouton retry.
   const rejected = dis && dis.statut === "rejete";
 
-  // Si pas de moyen_reception, on guide l'admin vers /disburse/ classique.
+  // Décaissement TOUJOURS manuel (le payout auto Tara est retiré ; il pourra
+  // être rebranché plus tard). `disburseManual` verse le net quel que soit le
+  // canal choisi par le membre — et fonctionne même sans « moyen de réception ».
   const moyen = row.moyen_reception;
-  if (!moyen) {
-    return (
-      <span className="text-[10px] text-ink-500">
-        Moyen de réception manquant
-      </span>
-    );
-  }
+  const montant = Number(row.montant_decaisse_net ?? row.montant);
 
-  async function handlePayer() {
+  async function doDisburse(reference: string) {
     setBusy(true);
     setErr(null);
     try {
-      const payload: { reference_externe?: string; note?: string } = {};
-      if (moyen === "agence_especes") {
-        const ref = window.prompt(
-          "Référence du reçu de caisse (numéro de bordereau) :",
-        );
-        if (!ref || !ref.trim()) {
-          setBusy(false);
-          return;
-        }
-        payload.reference_externe = ref.trim();
-      } else {
-        // Mobile Money : argent réel envoyé au membre → confirmation explicite
-        // (le canal espèces a déjà son prompt de référence ci-dessus).
-        const montant = Number(row.montant_decaisse_net ?? row.montant);
-        const ok = window.confirm(
-          `Décaisser ${montant.toLocaleString("fr-FR")} XAF à ` +
-            `${fullName(row.member.prenom, row.member.nom)} (${row.member.numero_membre}) ` +
-            `via ${MOYEN_LABEL[moyen] ?? moyen} ?\n\n` +
-            `L'argent part immédiatement sur le téléphone du membre — action irréversible.`,
-        );
-        if (!ok) {
-          setBusy(false);
-          return;
-        }
-      }
-      await adminApi.loans.disburseNow(row.id, payload);
+      await adminApi.loans.disburseManual(row.id, { reference_externe: reference });
+      setConfirmOpen(false);
       onAction();
     } catch (e) {
       const apiErr = e as ApiError;
@@ -501,14 +477,17 @@ function DisbursementCell({
   return (
     <div className="text-xs">
       <p className="text-ink-500">
-        Canal :{" "}
-        <span className="font-medium text-ink-700">
-          {MOYEN_LABEL[moyen] ?? moyen}
-        </span>
+        Décaissement : <span className="font-medium text-ink-700">manuel</span>
+        {moyen ? (
+          <span className="text-ink-400">
+            {" "}
+            · souhait membre : {MOYEN_LABEL[moyen] ?? moyen}
+          </span>
+        ) : null}
       </p>
       <button
         type="button"
-        onClick={handlePayer}
+        onClick={() => setConfirmOpen(true)}
         disabled={busy}
         className="mt-1 inline-flex items-center gap-1.5 rounded border border-blue-700/30 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 transition-colors hover:bg-blue-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
       >
@@ -517,9 +496,47 @@ function DisbursementCell({
         ) : (
           <Wallet className="size-3" />
         )}
-        {rejected ? "Re-essayer" : "Payer maintenant"}
+        {rejected ? "Re-décaisser (manuel)" : "Décaisser (manuel)"}
       </button>
       {err ? <p className="mt-1 text-[10px] text-terra-700">{err}</p> : null}
+      <ConfirmModal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={doDisburse}
+        title="Décaissement manuel"
+        tone="info"
+        confirmLabel="Confirmer le versement"
+        message={
+          <>
+            Effectue le versement de{" "}
+            <strong>{montant.toLocaleString("fr-FR")} XAF</strong> (net) à{" "}
+            <strong>{fullName(row.member.prenom, row.member.nom)}</strong> (
+            {row.member.numero_membre}) par virement ou remise en espèces, puis
+            enregistre ci-dessous la référence du reçu.
+            {moyen ? (
+              <span className="mt-2 block rounded-lg border border-blue-700/20 bg-blue-50/60 px-3 py-2 text-[13px]">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">
+                  Souhait de réception du membre
+                </span>
+                <span className="mt-0.5 block font-medium text-ink-800">
+                  {MOYEN_LABEL[moyen] ?? moyen}
+                  {row.recipient_phone ? (
+                    <>
+                      {" · "}
+                      <span className="font-mono">{row.recipient_phone}</span>
+                    </>
+                  ) : null}
+                </span>
+              </span>
+            ) : null}
+          </>
+        }
+        input={{
+          label: "Référence du versement (n° reçu / bordereau)",
+          placeholder: "ex. BRD-2026-00123",
+          required: true,
+        }}
+      />
     </div>
   );
 }

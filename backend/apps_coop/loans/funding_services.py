@@ -187,7 +187,11 @@ def request_funding(loan: Loan, *, actor=None) -> LoanFundingRequest:
     if existing is not None:
         return existing
 
-    montant_cible = Decimal(loan.montant)
+    # Le funding porte sur le NET réellement décaissé (montant_decaisse_net = 90 %
+    # du nominal en mode « intérêt à la source »), PAS le brut nominal : les
+    # intérêts retenus à la source ne sortent pas de la caisse, il n'y a donc rien
+    # à financer dessus. Ex. crédit 60 000 dont 10 % coupés → funding sur 54 000.
+    montant_cible = Decimal(loan.montant_decaisse_net or loan.montant)
     strategy = _allocation_strategy()
     candidates = list(active_lenders_with_capacity())
 

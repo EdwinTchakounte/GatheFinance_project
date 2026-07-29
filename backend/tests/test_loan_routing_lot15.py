@@ -220,14 +220,17 @@ class TestVoieAvaliste:
         assert r.status_code == 201, r.content
         body = r.json()
         assert body["route"] == "avaliste"
-        assert body["loan_request"]["statut"] == "en_attente"
+        # « Avaliste D'ABORD » (2026-07-28) : la demande naît en attente de la
+        # réponse de l'avaliste, sollicité dès la soumission. Les frais ne sont
+        # exigibles qu'après son acceptation.
+        assert body["loan_request"]["statut"] == "en_attente_avaliste"
 
         lr = LoanRequest.objects.get(pk=body["loan_request"]["id"])
-        assert not hasattr(lr, "avaliste_consent"), (
-            "aucun tiers ne doit être sollicité avant l'encaissement des frais"
+        assert hasattr(lr, "avaliste_consent"), (
+            "l'avaliste doit être sollicité dès la soumission (avaliste d'abord)"
         )
         assert lr.frais_demande_credit_paye is False
-        # La désignation est mémorisée en attendant le paiement.
+        # La désignation est mémorisée.
         assert lr.avaliste_numero_saisi == avaliste.numero_membre
         assert lr.avaliste_nom_saisi == "DUPONT"
 

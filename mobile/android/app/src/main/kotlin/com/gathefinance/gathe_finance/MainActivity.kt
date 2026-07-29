@@ -15,10 +15,13 @@ import io.flutter.embedding.android.FlutterFragmentActivity
  */
 class MainActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_SECURE,
-            WindowManager.LayoutParams.FLAG_SECURE,
-        )
+        // TEST-ONLY 2026-07-23 : FLAG_SECURE désactivé temporairement pour
+        // permettre les captures d'écran pendant le live-test. NE PAS COMMITTER,
+        // NE PAS LIVRER ainsi — réactiver avant tout build de production.
+        // window.setFlags(
+        //     WindowManager.LayoutParams.FLAG_SECURE,
+        //     WindowManager.LayoutParams.FLAG_SECURE,
+        // )
         super.onCreate(savedInstanceState)
     }
 }

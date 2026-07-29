@@ -37,6 +37,29 @@ from apps_coop.portal_urls import portal_url
 logger = logging.getLogger(__name__)
 
 
+def _versement_label(payment) -> str:
+    """Libellé DÉTAILLÉ d'un versement pour les notifications.
+
+    Dissocie explicitement l'épargne classique **placement** de l'épargne
+    classique **libre** (le type brut ``EPARGNE_CLASSIQUE`` ne le distingue pas).
+    Pour tous les autres types, on garde le libellé standard (collecte
+    journalière, remboursement de crédit, frais d'adhésion/étude/carnet, etc.).
+    """
+    from apps_coop.payments.models import Payment as _Payment
+
+    if payment.type == _Payment.Type.EPARGNE_CLASSIQUE:
+        return (
+            "Épargne classique (placement)"
+            if getattr(payment, "is_placement", False)
+            else "Épargne classique (libre)"
+        )
+    return (
+        payment.get_type_display()
+        if hasattr(payment, "get_type_display")
+        else str(payment.type)
+    )
+
+
 # ---------------------------------------------------------------------------
 # Public entry points
 # ---------------------------------------------------------------------------
@@ -231,7 +254,7 @@ def _notify_payment_confirmed(payment: Payment) -> None:
     try:
         from apps_coop.notifications.services import create_notification
 
-        type_display = payment.get_type_display() if hasattr(payment, "get_type_display") else payment.type
+        type_display = _versement_label(payment)
         create_notification(
             user=payment.member.user,
             type=f"payment.confirmed.{payment.type}",
@@ -257,7 +280,7 @@ def _reject(payment: Payment, *, raw: dict) -> Payment:
         try:
             from apps_coop.notifications.services import create_notification
 
-            type_display = payment.get_type_display() if hasattr(payment, "get_type_display") else payment.type
+            type_display = _versement_label(payment)
             create_notification(
                 user=payment.member.user,
                 type=f"payment.rejected.{payment.type}",
@@ -285,7 +308,7 @@ def notify_payment_initiated(payment: Payment) -> None:
     try:
         from apps_coop.notifications.services import create_notification
 
-        type_display = payment.get_type_display() if hasattr(payment, "get_type_display") else payment.type
+        type_display = _versement_label(payment)
         create_notification(
             user=payment.member.user,
             type=f"payment.initiated.{payment.type}",

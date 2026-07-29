@@ -508,9 +508,27 @@ class _LoanCard extends StatelessWidget {
             ),
           ],
 
+          // Dates clés du crédit : soumission → décaissement → date butoire.
+          const SizedBox(height: 6),
+          if (loan.dateSoumission != null)
+            Text(
+              'Soumise le : ${_formatDateShort(loan.dateSoumission!)}',
+              style: const TextStyle(
+                color: PaColors.inkMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          Text(
+            'Décaissé le : ${_formatDateShort(loan.dateDecaissement)}',
+            style: const TextStyle(
+              color: PaColors.inkMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           // CH-8 . Date butoire formelle si posée.
-          if (loan.dateButoire != null) ...[
-            const SizedBox(height: 6),
+          if (loan.dateButoire != null)
             Text(
               'Date butoire : ${_formatDateShort(loan.dateButoire!)}',
               style: const TextStyle(
@@ -519,7 +537,6 @@ class _LoanCard extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
-          ],
 
           // Barre progression
           const SizedBox(height: 14),

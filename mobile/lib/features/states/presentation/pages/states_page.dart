@@ -888,23 +888,21 @@ class _WithdrawalRow extends StatelessWidget {
     final tone = _tone;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      // Montant en haut, puis mode + statut en dessous : évite que le pill de
-      // statut long chevauche le montant sur petit écran.
+      // Structure responsive : montant + pill de statut en `Wrap` (le pill passe
+      // à la ligne si le libellé est long, ex. « Approuvée — remise espèces en
+      // attente »), puis le mode de paiement sur sa propre ligne. Plus aucun
+      // chevauchement ni libellé écrasé sur petit écran.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            XAFFormatter.format(w.montant),
-            style: PaText.label(size: 14.5),
-          ),
-          const SizedBox(height: 6),
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 10,
+            runSpacing: 6,
             children: [
-              Expanded(
-                child: Text(
-                  w.modePaiementDisplay,
-                  style: PaText.body(size: 12, color: PaColors.inkMuted),
-                ),
+              Text(
+                XAFFormatter.format(w.montant),
+                style: PaText.label(size: 14.5),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -918,6 +916,11 @@ class _WithdrawalRow extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            w.modePaiementDisplay,
+            style: PaText.body(size: 12, color: PaColors.inkMuted),
           ),
         ],
       ),

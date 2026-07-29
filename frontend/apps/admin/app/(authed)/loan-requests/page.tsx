@@ -14,6 +14,16 @@ import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 
 
+// CH-9 — Fallback lisible du canal de réception si le backend ne renvoie pas
+// `moyen_reception_display` (le décaissement est manuel : sert à indiquer à
+// l'agent OÙ verser les fonds).
+const RECEPTION_LABEL: Record<string, string> = {
+  tara_om: "Orange Money",
+  tara_momo: "MTN MoMo",
+  agence_especes: "Espèces (agence)",
+};
+
+
 function formatXAF(amount: string): string {
   const n = Number(amount);
   if (Number.isNaN(n)) return amount;
@@ -206,14 +216,14 @@ function Inner() {
     }
   }
 
-  async function submitDisburse(payload: { recipient_phone: string; network: "MTN" | "ORANGE" | "WAVE" | "AIRTEL" }) {
+  async function submitDisburse(payload: { reference_externe: string }) {
     if (!disburseTarget?.loan) return;
     setActingId(disburseTarget.id);
     try {
-      const res = await adminApi.loans.disburseTara(disburseTarget.loan.id, payload);
+      const res = await adminApi.loans.disburseManual(disburseTarget.loan.id, payload);
       setMessage({
         tone: "ok",
-        text: `Payout Tara initié pour ${res.numero_dossier} (Payment #${res.payment_id}). En attente du webhook.`,
+        text: `Décaissement manuel enregistré pour ${res.numero_dossier} (Payment #${res.payment_id}). Le crédit est actif.`,
       });
       setDisburseTarget(null);
       await reload();
@@ -314,15 +324,25 @@ function Inner() {
     },
     {
       key: "date",
-      label: "Reçue le",
-      defaultVisible: false,
+      label: "Dates",
+      defaultVisible: true,
       text: (r) => formatDate(r.date_soumission),
       render: (r) => (
-        <div className="whitespace-nowrap">
-          <span>{formatDate(r.date_soumission)}</span>
+        <div className="whitespace-nowrap text-[11px] leading-snug">
+          <p className="text-ink-700">Reçue le {formatDate(r.date_soumission)}</p>
           {r.date_limite_etude ? (
-            <p className="mt-0.5 text-[11px] text-ink-500">
+            <p className="text-ink-500">
               Étude avant le {formatDate(r.date_limite_etude)}
+            </p>
+          ) : null}
+          {r.loan?.disbursed && r.loan.date_decaissement ? (
+            <p className="text-ink-500">
+              Décaissé le {formatDate(r.loan.date_decaissement)}
+            </p>
+          ) : null}
+          {r.loan?.date_butoire ? (
+            <p className="text-ink-500">
+              Butoir : {formatDate(r.loan.date_butoire)}
             </p>
           ) : null}
         </div>
@@ -555,7 +575,7 @@ function Inner() {
                     disabled={actingId === r.id}
                     className={buttonClasses({ variant: "primary", size: "sm" })}
                   >
-                    <Send className="size-3.5" aria-hidden="true" />Décaisser via Tara
+                    <Send className="size-3.5" aria-hidden="true" />Décaisser (manuel)
                   </button>
                 )}
                 <a
@@ -614,7 +634,7 @@ function Inner() {
         onSubmit={submitReject}
         submitting={actingId !== null}
       />
-      <DisburseTaraModal
+      <DisburseManualModal
         target={disburseTarget}
         onClose={() => setDisburseTarget(null)}
         onSubmit={submitDisburse}
@@ -826,7 +846,7 @@ function FieldVisitModal({
 }
 
 
-function DisburseTaraModal({
+function DisburseManualModal({
   target,
   onClose,
   onSubmit,
@@ -834,30 +854,23 @@ function DisburseTaraModal({
 }: {
   target: LoanRequest | null;
   onClose: () => void;
-  onSubmit: (payload: { recipient_phone: string; network: "MTN" | "ORANGE" | "WAVE" | "AIRTEL" }) => void;
+  onSubmit: (payload: { reference_externe: string }) => void;
   submitting: boolean;
 }) {
-  const [phone, setPhone] = useState("");
-  const [network, setNetwork] = useState<"MTN" | "ORANGE" | "WAVE" | "AIRTEL">("MTN");
+  const [reference, setReference] = useState("");
 
   useEffect(() => {
-    if (target) {
-      setPhone("");
-      setNetwork("MTN");
-    }
+    if (target) setReference("");
   }, [target]);
 
   const open = target !== null;
-  const trimmedPhone = phone.replace(/\s+/g, "");
-  const digitsOnly = trimmedPhone.replace(/\D+/g, "");
-  const phoneValid = digitsOnly.length >= 9;
-  const canSubmit = !submitting && phoneValid;
+  const canSubmit = !submitting && reference.trim().length > 0;
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="Décaisser via Tara"
+      title="Décaissement manuel"
       description={
         target?.loan
           ? `Crédit ${target.loan.numero_dossier} — ${formatXAF(target.montant_demande)}`
@@ -875,47 +888,56 @@ function DisburseTaraModal({
           </button>
           <button
             type="button"
-            onClick={() => canSubmit && onSubmit({ recipient_phone: trimmedPhone, network })}
+            onClick={() => canSubmit && onSubmit({ reference_externe: reference.trim() })}
             disabled={!canSubmit}
             className={buttonClasses({ variant: "primary", size: "sm" })}
           >
-            Lancer le payout
+            Confirmer le versement
           </button>
         </>
       }
     >
       <div className="space-y-4">
+        {target?.moyen_reception ? (
+          <div className="rounded-lg border border-blue-700/20 bg-blue-50/60 px-3 py-2.5 text-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">
+              Souhait de réception du membre
+            </p>
+            <p className="mt-0.5 font-medium text-ink-800">
+              {target.moyen_reception_display ??
+                RECEPTION_LABEL[target.moyen_reception] ??
+                target.moyen_reception}
+              {target.recipient_phone ? (
+                <>
+                  {" · "}
+                  <span className="font-mono">{target.recipient_phone}</span>
+                </>
+              ) : null}
+            </p>
+          </div>
+        ) : (
+          <p className="rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-xs text-ink-500">
+            Aucun canal de réception précisé par le membre.
+          </p>
+        )}
+        <p className="text-sm text-ink-700">
+          Effectue le versement au membre (virement bancaire ou remise en
+          espèces), puis enregistre la référence du reçu. Le crédit passera alors
+          en <strong>actif</strong>.
+        </p>
         <ModalField
-          label="Numéro Mobile Money du membre"
-          hint="Format Cameroun. Le provider Tara normalise automatiquement (237 préfixé)."
+          label="Référence du versement (n° reçu / bordereau)"
+          hint="Traçabilité comptable — obligatoire pour un décaissement manuel."
         >
           <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="237 6 99 00 00 00"
+            type="text"
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            placeholder="ex. BRD-2026-00123"
             className={modalInputClass}
             autoFocus
           />
         </ModalField>
-        <ModalField label="Opérateur" hint="Réseau Mobile Money correspondant au numéro saisi.">
-          <select
-            value={network}
-            onChange={(e) =>
-              setNetwork(e.target.value as "MTN" | "ORANGE" | "WAVE" | "AIRTEL")
-            }
-            className={modalInputClass}
-          >
-            <option value="MTN">MTN Mobile Money</option>
-            <option value="ORANGE">Orange Money</option>
-            <option value="WAVE">Wave</option>
-            <option value="AIRTEL">Airtel Money</option>
-          </select>
-        </ModalField>
-        <p className="rounded-md border border-blue-700/20 bg-blue-100/40 px-3 py-2 text-xs text-blue-900">
-          Le Payment passera en <strong>en_attente</strong>. La bascule du crédit en <strong>actif</strong>{" "}
-          + la date de décaissement seront posées par le webhook Tara (`_hook_decaissement`).
-        </p>
       </div>
     </Modal>
   );

@@ -294,12 +294,16 @@ def admin_compose_funding_manual(request, pk: int):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    if total > loan.montant:
+    # Le funding porte sur le NET réellement décaissé (montant_decaisse_net), pas
+    # le brut nominal : les intérêts retenus à la source ne sortent pas de la
+    # caisse. Ex. crédit 60 000 dont 10 % coupés → funding sur 54 000.
+    net_finance = Decimal(loan.montant_decaisse_net or loan.montant)
+    if total > net_finance:
         return Response(
             {
                 "detail": (
-                    f"Total selectionne {total} XAF depasse le capital du "
-                    f"credit {loan.montant} XAF."
+                    f"Total selectionne {total} XAF depasse le net a financer "
+                    f"du credit {net_finance} XAF."
                 ),
             },
             status=status.HTTP_400_BAD_REQUEST,
@@ -360,7 +364,7 @@ def admin_compose_funding_manual(request, pk: int):
             # Allocation prêteur — indispensable au partage 50/50 des intérêts.
             # Sans elle, distribute_interest_share() est inerte et le prêteur
             # ne toucherait jamais sa quote-part (mirroir du flux automatique).
-            quote_part = (montant / Decimal(loan.montant)).quantize(
+            quote_part = (montant / net_finance).quantize(
                 Decimal("0.00000001")
             )
             LenderAllocation.objects.create(
@@ -415,8 +419,8 @@ def admin_compose_funding_manual(request, pk: int):
             "n_tranches_engagees": n_engaged,
             "n_tranches_splittees": n_split,
             "total_engage": str(total),
-            "capital_loan": str(loan.montant),
-            "reste_a_couvrir": str(loan.montant - total),
+            "capital_loan": str(net_finance),
+            "reste_a_couvrir": str(net_finance - total),
         },
         status=status.HTTP_200_OK,
     )

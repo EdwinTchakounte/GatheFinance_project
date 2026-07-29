@@ -86,7 +86,7 @@ class LoanRequestSubmitSerializer(serializers.Serializer):
         phone = (attrs.get("recipient_phone") or "").strip()
         if moyen in ("tara_om", "tara_momo") and not phone:
             raise serializers.ValidationError(
-                {"recipient_phone": "Requis pour un décaissement Tara Mobile Money."}
+                {"recipient_phone": "Numéro Mobile Money requis (Orange Money / MTN MoMo)."}
             )
         if moyen == "agence_especes" and phone:
             # Coherence : on n'attend pas de numéro pour un retrait espèces.
@@ -130,6 +130,12 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
     # épargne dispo du demandeur). Exposé au demandeur ET repris côté avaliste
     # (montant_gele du mandat) pour que les deux connaissent l'engagement.
     avaliste_montant_a_couvrir = serializers.SerializerMethodField()
+    # CH-9 — Canal de réception choisi par le membre à la soumission. Le payout
+    # auto Tara est retiré : le décaissement est manuel, mais l'agent doit
+    # savoir OÙ verser (Orange Money / MTN MoMo / espèces) et sur QUEL numéro.
+    moyen_reception_display = serializers.CharField(
+        source="get_moyen_reception_display", read_only=True
+    )
 
     class Meta:
         model = LoanRequest
@@ -168,6 +174,10 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "motif_gel_demandeur",
             # L5 — n° CNI demandeur
             "cni_demandeur",
+            # CH-9 — Canal + numéro de réception souhaités (décaissement manuel).
+            "moyen_reception",
+            "moyen_reception_display",
+            "recipient_phone",
         )
         read_only_fields = fields
 
@@ -332,6 +342,9 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "numero_dossier": loan.numero_dossier,
             "statut": loan.statut,
             "date_decaissement": loan.date_decaissement.isoformat(),
+            "date_butoire": (
+                loan.date_butoire.isoformat() if loan.date_butoire else None
+            ),
             "disbursed": already_disbursed,
             "disbursement_pending": disbursement_pending,
         }
@@ -604,6 +617,14 @@ class LoanReadSerializer(serializers.ModelSerializer):
 
         return credit_criticality_label(obj)
 
+    # Date de soumission de la demande d'origine (affichée sur la card crédit).
+    date_soumission = serializers.SerializerMethodField()
+
+    def get_date_soumission(self, obj) -> str | None:
+        lr = getattr(obj, "loan_request", None)
+        d = getattr(lr, "date_soumission", None) if lr else None
+        return d.isoformat() if d else None
+
     class Meta:
         model = Loan
         fields = (
@@ -613,8 +634,10 @@ class LoanReadSerializer(serializers.ModelSerializer):
             "montant",
             "taux_interet",
             "duree_mois",
+            "date_soumission",
             "date_decaissement",
             "date_premiere_echeance",
+            "date_butoire",
             "montant_total_du",
             "solde_restant",
             "statut",
