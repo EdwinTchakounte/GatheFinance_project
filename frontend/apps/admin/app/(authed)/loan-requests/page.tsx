@@ -6,6 +6,7 @@ import { Check, Coins, FileText, Scale, Send, X } from "lucide-react";
 import { buttonClasses, SkeletonList } from "@gathe/ui";
 
 import { CashInModal, type CashInPrefill } from "@/components/cash-in-modal";
+import { ConfirmModal } from "@/components/confirm-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { DocumentLink } from "@/components/document-preview";
 import { Modal, ModalField, modalInputClass } from "@/components/modal";
@@ -82,6 +83,8 @@ function Inner() {
   const [cashInTarget, setCashInTarget] = useState<LoanRequest | null>(null);
   // L4 — Évaluation du bien mis en garantie matérielle (informel, non bloquant).
   const [guaranteeTarget, setGuaranteeTarget] = useState<LoanRequest | null>(null);
+  // Suppression tracée : cible de la modale de confirmation (remplace window.prompt).
+  const [deleteTarget, setDeleteTarget] = useState<LoanRequest | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -131,21 +134,21 @@ function Inner() {
     }
   }
 
-  async function deleteRequest(r: LoanRequest) {
-    const motif = window.prompt(
-      `Supprimer définitivement la demande #${r.id} (et le crédit associé) ?\n` +
-        "Cette action est tracée dans un fichier d'audit. Motif (optionnel) :",
-      "",
-    );
-    if (motif === null) return; // annulé
+  // Confirmée depuis la modale custom (ConfirmModal) — plus de window.prompt
+  // natif (qui gèle l'onglet). Le motif vient du champ de la modale.
+  async function confirmDelete(motif: string) {
+    const r = deleteTarget;
+    if (!r) return;
     setActingId(r.id);
     try {
       await adminApi.loanRequests.remove(r.id, motif || undefined);
       setMessage({ tone: "ok", text: `Demande #${r.id} supprimée (tracée).` });
+      setDeleteTarget(null);
       await reload();
     } catch (err) {
       const apiErr = err as ApiError;
       setMessage({ tone: "err", text: apiErr.detail ?? "Suppression impossible." });
+      setDeleteTarget(null);
     } finally {
       setActingId(null);
     }
@@ -459,7 +462,7 @@ function Inner() {
                   <Coins className="size-3.5" aria-hidden="true" />Encaisser frais
                 </button>
                 <p className="max-w-[14rem] text-right text-[11px] text-ink-500">
-                  La demande passera en instruction des reception des frais (Tara ou cash-in agence).
+                  La demande passera en instruction dès réception des frais (Mobile Money ou cash-in agence).
                 </p>
                 <a
                   href={adminApi.loans.noteUrl(r.id)}
@@ -553,7 +556,7 @@ function Inner() {
                 </a>
                 <button
                   type="button"
-                  onClick={() => deleteRequest(r)}
+                  onClick={() => setDeleteTarget(r)}
                   disabled={actingId === r.id}
                   className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
                   title="Supprimer la demande (tracé dans l'audit)"
@@ -588,7 +591,7 @@ function Inner() {
                 </a>
                 <button
                   type="button"
-                  onClick={() => deleteRequest(r)}
+                  onClick={() => setDeleteTarget(r)}
                   disabled={actingId === r.id}
                   className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
                   title="Supprimer la demande / le crédit (tracé dans l'audit)"
@@ -609,7 +612,7 @@ function Inner() {
                 </a>
                 <button
                   type="button"
-                  onClick={() => deleteRequest(r)}
+                  onClick={() => setDeleteTarget(r)}
                   disabled={actingId === r.id}
                   className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
                   title="Supprimer la demande (tracé dans l'audit)"
@@ -657,6 +660,35 @@ function Inner() {
         onClose={() => setGuaranteeTarget(null)}
         onSubmit={submitGuaranteeEval}
         submitting={actingId !== null}
+      />
+
+      {/* Suppression tracée — modale custom (remplace le window.prompt natif
+          qui gelait l'onglet). Le motif saisi part dans l'audit .txt. */}
+      <ConfirmModal
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title={
+          deleteTarget
+            ? `Supprimer la demande #${deleteTarget.id} ?`
+            : "Supprimer la demande ?"
+        }
+        tone="danger"
+        confirmLabel="Supprimer définitivement"
+        message={
+          <>
+            Cette action supprime définitivement la demande
+            {deleteTarget?.loan ? " et le crédit associé" : ""} et reste{" "}
+            <strong>tracée dans le fichier d'audit</strong>. Un crédit financé
+            par des prêteurs ne peut pas être supprimé (invalide d'abord les
+            paiements concernés).
+          </>
+        }
+        input={{
+          label: "Motif de la suppression (optionnel)",
+          placeholder: "ex. doublon, demande de test…",
+          multiline: true,
+        }}
       />
 
       {/* Cash-in frais d'etude (CH-7). Pre-remplit membre + type + montant
