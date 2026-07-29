@@ -339,6 +339,11 @@ export type LoanRequest = {
   garantie_description?: string;
   garantie_valeur_estimee?: string;
   montant_gele_demandeur?: string;
+  // CH-9 — Canal + numéro de réception souhaités par le membre. Le décaissement
+  // est manuel : l'agent lit ces champs pour savoir OÙ verser les fonds.
+  moyen_reception?: "" | "tara_om" | "tara_momo" | "agence_especes";
+  moyen_reception_display?: string;
+  recipient_phone?: string;
   loan: {
     id: number;
     numero_dossier: string;

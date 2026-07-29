@@ -14,6 +14,16 @@ import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 
 
+// CH-9 — Fallback lisible du canal de réception si le backend ne renvoie pas
+// `moyen_reception_display` (le décaissement est manuel : sert à indiquer à
+// l'agent OÙ verser les fonds).
+const RECEPTION_LABEL: Record<string, string> = {
+  tara_om: "Orange Money",
+  tara_momo: "MTN MoMo",
+  agence_especes: "Espèces (agence)",
+};
+
+
 function formatXAF(amount: string): string {
   const n = Number(amount);
   if (Number.isNaN(n)) return amount;
@@ -888,6 +898,28 @@ function DisburseManualModal({
       }
     >
       <div className="space-y-4">
+        {target?.moyen_reception ? (
+          <div className="rounded-lg border border-blue-700/20 bg-blue-50/60 px-3 py-2.5 text-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">
+              Souhait de réception du membre
+            </p>
+            <p className="mt-0.5 font-medium text-ink-800">
+              {target.moyen_reception_display ??
+                RECEPTION_LABEL[target.moyen_reception] ??
+                target.moyen_reception}
+              {target.recipient_phone ? (
+                <>
+                  {" · "}
+                  <span className="font-mono">{target.recipient_phone}</span>
+                </>
+              ) : null}
+            </p>
+          </div>
+        ) : (
+          <p className="rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-xs text-ink-500">
+            Aucun canal de réception précisé par le membre.
+          </p>
+        )}
         <p className="text-sm text-ink-700">
           Effectue le versement au membre (virement bancaire ou remise en
           espèces), puis enregistre la référence du reçu. Le crédit passera alors

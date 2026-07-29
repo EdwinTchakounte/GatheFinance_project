@@ -38,8 +38,8 @@ _MOIS_FR = [
 ]
 
 _MOYEN_RECEPTION_LABEL = {
-    "tara_om": "Orange Money (Tara)",
-    "tara_momo": "MTN Mobile Money (Tara)",
+    "tara_om": "Orange Money",
+    "tara_momo": "MTN Mobile Money",
     "agence_especes": "Retrait espèces en agence",
 }
 

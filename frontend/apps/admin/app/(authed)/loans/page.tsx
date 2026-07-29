@@ -513,6 +513,22 @@ function DisbursementCell({
             <strong>{fullName(row.member.prenom, row.member.nom)}</strong> (
             {row.member.numero_membre}) par virement ou remise en espèces, puis
             enregistre ci-dessous la référence du reçu.
+            {moyen ? (
+              <span className="mt-2 block rounded-lg border border-blue-700/20 bg-blue-50/60 px-3 py-2 text-[13px]">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">
+                  Souhait de réception du membre
+                </span>
+                <span className="mt-0.5 block font-medium text-ink-800">
+                  {MOYEN_LABEL[moyen] ?? moyen}
+                  {row.recipient_phone ? (
+                    <>
+                      {" · "}
+                      <span className="font-mono">{row.recipient_phone}</span>
+                    </>
+                  ) : null}
+                </span>
+              </span>
+            ) : null}
           </>
         }
         input={{

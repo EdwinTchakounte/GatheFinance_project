@@ -538,9 +538,14 @@ class LoanRequest(TimestampedModel):
     # Saisi en amont (avant approbation), il pilote ensuite l'auto-fill du
     # payout Tara et apparaît sur la note de demande PDF (Sinora §5.3 flow).
     class MoyenReception(models.TextChoices):
-        TARA_OM = "tara_om", "Tara Orange Money"
-        TARA_MOMO = "tara_momo", "Tara MTN MoMo"
-        AGENCE_ESPECES = "agence_especes", "Retrait espèces en agence"
+        # Libellés génériques : le payout auto Tara est retiré, le décaissement
+        # est manuel. Ce champ indique seulement OÙ le membre veut recevoir les
+        # fonds (l'agent verse ensuite manuellement sur ce canal). Les *valeurs*
+        # (tara_om/tara_momo) restent inchangées pour compat DB / réactivation
+        # future d'un payout automatique.
+        TARA_OM = "tara_om", "Orange Money"
+        TARA_MOMO = "tara_momo", "MTN MoMo"
+        AGENCE_ESPECES = "agence_especes", "Espèces en agence"
 
     moyen_reception = models.CharField(
         max_length=16,
