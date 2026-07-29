@@ -19,16 +19,32 @@ void main() {
   });
 
   group('SubmitLoanRequest — validation', () {
-    test('refuse un montant < 50 000 XAF', () {
+    test('refuse un montant < 5 000 XAF (plancher = kMinLoanAmount)', () {
       expect(
         () => useCase.call(const SubmitLoanRequestParams(
-          montantDemande: 40000,
-          dureeMois: 3,
+          montantDemande: 4000,
+          dureeMois: 2,
           motif: 'Achat outillage pro pour ma boutique',
         ),),
         throwsA(isA<ValidationFailure>()
             .having((f) => f.field, 'field', 'montant'),),
       );
+    });
+
+    test('accepte un montant de 40 000 XAF (au-dessus du plancher 5 000)',
+        () async {
+      final created = LoanRequestSubmission(request: Fixtures.loanRequest());
+      when(() => repo.submitRequest(
+            montantDemande: 40000,
+            dureeMois: 4,
+            motif: 'Achat outillage pro pour ma boutique',
+          ),).thenAnswer((_) async => created);
+      final result = await useCase.call(const SubmitLoanRequestParams(
+        montantDemande: 40000,
+        dureeMois: 4,
+        motif: 'Achat outillage pro pour ma boutique',
+      ),);
+      expect(result, created);
     });
 
     test('refuse une durée < 2 mois (Art. 7 : plancher 2 mois)', () {
