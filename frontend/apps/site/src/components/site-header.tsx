@@ -73,7 +73,7 @@ export async function SiteHeader() {
           <div className="grid items-center gap-4 py-2.5 md:grid-cols-[1fr_auto_1fr] md:gap-5 lg:py-3">
             {/* Left — FR tagline */}
             <div className="pr-4 text-right lg:pr-8">
-              <p className="font-display text-[0.7rem] font-medium uppercase leading-[1.3] tracking-[0.08em] text-terra-300">
+              <p lang="fr" className="font-display text-[0.7rem] font-medium uppercase leading-[1.3] tracking-[0.08em] text-terra-300">
                 {tHomeFr("about.title")}
               </p>
             </div>
@@ -89,7 +89,7 @@ export async function SiteHeader() {
 
             {/* Right — EN tagline */}
             <div className="pl-4 text-left lg:pl-8">
-              <p className="font-display text-[0.7rem] font-medium uppercase leading-[1.3] tracking-[0.08em] text-terra-300">
+              <p lang="en" className="font-display text-[0.7rem] font-medium uppercase leading-[1.3] tracking-[0.08em] text-terra-300">
                 {tHomeEn("about.title")}
               </p>
             </div>
