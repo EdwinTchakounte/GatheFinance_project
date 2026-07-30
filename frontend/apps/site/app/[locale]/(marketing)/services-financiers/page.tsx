@@ -28,7 +28,8 @@ import { KeyFiguresBand } from "@/components/key-figures-band";
 import { Reveal } from "@/components/reveal";
 import { SectionHeading } from "@/components/section-heading";
 import { images } from "@/lib/site-config";
-import { pageAlternates } from "@/lib/seo";
+import { pageAlternates, SITE_URL } from "@/lib/seo";
+import { JsonLd, breadcrumbJsonLd } from "@/components/json-ld";
 
 type Params = { params: Promise<{ locale: string }> };
 
@@ -220,6 +221,12 @@ export default async function ServicesPage({ params }: Params) {
 
   return (
     <>
+      <JsonLd
+        data={breadcrumbJsonLd(SITE_URL, [
+          { name: tn("home"), path: "/" },
+          { name: t("title"), path: "/services-financiers" },
+        ])}
+      />
       <PageHeader
         eyebrow={t("eyebrow")}
         title={t("title")}

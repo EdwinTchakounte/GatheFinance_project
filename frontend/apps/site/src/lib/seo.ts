@@ -8,6 +8,9 @@
  * Routing : `fr` = locale par défaut SANS préfixe (`/contact`), `en` préfixée
  * (`/en/contact`). L'accueil est `/` (fr) et `/en` (en).
  */
+/** URL publique du site (baked au build via NEXT_PUBLIC_SITE_URL). */
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+
 export function pageAlternates(locale: string, path: string) {
   // `path` = chemin sans préfixe de locale, commençant par "/" ("/" pour l'accueil).
   const fr = path;
