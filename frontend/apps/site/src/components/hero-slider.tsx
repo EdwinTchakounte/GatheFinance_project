@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 
 import { cn } from "@gathe/ui";
 
@@ -13,8 +12,8 @@ export type HeroSlide = { src: string; alt?: string };
  *  - On scroll, the photo layer drifts up by ~10% and scales up by ~6% over
  *    the first ~800 px of scroll. The overlay tints stay still, so the
  *    headline keeps reading cleanly even when the photos move.
- *  - `prefers-reduced-motion` collapses the parallax to a no-op via Framer's
- *    `useReducedMotion`. */
+ *  - `prefers-reduced-motion` désactive la parallaxe.
+ *  - Natif (scroll listener + rAF) — plus de dépendance framer-motion. */
 export function HeroSlider({
   slides,
   intervalMs = 5500,
@@ -25,15 +24,9 @@ export function HeroSlider({
   className?: string;
 }) {
   const [idx, setIdx] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const reduce = useReducedMotion();
+  const layerRef = useRef<HTMLDivElement>(null);
 
-  // Framer reads window scrollY transparently — Lenis interpolation is
-  // already pumping that value, so we don't need to wire anything else.
-  const { scrollY } = useScroll();
-  const y = useTransform(scrollY, [0, 800], reduce ? ["0%", "0%"] : ["0%", "-10%"]);
-  const scale = useTransform(scrollY, [0, 800], reduce ? [1, 1] : [1, 1.06]);
-
+  // Cross-fade automatique
   useEffect(() => {
     if (slides.length < 2) return;
     const id = setInterval(() => {
@@ -42,10 +35,33 @@ export function HeroSlider({
     return () => clearInterval(id);
   }, [slides.length, intervalMs]);
 
+  // Parallaxe au scroll (throttlée en rAF, désactivée en reduced-motion)
+  useEffect(() => {
+    const el = layerRef.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const p = Math.min(window.scrollY / 800, 1);
+      el.style.transform = `translateY(${-10 * p}%) scale(${1 + 0.06 * p})`;
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
-    <div aria-hidden="true" className={cn("absolute inset-0 -z-10", className)} ref={ref}>
-      {/* Parallax photo layer */}
-      <motion.div style={{ y, scale }} className="absolute inset-0 will-change-transform">
+    <div aria-hidden="true" className={cn("absolute inset-0 -z-10", className)}>
+      {/* Couche photo (parallaxe) */}
+      <div ref={layerRef} className="absolute inset-0 will-change-transform">
         {slides.map((s, i) => (
           <div
             key={s.src}
@@ -64,14 +80,13 @@ export function HeroSlider({
             />
           </div>
         ))}
-      </motion.div>
+      </div>
 
-      {/* Static overlay tints — kept outside parallax so the headline stays
-          readable at any scroll depth */}
+      {/* Overlays statiques — hors parallaxe pour garder le titre lisible */}
       <div className="absolute inset-0 bg-[linear-gradient(96deg,rgba(5,29,58,0.95)_0%,rgba(5,29,58,0.78)_45%,rgba(5,29,58,0.45)_90%)]" />
       <div className="absolute inset-0 bg-blue-950/30" />
 
-      {/* Slide indicators — sober hairline dots */}
+      {/* Indicateurs de slide */}
       {slides.length > 1 ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-6 flex items-center justify-center gap-2">
           {slides.map((s, i) => (

@@ -2,20 +2,19 @@
 
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useRef } from "react";
-import { motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
 
 import { cn } from "@gathe/ui";
 
 /**
  * Magnetic interaction — wraps any focusable element (button, link, etc.) and
  * makes it follow the pointer when the cursor is inside its bounding box.
- * Subtle by default (`strength: 0.28` → max ≈ 5-8 px of pull on a standard
- * lg button), the spring eases the element back to rest on pointer-leave.
+ * Subtle by default (`strength: 0.28`), un retour élastique (transition CSS)
+ * ramène l'élément au repos au pointer-leave.
  *
- *  - Respects `prefers-reduced-motion` (no transform, just renders children).
- *  - Wrapper is `inline-flex` so it doesn't break button layout.
- *  - Pointer events used (works for mouse + pen, but not touch — desktop-only
- *    flourish by design).
+ *  - Respecte `prefers-reduced-motion` (aucun transform).
+ *  - Wrapper `inline-flex` pour ne pas casser la mise en page du bouton.
+ *  - Pointer events (souris + stylet, pas le tactile — flourish desktop).
+ *  - Natif : plus de dépendance framer-motion (transform manipulé en direct).
  */
 export function Magnetic({
   children,
@@ -27,38 +26,42 @@ export function Magnetic({
   className?: string;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const reduce = useReducedMotion();
 
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const xs = useSpring(x, { stiffness: 240, damping: 22, mass: 0.55 });
-  const ys = useSpring(y, { stiffness: 240, damping: 22, mass: 0.55 });
+  function prefersReduce() {
+    return (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
+  }
 
   function handleMove(e: ReactPointerEvent<HTMLSpanElement>) {
-    if (reduce || e.pointerType === "touch") return;
+    if (e.pointerType === "touch" || prefersReduce()) return;
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    x.set((e.clientX - cx) * strength);
-    y.set((e.clientY - cy) * strength);
+    el.style.transition = "transform 120ms ease-out";
+    el.style.transform = `translate(${(e.clientX - cx) * strength}px, ${(e.clientY - cy) * strength}px)`;
   }
 
   function handleLeave() {
-    x.set(0);
-    y.set(0);
+    const el = ref.current;
+    if (!el) return;
+    // Retour au repos élastique (ease-out cubic).
+    el.style.transition = "transform 350ms cubic-bezier(0.22, 1, 0.36, 1)";
+    el.style.transform = "translate(0px, 0px)";
   }
 
   return (
-    <motion.span
+    <span
       ref={ref}
       onPointerMove={handleMove}
       onPointerLeave={handleLeave}
-      style={reduce ? undefined : { x: xs, y: ys }}
+      style={{ willChange: "transform" }}
       className={cn("inline-flex", className)}
     >
       {children}
-    </motion.span>
+    </span>
   );
 }
