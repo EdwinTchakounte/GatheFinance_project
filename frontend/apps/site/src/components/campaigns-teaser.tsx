@@ -79,6 +79,8 @@ export function CampaignsTeaser() {
               <img
                 src={c.flyer_url}
                 alt={c.nom}
+                loading="lazy"
+                decoding="async"
                 className="h-40 w-full object-cover"
               />
               <div className="flex flex-1 flex-col p-5">

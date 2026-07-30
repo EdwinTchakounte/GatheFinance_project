@@ -21,6 +21,11 @@ const nextConfig = {
       { protocol: "http", hostname: "backend", port: "8200" },
       { protocol: "https", hostname: "cms.gathe-finance.com" },
       { protocol: "https", hostname: "media.gathe-finance.com" },
+      // Serveur CLIENTE (DMZ) : les médias/covers CMS sont servis depuis
+      // cms./media./s3./api.gathe-finance.com selon la config MinIO/Wagtail.
+      // Wildcard pour couvrir les 4 sans casser next/image (même classe de bug
+      // que le fallback horus-lab plus bas).
+      { protocol: "https", hostname: "**.gathe-finance.com" },
       // Production prod actuelle . Contabo VPS sur horus-lab.com.
       // Wildcard : couvre cms/media/api.* (les covers d'articles sont servies
       // depuis cms.gathe-finance.horus-lab.com = WAGTAILADMIN_BASE_URL) — sans

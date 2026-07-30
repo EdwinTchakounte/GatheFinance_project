@@ -70,8 +70,16 @@ function BlockView({ block }: { block: StreamBlock }) {
       if (!img?.url) return null;
       return (
         <figure className="mt-8">
+          {/* img brut (et non next/image) : robuste à tout host média CMS/MinIO,
+              cf. next.config remotePatterns. lazy+async pour les Core Web Vitals. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={img.url} alt={v.alt || img.alt || ""} className="rounded-[var(--radius-xl)]" />
+          <img
+            src={img.url}
+            alt={v.alt || img.alt || ""}
+            loading="lazy"
+            decoding="async"
+            className="rounded-[var(--radius-xl)]"
+          />
           {v.caption ? <figcaption className="mt-2 text-sm text-ink-500">{v.caption}</figcaption> : null}
         </figure>
       );
