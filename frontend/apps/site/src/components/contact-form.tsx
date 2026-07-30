@@ -721,7 +721,7 @@ function FilePickerInput({
               if (inputRef.current) inputRef.current.value = "";
               onChange(null);
             }}
-            className="rounded-full p-1 text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900"
+            className="inline-flex size-9 items-center justify-center rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900"
             aria-label="Retirer le fichier"
           >
             <X aria-hidden="true" className="size-4" />

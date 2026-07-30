@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentType, SVGProps } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import {
@@ -45,6 +45,8 @@ export function MobileNav({ items, joinLabel, memberLabel }: { items: NavEntry[]
   const [mounted, setMounted] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const t = useTranslations("nav");
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -62,8 +64,59 @@ export function MobileNav({ items, joinLabel, memberLabel }: { items: NavEntry[]
     setExpanded(null);
   };
 
+  // A11y : quand le drawer est ouvert, on déplace le focus dedans, on piège Tab
+  // à l'intérieur (focus-trap), on ferme sur Échap, et on restitue le focus au
+  // bouton burger à la fermeture.
+  useEffect(() => {
+    if (!open) return;
+    const focusables = () =>
+      drawerRef.current
+        ? Array.from(
+            drawerRef.current.querySelectorAll<HTMLElement>(
+              'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
+            ),
+          ).filter((el) => el.offsetParent !== null)
+        : [];
+
+    focusables()[0]?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const f = focusables();
+      if (f.length === 0) return;
+      const first = f[0]!;
+      const last = f[f.length - 1]!;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      triggerRef.current?.focus();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const drawer = open ? (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-paper lg:hidden">
+    <div
+      ref={drawerRef}
+      id="mobile-nav-drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Menu"
+      className="fixed inset-0 z-[60] flex flex-col bg-paper lg:hidden"
+    >
       {/* ===== Drawer header — brand + close ===== */}
       <div className="flex h-16 items-center justify-between border-b border-line-200 bg-surface-50 px-5">
         <Link href="/" onClick={close} aria-label={siteConfig.name} className="inline-flex">
@@ -216,7 +269,7 @@ export function MobileNav({ items, joinLabel, memberLabel }: { items: NavEntry[]
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Facebook"
-                className="inline-flex size-8 items-center justify-center rounded-full border border-line-200 text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
+                className="inline-flex size-11 items-center justify-center rounded-full border border-line-200 text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
               >
                 <Facebook aria-hidden="true" className="size-3.5" />
               </a>
@@ -225,7 +278,7 @@ export function MobileNav({ items, joinLabel, memberLabel }: { items: NavEntry[]
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="LinkedIn"
-                className="inline-flex size-8 items-center justify-center rounded-full border border-line-200 text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
+                className="inline-flex size-11 items-center justify-center rounded-full border border-line-200 text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
               >
                 <Linkedin aria-hidden="true" className="size-4" />
               </a>
@@ -254,9 +307,11 @@ export function MobileNav({ items, joinLabel, memberLabel }: { items: NavEntry[]
   return (
     <div className="lg:hidden">
       <button
+        ref={triggerRef}
         type="button"
         aria-label={open ? t("closeMenu") : t("openMenu")}
         aria-expanded={open}
+        aria-controls="mobile-nav-drawer"
         onClick={() => setOpen((v) => !v)}
         className="inline-flex size-10 items-center justify-center rounded-full text-ink-700 transition-colors hover:bg-cream hover:text-blue-700"
       >

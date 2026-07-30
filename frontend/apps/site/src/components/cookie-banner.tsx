@@ -56,7 +56,7 @@ export function CookieBanner() {
             type="button"
             aria-label={t("decline")}
             onClick={() => decide("declined")}
-            className="absolute right-3 top-3 text-ink-400 hover:text-ink-700 sm:hidden"
+            className="absolute right-2 top-2 inline-flex size-9 items-center justify-center rounded-full text-ink-500 hover:bg-ink-100 hover:text-ink-700 sm:hidden"
           >
             <X aria-hidden="true" className="size-4" />
           </button>

@@ -60,7 +60,7 @@ export async function Hero({ locale }: { locale: string }) {
             </Reveal>
             <Reveal delay={120}>
               <h1 className="mt-7 font-editorial text-display font-semibold leading-[1.02] tracking-[-0.02em] text-white [text-shadow:0_2px_28px_rgba(5,29,58,0.6)]">
-                <span className="block whitespace-nowrap text-white">{t("hero.titlePre")}</span>
+                <span className="block text-white sm:whitespace-nowrap">{t("hero.titlePre")}</span>
                 <span className="mt-1 block text-emerald sm:mt-2">{t("hero.titleAccent")}</span>
               </h1>
             </Reveal>
@@ -120,7 +120,7 @@ export async function Hero({ locale }: { locale: string }) {
               <span className="font-semibold tracking-tight">
                 <CountUp value={4500} locale={locale} />
               </span>
-              <span className="hidden text-[0.7rem] font-normal text-blue-200/75 sm:inline">
+              <span className="sr-only text-[0.7rem] font-normal text-blue-200/90 sm:not-sr-only sm:inline">
                 · {t("stats.projectsLabel")}
               </span>
             </p>
@@ -131,7 +131,7 @@ export async function Hero({ locale }: { locale: string }) {
               <span className="font-semibold tracking-tight">
                 <CountUp value={400} locale={locale} suffix={` ${t("stats.fundedSuffix")}`} />
               </span>
-              <span className="hidden text-[0.7rem] font-normal text-blue-200/75 sm:inline">
+              <span className="sr-only text-[0.7rem] font-normal text-blue-200/90 sm:not-sr-only sm:inline">
                 · {t("stats.fundedLabel")}
               </span>
             </p>

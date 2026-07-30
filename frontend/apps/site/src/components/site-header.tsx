@@ -39,7 +39,7 @@ export async function SiteHeader() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook"
-              className="inline-flex size-8 items-center justify-center rounded-full border border-line-200 text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-line-200 text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
             >
               <Facebook aria-hidden="true" className="size-3.5" />
             </a>
@@ -48,7 +48,7 @@ export async function SiteHeader() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="LinkedIn"
-              className="inline-flex size-8 items-center justify-center rounded-full border border-line-200 text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-line-200 text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
             >
               <Linkedin aria-hidden="true" className="size-4" />
             </a>
