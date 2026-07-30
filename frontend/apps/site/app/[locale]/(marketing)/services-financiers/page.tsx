@@ -325,9 +325,6 @@ export default async function ServicesPage({ params }: Params) {
                         {t(`pillars.${pillar.key}.title`)}
                       </h2>
                     </div>
-                    <p className="mt-6 max-w-none text-lg leading-relaxed text-ink-600">
-                      {t.rich(`pillars.${pillar.key}.intro`, rich)}
-                    </p>
                   </Reveal>
                 </div>
 
@@ -402,8 +399,15 @@ export default async function ServicesPage({ params }: Params) {
                 </Reveal>
               </div>
 
+              {/* Intro pilier — pleine largeur, éditoriale (2-3 lignes) */}
+              <Reveal className="mt-12 max-w-none">
+                <p className="text-lg leading-relaxed text-ink-600 sm:text-xl">
+                  {t.rich(`pillars.${pillar.key}.intro`, rich)}
+                </p>
+              </Reveal>
+
               {/* Grille d'items éditoriaux enrichis */}
-              <div className="mt-16 grid gap-5 sm:grid-cols-2">
+              <div className="mt-12 grid gap-5 sm:grid-cols-2">
                 {pillar.items.map((item, j) => {
                   const Icon = ICONS[item] ?? Banknote;
                   return (
