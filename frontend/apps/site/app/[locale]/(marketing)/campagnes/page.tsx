@@ -5,7 +5,8 @@ import { Container } from "@gathe/ui";
 import { PageHeader } from "@/components/page-shell";
 import { CampaignsPublic } from "@/components/campaigns-public";
 import { images } from "@/lib/site-config";
-import { pageAlternates } from "@/lib/seo";
+import { pageAlternates, SITE_URL } from "@/lib/seo";
+import { JsonLd, breadcrumbJsonLd } from "@/components/json-ld";
 
 type Params = { params: Promise<{ locale: string }> };
 
@@ -25,6 +26,12 @@ export default async function CampagnesPage({ params }: Params) {
 
   return (
     <>
+      <JsonLd
+        data={breadcrumbJsonLd(SITE_URL, [
+          { name: "Accueil", path: "/" },
+          { name: "Campagnes micro-crédit", path: "/campagnes" },
+        ])}
+      />
       <PageHeader
         eyebrow="Micro-crédit"
         title="Campagnes ouvertes"
