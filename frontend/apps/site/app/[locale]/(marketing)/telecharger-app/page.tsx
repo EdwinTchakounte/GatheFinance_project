@@ -7,7 +7,7 @@ import { Download, Shield, Smartphone } from "lucide-react";
 import { Container } from "@gathe/ui";
 import { PageHeader } from "@/components/page-shell";
 import { InstitutionalDecor } from "@/components/institutional-decor";
-import { images, siteConfig } from "@/lib/site-config";
+import { images } from "@/lib/site-config";
 
 type Params = { params: Promise<{ locale: string }> };
 

@@ -15,7 +15,6 @@ import { Magnetic } from "@/components/magnetic";
  *  like a press chapeau rather than UI body copy. */
 export async function Hero({ locale }: { locale: string }) {
   const t = await getTranslations({ locale, namespace: "home" });
-  const ta = await getTranslations({ locale, namespace: "about" });
 
   const slides = [
     { src: images.entrepreneurs },

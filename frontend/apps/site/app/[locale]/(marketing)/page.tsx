@@ -2,7 +2,7 @@ import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 
-import { buttonClasses, cn, Container } from "@gathe/ui";
+import { cn, Container } from "@gathe/ui";
 import { Link } from "@/i18n/navigation";
 import { ArticleCard } from "@/components/article-card";
 import { CampaignsTeaser } from "@/components/campaigns-teaser";

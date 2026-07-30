@@ -139,7 +139,6 @@ export default async function AboutPage({ params }: Params) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "about" });
-  const th = await getTranslations({ locale, namespace: "home" });
   const tn = await getTranslations({ locale, namespace: "nav" });
   const objectives = t.raw("objectives") as string[];
 

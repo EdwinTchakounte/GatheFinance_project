@@ -26,7 +26,6 @@ import { InstitutionalDecor } from "@/components/institutional-decor";
 import { AnchorStrip } from "@/components/anchor-strip";
 import { KeyFiguresBand } from "@/components/key-figures-band";
 import { Reveal } from "@/components/reveal";
-import { SectionHeading } from "@/components/section-heading";
 import { images } from "@/lib/site-config";
 import { pageAlternates, SITE_URL } from "@/lib/seo";
 import { JsonLd, breadcrumbJsonLd } from "@/components/json-ld";

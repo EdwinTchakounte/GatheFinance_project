@@ -1,0 +1,158 @@
+# Continuous Deployment vers le VPS Contabo de RECETTE (horus-lab).
+#
+# Modèle dissocié (cf. docs/ARCHITECTURE_DEPLOIEMENT_DISSOCIE.pdf) :
+#   - branche `staging` -> serveur recette (gathe-finance.horus-lab.com), images :staging
+#   - branche `main`    -> serveur CLIENTE (DMZ), images :main  (voir deploy.yml)
+#
+# Déclenchement :
+#   - workflow_run "CI" succeeded sur `staging` -> deploy auto de la recette
+#   - workflow_dispatch                         -> deploy manuel (rejouer / pin tag)
+#
+# ⚠️ La recette tire les images `:staging` (domaines horus-lab figés au build).
+#    NE PAS utiliser `latest` ici : `latest` n'est produit que par `main` et
+#    portera les domaines CLIENT une fois main = cliente.
+#
+# Secrets (repo/production) : VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY, VPS_DEPLOY_PATH (opt.)
+
+name: Deploy to staging (recette)
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [staging]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Tag d'images GHCR à déployer sur la recette (staging, sha-XXXX)"
+        required: false
+        default: "staging"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy on Contabo recette (horus-lab)
+    runs-on: ubuntu-latest
+
+    # Ne tourne que si CI verte OU dispatch manuel
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    environment:
+      name: production
+      url: https://gathe-finance.horus-lab.com
+
+    steps:
+      - name: Checkout (compose files + scripts)
+        uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=staging" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Resolved tag: $(grep ^tag= "$GITHUB_OUTPUT" | cut -d= -f2)"
+
+      - name: Hash infra/ pour detecter changement compose
+        id: infra_hash
+        run: |
+          HASH=$(find infra/ -type f \( -name "*.yml" -o -name "*.conf" -o -name "*.sh" \) -print0 \
+            | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-12)
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+          echo "infra hash: $HASH"
+
+      - name: Upload infra/ vers le VPS (remplace git pull)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          source: "infra/docker-compose.prod.yml,infra/docker-compose.nginx-external.yml,infra/nginx.gathe-finance.container.conf,infra/scripts/*"
+          target: "${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}/"
+          overwrite: true
+          strip_components: 0
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 10m
+          envs: INFRA_HASH
+          script: |
+            set -euo pipefail
+
+            INFRA_HASH="${{ steps.infra_hash.outputs.hash }}"
+            DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
+            NEW_TAG="${{ steps.tag.outputs.tag }}"
+            # VPS Contabo mutualisé derrière un nginx externe (backend-nginx-1).
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml --env-file .env.prod"
+            EXTERNAL_NGINX="backend-nginx-1"
+
+            cd "$DEPLOY_PATH/infra"
+
+            HASH_FILE="$DEPLOY_PATH/.infra_hash"
+            PREV_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "none")
+            if [ "$PREV_HASH" != "$INFRA_HASH" ]; then
+              echo ">>> infra/ changed ($PREV_HASH -> $INFRA_HASH) : --force-recreate"
+              RECREATE_FLAG="--force-recreate"
+            else
+              echo ">>> infra/ unchanged ($INFRA_HASH)"
+              RECREATE_FLAG=""
+            fi
+            echo "$INFRA_HASH" > "$HASH_FILE"
+
+            CURRENT_TAG=$(grep "^GATHE_IMAGE_TAG=" .env.prod | cut -d= -f2 || echo "staging")
+            echo ">>> Current tag: $CURRENT_TAG | New tag: $NEW_TAG"
+            sed -i.bak "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$NEW_TAG/" .env.prod
+
+            echo ">>> Pulling images..."
+            $COMPOSE pull
+
+            echo ">>> Starting services... ${RECREATE_FLAG:-(no recreate)}"
+            $COMPOSE up -d ${RECREATE_FLAG}
+
+            echo ">>> Waiting for backend healthcheck..."
+            for i in $(seq 1 18); do
+              STATUS=$($COMPOSE ps --format json backend 2>/dev/null | grep -o '"Health":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+              echo "  attempt $i/18: backend=$STATUS"
+              [ "$STATUS" = "healthy" ] && break
+              if [ "$i" -eq "18" ]; then
+                echo "!!! Backend never healthy. Rolling back to $CURRENT_TAG."
+                sed -i.bak "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$CURRENT_TAG/" .env.prod
+                $COMPOSE up -d
+                exit 1
+              fi
+              sleep 5
+            done
+
+            echo ">>> Reloading external nginx..."
+            docker restart "$EXTERNAL_NGINX" || true
+
+            echo ">>> Deploy OK on $NEW_TAG"
+            $COMPOSE ps
+
+      - name: Smoke tests (recette)
+        run: |
+          set -e
+          FAILED=0
+          for url in \
+            https://api.gathe-finance.horus-lab.com/healthz/ \
+            https://gathe-finance.horus-lab.com/ \
+            https://portail.gathe-finance.horus-lab.com/ \
+            https://admin.gathe-finance.horus-lab.com/ \
+            https://cms.gathe-finance.horus-lab.com/admin/
+          do
+            code=$(curl -sLo /dev/null -w "%{http_code}" --max-time 15 "$url" || echo "000")
+            if [[ "$code" =~ ^(2|3) ]]; then
+              echo "✓ $url -> HTTP $code"
+            else
+              echo "✗ $url -> HTTP $code"; FAILED=$((FAILED+1))
+            fi
+          done
+          [ "$FAILED" -gt 0 ] && { echo "!!! $FAILED endpoint(s) en échec."; exit 1; } || echo "Tous les endpoints recette répondent OK."

@@ -58,7 +58,7 @@ export default function OpengraphImage() {
               maxWidth: 960,
             }}
           >
-            L'auto-financement solidaire au service du Cameroun
+            {"L'auto-financement solidaire au service du Cameroun"}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ width: 64, height: 5, background: "#3aaa35", borderRadius: 4 }} />

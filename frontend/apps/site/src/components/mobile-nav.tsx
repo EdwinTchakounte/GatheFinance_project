@@ -69,6 +69,7 @@ export function MobileNav({ items, joinLabel, memberLabel }: { items: NavEntry[]
   // bouton burger à la fermeture.
   useEffect(() => {
     if (!open) return;
+    const trigger = triggerRef.current; // capturé tôt pour le cleanup (nœud stable)
     const focusables = () =>
       drawerRef.current
         ? Array.from(
@@ -103,7 +104,7 @@ export function MobileNav({ items, joinLabel, memberLabel }: { items: NavEntry[]
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      triggerRef.current?.focus();
+      trigger?.focus();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
