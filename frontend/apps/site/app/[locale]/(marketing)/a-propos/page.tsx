@@ -22,18 +22,30 @@ import { AnchorStrip } from "@/components/anchor-strip";
 import { SectionHeading } from "@/components/section-heading";
 import { KeyFiguresBand } from "@/components/key-figures-band";
 import { images, siteConfig } from "@/lib/site-config";
+import { pageAlternates, SITE_URL } from "@/lib/seo";
+import { JsonLd, breadcrumbJsonLd } from "@/components/json-ld";
 
 type Params = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "about" });
-  return { title: t("title"), description: t("lead") };
+  return { title: t("title"), description: t("lead"), alternates: pageAlternates(locale, "/a-propos") };
 }
 
 const rich = {
   strong: (chunks: React.ReactNode) => (
     <strong className="font-semibold text-ink-900">{chunks}</strong>
+  ),
+};
+
+/** Emphase pour les panneaux sombres (navy) : le noir y est illisible → blanc
+ *  souligné d'un accent émeraude. */
+const richOnDark = {
+  strong: (chunks: React.ReactNode) => (
+    <strong className="font-semibold text-white underline decoration-emerald/70 decoration-2 underline-offset-[6px]">
+      {chunks}
+    </strong>
   ),
 };
 
@@ -127,12 +139,17 @@ export default async function AboutPage({ params }: Params) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "about" });
-  const th = await getTranslations({ locale, namespace: "home" });
   const tn = await getTranslations({ locale, namespace: "nav" });
   const objectives = t.raw("objectives") as string[];
 
   return (
     <>
+      <JsonLd
+        data={breadcrumbJsonLd(SITE_URL, [
+          { name: tn("home"), path: "/" },
+          { name: t("title"), path: "/a-propos" },
+        ])}
+      />
       <PageHeader
         eyebrow={t("eyebrow")}
         title={t("title")}
@@ -168,7 +185,7 @@ export default async function AboutPage({ params }: Params) {
                 eyebrow={t("missionTitle")}
                 title={t("missionTitle")}
               />
-              <p className="lead-with-cap mt-7 max-w-2xl text-lg leading-relaxed text-ink-600">
+              <p className="lead-with-cap mt-7 max-w-none text-lg leading-relaxed text-ink-600">
                 {t.rich("intro", rich)}
               </p>
 
@@ -197,9 +214,9 @@ export default async function AboutPage({ params }: Params) {
               />
               <div
                 aria-hidden="true"
-                className="absolute -bottom-4 -right-4 hidden h-full w-full rounded-md border-2 border-terra-500/40 lg:block"
+                className="absolute -bottom-4 -right-4 hidden h-full w-full rounded-2xl border-2 border-terra-500/40 lg:block"
               />
-              <div className="relative aspect-[4/4.4] overflow-hidden rounded-md shadow-[0_30px_60px_-20px_rgba(14,77,146,0.35)] ring-1 ring-line-200">
+              <div className="relative aspect-[4/4.4] overflow-hidden rounded-2xl shadow-[0_30px_60px_-20px_rgba(14,77,146,0.35)] ring-1 ring-line-200">
                 <Image
                   src={images.entrepreneurFamily}
                   alt="Entrepreneurs camerounais accompagnés par la coopérative"
@@ -253,7 +270,7 @@ export default async function AboutPage({ params }: Params) {
               <Reveal
                 key={i}
                 delay={i * 60}
-                className="group relative isolate overflow-hidden rounded-2xl bg-paper p-7 shadow-[0_2px_4px_rgba(14,29,58,0.04)] ring-1 ring-line-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(14,77,146,0.18)] hover:ring-blue-200"
+                className="group relative isolate overflow-hidden rounded-[1.5rem] bg-paper p-8 shadow-[0_1px_2px_rgba(14,29,58,0.04),0_12px_28px_-20px_rgba(14,29,58,0.16)] ring-1 ring-line-200/60 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_24px_48px_-24px_rgba(14,77,146,0.2)] hover:ring-line-200"
               >
                 <div
                   aria-hidden="true"
@@ -298,7 +315,7 @@ export default async function AboutPage({ params }: Params) {
                 Notre conviction
               </span>
               <p className="mt-5 font-editorial text-2xl italic leading-[1.4] text-white sm:text-[1.7rem]">
-                {t.rich("callout", rich)}
+                {t.rich("callout", richOnDark)}
               </p>
             </div>
           </Reveal>
@@ -326,6 +343,7 @@ export default async function AboutPage({ params }: Params) {
                 eyebrow={tn("aboutTeam")}
                 title={t("teamTitle")}
                 lead={t("teamText")}
+                wideLead
               />
               <Link
                 href="/contact"
@@ -343,7 +361,7 @@ export default async function AboutPage({ params }: Params) {
                 className="absolute -inset-8 rounded-3xl bg-gradient-to-br from-blue-100 via-paper to-emerald/15 blur-2xl"
               />
               <div className="relative grid grid-cols-5 grid-rows-2 gap-3">
-                <div className="relative col-span-3 row-span-2 aspect-[4/5] overflow-hidden rounded-md shadow-[0_30px_60px_-20px_rgba(14,77,146,0.35)] ring-1 ring-line-200">
+                <div className="relative col-span-3 row-span-2 aspect-[4/5] overflow-hidden rounded-2xl shadow-[0_30px_60px_-20px_rgba(14,77,146,0.35)] ring-1 ring-line-200">
                   <Image
                     src={images.brcTeamSupport}
                     alt="Conseillers en entretien d'accompagnement"
@@ -356,7 +374,7 @@ export default async function AboutPage({ params }: Params) {
                     className="absolute inset-0 bg-gradient-to-t from-blue-950/55 via-transparent to-transparent"
                   />
                 </div>
-                <div className="relative col-span-2 row-span-1 aspect-[4/3] overflow-hidden rounded-md shadow-md ring-1 ring-line-200">
+                <div className="relative col-span-2 row-span-1 aspect-[4/3] overflow-hidden rounded-2xl shadow-md ring-1 ring-line-200">
                   <Image
                     src={images.brcFormFilling}
                     alt="Constitution de dossier coopérative"
@@ -365,7 +383,7 @@ export default async function AboutPage({ params }: Params) {
                     className="object-cover"
                   />
                 </div>
-                <div className="relative col-span-2 row-span-1 aspect-[4/3] overflow-hidden rounded-md shadow-md ring-1 ring-line-200">
+                <div className="relative col-span-2 row-span-1 aspect-[4/3] overflow-hidden rounded-2xl shadow-md ring-1 ring-line-200">
                   <Image
                     src={images.brcCompletion}
                     alt="Dossier finalisé chez la coopérative"
@@ -397,6 +415,7 @@ export default async function AboutPage({ params }: Params) {
               eyebrow={t("agenciesTitle")}
               title={t("agenciesTitle")}
               lead={t("agenciesIntro")}
+              wideLead
             />
           </div>
 
@@ -528,22 +547,19 @@ function ContactCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="group relative isolate overflow-hidden rounded-2xl bg-paper p-6 shadow-[0_2px_6px_rgba(14,29,58,0.05)] ring-1 ring-line-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(14,77,146,0.2)] hover:ring-blue-200">
-      <span
-        aria-hidden="true"
-        className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${accent} opacity-90`}
-      />
+    <div className="group relative isolate overflow-hidden rounded-[1.5rem] bg-paper p-7 shadow-[0_1px_2px_rgba(14,29,58,0.04),0_12px_28px_-20px_rgba(14,29,58,0.18)] ring-1 ring-line-200/60 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_24px_48px_-24px_rgba(14,77,146,0.22)] hover:ring-line-200">
+      {/* Halo diffus au hover — plus doux qu'une barre supérieure tranchée */}
       <div
         aria-hidden="true"
-        className={`absolute -right-10 -top-10 size-32 rounded-full bg-gradient-to-br ${accent} opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-15`}
+        className={`absolute -right-12 -top-12 size-36 rounded-full bg-gradient-to-br ${accent} opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-[0.12]`}
       />
       <div
-        className={`relative flex size-11 items-center justify-center rounded-xl bg-gradient-to-br ${accent} text-white shadow-[0_8px_20px_-8px_rgba(14,77,146,0.4)]`}
+        className={`relative flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br ${accent} text-white shadow-[0_10px_24px_-12px_rgba(14,77,146,0.45)]`}
         aria-hidden="true"
       >
         {icon}
       </div>
-      <p className="relative mt-4 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-ink-500">
+      <p className="relative mt-5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-ink-500">
         {label}
       </p>
       <div className="relative mt-2 text-sm leading-relaxed text-ink-700">

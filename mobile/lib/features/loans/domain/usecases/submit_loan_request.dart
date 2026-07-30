@@ -4,6 +4,7 @@ import '../../../../core/error/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../entities/loan_request.dart';
 import '../entities/loan_request_submission.dart';
+import '../loan_terms.dart';
 import '../repositories/loans_repository.dart';
 
 @immutable
@@ -37,17 +38,21 @@ class SubmitLoanRequest
   // jamais hors de cet intervalle — ces bornes en sont le garde-fou.
   static const int _dureeMin = 2;
   static const int _dureeMax = 9;
-  static const num _montantMin = 50000;
+  // Plancher unique = 1er palier réglementaire (Article 7), aligné avec le
+  // formulaire (`kMinLoanAmount`) ET le backend (`MIN_MONTANT_XAF = 5000`).
+  // Auparavant codé en dur à 50 000, ce qui contredisait le form (5 000) et
+  // l'API et rejetait à tort des demandes valides.
+  static const num _montantMin = kMinLoanAmount;
 
   @override
   Future<LoanRequestSubmission> call(SubmitLoanRequestParams params) async {
     // Voie campagne : les bornes min/max de la campagne (validées côté form et
     // ré-appliquées par le backend) font foi — on ne rejoue PAS le plancher
-    // générique 50 000, qui écraserait une campagne à petit montant (ex. 5 000).
+    // générique, qui écraserait une campagne à petit montant.
     final hasCampaign = params.extraValues['campaign_id'] != null;
     if (!hasCampaign && params.montantDemande < _montantMin) {
-      throw const ValidationFailure(
-        'Montant minimum 50 000 XAF.',
+      throw ValidationFailure(
+        'Montant minimum ${_montantMin.toStringAsFixed(0)} XAF.',
         field: 'montant',
       );
     }

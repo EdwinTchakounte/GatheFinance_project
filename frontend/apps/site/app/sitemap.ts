@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { routing } from "@/i18n/routing";
 import { getBlogPosts } from "@/lib/wagtail";
 
-const BASE = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.gathe-finance.com").replace(/\/$/, "");
+const BASE = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://app.gathe-finance.com").replace(/\/$/, "");
 
 const STATIC_PATHS = [
   "",
@@ -12,6 +12,7 @@ const STATIC_PATHS = [
   "/blog",
   "/contact",
   "/devenir-membre",
+  "/telecharger-app",
   "/mentions-legales",
   "/politique-confidentialite",
 ];

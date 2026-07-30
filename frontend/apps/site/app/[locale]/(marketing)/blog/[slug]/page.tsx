@@ -10,6 +10,7 @@ import { CtaBand } from "@/components/cta-band";
 import { StreamField } from "@/components/streamfield";
 import { ArticleCard } from "@/components/article-card";
 import { JsonLd, articleJsonLd, breadcrumbJsonLd } from "@/components/json-ld";
+import { pageAlternates } from "@/lib/seo";
 import { Reveal } from "@/components/reveal";
 import { formatDate } from "@/lib/format";
 import { blogFallbackImage } from "@/lib/site-config";
@@ -33,6 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return {
     title: post.seoTitle ?? post.title,
     description: post.seoDescription ?? post.excerpt,
+    alternates: pageAlternates(locale, `/blog/${slug}`),
     openGraph: { type: "article", title: post.title, description: post.excerpt },
   };
 }
@@ -86,8 +88,8 @@ export default async function BlogArticlePage({ params }: Params) {
         </nav>
         <div className="mt-6 max-w-[55rem]">
           {post.categories[0] ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-green-800">
-              <span className="size-1.5 rounded-full bg-green-600" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald/25 bg-emerald/10 px-3 py-1 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-emerald">
+              <span className="size-1.5 rounded-full bg-emerald" />
               {post.categories[0].name}
             </span>
           ) : null}
@@ -95,7 +97,7 @@ export default async function BlogArticlePage({ params }: Params) {
             {post.title}
           </h1>
           {post.excerpt ? (
-            <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink-600">{post.excerpt}</p>
+            <p className="mt-4 max-w-3xl text-lg leading-relaxed text-ink-600">{post.excerpt}</p>
           ) : null}
           <div className="mt-6 flex items-center gap-3 text-sm">
             <div className="size-9 shrink-0 rounded-full bg-gradient-to-br from-blue-200 to-green-200" aria-hidden="true" />

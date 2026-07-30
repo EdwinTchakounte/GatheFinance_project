@@ -220,7 +220,13 @@ export function CampaignsPublic() {
           className="flex flex-col overflow-hidden rounded-lg border border-line-200 bg-paper"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={c.flyer_url} alt={c.nom} className="h-44 w-full object-cover" />
+          <img
+            src={c.flyer_url}
+            alt={c.nom}
+            loading="lazy"
+            decoding="async"
+            className="h-44 w-full object-cover"
+          />
           <div className="flex flex-1 flex-col p-6">
             <span className="inline-block w-fit rounded-full bg-emerald/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald">
               {c.profil_cible || "Tous profils"}

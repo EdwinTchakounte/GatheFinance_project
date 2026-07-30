@@ -1,0 +1,63 @@
+# Override CLIENT — VPS Contabo de la cliente, architecture DMZ durcie
+# (Broad Range Consulting). À COMBINER avec docker-compose.prod.yml.
+#
+# On se RATTACHE à l'existant, on ne duplique rien :
+#   - Traefik v3.3 (stack « edge ») → réseau externe `edge` : route + TLS.
+#   - Postgres 16 + MinIO (stack « services ») → réseau externe `data` : bases + médias.
+# On NE lance PAS : notre `db`, notre `traefik`, `backup`, `beszel` (via --no-deps
+# + on ne les nomme pas au `up`).
+#
+# Démarrage (serveur cliente) :
+#   docker compose -f docker-compose.prod.yml -f docker-compose.client.yml \
+#     --env-file .env.prod up -d --no-deps backend qcluster site portal admin
+#
+# .env.prod (serveur) DOIT fournir :
+#   EDGE_NETWORK          nom Docker EXACT du réseau Traefik (`docker network ls`)
+#   DATA_NETWORK          nom Docker EXACT du réseau des bases
+#   TRAEFIK_CERTRESOLVER  nom du certresolver de LEUR Traefik
+#   DATABASE_URL          postgres://gathe:***@<postgres>:5432/gathe_prod  (LEUR Postgres)
+#   AWS_S3_ENDPOINT_URL / AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY /
+#   AWS_STORAGE_BUCKET_NAME                                     (LEUR MinIO)
+
+networks:
+  # Réseaux EXISTANTS de la DMZ (créés par leurs stacks edge/services).
+  edge:
+    external: true
+    name: ${EDGE_NETWORK:-edge}
+  data:
+    external: true
+    name: ${DATA_NETWORK:-data}
+
+services:
+  backend:
+    # edge = ingress Traefik ; data = accès Postgres + MinIO ; internal = front↔backend.
+    networks: [internal, edge, data]
+    # Vers LEUR Postgres (remplace le postgres://...@db de l'anchor).
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    # On ne démarre pas notre `db` : on coupe la dépendance (Compose ≥ 2.24).
+    depends_on: !reset []
+    # Service sur plusieurs réseaux → dire à Traefik lequel router.
+    labels:
+      - "traefik.docker.network=${EDGE_NETWORK:-edge}"
+
+  qcluster:
+    networks: [internal, data]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on: !reset []
+
+  site:
+    networks: [internal, edge]
+    labels:
+      - "traefik.docker.network=${EDGE_NETWORK:-edge}"
+
+  portal:
+    networks: [internal, edge]
+    labels:
+      - "traefik.docker.network=${EDGE_NETWORK:-edge}"
+
+  admin:
+    networks: [internal, edge]
+    labels:
+      - "traefik.docker.network=${EDGE_NETWORK:-edge}"

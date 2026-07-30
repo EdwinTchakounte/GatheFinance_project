@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
+import { pageAlternates, SITE_URL } from "@/lib/seo";
+import { JsonLd, breadcrumbJsonLd } from "@/components/json-ld";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Download, Shield, Smartphone } from "lucide-react";
 
 import { Container } from "@gathe/ui";
 import { PageHeader } from "@/components/page-shell";
 import { InstitutionalDecor } from "@/components/institutional-decor";
-import { images, siteConfig } from "@/lib/site-config";
+import { images } from "@/lib/site-config";
 
 type Params = { params: Promise<{ locale: string }> };
 
@@ -36,7 +38,7 @@ function qrUrl(targetUrl: string): string {
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "download" });
-  return { title: t("title"), description: t("lead") };
+  return { title: t("title"), description: t("lead"), alternates: pageAlternates(locale, "/telecharger-app") };
 }
 
 export default async function DownloadAppPage({ params }: Params) {
@@ -51,6 +53,12 @@ export default async function DownloadAppPage({ params }: Params) {
 
   return (
     <>
+      <JsonLd
+        data={breadcrumbJsonLd(SITE_URL, [
+          { name: tn("home"), path: "/" },
+          { name: t("title"), path: "/telecharger-app" },
+        ])}
+      />
       <PageHeader
         eyebrow={t("eyebrow")}
         title={t("title")}

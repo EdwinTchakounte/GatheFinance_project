@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { DM_Sans, Inter, Lora, Plus_Jakarta_Sans, Syne } from "next/font/google";
+import { DM_Sans, Syne } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 // `getTranslations` is still used by generateMetadata below.
@@ -12,16 +12,17 @@ import { JsonLd, organizationJsonLd, websiteJsonLd } from "@/components/json-ld"
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
-const jakarta = Plus_Jakarta_Sans({ subsets: ["latin", "latin-ext"], weight: ["500", "600", "700", "800"], variable: "--font-jakarta", display: "swap" });
-const inter = Inter({ subsets: ["latin", "latin-ext"], variable: "--font-inter", display: "swap" });
-const lora = Lora({ subsets: ["latin", "latin-ext"], variable: "--font-lora", display: "swap" });
-// Dark fintech skin — Syne (display/editorial) + DM Sans (body).
+// Seules Syne (display/editorial) + DM Sans (corps) sont réellement mappées par
+// globals.css (@theme). Les familles Jakarta/Inter/Lora étaient chargées sans
+// être utilisées (écrasées dans la cascade) → retirées (payload WOFF2 en moins).
 const syne = Syne({ subsets: ["latin", "latin-ext"], weight: ["700", "800"], variable: "--font-syne", display: "swap" });
 const dmSans = DM_Sans({ subsets: ["latin", "latin-ext"], weight: ["300", "400", "500"], variable: "--font-dmsans", display: "swap" });
 
 export const viewport: Viewport = {
-  themeColor: "#080808",
-  colorScheme: "dark",
+  // Aligné sur le manifest (theme_color #0e4d92) — la vitrine est en thème clair
+  // (manifest background_color #ffffff), d'où colorScheme "light".
+  themeColor: "#0e4d92",
+  colorScheme: "light",
 };
 
 export function generateStaticParams() {
@@ -86,11 +87,8 @@ export default async function LocaleLayout(props: {
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className={`${jakarta.variable} ${inter.variable} ${lora.variable} ${syne.variable} ${dmSans.variable}`} suppressHydrationWarning>
+    <html lang={locale} className={`${syne.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <body>
-        {/* Orbes ambiantes — visibles uniquement en thème sombre (CSS). */}
-        <div aria-hidden="true" className="dark-orb dark-orb--green" />
-        <div aria-hidden="true" className="dark-orb dark-orb--blue" />
         <JsonLd data={[organizationJsonLd(SITE_URL), websiteJsonLd(SITE_URL)]} />
         <NextIntlClientProvider messages={messages}>
           {props.children}

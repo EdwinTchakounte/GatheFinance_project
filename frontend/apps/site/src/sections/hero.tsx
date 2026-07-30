@@ -4,7 +4,6 @@ import { ArrowRight, Briefcase, ChevronDown, Coins } from "lucide-react";
 import { buttonClasses, Container } from "@gathe/ui";
 import { Link } from "@/i18n/navigation";
 import { images } from "@/lib/site-config";
-import { Reveal } from "@/components/reveal";
 import { CountUp } from "@/components/motion/count-up";
 import { HeroSlider } from "@/components/hero-slider";
 import { DecorBlobs } from "@/components/decor-blobs";
@@ -16,7 +15,6 @@ import { Magnetic } from "@/components/magnetic";
  *  like a press chapeau rather than UI body copy. */
 export async function Hero({ locale }: { locale: string }) {
   const t = await getTranslations({ locale, namespace: "home" });
-  const ta = await getTranslations({ locale, namespace: "about" });
 
   const slides = [
     { src: images.entrepreneurs },
@@ -55,41 +53,35 @@ export async function Hero({ locale }: { locale: string }) {
       <div className="flex flex-1 items-center">
         <Container className="relative py-20 lg:py-24">
           <div className="relative mx-auto max-w-4xl text-center">
-            <Reveal>
-              <span className="label-num label-num--on-dark mx-auto">{t("hero.eyebrow")}</span>
-            </Reveal>
-            <Reveal delay={120}>
-              <h1 className="mt-7 font-editorial text-display font-semibold leading-[1.02] tracking-[-0.02em] text-white [text-shadow:0_2px_28px_rgba(5,29,58,0.6)]">
-                <span className="block whitespace-nowrap text-white">{t("hero.titlePre")}</span>
-                <span className="mt-1 block text-emerald sm:mt-2">{t("hero.titleAccent")}</span>
-              </h1>
-            </Reveal>
-            <Reveal delay={240}>
-              <p
-                className={
-                  "mx-auto mt-9 max-w-3xl text-balance font-editorial italic " +
-                  "text-[clamp(1.1rem,1.65vw,1.45rem)] leading-[1.55] text-blue-50"
-                }
-              >
-                <span className="text-emerald/80 font-display not-italic mr-1.5">“</span>
-                {t("hero.text")}
-                <span className="text-emerald/80 font-display not-italic ml-1.5">”</span>
-              </p>
-            </Reveal>
-            <Reveal delay={340}>
-              <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Magnetic strength={0.32}>
-                  <Link href="/devenir-membre" className={buttonClasses({ variant: "success", size: "lg" })}>
-                    {t("hero.primaryCta")} <ArrowRight aria-hidden="true" className="size-4" />
-                  </Link>
-                </Magnetic>
-                <Magnetic strength={0.22}>
-                  <Link href="/services-financiers" className={buttonClasses({ variant: "onDark", size: "lg" })}>
-                    {t("hero.secondaryCta")}
-                  </Link>
-                </Magnetic>
-              </div>
-            </Reveal>
+            {/* Contenu au-dessus de la ligne de flottaison : rendu immédiatement
+                (pas de Reveal/opacity:0) pour ne pas retarder le LCP du H1. */}
+            <span className="label-num label-num--on-dark mx-auto">{t("hero.eyebrow")}</span>
+            <h1 className="mt-7 font-editorial text-display font-semibold leading-[1.02] tracking-[-0.02em] text-white [text-shadow:0_2px_28px_rgba(5,29,58,0.6)]">
+              <span className="block text-white sm:whitespace-nowrap">{t("hero.titlePre")}</span>
+              <span className="mt-1 block text-emerald sm:mt-2">{t("hero.titleAccent")}</span>
+            </h1>
+            <p
+              className={
+                "mx-auto mt-9 max-w-3xl text-balance font-editorial italic " +
+                "text-[clamp(1.1rem,1.65vw,1.45rem)] leading-[1.55] text-blue-50"
+              }
+            >
+              <span className="text-emerald/80 font-display not-italic mr-1.5">“</span>
+              {t("hero.text")}
+              <span className="text-emerald/80 font-display not-italic ml-1.5">”</span>
+            </p>
+            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Magnetic strength={0.32}>
+                <Link href="/devenir-membre" className={buttonClasses({ variant: "success", size: "lg" })}>
+                  {t("hero.primaryCta")} <ArrowRight aria-hidden="true" className="size-4" />
+                </Link>
+              </Magnetic>
+              <Magnetic strength={0.22}>
+                <Link href="/services-financiers" className={buttonClasses({ variant: "onDark", size: "lg" })}>
+                  {t("hero.secondaryCta")}
+                </Link>
+              </Magnetic>
+            </div>
           </div>
         </Container>
       </div>
@@ -120,7 +112,7 @@ export async function Hero({ locale }: { locale: string }) {
               <span className="font-semibold tracking-tight">
                 <CountUp value={4500} locale={locale} />
               </span>
-              <span className="hidden text-[0.7rem] font-normal text-blue-200/75 sm:inline">
+              <span className="sr-only text-[0.7rem] font-normal text-blue-200/90 sm:not-sr-only sm:inline">
                 · {t("stats.projectsLabel")}
               </span>
             </p>
@@ -131,7 +123,7 @@ export async function Hero({ locale }: { locale: string }) {
               <span className="font-semibold tracking-tight">
                 <CountUp value={400} locale={locale} suffix={` ${t("stats.fundedSuffix")}`} />
               </span>
-              <span className="hidden text-[0.7rem] font-normal text-blue-200/75 sm:inline">
+              <span className="sr-only text-[0.7rem] font-normal text-blue-200/90 sm:not-sr-only sm:inline">
                 · {t("stats.fundedLabel")}
               </span>
             </p>

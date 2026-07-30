@@ -1,5 +1,5 @@
 import { cn } from "@gathe/ui";
-import type { StreamBlock } from "@/lib/wagtail";
+import type { CmsImage, StreamBlock } from "@/lib/wagtail";
 
 /**
  * Renders a Wagtail StreamField (as returned by the API) into React.
@@ -65,13 +65,24 @@ function BlockView({ block }: { block: StreamBlock }) {
       );
     }
     case "image": {
-      const v = block.value as { image: { url?: string; alt?: string } | number; caption?: string; alt?: string };
+      const v = block.value as { image: CmsImage | number; caption?: string; alt?: string };
       const img = typeof v.image === "object" ? v.image : null;
       if (!img?.url) return null;
       return (
         <figure className="mt-8">
+          {/* img brut (et non next/image) : robuste à tout host média CMS/MinIO,
+              cf. next.config remotePatterns. width/height réservent le ratio
+              (anti-CLS), lazy+async pour les Core Web Vitals. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={img.url} alt={v.alt || img.alt || ""} className="rounded-[var(--radius-xl)]" />
+          <img
+            src={img.url}
+            alt={v.alt || img.alt || ""}
+            width={img.width}
+            height={img.height}
+            loading="lazy"
+            decoding="async"
+            className="h-auto w-full rounded-[var(--radius-xl)]"
+          />
           {v.caption ? <figcaption className="mt-2 text-sm text-ink-500">{v.caption}</figcaption> : null}
         </figure>
       );

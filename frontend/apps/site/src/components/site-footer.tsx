@@ -22,7 +22,7 @@ export async function SiteFooter() {
       <Container className="flex flex-col items-start justify-between gap-6 border-b border-white/10 py-10 sm:flex-row sm:items-end">
         <div>
           <Logo variant="light" className="h-9 w-auto" />
-          <p className="mt-4 max-w-md text-sm leading-relaxed text-blue-100/65">
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-blue-100/80">
             {t("home.about.title")}
           </p>
         </div>
@@ -91,7 +91,7 @@ export async function SiteFooter() {
               <span>
                 <a href={siteConfig.contact.phoneHref} className="transition-colors hover:text-white">{siteConfig.contact.phone}</a>
                 <br />
-                <span className="text-blue-100/55">{t("footer.landline")}: {siteConfig.contact.landline}</span>
+                <span className="text-blue-100/80">{t("footer.landline")}: {siteConfig.contact.landline}</span>
               </span>
             </li>
             <li className="flex gap-2.5">
@@ -109,7 +109,7 @@ export async function SiteFooter() {
 
       {/* Edition foot */}
       <div className="border-t border-white/10">
-        <Container className="flex flex-col items-start justify-between gap-3 py-5 text-xs text-blue-100/55 sm:flex-row sm:items-center">
+        <Container className="flex flex-col items-start justify-between gap-3 py-5 text-xs text-blue-100/80 sm:flex-row sm:items-center">
           <p>© {year} {siteConfig.name} · {t("footer.copyrightTagline")}</p>
           <nav aria-label="Liens légaux" className="flex gap-4">
             <Link href="/mentions-legales" className="transition-colors hover:text-white">{t("footer.legalNotice")}</Link>

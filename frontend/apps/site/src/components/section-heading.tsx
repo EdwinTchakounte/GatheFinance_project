@@ -11,6 +11,7 @@ export function SectionHeading({
   lead,
   align = "left",
   onDark = false,
+  wideLead = false,
   className,
 }: {
   number?: string;
@@ -19,11 +20,14 @@ export function SectionHeading({
   lead?: ReactNode;
   align?: "left" | "center";
   onDark?: boolean;
+  /** Lead qui occupe toute la largeur (2-3 lignes au lieu d'une colonne étroite). */
+  wideLead?: boolean;
   className?: string;
 }) {
   const center = align === "center";
+  const wrapMax = center ? "mx-auto max-w-4xl text-center" : wideLead ? "max-w-none" : "max-w-5xl";
   return (
-    <Reveal className={`${center ? "mx-auto max-w-4xl text-center" : "max-w-5xl"} ${className ?? ""}`}>
+    <Reveal className={`${wrapMax} ${className ?? ""}`}>
       {eyebrow ? (
         <span className={`label-num ${onDark ? "label-num--on-dark" : ""}`}>
           {number ? `${number} · ` : null}
@@ -32,16 +36,16 @@ export function SectionHeading({
       ) : null}
       <h2
         className={`mt-5 text-balance font-editorial text-section font-medium ${
-          onDark ? "text-white" : "text-ink-900"
-        }`}
+          wideLead ? "max-w-4xl" : ""
+        } ${onDark ? "text-white" : "text-ink-900"}`}
       >
         {title}
       </h2>
       {lead ? (
         <p
-          className={`mt-5 max-w-2xl text-lg leading-relaxed ${center ? "mx-auto" : ""} ${
-            onDark ? "text-blue-100/85" : "text-ink-600"
-          }`}
+          className={`mt-5 text-lg leading-relaxed ${
+            wideLead ? "max-w-none" : "max-w-2xl"
+          } ${center ? "mx-auto" : ""} ${onDark ? "text-blue-100/85" : "text-ink-600"}`}
         >
           {lead}
         </p>

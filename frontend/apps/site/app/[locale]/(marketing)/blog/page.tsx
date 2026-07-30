@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { pageAlternates, SITE_URL } from "@/lib/seo";
+import { JsonLd, breadcrumbJsonLd } from "@/components/json-ld";
 import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ArrowRight } from "lucide-react";
@@ -19,7 +21,7 @@ type Params = { params: Promise<{ locale: string }> };
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "blog" });
-  return { title: t("title"), description: t("subtitle") };
+  return { title: t("title"), description: t("subtitle"), alternates: pageAlternates(locale, "/blog") };
 }
 
 export default async function BlogIndexPage({ params }: Params) {
@@ -32,6 +34,12 @@ export default async function BlogIndexPage({ params }: Params) {
 
   return (
     <>
+      <JsonLd
+        data={breadcrumbJsonLd(SITE_URL, [
+          { name: tn("home"), path: "/" },
+          { name: t("title"), path: "/blog" },
+        ])}
+      />
       <PageHeader
         eyebrow={t("eyebrow")}
         title={t("title")}
@@ -126,7 +134,7 @@ export default async function BlogIndexPage({ params }: Params) {
             </p>
           ) : rest.length > 0 ? (
             <>
-              <div className="flex items-end justify-between gap-6 border-b border-line-200 pb-6">
+              <div className="flex items-end justify-between gap-6 pb-2">
                 <span className="label-num">
                   02 · Tous les articles
                 </span>

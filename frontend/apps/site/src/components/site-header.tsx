@@ -39,7 +39,7 @@ export async function SiteHeader() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook"
-              className="inline-flex size-8 items-center justify-center rounded-full border border-line-200 text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-line-200 text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
             >
               <Facebook aria-hidden="true" className="size-3.5" />
             </a>
@@ -48,7 +48,7 @@ export async function SiteHeader() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="LinkedIn"
-              className="inline-flex size-8 items-center justify-center rounded-full border border-line-200 text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-line-200 text-ink-600 transition-colors hover:border-blue-700 hover:text-blue-700"
             >
               <Linkedin aria-hidden="true" className="size-4" />
             </a>
@@ -63,7 +63,7 @@ export async function SiteHeader() {
           alt=""
           fill
           sizes="100vw"
-          priority
+          loading="lazy"
           className="object-cover object-center opacity-[0.08]"
         />
         <div aria-hidden="true" className="absolute inset-0 bg-blue-950/88" />
@@ -73,7 +73,7 @@ export async function SiteHeader() {
           <div className="grid items-center gap-4 py-2.5 md:grid-cols-[1fr_auto_1fr] md:gap-5 lg:py-3">
             {/* Left — FR tagline */}
             <div className="pr-4 text-right lg:pr-8">
-              <p className="font-display text-[0.7rem] font-medium uppercase leading-[1.3] tracking-[0.08em] text-terra-300">
+              <p lang="fr" className="font-display text-[0.7rem] font-medium uppercase leading-[1.3] tracking-[0.08em] text-terra-300">
                 {tHomeFr("about.title")}
               </p>
             </div>
@@ -89,7 +89,7 @@ export async function SiteHeader() {
 
             {/* Right — EN tagline */}
             <div className="pl-4 text-left lg:pl-8">
-              <p className="font-display text-[0.7rem] font-medium uppercase leading-[1.3] tracking-[0.08em] text-terra-300">
+              <p lang="en" className="font-display text-[0.7rem] font-medium uppercase leading-[1.3] tracking-[0.08em] text-terra-300">
                 {tHomeEn("about.title")}
               </p>
             </div>

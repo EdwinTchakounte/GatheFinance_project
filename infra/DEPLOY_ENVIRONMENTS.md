@@ -33,29 +33,40 @@ merge `staging` → **`main`** → déploie **chez le client** (prod).
 
 ## 1. Ce qui est piloté par la config (jamais commité)
 
-### GitHub → Settings → Environments → `staging` puis `production`
+### ⚠️ NOMS DISSOCIÉS recette (Contabo) vs client (DMZ Traefik)
 
-**Secrets** (par environnement) :
+Les secrets/variables sont **préfixés distinctement** pour éviter tout repli
+croisé (ex. un `production` mal configuré retombant sur les secrets `VPS_*` de
+Contabo → déploiement client sur le mauvais serveur). Règle :
 
-| Secret                 | Rôle                                                        |
-|------------------------|-------------------------------------------------------------|
-| `VPS_HOST`             | IP ou hostname du serveur cible                             |
-| `VPS_USER`             | utilisateur SSH (ex. `root` ou `deploy`)                    |
-| `VPS_SSH_PRIVATE_KEY`  | clé privée SSH **dédiée au déploiement** (ed25519)          |
-| `VPS_DEPLOY_PATH`      | (opt.) chemin du repo sur le serveur — défaut `/opt/gathe-finance` |
+- **`VPS_*` / `STAGING_*`** = notre recette Contabo (`horus-lab.com`), branche `staging`.
+- **`CLIENT_*`** = serveur de la cliente (DMZ Traefik/Postgres/MinIO, `gathe-finance.com`), branche `main`.
 
-**Variables** (par environnement) — non secrètes :
+**Secrets** :
 
-| Variable             | `staging` (nous)                    | `production` (client)         |
-|----------------------|-------------------------------------|-------------------------------|
-| `SITE_DOMAIN`        | `gathe-finance.horus-lab.com`       | `exemple-client.com`          |
-| `API_DOMAIN`         | `api.gathe-finance.horus-lab.com`   | `api.exemple-client.com`      |
-| `PORTAL_DOMAIN`      | `portail.gathe-finance.horus-lab.com` | `portail.exemple-client.com` |
-| `ADMIN_DOMAIN`       | `admin.gathe-finance.horus-lab.com` | `admin.exemple-client.com`    |
-| `CMS_DOMAIN`         | `cms.gathe-finance.horus-lab.com`   | `cms.exemple-client.com`      |
-| `SITE_URL`           | `https://gathe-finance.horus-lab.com` | `https://exemple-client.com` |
-| `DEPLOY_PROXY_MODE`  | `external-nginx`                    | `traefik`                     |
-| `EXTERNAL_NGINX_CONTAINER` | `backend-nginx-1`             | *(non utilisé en traefik)*    |
+| Secret (recette)       | Secret (client)              | Rôle                                    |
+|------------------------|------------------------------|-----------------------------------------|
+| `VPS_HOST`             | `CLIENT_VPS_HOST`            | IP/hostname du serveur cible            |
+| `VPS_USER`             | `CLIENT_VPS_USER`            | utilisateur SSH                         |
+| `VPS_SSH_PRIVATE_KEY`  | `CLIENT_VPS_SSH_PRIVATE_KEY` | clé privée SSH dédiée déploiement       |
+| `VPS_DEPLOY_PATH`      | `CLIENT_VPS_DEPLOY_PATH`     | (opt.) chemin repo — défaut `/opt/gathe-finance` |
+
+**Variables** — non secrètes :
+
+| Variable (recette)         | Variable (client)      | Valeur client                 |
+|----------------------------|------------------------|-------------------------------|
+| `STAGING_SITE_DOMAIN`      | `CLIENT_SITE_DOMAIN`   | `app.gathe-finance.com` *(vitrine sur app.)* |
+| `STAGING_PORTAL_DOMAIN`    | `CLIENT_PORTAL_DOMAIN` | `portail.gathe-finance.com`   |
+| `API_DOMAIN`               | `CLIENT_API_DOMAIN`    | `api.gathe-finance.com`       |
+| `ADMIN_DOMAIN`             | `CLIENT_ADMIN_DOMAIN`  | `admin.gathe-finance.com`     |
+| `CMS_DOMAIN`               | `CLIENT_CMS_DOMAIN`    | `cms.gathe-finance.com`       |
+
+`CLIENT_SITE_DOMAIN` / `CLIENT_PORTAL_DOMAIN` servent aussi au **build** des
+images `:main` (URLs Next figées) — cf. `ci.yml`. Les autres servent aux smoke
+tests. Le **rattachement DMZ** (réseaux `EDGE_NETWORK`/`DATA_NETWORK`, le
+`TRAEFIK_CERTRESOLVER`, `DATABASE_URL`, clés MinIO) se règle dans
+`infra/.env.prod` SUR le serveur (cf. `.env.prod.client.example`), pas en
+variables GitHub.
 
 ### Variables **de dépôt** (Settings → Variables) — pour le build d'images CI
 

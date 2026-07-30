@@ -355,12 +355,20 @@ function FieldRow({ field, value, error, onChange }: FieldRowProps) {
     </label>
   );
 
+  const errId = `field-${field.id}-error`;
+  const helpId = `field-${field.id}-help`;
   const errorEl = error ? (
-    <p role="alert" className="mt-1 text-xs text-terra-700">{error}</p>
+    <p id={errId} role="alert" className="mt-1 text-xs text-terra-700">{error}</p>
   ) : null;
   const helpEl = !error && field.help_text ? (
-    <p className="mt-1 text-xs text-ink-500">{field.help_text}</p>
+    <p id={helpId} className="mt-1 text-xs text-ink-500">{field.help_text}</p>
   ) : null;
+
+  // A11y : relie le contrôle à son message d'erreur / d'aide + signale l'état invalide.
+  const a11y = {
+    "aria-invalid": error ? true : undefined,
+    "aria-describedby": error ? errId : field.help_text ? helpId : undefined,
+  } as const;
 
   const baseInput =
     "mt-1 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-blue-700 focus:ring-1 focus:ring-blue-700";
@@ -375,7 +383,7 @@ function FieldRow({ field, value, error, onChange }: FieldRowProps) {
         <div>
           {labelEl}
           <input
-            id={`field-${field.id}`}
+            id={`field-${field.id}`} {...a11y}
             type={t}
             value={(value as string) ?? ""}
             onChange={(e) => onChange(e.target.value)}
@@ -393,7 +401,7 @@ function FieldRow({ field, value, error, onChange }: FieldRowProps) {
         <div>
           {labelEl}
           <input
-            id={`field-${field.id}`}
+            id={`field-${field.id}`} {...a11y}
             type="number"
             value={(value as string) ?? ""}
             onChange={(e) => onChange(e.target.value === "" ? "" : Number(e.target.value))}
@@ -411,7 +419,7 @@ function FieldRow({ field, value, error, onChange }: FieldRowProps) {
         <div>
           {labelEl}
           <textarea
-            id={`field-${field.id}`}
+            id={`field-${field.id}`} {...a11y}
             value={(value as string) ?? ""}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
@@ -428,7 +436,7 @@ function FieldRow({ field, value, error, onChange }: FieldRowProps) {
         <div>
           {labelEl}
           <select
-            id={`field-${field.id}`}
+            id={`field-${field.id}`} {...a11y}
             value={(value as string) ?? ""}
             onChange={(e) => onChange(e.target.value)}
             className={baseInput}
@@ -444,7 +452,7 @@ function FieldRow({ field, value, error, onChange }: FieldRowProps) {
 
     case "radio":
       return (
-        <fieldset id={`field-${field.id}`}>
+        <fieldset id={`field-${field.id}`} {...a11y}>
           {labelEl}
           <div className="mt-2 space-y-2">
             {(field.options ?? []).map((opt) => (
@@ -469,7 +477,7 @@ function FieldRow({ field, value, error, onChange }: FieldRowProps) {
       if (field.options && field.options.length > 0) {
         const arr = (Array.isArray(value) ? value : []) as string[];
         return (
-          <fieldset id={`field-${field.id}`}>
+          <fieldset id={`field-${field.id}`} {...a11y}>
             {labelEl}
             <div className="mt-2 space-y-2">
               {field.options.map((opt) => (
@@ -496,7 +504,7 @@ function FieldRow({ field, value, error, onChange }: FieldRowProps) {
         <div>
           <label className="flex items-center gap-2 text-sm text-ink-900">
             <input
-              id={`field-${field.id}`}
+              id={`field-${field.id}`} {...a11y}
               type="checkbox"
               checked={Boolean(value)}
               onChange={(e) => onChange(e.target.checked)}
@@ -513,7 +521,7 @@ function FieldRow({ field, value, error, onChange }: FieldRowProps) {
         <div>
           {labelEl}
           <input
-            id={`field-${field.id}`}
+            id={`field-${field.id}`} {...a11y}
             type="file"
             accept={field.accept}
             onChange={(e) => {

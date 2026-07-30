@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/page-shell";
 import { images } from "@/lib/site-config";
 import { ApplyForm } from "@/components/campaigns-public";
 import { fmtDate, fmtXAF, type Campaign } from "@/lib/campaign-format";
+import { pageAlternates } from "@/lib/seo";
 
 const BACKEND = (process.env.CMS_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
@@ -26,14 +27,19 @@ async function getCampaign(id: string): Promise<Campaign | null> {
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
-  const { id } = await params;
+  const { locale, id } = await params;
   const c = await getCampaign(id);
-  if (!c) return { title: "Campagne micro-crédit" };
+  if (!c)
+    return {
+      title: "Campagne micro-crédit",
+      alternates: pageAlternates(locale, `/campagnes/${id}`),
+    };
   return {
     title: `${c.nom} — Campagne micro-crédit`,
     description: `Micro-crédit GATHE Finance pour « ${c.profil_cible} » : de ${fmtXAF(
       c.montant_min,
     )} à ${fmtXAF(c.montant_max)}. Postule en ligne.`,
+    alternates: pageAlternates(locale, `/campagnes/${id}`),
     openGraph: {
       title: c.nom,
       description: `Micro-crédit pour « ${c.profil_cible} »`,
@@ -73,7 +79,9 @@ export default async function CampaignDetailPage({ params }: Params) {
               <img
                 src={c.flyer_url}
                 alt={c.nom}
-                className="w-full rounded-2xl object-cover shadow-sm"
+                loading="lazy"
+                decoding="async"
+                className="aspect-[4/3] w-full rounded-2xl object-cover shadow-sm"
               />
               <dl className="mt-6 grid grid-cols-2 gap-4 text-sm">
                 <div>

@@ -26,8 +26,9 @@ import { InstitutionalDecor } from "@/components/institutional-decor";
 import { AnchorStrip } from "@/components/anchor-strip";
 import { KeyFiguresBand } from "@/components/key-figures-band";
 import { Reveal } from "@/components/reveal";
-import { SectionHeading } from "@/components/section-heading";
 import { images } from "@/lib/site-config";
+import { pageAlternates, SITE_URL } from "@/lib/seo";
+import { JsonLd, breadcrumbJsonLd } from "@/components/json-ld";
 
 type Params = { params: Promise<{ locale: string }> };
 
@@ -202,7 +203,7 @@ export async function generateMetadata({
 }: Params): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "services" });
-  return { title: t("title"), description: t("lead") };
+  return { title: t("title"), description: t("lead"), alternates: pageAlternates(locale, "/services-financiers") };
 }
 
 
@@ -219,6 +220,12 @@ export default async function ServicesPage({ params }: Params) {
 
   return (
     <>
+      <JsonLd
+        data={breadcrumbJsonLd(SITE_URL, [
+          { name: tn("home"), path: "/" },
+          { name: t("title"), path: "/services-financiers" },
+        ])}
+      />
       <PageHeader
         eyebrow={t("eyebrow")}
         title={t("title")}
@@ -324,9 +331,6 @@ export default async function ServicesPage({ params }: Params) {
                         {t(`pillars.${pillar.key}.title`)}
                       </h2>
                     </div>
-                    <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink-600">
-                      {t.rich(`pillars.${pillar.key}.intro`, rich)}
-                    </p>
                   </Reveal>
                 </div>
 
@@ -344,13 +348,13 @@ export default async function ServicesPage({ params }: Params) {
                     aria-hidden="true"
                     className={`absolute -bottom-4 ${
                       photoOnRight ? "-right-4" : "-left-4"
-                    } hidden h-full w-full rounded-md border-2 ${
+                    } hidden h-full w-full rounded-2xl border-2 ${
                       pillar.key === "savings" || pillar.key === "education"
                         ? "border-emerald/30"
                         : "border-terra-500/30"
                     } lg:block`}
                   />
-                  <div className="relative aspect-[4/3] overflow-hidden rounded-md shadow-[0_30px_60px_-20px_rgba(14,77,146,0.35)] ring-1 ring-line-200">
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-[0_30px_60px_-20px_rgba(14,77,146,0.35)] ring-1 ring-line-200">
                     <Image
                       src={photo.src}
                       alt={photo.alt}
@@ -401,8 +405,15 @@ export default async function ServicesPage({ params }: Params) {
                 </Reveal>
               </div>
 
+              {/* Intro pilier — pleine largeur, éditoriale (2-3 lignes) */}
+              <Reveal className="mt-12 max-w-none">
+                <p className="text-lg leading-relaxed text-ink-600 sm:text-xl">
+                  {t.rich(`pillars.${pillar.key}.intro`, rich)}
+                </p>
+              </Reveal>
+
               {/* Grille d'items éditoriaux enrichis */}
-              <div className="mt-16 grid gap-5 sm:grid-cols-2">
+              <div className="mt-12 grid gap-5 sm:grid-cols-2">
                 {pillar.items.map((item, j) => {
                   const Icon = ICONS[item] ?? Banknote;
                   return (
@@ -480,11 +491,6 @@ function ItemCard({
 }) {
   return (
     <article className="group relative isolate flex flex-col gap-4 overflow-hidden rounded-2xl bg-paper p-7 shadow-[0_2px_6px_rgba(14,29,58,0.05)] ring-1 ring-line-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(14,77,146,0.2)] hover:ring-blue-200 lg:p-8">
-      {/* Top accent line gradient — toujours visible */}
-      <span
-        aria-hidden="true"
-        className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${accent} opacity-95`}
-      />
       {/* Halo radial au hover */}
       <div
         aria-hidden="true"

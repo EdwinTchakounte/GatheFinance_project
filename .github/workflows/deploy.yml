@@ -1,33 +1,42 @@
-# Continuous Deployment vers le VPS Contabo.
+# Continuous Deployment vers le serveur de la CLIENTE (VPS Contabo, DMZ durcie :
+# Traefik v3.3 + Postgres/MinIO existants, réseaux edge/data).
 #
-# Declenchement :
-#   - workflow_run "CI" succeeded sur main -> deploy automatique
+# Déclenchement :
+#   - workflow_run "CI" succeeded sur main -> deploy automatique (prod client)
 #   - workflow_dispatch                     -> deploy manuel (rejouer ou pin tag)
 #
-# Pre-requis cote GitHub (Settings > Secrets and variables > Actions) :
-#   VPS_HOST              : IP ou hostname du VPS Contabo (ex: 12.34.56.78)
-#   VPS_USER              : utilisateur SSH (ex: root ou deploy)
-#   VPS_SSH_PRIVATE_KEY   : cle privee SSH (ed25519 recommande). La cle
-#                           publique doit etre dans ~/.ssh/authorized_keys
-#                           sur le VPS pour l'utilisateur VPS_USER.
-#   VPS_DEPLOY_PATH       : (optionnel) chemin du repo sur le VPS,
-#                           defaut /opt/gathe-finance
+# ⚠️ NOMS DISSOCIÉS (voir infra/DEPLOY_ENVIRONMENTS.md) : ce workflow n'utilise
+# QUE des secrets/variables préfixés CLIENT_*. Il n'existe AUCUN repli sur les
+# secrets `VPS_*` (qui pointent sur notre Contabo/horus-lab de recette) : si la
+# config client est absente, le job s'ignore proprement plutôt que de déployer
+# la cliente sur le mauvais serveur.
 #
-# Pre-requis cote VPS Contabo (1er bootstrap manuel via DEPLOYMENT.md) :
-#   - Repo clone dans /opt/gathe-finance (ou VPS_DEPLOY_PATH)
-#   - infra/.env.prod rempli avec secrets Django/Postgres/Brevo
+# Config côté GitHub — Settings > Secrets and variables > Actions :
+#   Secrets (Environment `production`) :
+#     CLIENT_VPS_HOST             IP/hostname du serveur cliente
+#     CLIENT_VPS_USER             utilisateur SSH (root ou deploy)
+#     CLIENT_VPS_SSH_PRIVATE_KEY  clé privée ed25519 dédiée déploiement client
+#     CLIENT_VPS_DEPLOY_PATH      (opt.) chemin repo — défaut /opt/gathe-finance
+#   Variables :
+#     CLIENT_SITE_DOMAIN   app.gathe-finance.com   (vitrine)
+#     CLIENT_API_DOMAIN    api.gathe-finance.com
+#     CLIENT_PORTAL_DOMAIN portail.gathe-finance.com
+#     CLIENT_ADMIN_DOMAIN  admin.gathe-finance.com
+#     CLIENT_CMS_DOMAIN    cms.gathe-finance.com
+#
+# ⚠️ Le rattachement DMZ (EDGE_NETWORK, DATA_NETWORK, TRAEFIK_CERTRESOLVER,
+#    DATABASE_URL, AWS_S3_*) N'EST PAS de la config GitHub : ce sont des valeurs
+#    serveur, à mettre dans infra/.env.prod SUR le VPS (cf. .env.prod.client.example).
+#
+# Pré-requis serveur cliente (bootstrap manuel 1×, cf. DEPLOY_ENVIRONMENTS.md) :
+#   - Repo cloné dans CLIENT_VPS_DEPLOY_PATH
+#   - infra/.env.prod rempli (secrets Django + DATABASE_URL/MinIO/Brevo/réseaux DMZ) — jamais commité
 #   - docker login ghcr.io fait avec un PAT read:packages
-#   - DNS des 5 sous-domaines pointe vers le VPS
-#   - Au moins un "docker compose up -d --profile traefik" reussi
-#
-# Une fois le bootstrap fait, chaque push sur main declenche :
-#   1. CI (test + build + push GHCR)
-#   2. Si CI verte, deploy.yml SSH vers le VPS
-#   3. docker compose pull + up -d (les migrations s'appliquent au boot)
-#   4. Smoke tests sur les 5 endpoints publics
-#   5. En cas d'echec smoke, rollback automatique sur le tag precedent
+#   - DNS app./api./cms./portail./admin. -> IP serveur cliente (AVANT 1er start, pour l'ACME)
+#   - Réseaux `edge` (Traefik) et `data` (Postgres/MinIO) existants : on s'y rattache,
+#     on ne lance NI notre Traefik, NI notre Postgres.
 
-name: Deploy to prod
+name: Deploy to client (prod)
 
 on:
   workflow_run:
@@ -37,7 +46,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "Tag d'images GHCR a deployer (latest, main, sha-XXXX)"
+        description: "Tag d'images GHCR à déployer (latest, main, sha-XXXX)"
         required: false
         default: "latest"
 
@@ -46,21 +55,32 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy on Contabo VPS
+    name: Deploy on client server (DMZ Traefik)
     runs-on: ubuntu-latest
 
-    # Ne tourne que si CI verte OU dispatch manuel
+    # Ne tourne que si CI verte OU dispatch manuel.
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
 
     environment:
       name: production
-      url: https://gathe-finance.horus-lab.com
+      url: https://app.gathe-finance.com
 
     steps:
       - name: Checkout (compose files + scripts)
         uses: actions/checkout@v4
 
+      - name: Guard - config client présente ?
+        id: guard
+        run: |
+          if [ -z "${{ secrets.CLIENT_VPS_HOST }}" ]; then
+            echo "::warning::Config client absente (secret CLIENT_VPS_HOST vide) - deploy ignoré. Renseigne Settings > Environments > production (CLIENT_VPS_*)."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Resolve image tag
+        if: steps.guard.outputs.skip == 'false'
         id: tag
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -68,137 +88,110 @@ jobs:
           else
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
-          echo "Resolved tag: $(grep ^tag= "$GITHUB_OUTPUT" | cut -d= -f2)"
 
-      - name: Hash infra/ pour detecter changement compose
+      - name: Hash infra/ pour détecter changement compose
+        if: steps.guard.outputs.skip == 'false'
         id: infra_hash
         run: |
-          # On hash juste les fichiers compose pour decider si --force-recreate.
-          # Inclut docker-compose.prod.yml + override nginx + scripts.
           HASH=$(find infra/ -type f \( -name "*.yml" -o -name "*.conf" -o -name "*.sh" \) -print0 \
             | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-12)
           echo "hash=$HASH" >> "$GITHUB_OUTPUT"
-          echo "infra hash: $HASH"
 
-      - name: Upload infra/ vers le VPS (remplace git pull)
-        # Le VPS Contabo n'a pas d'auth git configuree (repo prive), donc
-        # git pull echouait silencieusement et le compose file restait obsolete.
-        # On uploade les fichiers depuis le runner (qui a fait le checkout).
-        # .env.prod NE FAIT PAS partie de l'upload : il est gere a la main
-        # sur le VPS et contient les secrets.
+      - name: Upload infra/ vers le serveur cliente
+        if: steps.guard.outputs.skip == 'false'
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          source: "infra/docker-compose.prod.yml,infra/docker-compose.nginx-external.yml,infra/nginx.gathe-finance.container.conf,infra/scripts/*"
-          target: "${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}/"
+          host: ${{ secrets.CLIENT_VPS_HOST }}
+          username: ${{ secrets.CLIENT_VPS_USER }}
+          key: ${{ secrets.CLIENT_VPS_SSH_PRIVATE_KEY }}
+          source: "infra/docker-compose.prod.yml,infra/docker-compose.client.yml,infra/scripts/*"
+          target: "${{ secrets.CLIENT_VPS_DEPLOY_PATH || '/opt/gathe-finance' }}/"
           overwrite: true
           strip_components: 0
 
-      - name: Deploy via SSH
+      - name: "Deploy via SSH (DMZ : rattachement Traefik/Postgres/MinIO, tag :main)"
+        if: steps.guard.outputs.skip == 'false'
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          # Timeout deploy : 10 min max (image pull + up + healthchecks + nginx reload)
-          command_timeout: 10m
-          envs: INFRA_HASH
-          # On passe le hash infra calcule par le runner : si le precedent
-          # deploy avait stocke un autre hash dans /opt/gathe-finance/.infra_hash,
-          # on force-recreate les containers pour propager les nouvelles env vars.
+          host: ${{ secrets.CLIENT_VPS_HOST }}
+          username: ${{ secrets.CLIENT_VPS_USER }}
+          key: ${{ secrets.CLIENT_VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 12m
           script: |
             set -euo pipefail
 
             INFRA_HASH="${{ steps.infra_hash.outputs.hash }}"
-            DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
+            DEPLOY_PATH="${{ secrets.CLIENT_VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
             NEW_TAG="${{ steps.tag.outputs.tag }}"
-            # Le VPS Contabo heberge plusieurs projets derriere un nginx
-            # mutualise (backend-nginx-1). On utilise donc l'override
-            # nginx-external.yml plutot que le profile traefik.
-            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml --env-file .env.prod"
-            EXTERNAL_NGINX="backend-nginx-1"
+
+            # Architecture DMZ cliente : on se rattache au Traefik v3.3 existant
+            # (réseau `edge`) + Postgres/MinIO (réseau `data`). On NE lance PAS
+            # notre db/traefik/backup/beszel → --no-deps + services nommés.
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.client.yml --env-file .env.prod"
+            APP_SERVICES="backend qcluster site portal admin"
 
             cd "$DEPLOY_PATH/infra"
 
-            # Compare hash infra precedent vs nouveau . force recreate si change.
+            # Force-recreate si l'infra a changé (propage les nouvelles env vars).
             HASH_FILE="$DEPLOY_PATH/.infra_hash"
             PREV_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "none")
             if [ "$PREV_HASH" != "$INFRA_HASH" ]; then
-              echo ">>> infra/ changed ($PREV_HASH -> $INFRA_HASH) : --force-recreate backend qcluster"
               RECREATE_FLAG="--force-recreate"
             else
-              echo ">>> infra/ unchanged ($INFRA_HASH) : no recreate needed"
               RECREATE_FLAG=""
             fi
             echo "$INFRA_HASH" > "$HASH_FILE"
 
-            # Sauvegarder le tag actuel pour rollback
-            CURRENT_TAG=$(grep "^GATHE_IMAGE_TAG=" .env.prod | cut -d= -f2 || echo "latest")
-            echo ">>> Current tag: $CURRENT_TAG"
-            echo ">>> New tag:     $NEW_TAG"
-
-            # Mettre a jour le tag dans .env.prod (sed in-place, BSD-safe)
+            CURRENT_TAG=$(grep "^GATHE_IMAGE_TAG=" .env.prod | cut -d= -f2 || echo "main")
+            echo ">>> Current tag: $CURRENT_TAG | New tag: $NEW_TAG"
             sed -i.bak "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$NEW_TAG/" .env.prod
 
-            # Pull
             echo ">>> Pulling images..."
-            $COMPOSE pull
+            $COMPOSE pull $APP_SERVICES
 
-            # Up -d (recreate uniquement si l'image a change). PAS de
-            # --profile traefik : le reverse-proxy est externe (mutualise).
-            # RECREATE_FLAG est positionne plus haut si docker-compose.prod.yml
-            # a change (force re-creation pour propager les nouvelles env vars).
-            echo ">>> Starting services... ${RECREATE_FLAG:-(no recreate)}"
-            $COMPOSE up -d ${RECREATE_FLAG}
+            echo ">>> Starting services (--no-deps)... ${RECREATE_FLAG:-(no recreate)}"
+            $COMPOSE up -d --no-deps ${RECREATE_FLAG} $APP_SERVICES
 
-            # Attendre que le backend devienne healthy (max 90s)
             echo ">>> Waiting for backend healthcheck..."
             for i in $(seq 1 18); do
               STATUS=$($COMPOSE ps --format json backend 2>/dev/null | grep -o '"Health":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
               echo "  attempt $i/18: backend=$STATUS"
-              if [ "$STATUS" = "healthy" ]; then
-                break
-              fi
+              [ "$STATUS" = "healthy" ] && break
               if [ "$i" -eq "18" ]; then
-                echo "!!! Backend never became healthy. Rolling back to $CURRENT_TAG."
+                echo "!!! Backend never healthy. Rolling back to $CURRENT_TAG."
                 sed -i.bak "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$CURRENT_TAG/" .env.prod
-                $COMPOSE up -d
+                $COMPOSE up -d --no-deps $APP_SERVICES
                 exit 1
               fi
               sleep 5
             done
 
-            # Reload du nginx mutualise pour qu'il re-resolve les
-            # nouveaux containers GATHE sur le reseau Docker partage.
-            echo ">>> Reloading external nginx..."
-            docker restart "$EXTERNAL_NGINX" || true
-
             echo ">>> Deploy OK on $NEW_TAG"
             $COMPOSE ps
 
-      - name: Smoke tests (from GitHub runner)
+      - name: Smoke tests (domaines client)
+        if: steps.guard.outputs.skip == 'false'
+        env:
+          SITE_DOMAIN: ${{ vars.CLIENT_SITE_DOMAIN }}
+          API_DOMAIN: ${{ vars.CLIENT_API_DOMAIN }}
+          PORTAL_DOMAIN: ${{ vars.CLIENT_PORTAL_DOMAIN }}
+          ADMIN_DOMAIN: ${{ vars.CLIENT_ADMIN_DOMAIN }}
+          CMS_DOMAIN: ${{ vars.CLIENT_CMS_DOMAIN }}
         run: |
           set -e
           FAILED=0
           for url in \
-            https://api.gathe-finance.horus-lab.com/healthz/ \
-            https://gathe-finance.horus-lab.com/ \
-            https://portail.gathe-finance.horus-lab.com/ \
-            https://admin.gathe-finance.horus-lab.com/ \
-            https://cms.gathe-finance.horus-lab.com/admin/
+            "https://${API_DOMAIN}/healthz/" \
+            "https://${SITE_DOMAIN}/" \
+            "https://${PORTAL_DOMAIN}/" \
+            "https://${ADMIN_DOMAIN}/" \
+            "https://${CMS_DOMAIN}/admin/"
           do
             code=$(curl -sLo /dev/null -w "%{http_code}" --max-time 15 "$url" || echo "000")
             if [[ "$code" =~ ^(2|3) ]]; then
               echo "✓ $url -> HTTP $code"
             else
-              echo "✗ $url -> HTTP $code"
-              FAILED=$((FAILED+1))
+              echo "✗ $url -> HTTP $code"; FAILED=$((FAILED+1))
             fi
           done
-          if [ "$FAILED" -gt 0 ]; then
-            echo "!!! $FAILED endpoint(s) en echec - investiguer."
-            exit 1
-          fi
-          echo "Tous les endpoints repondent OK."
+          [ "$FAILED" -gt 0 ] && { echo "!!! $FAILED endpoint(s) en échec."; exit 1; } || echo "Tous les endpoints client répondent OK."
