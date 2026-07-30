@@ -63,7 +63,7 @@ export async function SiteHeader() {
           alt=""
           fill
           sizes="100vw"
-          priority
+          loading="lazy"
           className="object-cover object-center opacity-[0.08]"
         />
         <div aria-hidden="true" className="absolute inset-0 bg-blue-950/88" />

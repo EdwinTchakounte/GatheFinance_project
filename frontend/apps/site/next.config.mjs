@@ -6,6 +6,8 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Résolution/tree-shaking optimisés des icônes (évite de tirer tout le baril).
+  experimental: { optimizePackageImports: ["lucide-react"] },
   // Django requires trailing slashes on API paths (e.g. /api/v1/auth/csrf/).
   // Without this flag, Next would 308-redirect /api/v1/foo/ → /api/v1/foo,
   // breaking the rewrite to the backend.

@@ -79,7 +79,9 @@ export default async function CampaignDetailPage({ params }: Params) {
               <img
                 src={c.flyer_url}
                 alt={c.nom}
-                className="w-full rounded-2xl object-cover shadow-sm"
+                loading="lazy"
+                decoding="async"
+                className="aspect-[4/3] w-full rounded-2xl object-cover shadow-sm"
               />
               <dl className="mt-6 grid grid-cols-2 gap-4 text-sm">
                 <div>
