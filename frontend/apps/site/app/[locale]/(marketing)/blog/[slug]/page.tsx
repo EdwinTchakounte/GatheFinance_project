@@ -10,6 +10,7 @@ import { CtaBand } from "@/components/cta-band";
 import { StreamField } from "@/components/streamfield";
 import { ArticleCard } from "@/components/article-card";
 import { JsonLd, articleJsonLd, breadcrumbJsonLd } from "@/components/json-ld";
+import { pageAlternates } from "@/lib/seo";
 import { Reveal } from "@/components/reveal";
 import { formatDate } from "@/lib/format";
 import { blogFallbackImage } from "@/lib/site-config";
@@ -33,6 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return {
     title: post.seoTitle ?? post.title,
     description: post.seoDescription ?? post.excerpt,
+    alternates: pageAlternates(locale, `/blog/${slug}`),
     openGraph: { type: "article", title: post.title, description: post.excerpt },
   };
 }

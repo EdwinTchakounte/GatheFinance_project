@@ -20,8 +20,10 @@ const syne = Syne({ subsets: ["latin", "latin-ext"], weight: ["700", "800"], var
 const dmSans = DM_Sans({ subsets: ["latin", "latin-ext"], weight: ["300", "400", "500"], variable: "--font-dmsans", display: "swap" });
 
 export const viewport: Viewport = {
-  themeColor: "#080808",
-  colorScheme: "dark",
+  // Aligné sur le manifest (theme_color #0e4d92) — la vitrine est en thème clair
+  // (manifest background_color #ffffff), d'où colorScheme "light".
+  themeColor: "#0e4d92",
+  colorScheme: "light",
 };
 
 export function generateStaticParams() {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageAlternates } from "@/lib/seo";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Download, Shield, Smartphone } from "lucide-react";
 
@@ -36,7 +37,7 @@ function qrUrl(targetUrl: string): string {
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "download" });
-  return { title: t("title"), description: t("lead") };
+  return { title: t("title"), description: t("lead"), alternates: pageAlternates(locale, "/telecharger-app") };
 }
 
 export default async function DownloadAppPage({ params }: Params) {

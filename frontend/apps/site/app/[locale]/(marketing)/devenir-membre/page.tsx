@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageAlternates } from "@/lib/seo";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Info } from "lucide-react";
 
@@ -14,7 +15,7 @@ type Params = { params: Promise<{ locale: string }> };
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "membership" });
-  return { title: t("title"), description: t("lead") };
+  return { title: t("title"), description: t("lead"), alternates: pageAlternates(locale, "/devenir-membre") };
 }
 
 const VALUES = ["accessibility", "transparency", "community", "local"] as const;

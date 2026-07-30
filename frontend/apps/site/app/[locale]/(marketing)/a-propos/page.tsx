@@ -22,18 +22,29 @@ import { AnchorStrip } from "@/components/anchor-strip";
 import { SectionHeading } from "@/components/section-heading";
 import { KeyFiguresBand } from "@/components/key-figures-band";
 import { images, siteConfig } from "@/lib/site-config";
+import { pageAlternates } from "@/lib/seo";
 
 type Params = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "about" });
-  return { title: t("title"), description: t("lead") };
+  return { title: t("title"), description: t("lead"), alternates: pageAlternates(locale, "/a-propos") };
 }
 
 const rich = {
   strong: (chunks: React.ReactNode) => (
     <strong className="font-semibold text-ink-900">{chunks}</strong>
+  ),
+};
+
+/** Emphase pour les panneaux sombres (navy) : le noir y est illisible → blanc
+ *  souligné d'un accent émeraude. */
+const richOnDark = {
+  strong: (chunks: React.ReactNode) => (
+    <strong className="font-semibold text-white underline decoration-emerald/70 decoration-2 underline-offset-[6px]">
+      {chunks}
+    </strong>
   ),
 };
 
@@ -253,7 +264,7 @@ export default async function AboutPage({ params }: Params) {
               <Reveal
                 key={i}
                 delay={i * 60}
-                className="group relative isolate overflow-hidden rounded-2xl bg-paper p-7 shadow-[0_2px_4px_rgba(14,29,58,0.04)] ring-1 ring-line-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(14,77,146,0.18)] hover:ring-blue-200"
+                className="group relative isolate overflow-hidden rounded-[1.5rem] bg-paper p-8 shadow-[0_1px_2px_rgba(14,29,58,0.04),0_12px_28px_-20px_rgba(14,29,58,0.16)] ring-1 ring-line-200/60 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_24px_48px_-24px_rgba(14,77,146,0.2)] hover:ring-line-200"
               >
                 <div
                   aria-hidden="true"
@@ -298,7 +309,7 @@ export default async function AboutPage({ params }: Params) {
                 Notre conviction
               </span>
               <p className="mt-5 font-editorial text-2xl italic leading-[1.4] text-white sm:text-[1.7rem]">
-                {t.rich("callout", rich)}
+                {t.rich("callout", richOnDark)}
               </p>
             </div>
           </Reveal>
@@ -528,22 +539,19 @@ function ContactCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="group relative isolate overflow-hidden rounded-2xl bg-paper p-6 shadow-[0_2px_6px_rgba(14,29,58,0.05)] ring-1 ring-line-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(14,77,146,0.2)] hover:ring-blue-200">
-      <span
-        aria-hidden="true"
-        className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${accent} opacity-90`}
-      />
+    <div className="group relative isolate overflow-hidden rounded-[1.5rem] bg-paper p-7 shadow-[0_1px_2px_rgba(14,29,58,0.04),0_12px_28px_-20px_rgba(14,29,58,0.18)] ring-1 ring-line-200/60 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_24px_48px_-24px_rgba(14,77,146,0.22)] hover:ring-line-200">
+      {/* Halo diffus au hover — plus doux qu'une barre supérieure tranchée */}
       <div
         aria-hidden="true"
-        className={`absolute -right-10 -top-10 size-32 rounded-full bg-gradient-to-br ${accent} opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-15`}
+        className={`absolute -right-12 -top-12 size-36 rounded-full bg-gradient-to-br ${accent} opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-[0.12]`}
       />
       <div
-        className={`relative flex size-11 items-center justify-center rounded-xl bg-gradient-to-br ${accent} text-white shadow-[0_8px_20px_-8px_rgba(14,77,146,0.4)]`}
+        className={`relative flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br ${accent} text-white shadow-[0_10px_24px_-12px_rgba(14,77,146,0.45)]`}
         aria-hidden="true"
       >
         {icon}
       </div>
-      <p className="relative mt-4 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-ink-500">
+      <p className="relative mt-5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-ink-500">
         {label}
       </p>
       <div className="relative mt-2 text-sm leading-relaxed text-ink-700">

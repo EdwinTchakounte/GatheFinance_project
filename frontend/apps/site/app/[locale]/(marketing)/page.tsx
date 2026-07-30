@@ -67,6 +67,7 @@ export default async function HomePage({ params }: Params) {
             eyebrow={t("services.eyebrow")}
             title={t("services.title")}
             lead={ts("lead")}
+            wideLead
           />
 
           {/* Bento asymmetric — 1 big tall card on the left, 2 stacked cards

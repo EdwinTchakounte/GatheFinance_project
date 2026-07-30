@@ -28,6 +28,7 @@ import { KeyFiguresBand } from "@/components/key-figures-band";
 import { Reveal } from "@/components/reveal";
 import { SectionHeading } from "@/components/section-heading";
 import { images } from "@/lib/site-config";
+import { pageAlternates } from "@/lib/seo";
 
 type Params = { params: Promise<{ locale: string }> };
 
@@ -202,7 +203,7 @@ export async function generateMetadata({
 }: Params): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "services" });
-  return { title: t("title"), description: t("lead") };
+  return { title: t("title"), description: t("lead"), alternates: pageAlternates(locale, "/services-financiers") };
 }
 
 
@@ -324,7 +325,7 @@ export default async function ServicesPage({ params }: Params) {
                         {t(`pillars.${pillar.key}.title`)}
                       </h2>
                     </div>
-                    <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink-600">
+                    <p className="mt-6 max-w-none text-lg leading-relaxed text-ink-600">
                       {t.rich(`pillars.${pillar.key}.intro`, rich)}
                     </p>
                   </Reveal>
