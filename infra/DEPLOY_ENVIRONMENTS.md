@@ -33,14 +33,14 @@ merge `staging` → **`main`** → déploie **chez le client** (prod).
 
 ## 1. Ce qui est piloté par la config (jamais commité)
 
-### ⚠️ NOMS DISSOCIÉS recette (Contabo) vs client (Coolify)
+### ⚠️ NOMS DISSOCIÉS recette (Contabo) vs client (DMZ Traefik)
 
 Les secrets/variables sont **préfixés distinctement** pour éviter tout repli
 croisé (ex. un `production` mal configuré retombant sur les secrets `VPS_*` de
 Contabo → déploiement client sur le mauvais serveur). Règle :
 
 - **`VPS_*` / `STAGING_*`** = notre recette Contabo (`horus-lab.com`), branche `staging`.
-- **`CLIENT_*`** = serveur de la cliente sous Coolify (`gathe-finance.com`), branche `main`.
+- **`CLIENT_*`** = serveur de la cliente (DMZ Traefik/Postgres/MinIO, `gathe-finance.com`), branche `main`.
 
 **Secrets** :
 
@@ -63,9 +63,10 @@ Contabo → déploiement client sur le mauvais serveur). Règle :
 
 `CLIENT_SITE_DOMAIN` / `CLIENT_PORTAL_DOMAIN` servent aussi au **build** des
 images `:main` (URLs Next figées) — cf. `ci.yml`. Les autres servent aux smoke
-tests. Le **mode proxy** (Coolify) et le **certresolver** se règlent dans
-`infra/.env.prod` SUR le serveur (`PROXY_NETWORK`, `TRAEFIK_CERTRESOLVER`), pas
-en variables GitHub.
+tests. Le **rattachement DMZ** (réseaux `EDGE_NETWORK`/`DATA_NETWORK`, le
+`TRAEFIK_CERTRESOLVER`, `DATABASE_URL`, clés MinIO) se règle dans
+`infra/.env.prod` SUR le serveur (cf. `.env.prod.client.example`), pas en
+variables GitHub.
 
 ### Variables **de dépôt** (Settings → Variables) — pour le build d'images CI
 

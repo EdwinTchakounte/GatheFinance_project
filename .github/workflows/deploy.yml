@@ -12,7 +12,7 @@
 # la cliente sur le mauvais serveur.
 #
 # Config côté GitHub — Settings > Secrets and variables > Actions :
-#   Secrets (repo ou Environment `production`) :
+#   Secrets (Environment `production`) :
 #     CLIENT_VPS_HOST             IP/hostname du serveur cliente
 #     CLIENT_VPS_USER             utilisateur SSH (root ou deploy)
 #     CLIENT_VPS_SSH_PRIVATE_KEY  clé privée ed25519 dédiée déploiement client
@@ -23,16 +23,18 @@
 #     CLIENT_PORTAL_DOMAIN portail.gathe-finance.com
 #     CLIENT_ADMIN_DOMAIN  admin.gathe-finance.com
 #     CLIENT_CMS_DOMAIN    cms.gathe-finance.com
-#     CLIENT_PROXY_MODE    traefik                 (Coolify gère le TLS)
-#     CLIENT_PROXY_NETWORK nom du réseau Traefik de Coolify (ex. coolify)
-#     CLIENT_CERTRESOLVER  nom du certresolver Coolify (ex. letsencrypt)
+#
+# ⚠️ Le rattachement DMZ (EDGE_NETWORK, DATA_NETWORK, TRAEFIK_CERTRESOLVER,
+#    DATABASE_URL, AWS_S3_*) N'EST PAS de la config GitHub : ce sont des valeurs
+#    serveur, à mettre dans infra/.env.prod SUR le VPS (cf. .env.prod.client.example).
 #
 # Pré-requis serveur cliente (bootstrap manuel 1×, cf. DEPLOY_ENVIRONMENTS.md) :
 #   - Repo cloné dans CLIENT_VPS_DEPLOY_PATH
-#   - infra/.env.prod rempli (secrets Django/Postgres/Brevo/Tara/ACME) — jamais commité
+#   - infra/.env.prod rempli (secrets Django + DATABASE_URL/MinIO/Brevo/réseaux DMZ) — jamais commité
 #   - docker login ghcr.io fait avec un PAT read:packages
-#   - DNS app./api./cms./portail./admin. -> IP serveur cliente
-#   - Réseau proxy Coolify existant (on s'y rattache, on ne lance PAS notre Traefik)
+#   - DNS app./api./cms./portail./admin. -> IP serveur cliente (AVANT 1er start, pour l'ACME)
+#   - Réseaux `edge` (Traefik) et `data` (Postgres/MinIO) existants : on s'y rattache,
+#     on ne lance NI notre Traefik, NI notre Postgres.
 
 name: Deploy to client (prod)
 
@@ -53,7 +55,7 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy on client server (Coolify)
+    name: Deploy on client server (DMZ Traefik)
     runs-on: ubuntu-latest
 
     # Ne tourne que si CI verte OU dispatch manuel.
@@ -107,7 +109,7 @@ jobs:
           overwrite: true
           strip_components: 0
 
-      - name: Deploy via SSH (mode Traefik/Coolify, tag :main)
+      - name: "Deploy via SSH (DMZ : rattachement Traefik/Postgres/MinIO, tag :main)"
         if: steps.guard.outputs.skip == 'false'
         uses: appleboy/ssh-action@v1.2.0
         with:
