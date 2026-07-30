@@ -344,6 +344,7 @@ export default async function AboutPage({ params }: Params) {
                 eyebrow={tn("aboutTeam")}
                 title={t("teamTitle")}
                 lead={t("teamText")}
+                wideLead
               />
               <Link
                 href="/contact"
@@ -415,6 +416,7 @@ export default async function AboutPage({ params }: Params) {
               eyebrow={t("agenciesTitle")}
               title={t("agenciesTitle")}
               lead={t("agenciesIntro")}
+              wideLead
             />
           </div>
 

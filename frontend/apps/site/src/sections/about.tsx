@@ -32,6 +32,7 @@ export async function AboutSection({ locale }: { locale: string }) {
               eyebrow={ta("missionTitle")}
               title={t("about.title")}
               lead={t("about.text")}
+              wideLead
             />
 
             <ul className="mt-10 space-y-5 border-l border-line-200 pl-7">
