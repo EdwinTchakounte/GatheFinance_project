@@ -134,7 +134,7 @@ export default async function BlogIndexPage({ params }: Params) {
             </p>
           ) : rest.length > 0 ? (
             <>
-              <div className="flex items-end justify-between gap-6 border-b border-line-200 pb-6">
+              <div className="flex items-end justify-between gap-6 pb-2">
                 <span className="label-num">
                   02 · Tous les articles
                 </span>

@@ -53,7 +53,7 @@ export default async function ContactPage({ params }: Params) {
               <h2 className="mt-4 font-editorial text-section font-medium text-ink-900">
                 {t("formTitle")}
               </h2>
-              <div className="mt-8 border-t border-line-200 pt-8">
+              <div className="mt-8">
                 <ContactForm endpoint="contact" />
               </div>
             </div>
@@ -103,7 +103,7 @@ export default async function ContactPage({ params }: Params) {
                   href={whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-8 inline-flex items-center gap-2 border border-green-600 px-4 py-2.5 text-sm font-medium text-green-700 transition-colors hover:bg-green-50"
+                  className="mt-8 inline-flex items-center gap-2 rounded-full border border-emerald/40 px-5 py-2.5 text-sm font-semibold text-emerald transition-colors hover:border-emerald hover:bg-emerald/5"
                 >
                   <MessageCircle aria-hidden="true" className="size-4" />
                   {t("writeOnWhatsApp")}

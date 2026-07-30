@@ -186,7 +186,7 @@ export default async function AboutPage({ params }: Params) {
                 eyebrow={t("missionTitle")}
                 title={t("missionTitle")}
               />
-              <p className="lead-with-cap mt-7 max-w-2xl text-lg leading-relaxed text-ink-600">
+              <p className="lead-with-cap mt-7 max-w-none text-lg leading-relaxed text-ink-600">
                 {t.rich("intro", rich)}
               </p>
 
@@ -215,9 +215,9 @@ export default async function AboutPage({ params }: Params) {
               />
               <div
                 aria-hidden="true"
-                className="absolute -bottom-4 -right-4 hidden h-full w-full rounded-md border-2 border-terra-500/40 lg:block"
+                className="absolute -bottom-4 -right-4 hidden h-full w-full rounded-2xl border-2 border-terra-500/40 lg:block"
               />
-              <div className="relative aspect-[4/4.4] overflow-hidden rounded-md shadow-[0_30px_60px_-20px_rgba(14,77,146,0.35)] ring-1 ring-line-200">
+              <div className="relative aspect-[4/4.4] overflow-hidden rounded-2xl shadow-[0_30px_60px_-20px_rgba(14,77,146,0.35)] ring-1 ring-line-200">
                 <Image
                   src={images.entrepreneurFamily}
                   alt="Entrepreneurs camerounais accompagnés par la coopérative"
@@ -361,7 +361,7 @@ export default async function AboutPage({ params }: Params) {
                 className="absolute -inset-8 rounded-3xl bg-gradient-to-br from-blue-100 via-paper to-emerald/15 blur-2xl"
               />
               <div className="relative grid grid-cols-5 grid-rows-2 gap-3">
-                <div className="relative col-span-3 row-span-2 aspect-[4/5] overflow-hidden rounded-md shadow-[0_30px_60px_-20px_rgba(14,77,146,0.35)] ring-1 ring-line-200">
+                <div className="relative col-span-3 row-span-2 aspect-[4/5] overflow-hidden rounded-2xl shadow-[0_30px_60px_-20px_rgba(14,77,146,0.35)] ring-1 ring-line-200">
                   <Image
                     src={images.brcTeamSupport}
                     alt="Conseillers en entretien d'accompagnement"
@@ -374,7 +374,7 @@ export default async function AboutPage({ params }: Params) {
                     className="absolute inset-0 bg-gradient-to-t from-blue-950/55 via-transparent to-transparent"
                   />
                 </div>
-                <div className="relative col-span-2 row-span-1 aspect-[4/3] overflow-hidden rounded-md shadow-md ring-1 ring-line-200">
+                <div className="relative col-span-2 row-span-1 aspect-[4/3] overflow-hidden rounded-2xl shadow-md ring-1 ring-line-200">
                   <Image
                     src={images.brcFormFilling}
                     alt="Constitution de dossier coopérative"
@@ -383,7 +383,7 @@ export default async function AboutPage({ params }: Params) {
                     className="object-cover"
                   />
                 </div>
-                <div className="relative col-span-2 row-span-1 aspect-[4/3] overflow-hidden rounded-md shadow-md ring-1 ring-line-200">
+                <div className="relative col-span-2 row-span-1 aspect-[4/3] overflow-hidden rounded-2xl shadow-md ring-1 ring-line-200">
                   <Image
                     src={images.brcCompletion}
                     alt="Dossier finalisé chez la coopérative"

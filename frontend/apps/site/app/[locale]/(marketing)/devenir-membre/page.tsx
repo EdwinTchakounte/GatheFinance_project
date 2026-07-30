@@ -78,7 +78,7 @@ export default async function MembershipPage({ params }: Params) {
           </div>
 
           {/* Key figures — strip */}
-          <dl className="mt-12 grid grid-cols-1 gap-10 border-t border-line-200 pt-12 sm:grid-cols-2">
+          <dl className="mt-12 grid grid-cols-1 gap-10 pt-2 sm:grid-cols-2">
             <div>
               <dt className="stat-label">{th("stats.projectsLabel")}</dt>
               <dd className="stat-num mt-2 text-[clamp(2.25rem,3.4vw,3rem)]">{th("stats.projectsValue")}</dd>
@@ -108,7 +108,7 @@ export default async function MembershipPage({ params }: Params) {
               <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-terra-600" />
               <p>{t("afterNote")}</p>
             </div>
-            <div className="mt-8 border-t border-line-200 bg-paper p-7 sm:p-9">
+            <div className="mt-8 rounded-[1.5rem] bg-paper p-7 shadow-[0_1px_2px_rgba(14,29,58,0.04),0_12px_28px_-20px_rgba(14,29,58,0.16)] ring-1 ring-line-200/60 sm:p-9">
               <ContactForm endpoint="adhesion" submitLabel={tf("submit")} />
             </div>
           </div>

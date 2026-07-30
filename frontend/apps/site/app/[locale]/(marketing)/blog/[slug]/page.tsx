@@ -88,8 +88,8 @@ export default async function BlogArticlePage({ params }: Params) {
         </nav>
         <div className="mt-6 max-w-[55rem]">
           {post.categories[0] ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-green-800">
-              <span className="size-1.5 rounded-full bg-green-600" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald/25 bg-emerald/10 px-3 py-1 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-emerald">
+              <span className="size-1.5 rounded-full bg-emerald" />
               {post.categories[0].name}
             </span>
           ) : null}
@@ -97,7 +97,7 @@ export default async function BlogArticlePage({ params }: Params) {
             {post.title}
           </h1>
           {post.excerpt ? (
-            <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink-600">{post.excerpt}</p>
+            <p className="mt-4 max-w-3xl text-lg leading-relaxed text-ink-600">{post.excerpt}</p>
           ) : null}
           <div className="mt-6 flex items-center gap-3 text-sm">
             <div className="size-9 shrink-0 rounded-full bg-gradient-to-br from-blue-200 to-green-200" aria-hidden="true" />

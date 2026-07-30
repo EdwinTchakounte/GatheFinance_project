@@ -43,7 +43,7 @@ export function CampaignsTeaser() {
   return (
     <section className="relative isolate overflow-hidden section-pad bg-cream">
       <Container className="relative">
-        <div className="flex flex-wrap items-end justify-between gap-6 border-b border-line-200 pb-8">
+        <div className="flex flex-wrap items-end justify-between gap-6 pb-2">
           <div>
             <span className="font-display text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-emerald">
               Micro-crédit
@@ -51,7 +51,7 @@ export function CampaignsTeaser() {
             <h2 className="mt-3 font-editorial text-section font-medium text-ink-900">
               Campagnes en cours
             </h2>
-            <p className="mt-2 max-w-xl text-sm text-ink-600">
+            <p className="mt-2 max-w-2xl text-sm text-ink-600">
               Des campagnes ciblées pour obtenir un micro-crédit — pour
               certaines, même sans être membre.
             </p>

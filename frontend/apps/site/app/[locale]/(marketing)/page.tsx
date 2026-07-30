@@ -92,7 +92,7 @@ export default async function HomePage({ params }: Params) {
                     as="article"
                     delay={i * 80}
                     className={cn(
-                      "group relative flex overflow-hidden rounded-md border border-line-200/70 bg-cream/35 backdrop-blur-sm",
+                      "group relative flex overflow-hidden rounded-[1.5rem] bg-cream/35 ring-1 ring-line-200/60 backdrop-blur-sm",
                       "transition-shadow duration-500 hover:shadow-[var(--shadow-md)]",
                       spanClass,
                       isWide ? "flex-col lg:flex-row lg:items-stretch" : "flex-col",
@@ -246,7 +246,7 @@ export default async function HomePage({ params }: Params) {
           <HeroNumeral className="absolute -left-6 -top-12 lg:-left-12 lg:-top-20">
             04
           </HeroNumeral>
-          <div className="flex flex-wrap items-end justify-between gap-6 border-b border-line-200 pb-8">
+          <div className="flex flex-wrap items-end justify-between gap-6 pb-2">
             <SectionHeading
               number="04"
               eyebrow={t("blog.eyebrow")}

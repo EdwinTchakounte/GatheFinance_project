@@ -54,7 +54,7 @@ export async function AboutSection({ locale }: { locale: string }) {
 
           {/* ---- portrait column ---- */}
           <Reveal className="relative">
-            <div className="relative aspect-[4/4.4] overflow-hidden rounded-md shadow-[var(--shadow-md)] ring-1 ring-line-200">
+            <div className="relative aspect-[4/4.4] overflow-hidden rounded-2xl shadow-[var(--shadow-md)] ring-1 ring-line-200">
               <Image
                 src={images.businesswoman}
                 alt="Entrepreneuse camerounaise accompagnée par la coopérative"
