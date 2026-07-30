@@ -36,7 +36,7 @@ export function CookieBanner() {
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3 sm:px-4 sm:pb-4">
       <Container className="!px-0">
-        <div className="relative flex flex-col gap-4 rounded-2xl border border-line-200 bg-surface-50 p-5 shadow-[var(--shadow-lg)] sm:flex-row sm:items-center sm:gap-6 sm:p-6">
+        <div role="region" aria-label={t("link")} className="relative flex flex-col gap-4 rounded-2xl border border-line-200 bg-surface-50 p-5 shadow-[var(--shadow-lg)] sm:flex-row sm:items-center sm:gap-6 sm:p-6">
           <p className="flex-1 text-sm leading-relaxed text-ink-600">
             {t("text")}{" "}
             <Link href="/politique-confidentialite" className="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-800">

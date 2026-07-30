@@ -51,7 +51,7 @@ export function AnchorStrip({ anchors }: { anchors: Anchor[] }) {
             <a
               key={a.id}
               href={`#${a.id}`}
-              aria-current={isActive ? "true" : undefined}
+              aria-current={isActive ? "location" : undefined}
               className={`shrink-0 whitespace-nowrap border-b-2 pb-1 transition-colors ${
                 isActive
                   ? "border-blue-700 text-ink-900"

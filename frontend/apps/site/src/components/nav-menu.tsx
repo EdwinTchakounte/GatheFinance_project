@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { cn } from "@gathe/ui";
-import { Link } from "@/i18n/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 
 export type NavChild = { label: string; href: string; desc?: string };
 export type NavEntry = { label: string; href: string; children?: NavChild[] };
@@ -14,6 +14,7 @@ export function NavMenu({ items }: { items: NavEntry[] }) {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -44,6 +45,7 @@ export function NavMenu({ items }: { items: NavEntry[] }) {
       {items.map((item, i) => {
         const hasChildren = !!item.children?.length;
         const isOpen = openIdx === i;
+        const isCurrent = pathname === (item.href.split("#")[0] || "/");
         return (
           <div
             key={item.href}
@@ -53,10 +55,11 @@ export function NavMenu({ items }: { items: NavEntry[] }) {
           >
             <Link
               href={item.href}
+              aria-current={isCurrent ? "page" : undefined}
               className={cn(
                 "group/nav relative inline-flex items-center gap-1 px-3 py-2.5 text-[0.9rem] font-medium text-ink-700 transition-colors",
                 "hover:text-blue-700",
-                isOpen && "text-blue-700",
+                (isOpen || isCurrent) && "text-blue-700",
               )}
               aria-haspopup={hasChildren || undefined}
               aria-expanded={hasChildren ? isOpen : undefined}
