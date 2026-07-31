@@ -51,6 +51,14 @@ services:
     networks: [internal, edge]
     labels:
       - "traefik.docker.network=${EDGE_NETWORK:-edge}"
+      # Sert AUSSI la vitrine sur l'apex + www (même contenu que app., sans redirection).
+      # Router additionnel pointant sur le même service `gathe-site`.
+      # Nécessite que le DNS de gathe-finance.com et www.gathe-finance.com pointe sur le serveur.
+      - "traefik.http.routers.gathe-apex.rule=Host(`gathe-finance.com`) || Host(`www.gathe-finance.com`)"
+      - "traefik.http.routers.gathe-apex.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.gathe-apex.tls=true"
+      - "traefik.http.routers.gathe-apex.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.http.routers.gathe-apex.service=gathe-site"
 
   portal:
     networks: [internal, edge]
