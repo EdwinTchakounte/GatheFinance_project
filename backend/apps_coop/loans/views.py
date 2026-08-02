@@ -567,7 +567,28 @@ def loan_request_create(request):
 @permission_classes([IsMember])
 def loan_request_list(request):
     qs = LoanRequest.objects.filter(member=request.user.member).order_by("-date_soumission")
-    return Response(LoanRequestReadSerializer(qs, many=True).data)
+    # Résilience #82 — on sérialise chaque demande INDÉPENDAMMENT (au lieu de
+    # ``many=True`` tout-ou-rien) et on passe le ``context`` (URLs de pièces
+    # jointes absolues, comme la liste admin). Si la sérialisation d'UNE demande
+    # échoue (donnée limite), on l'écarte avec un log plutôt que de renvoyer un
+    # 500 qui viderait TOUTE la liste côté client — sinon le membre ne voit
+    # AUCUNE de ses demandes, dont sa demande EN_ATTENTE à régler (cul-de-sac :
+    # « Mes crédits » vide alors qu'une demande existe).
+    ctx = {"request": request}
+    out = []
+    for lr in qs:
+        try:
+            out.append(LoanRequestReadSerializer(lr, context=ctx).data)
+        except Exception:  # noqa: BLE001 — un item fautif ne doit pas tout casser
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "loan_request_list: sérialisation de la demande #%s échouée "
+                "(ignorée pour ne pas vider la liste du membre %s)",
+                lr.id,
+                lr.member_id,
+            )
+    return Response(out)
 
 
 # ---------------------------------------------------------------------------
