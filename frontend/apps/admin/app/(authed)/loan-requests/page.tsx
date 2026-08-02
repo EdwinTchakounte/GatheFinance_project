@@ -85,6 +85,9 @@ function Inner() {
   const [guaranteeTarget, setGuaranteeTarget] = useState<LoanRequest | null>(null);
   // Suppression tracée : cible de la modale de confirmation (remplace window.prompt).
   const [deleteTarget, setDeleteTarget] = useState<LoanRequest | null>(null);
+  // Comité — validation/rejet d'une demande CAMPAGNE membre (en_validation_campagne).
+  const [campaignValidateTarget, setCampaignValidateTarget] = useState<LoanRequest | null>(null);
+  const [campaignRejectTarget, setCampaignRejectTarget] = useState<LoanRequest | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -149,6 +152,48 @@ function Inner() {
       const apiErr = err as ApiError;
       setMessage({ tone: "err", text: apiErr.detail ?? "Suppression impossible." });
       setDeleteTarget(null);
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  // Comité — valide la candidature campagne (en_validation_campagne → en_attente
+  // frais / en_instruction si gratuit). Reprend ensuite le parcours standard.
+  async function submitCampaignValidate() {
+    const r = campaignValidateTarget;
+    if (!r) return;
+    setActingId(r.id);
+    try {
+      await adminApi.campaigns.decideRequest(r.id, { decision: "valide" });
+      setMessage({
+        tone: "ok",
+        text: `Candidature campagne #${r.id} validée — passe au règlement des frais / instruction.`,
+      });
+      setCampaignValidateTarget(null);
+      await reload();
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setMessage({ tone: "err", text: apiErr.detail ?? "Validation campagne impossible." });
+      setCampaignValidateTarget(null);
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function submitCampaignReject(motif: string) {
+    if (!campaignRejectTarget) return;
+    setActingId(campaignRejectTarget.id);
+    try {
+      await adminApi.campaigns.decideRequest(campaignRejectTarget.id, {
+        decision: "rejete",
+        motif_rejet: motif,
+      });
+      setMessage({ tone: "ok", text: `Candidature campagne #${campaignRejectTarget.id} rejetée.` });
+      setCampaignRejectTarget(null);
+      await reload();
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setMessage({ tone: "err", text: apiErr.detail ?? "Rejet campagne impossible." });
     } finally {
       setActingId(null);
     }
@@ -450,7 +495,37 @@ function Inner() {
           exportTitle="Demandes de crédit — GATHE Finance"
           exportSubtitle={`Filtre : ${filter || "toutes"}`}
           actions={(r) =>
-            r.statut === "en_attente" ? (
+            r.statut === "en_validation_campagne" ? (
+              <div className="flex flex-col items-end gap-1.5">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCampaignValidateTarget(r)}
+                    disabled={actingId === r.id}
+                    className={buttonClasses({ variant: "success", size: "sm" })}
+                    title="Le comité valide la candidature campagne — la demande reprend le parcours standard (frais puis instruction)."
+                  >
+                    <Check className="size-3.5" aria-hidden="true" />Valider la campagne
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCampaignRejectTarget(r)}
+                    disabled={actingId === r.id}
+                    className={buttonClasses({ variant: "ghost", size: "sm" })}
+                  >
+                    <X className="size-3.5" aria-hidden="true" />Rejeter
+                  </button>
+                </div>
+                <a
+                  href={adminApi.loans.noteUrl(r.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
+                >
+                  <FileText className="size-3" />Note PDF
+                </a>
+              </div>
+            ) : r.statut === "en_attente" ? (
               <div className="flex flex-col items-end gap-1.5">
                 <button
                   type="button"
@@ -689,6 +764,35 @@ function Inner() {
           placeholder: "ex. doublon, demande de test…",
           multiline: true,
         }}
+      />
+
+      {/* Comité — validation d'une candidature campagne membre (en_validation_campagne). */}
+      <ConfirmModal
+        open={campaignValidateTarget !== null}
+        onClose={() => setCampaignValidateTarget(null)}
+        onConfirm={submitCampaignValidate}
+        title={
+          campaignValidateTarget
+            ? `Valider la campagne — demande #${campaignValidateTarget.id} ?`
+            : "Valider la campagne ?"
+        }
+        tone="success"
+        confirmLabel="Valider la candidature"
+        message={
+          <>
+            Le comité valide la candidature à la campagne. La demande reprend le
+            parcours standard : <strong>règlement des frais d'étude</strong> (si
+            dus) puis <strong>instruction</strong>. Action tracée dans l'audit.
+          </>
+        }
+      />
+
+      {/* Comité — rejet d'une candidature campagne membre (motif requis). */}
+      <RejectLoanModal
+        target={campaignRejectTarget}
+        onClose={() => setCampaignRejectTarget(null)}
+        onSubmit={submitCampaignReject}
+        submitting={actingId !== null}
       />
 
       {/* Cash-in frais d'etude (CH-7). Pre-remplit membre + type + montant
