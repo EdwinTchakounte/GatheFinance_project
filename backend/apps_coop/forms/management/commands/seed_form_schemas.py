@@ -105,37 +105,13 @@ LOAN_REQUEST_SCHEMA = {
                 },
             ],
         },
-        # NOTE 2026-07-22 : ces 3 sections (parcours / CGA / BRC) sont
-        # AFFICHÉES pour TOUTES les voies à la soumission (choix métier). Elles
-        # ne vivent QUE dans ce schéma (rendu unique par DynamicFields) — plus
-        # aucun doublon codé en dur côté mobile (bloc BRC hardcodé retiré).
-        {
-            "id": "profil_apprenant",
-            "title": "Votre parcours de formation",
-            "description": "Si tu as suivi une formation au CFP Broad Range, indique-le et joins ton attestation. Les anciens apprenants bénéficient d'une instruction prioritaire.",
-            "fields": [
-                {
-                    "id": "ancien_apprenant",
-                    "type": "radio",
-                    "is_privilege_declaration": True,
-                    "label": "As-tu déjà suivi une formation au CFP Broad Range ?",
-                    "required": True,
-                    "options": [
-                        {"value": "oui", "label": "Oui, je suis ancien apprenant CFP Broad Range"},
-                        {"value": "non", "label": "Non"},
-                    ],
-                },
-                {
-                    "id": "ancien_apprenant_preuve",
-                    "type": "file",
-                    "is_brc_proof": True,
-                    "label": "Attestation / certificat CFP Broad Range",
-                    "help": "Photo ou PDF de ton attestation de formation (10 Mo max).",
-                    "required": True,
-                    "condition": {"field": "ancien_apprenant", "operator": "equals", "value": "oui"},
-                },
-            ],
-        },
+        # NOTE 2026-08-02 : section « Votre parcours de formation » (profil_apprenant,
+        # question « CFP Broad Range » + attestation) RETIRÉE — redondante avec le
+        # nouvel attribut `LoanRequest.is_brc` (« a fréquenté le centre de formation
+        # BRC »), qui est déclaratif, couplable à toute voie et SANS preuve (le
+        # comité juge à l'évaluation, cf. décision cliente BRC 2026-08). On garde
+        # « Adhésion CGA » (profil_cga) — concept fiscal distinct. Ne pas
+        # réintroduire la question CFP sans décision métier.
         {
             "id": "profil_cga",
             "title": "Adhésion CGA",

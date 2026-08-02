@@ -31,9 +31,10 @@ def _activate_seed():
 
 
 def test_seed_declare_les_flags_privilege():
+    # 2026-08 : section « CFP Broad Range » (ancien_apprenant) retirée du seed
+    # (redondante avec l'attribut is_brc). Reste la déclaration CGA.
     _activate_seed()
     assert privilege_declaration_field_ids("loan_request") == {
-        "ancien_apprenant",
         "cga_adherent",
     }
 
@@ -41,6 +42,5 @@ def test_seed_declare_les_flags_privilege():
 def test_seed_declare_les_flags_preuve():
     _activate_seed()
     assert brc_proof_field_ids("loan_request") == {
-        "ancien_apprenant_preuve",
         "cga_preuve",
     }

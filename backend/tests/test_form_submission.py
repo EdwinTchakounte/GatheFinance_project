@@ -303,8 +303,7 @@ class TestLoanRequestEndpointWiring:
                 "montant_demande": "100000",
                 "duree_mois": 6,
                 "motif": "Fonds de roulement",
-                # Champs requis par le schéma loan_request v1 seedé.
-                "ancien_apprenant": "non",
+                # Déclaration requise par le schéma loan_request seedé (CGA).
                 "cga_adherent": "non",
                 # Champ ajouté via FormSchema :
                 "garantie_supplementaire": "Stock de matières premières",

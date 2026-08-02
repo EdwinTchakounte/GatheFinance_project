@@ -37,8 +37,9 @@ def _tmp_media_root(settings, tmp_path):
 def _active_loan_schema(db):
     # Depuis la modularisation Lot 0.5, une preuve alimente la file BRC via
     # l'attribut ``is_brc_proof`` du schéma actif (plus de liste en dur). On
-    # active donc le schéma loan_request (qui flagge ancien_apprenant_preuve /
-    # cga_preuve) pour tester le chemin réel.
+    # active donc le schéma loan_request (qui flagge cga_preuve — la question
+    # « CFP Broad Range »/ancien_apprenant_preuve a été retirée en 2026-08,
+    # redondante avec l'attribut is_brc) pour tester le chemin réel.
     FormSchema.objects.create(
         kind=FormSchema.Kind.LOAN_REQUEST,
         version=999,
@@ -71,7 +72,7 @@ def _upload(client, loan_request, field_id, name="brc.png"):
     )
 
 
-@pytest.mark.parametrize("field_id", ["ancien_apprenant_preuve", "cga_preuve"])
+@pytest.mark.parametrize("field_id", ["cga_preuve"])
 def test_preuve_brc_alimente_la_file_de_validation(
     loan_request, active_member, field_id
 ):
@@ -170,7 +171,7 @@ class TestDecisionAdmin:
     def test_rejet_exige_un_motif_et_laisse_le_membre_non_brc(
         self, loan_request, active_member, admin_user
     ):
-        doc = self._depose(loan_request, active_member, "ancien_apprenant_preuve")
+        doc = self._depose(loan_request, active_member, "cga_preuve")
 
         staff = APIClient()
         staff.force_authenticate(admin_user)
