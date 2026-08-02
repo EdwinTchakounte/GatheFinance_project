@@ -1657,10 +1657,18 @@ def loan_request_upload_attachment(request, pk: int):
     # Modularisation Lot 0.5 : un champ « preuve de privilège » est reconnu
     # UNIQUEMENT via son attribut ``is_brc_proof`` dans le schéma actif (générique,
     # par coopérative) — plus aucune liste de noms en dur dans le cœur.
-    from apps_coop.forms.field_flags import brc_proof_field_ids
+    from apps_coop.forms.field_flags import (
+        BRC_ATTESTATION_FIELD_ID,
+        brc_proof_field_ids,
+    )
 
+    # Preuve BRC = champ flaggé is_brc_proof dans le schéma actif OU l'attestation
+    # dédiée à l'attribut hardcodé is_brc (brc_attestation), hors schéma.
     brc_doc_id = None
-    if schema_field_id in brc_proof_field_ids("loan_request"):
+    if (
+        schema_field_id == BRC_ATTESTATION_FIELD_ID
+        or schema_field_id in brc_proof_field_ids("loan_request")
+    ):
         from apps_coop.members.services import upload_brc_document
 
         brc_doc = upload_brc_document(

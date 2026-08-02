@@ -156,6 +156,10 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   // Ce N'EST PAS une voie : c'est un attribut informatif COUPLABLE à n'importe
   // quelle voie ci-dessus. N'influence pas le routage ; le comité juge à l'étude.
   bool _isBrc = false;
+  // Attestation du centre de formation BRC — REQUISE quand [_isBrc] est coché.
+  // Uploadée après création via l'attachment `brc_attestation` (reconnu comme
+  // preuve BRC côté backend → alimente la file BRC + visible au dashboard).
+  PickedFile? _brcAttestationFile;
   // CH-9 . Canal de réception choisi par le membre + numéro Mobile Money.
   final _phoneCtrl = TextEditingController();
   // CH-7 . Numéro Mobile Money pour régler les frais d'étude.
@@ -412,6 +416,18 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
+    // Attestation BRC obligatoire si le membre déclare avoir fréquenté le
+    // centre de formation BRC (sinon on ne peut pas justifier l'attribut).
+    if (_isBrc && _brcAttestationFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Joins ton attestation du centre de formation BRC (ou décoche).',
+          ),
+        ),
+      );
+      return;
+    }
     // CH-9 . Si canal Tara MoMo/OM, un numéro est requis (validation locale
     // avant l'appel use case qui re-vérifie).
     final phone = _phoneCtrl.text.trim();
@@ -492,6 +508,11 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       // stocke tel quel (n'influence pas le routage) ; le comité juge à l'étude.
       if (_isBrc) {
         scalarExtras['is_brc'] = true;
+        // Attestation BRC (requise) → pièce jointe `brc_attestation`, reconnue
+        // comme preuve BRC par le backend (file BRC + visible au dashboard).
+        if (_brcAttestationFile != null) {
+          fileEntries.add(MapEntry('brc_attestation', _brcAttestationFile!));
+        }
       }
       final submission =
           await ref.read(loanRequestsProvider.notifier).submit(
@@ -1044,6 +1065,19 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 style: TextStyle(fontSize: 12),
               ),
             ),
+            // Attestation BRC REQUISE quand le membre coche « ancien étudiant ».
+            if (_isBrc) ...[
+              const SizedBox(height: AppSpacing.s),
+              _ProofPickerTile(
+                label: 'Attestation centre de formation BRC',
+                picked: _brcAttestationFile,
+                onPick: () async {
+                  final f = await _pickFile();
+                  if (f != null) setState(() => _brcAttestationFile = f);
+                },
+                onClear: () => setState(() => _brcAttestationFile = null),
+              ),
+            ],
             const SizedBox(height: AppSpacing.m),
 
             // --- CH-9 . Canal de réception du décaissement ---

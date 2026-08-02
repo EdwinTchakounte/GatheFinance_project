@@ -11,14 +11,21 @@ const _kTimeout =
 const _kServer =
     'Nos serveurs rencontrent un souci. Réessaie dans quelques instants.';
 
+// Signaux HORS-LIGNE **précis** uniquement. On NE matche PAS « dioexception »
+// ni « connection » seuls : une réponse serveur (400/403/500) est aussi une
+// DioException et contient ces mots → sinon on afficherait « Pas de connexion »
+// alors que le serveur a bien répondu. Un vrai hors-ligne se reconnaît à l'échec
+// socket/DNS, pas à la présence d'une réponse HTTP.
 bool _looksOffline(String lower) =>
     lower.contains('socketexception') ||
-    lower.contains('dioexception') ||
-    lower.contains('connection') ||
-    lower.contains('handshake') ||
-    lower.contains('network') ||
-    lower.contains('failed host') ||
-    lower.startsWith('null');
+    lower.contains('failed host lookup') ||
+    lower.contains('network is unreachable') ||
+    lower.contains('no address associated with hostname') ||
+    lower.contains('connection refused') ||
+    lower.contains('connection reset') ||
+    lower.contains('connection closed') ||
+    lower.contains('connection timed out') ||
+    lower.contains('handshake');
 
 String friendlyError(
   Object? e, {

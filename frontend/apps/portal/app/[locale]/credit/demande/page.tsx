@@ -115,6 +115,9 @@ export default function PortalLoanRequestPage() {
   // Réforme crédit L4 — titre de propriété (voie garantie matérielle),
   // uploadé après création via l'endpoint attachments (clé titre_propriete).
   const [titreProprieteFile, setTitreProprieteFile] = useState<File | null>(null);
+  // Attestation BRC — requise quand form.is_brc est coché (parité mobile).
+  // Uploadée après création via l'attachment `brc_attestation`.
+  const [brcAttestationFile, setBrcAttestationFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorList, setErrorList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -348,6 +351,13 @@ export default function PortalLoanRequestPage() {
       }
     }
 
+    // Attestation BRC obligatoire si le membre déclare avoir fréquenté le
+    // centre de formation BRC (parité mobile).
+    if (form.is_brc && !brcAttestationFile) {
+      setError("Joins ton attestation du centre de formation BRC (ou décoche).");
+      return;
+    }
+
     // CH-9 — Validation locale : téléphone requis pour les canaux Tara.
     const phone = form.recipient_phone.trim();
     const needsPhone = form.moyen_reception === "tara_om" ||
@@ -448,6 +458,20 @@ export default function PortalLoanRequestPage() {
           );
         } catch (uploadErr) {
           console.warn("Upload du titre de propriété échoué.", uploadErr);
+        }
+      }
+
+      // Attestation BRC (clé brc_attestation) — reconnue comme preuve BRC côté
+      // backend (file BRC + visible au dashboard). Uploadée après création.
+      if (form.is_brc && brcAttestationFile && result.loan_request?.id) {
+        try {
+          await portalApi.loans.uploadAttachment(
+            result.loan_request.id,
+            "brc_attestation",
+            brcAttestationFile,
+          );
+        } catch (uploadErr) {
+          console.warn("Upload de l'attestation BRC échoué.", uploadErr);
         }
       }
 
@@ -1037,6 +1061,30 @@ export default function PortalLoanRequestPage() {
               </span>
             </span>
           </label>
+
+          {/* Attestation BRC — REQUISE quand « ancien étudiant » est coché. */}
+          {form.is_brc && (
+            <div className="mt-3 rounded-md border border-line-200 bg-cream/40 p-4">
+              <label
+                className="block text-xs font-medium text-ink-700"
+                htmlFor="brc_attestation"
+              >
+                Attestation du centre de formation BRC
+              </label>
+              <input
+                id="brc_attestation"
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) =>
+                  setBrcAttestationFile(e.target.files?.[0] ?? null)
+                }
+                className="mt-1 block w-full text-xs text-ink-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald file:px-3 file:py-1.5 file:text-white"
+              />
+              <p className="mt-1 text-[11px] text-ink-500">
+                Image ou PDF. Obligatoire pour justifier l&apos;attribut BRC.
+              </p>
+            </div>
+          )}
 
           {error && (
             <div

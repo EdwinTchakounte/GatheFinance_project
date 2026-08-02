@@ -85,9 +85,6 @@ function Inner() {
   const [guaranteeTarget, setGuaranteeTarget] = useState<LoanRequest | null>(null);
   // Suppression tracée : cible de la modale de confirmation (remplace window.prompt).
   const [deleteTarget, setDeleteTarget] = useState<LoanRequest | null>(null);
-  // Comité — validation/rejet d'une demande CAMPAGNE membre (en_validation_campagne).
-  const [campaignValidateTarget, setCampaignValidateTarget] = useState<LoanRequest | null>(null);
-  const [campaignRejectTarget, setCampaignRejectTarget] = useState<LoanRequest | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -152,48 +149,6 @@ function Inner() {
       const apiErr = err as ApiError;
       setMessage({ tone: "err", text: apiErr.detail ?? "Suppression impossible." });
       setDeleteTarget(null);
-    } finally {
-      setActingId(null);
-    }
-  }
-
-  // Comité — valide la candidature campagne (en_validation_campagne → en_attente
-  // frais / en_instruction si gratuit). Reprend ensuite le parcours standard.
-  async function submitCampaignValidate() {
-    const r = campaignValidateTarget;
-    if (!r) return;
-    setActingId(r.id);
-    try {
-      await adminApi.campaigns.decideRequest(r.id, { decision: "valide" });
-      setMessage({
-        tone: "ok",
-        text: `Candidature campagne #${r.id} validée — passe au règlement des frais / instruction.`,
-      });
-      setCampaignValidateTarget(null);
-      await reload();
-    } catch (err) {
-      const apiErr = err as ApiError;
-      setMessage({ tone: "err", text: apiErr.detail ?? "Validation campagne impossible." });
-      setCampaignValidateTarget(null);
-    } finally {
-      setActingId(null);
-    }
-  }
-
-  async function submitCampaignReject(motif: string) {
-    if (!campaignRejectTarget) return;
-    setActingId(campaignRejectTarget.id);
-    try {
-      await adminApi.campaigns.decideRequest(campaignRejectTarget.id, {
-        decision: "rejete",
-        motif_rejet: motif,
-      });
-      setMessage({ tone: "ok", text: `Candidature campagne #${campaignRejectTarget.id} rejetée.` });
-      setCampaignRejectTarget(null);
-      await reload();
-    } catch (err) {
-      const apiErr = err as ApiError;
-      setMessage({ tone: "err", text: apiErr.detail ?? "Rejet campagne impossible." });
     } finally {
       setActingId(null);
     }
@@ -496,26 +451,13 @@ function Inner() {
           exportSubtitle={`Filtre : ${filter || "toutes"}`}
           actions={(r) =>
             r.statut === "en_validation_campagne" ? (
+              // La validation d'une candidature campagne se fait dans la page
+              // « Micro-crédit » (détail de la campagne → demandes en attente).
+              // Ici on n'expose que consultation + suppression, pas de doublon.
               <div className="flex flex-col items-end gap-1.5">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCampaignValidateTarget(r)}
-                    disabled={actingId === r.id}
-                    className={buttonClasses({ variant: "success", size: "sm" })}
-                    title="Le comité valide la candidature campagne — la demande reprend le parcours standard (frais puis instruction)."
-                  >
-                    <Check className="size-3.5" aria-hidden="true" />Valider la campagne
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCampaignRejectTarget(r)}
-                    disabled={actingId === r.id}
-                    className={buttonClasses({ variant: "ghost", size: "sm" })}
-                  >
-                    <X className="size-3.5" aria-hidden="true" />Rejeter
-                  </button>
-                </div>
+                <span className="max-w-[13rem] text-right text-[11px] text-ink-500">
+                  À valider dans « Micro-crédit » (détail de la campagne).
+                </span>
                 <a
                   href={adminApi.loans.noteUrl(r.id)}
                   target="_blank"
@@ -764,35 +706,6 @@ function Inner() {
           placeholder: "ex. doublon, demande de test…",
           multiline: true,
         }}
-      />
-
-      {/* Comité — validation d'une candidature campagne membre (en_validation_campagne). */}
-      <ConfirmModal
-        open={campaignValidateTarget !== null}
-        onClose={() => setCampaignValidateTarget(null)}
-        onConfirm={submitCampaignValidate}
-        title={
-          campaignValidateTarget
-            ? `Valider la campagne — demande #${campaignValidateTarget.id} ?`
-            : "Valider la campagne ?"
-        }
-        tone="success"
-        confirmLabel="Valider la candidature"
-        message={
-          <>
-            Le comité valide la candidature à la campagne. La demande reprend le
-            parcours standard : <strong>règlement des frais d'étude</strong> (si
-            dus) puis <strong>instruction</strong>. Action tracée dans l'audit.
-          </>
-        }
-      />
-
-      {/* Comité — rejet d'une candidature campagne membre (motif requis). */}
-      <RejectLoanModal
-        target={campaignRejectTarget}
-        onClose={() => setCampaignRejectTarget(null)}
-        onSubmit={submitCampaignReject}
-        submitting={actingId !== null}
       />
 
       {/* Cash-in frais d'etude (CH-7). Pre-remplit membre + type + montant
@@ -1531,13 +1444,29 @@ function ProfilEmprunteurBadges({ r }: { r: LoanRequest }) {
     proof: findAttachment(row.proofField),
   })).filter((row) => row.value || row.proof);
 
-  if (rows.length === 0) return null;
+  // Attribut BRC (attribut couplable `is_brc`) + son attestation dédiée.
+  const brcAttestation = findAttachment("brc_attestation");
+  const showBrc = Boolean(r.is_brc || brcAttestation);
 
-  const hasBrc = rows.some((row) => row.brc && (row.value === "oui" || row.proof));
+  if (rows.length === 0 && !showBrc) return null;
+
+  const subtitle = `Demande #${r.id}${r.member ? ` · ${fullName(r.member.prenom, r.member.nom)}` : ""}`;
+  const hasBrc =
+    rows.some((row) => row.brc && (row.value === "oui" || row.proof)) ||
+    showBrc;
 
   return (
     <div className="mt-2 space-y-1">
       <div className="flex flex-wrap items-center gap-1.5">
+        {showBrc ? (
+          <ProfilBadge
+            label="Centre de formation BRC"
+            value="oui"
+            proof={brcAttestation}
+            isYes
+            subtitle={subtitle}
+          />
+        ) : null}
         {rows.map((row) => (
           <ProfilBadge
             key={row.flagField}
@@ -1545,7 +1474,7 @@ function ProfilEmprunteurBadges({ r }: { r: LoanRequest }) {
             value={row.value}
             proof={row.proof}
             isYes={row.value === "oui"}
-            subtitle={`Demande #${r.id}${r.member ? ` · ${fullName(r.member.prenom, r.member.nom)}` : ""}`}
+            subtitle={subtitle}
           />
         ))}
       </div>

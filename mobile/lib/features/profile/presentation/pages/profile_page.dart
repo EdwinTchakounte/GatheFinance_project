@@ -19,6 +19,7 @@ import '../../../../core/widgets/paysika/pa_gradient_header_band.dart';
 import '../../../../core/widgets/paysika/pa_pattern_background.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../auth/presentation/state/auth_notifier.dart';
+import '../../../savings/presentation/widgets/collecte_eom_card.dart';
 import '../../../preferences/presentation/state/locale_notifier.dart';
 import '../../../preferences/presentation/widgets/language_choice_sheet.dart';
 import '../../../support/presentation/state/support_notifier.dart';
@@ -111,6 +112,13 @@ class ProfilePage extends ConsumerWidget {
                   ],
                 ),
               ),
+
+              const SizedBox(height: AppSpacing.m),
+
+              // Préférence « fin de mois collecte » (cash vs bascule épargne) —
+              // déplacée ici depuis l'Historique (2026-08) : c'est un réglage de
+              // compte, pas une écriture. Card autoporteuse (titre + choix).
+              const CollecteEomCard(),
 
               const SizedBox(height: AppSpacing.l),
 

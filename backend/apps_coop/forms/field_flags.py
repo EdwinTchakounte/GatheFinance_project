@@ -24,6 +24,15 @@ def _flagged_field_ids(kind: str, flag: str) -> set[str]:
     return {f["id"] for f in _iter_fields(row.schema or {}) if f.get(flag)}
 
 
+# Attestation liée à l'attribut hardcodé ``LoanRequest.is_brc`` (« a fréquenté
+# le centre de formation BRC »). Ce n'est PAS un champ du FormSchema (toggle
+# codé en dur côté client) : le handler d'upload la reconnaît explicitement
+# comme preuve BRC, en plus des champs flaggés ``is_brc_proof`` dans le schéma.
+# On la garde HORS de ``brc_proof_field_ids`` pour préserver la pureté du
+# mécanisme générique schema-driven (réutilisable GATHE/NHR).
+BRC_ATTESTATION_FIELD_ID = "brc_attestation"
+
+
 def brc_proof_field_ids(kind: str = "loan_request") -> set[str]:
     """Champs marqués preuve de privilège (→ file BRC) dans le schéma actif."""
     return _flagged_field_ids(kind, "is_brc_proof")

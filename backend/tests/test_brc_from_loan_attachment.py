@@ -72,7 +72,7 @@ def _upload(client, loan_request, field_id, name="brc.png"):
     )
 
 
-@pytest.mark.parametrize("field_id", ["cga_preuve"])
+@pytest.mark.parametrize("field_id", ["cga_preuve", "brc_attestation"])
 def test_preuve_brc_alimente_la_file_de_validation(
     loan_request, active_member, field_id
 ):

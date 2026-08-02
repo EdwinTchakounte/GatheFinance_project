@@ -40,6 +40,9 @@ def test_seed_declare_les_flags_privilege():
 
 
 def test_seed_declare_les_flags_preuve():
+    # 2026-08 : question CFP retirée du seed → seule la preuve CGA reste flaggée
+    # dans le schéma. (L'attestation is_brc `brc_attestation` est reconnue au
+    # niveau du handler d'upload, hors schéma — cf. test_brc_from_loan_attachment.)
     _activate_seed()
     assert brc_proof_field_ids("loan_request") == {
         "cga_preuve",
