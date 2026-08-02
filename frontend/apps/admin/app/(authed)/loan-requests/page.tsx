@@ -1354,10 +1354,20 @@ function VoieBadge({ r }: { r: LoanRequest }) {
   return (
     <div className="min-w-[7rem]">
       <span
-        className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${tone[voie] ?? "bg-ink-100 text-ink-700"}`}
+        className={`mr-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${tone[voie] ?? "bg-ink-100 text-ink-700"}`}
       >
         {label}
       </span>
+      {/* Attribut BRC — badge COUPLÉ à la voie (jamais à sa place) : une demande
+          peut être « Campagne » + « BRC ». Le comité en tient compte à l'étude. */}
+      {r.is_brc ? (
+        <span
+          className="inline-block rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-800"
+          title="A fréquenté le centre de formation BRC (déclaré)"
+        >
+          BRC
+        </span>
+      ) : null}
       {voie === "avaliste" && couvre > 0 ? (
         <p className="mt-1 text-[11px] text-ink-500">
           Avaliste couvre{" "}

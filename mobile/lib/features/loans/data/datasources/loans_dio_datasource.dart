@@ -170,9 +170,34 @@ class LoansDioDataSource implements LoansRemoteDataSource {
   Future<List<LoanRequestEntity>> myRequests() async {
     try {
       final res = await _dio.get<List<dynamic>>('/loans/me/requests/');
-      return (res.data ?? const [])
-          .map((r) => _parseRequest(r as Map<String, dynamic>))
-          .toList(growable: false);
+      final raw = res.data ?? const [];
+      // Robustesse : on parse chaque demande INDÉPENDAMMENT. Une seule entrée au
+      // JSON inattendu ne doit PAS vider toute la liste — sinon le membre ne voit
+      // AUCUNE de ses demandes (dont une éventuelle demande en cours à régler) et
+      // se retrouve bloqué face à un écran vide trompeur. On saute l'entrée
+      // fautive et on garde le reste.
+      final parsed = <LoanRequestEntity>[];
+      var skipped = 0;
+      for (final r in raw) {
+        try {
+          parsed.add(_parseRequest(r as Map<String, dynamic>));
+        } catch (e) {
+          skipped++;
+          assert(() {
+            // ignore: avoid_print
+            print('[loans] myRequests: entrée ignorée (parse impossible) : $e');
+            return true;
+          }());
+        }
+      }
+      assert(() {
+        if (skipped > 0) {
+          // ignore: avoid_print
+          print('[loans] myRequests: $skipped/${raw.length} demande(s) ignorée(s)');
+        }
+        return true;
+      }());
+      return List.unmodifiable(parsed);
     } on DioException catch (e) {
       throw mapDioError(e);
     }
@@ -505,6 +530,8 @@ LoanRequestEntity _parseRequest(Map<String, dynamic> json) {
     // Porte des frais 2026 — de quoi choisir le canal sans second appel.
     fraisPaye: json['frais_demande_credit_paye'] == true,
     epargneDisponibleFrais: _num(json['epargne_disponible_frais'] ?? 0),
+    // Attribut BRC déclaré — informatif, couplable à toute voie.
+    isBrc: json['is_brc'] == true,
   );
 }
 

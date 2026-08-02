@@ -51,6 +51,10 @@ type FormState = {
   // CH-9 — Canal de réception du décaissement choisi par le membre.
   moyen_reception: Canal;
   recipient_phone: string;
+  // Attribut BRC — « a fréquenté le centre de formation BRC ». Ce n'est PAS une
+  // voie : c'est un attribut couplable à n'importe quelle voie. Informatif ; le
+  // comité en tient compte à l'évaluation (n'influence pas le routage).
+  is_brc: boolean;
 };
 
 // CH-4 — Champs câblés en dur dans cette page (UI dédiée, métier 3 voies).
@@ -105,6 +109,7 @@ export default function PortalLoanRequestPage() {
     // pour les membres). Le membre peut changer avant soumission.
     moyen_reception: "tara_momo",
     recipient_phone: "",
+    is_brc: false,
   });
   const [submitting, setSubmitting] = useState(false);
   // Réforme crédit L4 — titre de propriété (voie garantie matérielle),
@@ -376,6 +381,8 @@ export default function PortalLoanRequestPage() {
         // CH-9 — Canal de réception + téléphone (vide pour agence_especes).
         moyen_reception: form.moyen_reception,
         recipient_phone: needsPhone ? phone : "",
+        // Attribut BRC déclaré — couplable à N'IMPORTE QUELLE voie ci-dessous.
+        is_brc: form.is_brc,
         // CH-4 — Champs scalaires supplémentaires routés vers extra_payload.
         ...scalarExtras,
       };
@@ -1009,6 +1016,27 @@ export default function PortalLoanRequestPage() {
               </div>
             </div>
           )}
+
+          {/* Attribut BRC — déclaration couplable à N'IMPORTE QUELLE voie
+              ci-dessus (ce n'est pas une voie). Informatif : transmis au comité,
+              pris en compte lors de l'étude du dossier. */}
+          <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-md border border-line-200 bg-paper p-4">
+            <input
+              type="checkbox"
+              checked={form.is_brc}
+              onChange={(e) => set("is_brc", e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-blue-700"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-ink-900">
+                J&apos;ai fréquenté le centre de formation BRC
+              </span>
+              <span className="mt-0.5 block text-xs text-ink-600">
+                Information transmise au comité, indépendante de la voie choisie
+                — prise en compte lors de l&apos;étude du dossier.
+              </span>
+            </span>
+          </label>
 
           {error && (
             <div

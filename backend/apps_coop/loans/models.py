@@ -565,6 +565,21 @@ class LoanRequest(TimestampedModel):
         ),
     )
 
+    # Attribut déclaratif BRC — le demandeur signale qu'il a fréquenté le centre
+    # de formation BRC. C'est un ATTRIBUT couplable à N'IMPORTE QUELLE voie
+    # (campagne, avaliste, garantie, ancienneté), PAS une voie en soi. Purement
+    # informatif : n'entre NI dans le routage, NI dans l'éligibilité, NI dans le
+    # taux. Le comité en tient compte manuellement lors de l'évaluation du crédit
+    # (pas de validation de preuve séparée : jugé au moment de la décision).
+    is_brc = models.BooleanField(
+        default=False,
+        help_text=(
+            "True si le demandeur déclare avoir fréquenté le centre de formation "
+            "BRC. Attribut informatif couplable à toute voie ; jugé par le comité "
+            "à l'évaluation."
+        ),
+    )
+
     class Meta:
         ordering = ["-date_soumission"]
         verbose_name = "Demande de crédit"

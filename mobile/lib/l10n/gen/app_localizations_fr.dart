@@ -1839,7 +1839,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get wd_disclaimer =>
-      'Le solde est débité dès l\'envoi. L\'admin valide la sortie (espèces ou payout MOMO) sous 24 h.';
+      'Le montant est réservé dès l\'envoi (indisponible au retrait) et débité seulement au paiement. L\'admin valide la sortie (espèces ou payout MOMO) sous 24 h.';
 
   @override
   String get wd_success_title => 'Demande envoyée à la coopérative';

@@ -434,6 +434,8 @@ def loan_request_create(request):
             # CH-9 — Canal de réception choisi à la soumission.
             moyen_reception=data.get("moyen_reception") or "",
             recipient_phone=(data.get("recipient_phone") or "").strip(),
+            # Attribut BRC déclaré — informatif, couplable à toute voie.
+            is_brc=bool(data.get("is_brc")),
         )
 
         # Auto-couverture : projette le gel du demandeur sur ses tranches de

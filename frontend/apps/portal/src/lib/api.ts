@@ -367,6 +367,9 @@ export type LoanRequest = {
   voie?: "senior_brc" | "avaliste" | "campagne" | "garantie_materielle";
   voie_display?: string;
   avaliste_montant_a_couvrir?: string;
+  // Attribut BRC déclaré — « a fréquenté le centre de formation BRC ».
+  // Informatif, couplable à toute voie (le comité juge à l'évaluation).
+  is_brc?: boolean;
 };
 
 // Refonte 2026 LOT 19 — Espace prêteur (épargne-prêteur).
@@ -779,6 +782,8 @@ export const portalApi = {
       // CH-9 — Canal de réception choisi par le membre à la soumission.
       moyen_reception?: "tara_om" | "tara_momo" | "agence_especes";
       recipient_phone?: string;
+      // Attribut BRC déclaré — informatif, couplable à toute voie.
+      is_brc?: boolean;
       // CH-4 — Champs ajoutés via FormSchema actif côté admin.
       // Routés vers extra_payload par le backend (apply_form_schema).
       [extraField: string]: unknown;

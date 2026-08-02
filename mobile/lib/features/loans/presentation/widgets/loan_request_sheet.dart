@@ -152,6 +152,10 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   bool _withGarantieMaterielle = false;
   final _garantieDescCtrl = TextEditingController();
   PickedFile? _titreProprieteFile;
+  // Attribut BRC — déclaration « j'ai fréquenté le centre de formation BRC ».
+  // Ce N'EST PAS une voie : c'est un attribut informatif COUPLABLE à n'importe
+  // quelle voie ci-dessus. N'influence pas le routage ; le comité juge à l'étude.
+  bool _isBrc = false;
   // CH-9 . Canal de réception choisi par le membre + numéro Mobile Money.
   final _phoneCtrl = TextEditingController();
   // CH-7 . Numéro Mobile Money pour régler les frais d'étude.
@@ -482,6 +486,12 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
         if (_titreProprieteFile != null) {
           fileEntries.add(MapEntry('titre_propriete', _titreProprieteFile!));
         }
+      }
+      // Attribut BRC — déclaration informative couplable à N'IMPORTE QUELLE voie
+      // ci-dessus (campagne, avaliste, garantie, ancienneté). Le backend le
+      // stocke tel quel (n'influence pas le routage) ; le comité juge à l'étude.
+      if (_isBrc) {
+        scalarExtras['is_brc'] = true;
       }
       final submission =
           await ref.read(loanRequestsProvider.notifier).submit(
@@ -1016,6 +1026,26 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
               const SizedBox(height: AppSpacing.m),
             ],
 
+            // --- Attribut BRC (couplable à toute voie ci-dessus) ---
+            // Volontairement HORS de l'exclusion mutuelle des voies : on peut
+            // cocher BRC avec une campagne, un avaliste, une garantie ou rien.
+            SwitchListTile.adaptive(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: _isBrc,
+              onChanged: (v) => setState(() => _isBrc = v),
+              title: const Text(
+                'J\'ai fréquenté le centre de formation BRC',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Information transmise au comité (indépendante de la voie '
+                'choisie) — prise en compte lors de l\'étude du dossier.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.m),
+
             // --- CH-9 . Canal de réception du décaissement ---
             Text('Comment recevoir l\'argent ?',
                 style: AppTypography.labelMedium,),
@@ -1158,6 +1188,12 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   Widget _successStep(BuildContext context) {
     final l = AppL10n.of(context);
     final studyFee = _submission?.studyFee;
+    // Voie avaliste : la demande naît EN_ATTENTE_AVALISTE. Les frais d'étude ne
+    // sont exigibles qu'APRÈS l'acceptation de l'avaliste (bloqué côté serveur
+    // sur les 3 canaux : agence, mobile money, déduction épargne). On NE présente
+    // donc PAS le paiement ici — on informe que l'avaliste a été sollicité.
+    final waitingAvaliste =
+        _submission?.request.statut == LoanRequestStatus.enAttenteAvaliste;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
       child: SingleChildScrollView(
@@ -1185,7 +1221,11 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
             Text(l.lreq_sent_title, style: AppTypography.headingMedium),
             const SizedBox(height: 6),
             Text(
-              l.lreq_sent_body,
+              waitingAvaliste
+                  ? 'Ton avaliste a été sollicité. Les frais d\'étude ne seront '
+                      'à régler qu\'une fois qu\'il aura accepté de garantir ce '
+                      'crédit.'
+                  : l.lreq_sent_body,
               textAlign: TextAlign.center,
               style: AppTypography.bodyMedium.copyWith(
                 color: Theme.of(context)
@@ -1195,7 +1235,17 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 height: 1.45,
               ),
             ),
-            if (studyFee != null) ...[
+            if (waitingAvaliste) ...[
+              // Voie avaliste : PAS de paiement des frais ici — on attend
+              // l'acceptation de l'avaliste (règle métier + blocage serveur).
+              const SizedBox(height: 22),
+              const _AvalisteWaitingCard(),
+              const SizedBox(height: 18),
+              PaButton(
+                label: l.common_understood,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ] else if (studyFee != null) ...[
               const SizedBox(height: 22),
               _StudyFeeCard(fee: studyFee),
               const SizedBox(height: 18),
@@ -1458,6 +1508,47 @@ class _StudyFeeCard extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Voie avaliste — carte d'attente affichée à la soumission, À LA PLACE de la
+/// carte des frais d'étude. Les frais ne sont exigibles qu'après l'acceptation
+/// de l'avaliste (règle métier « avaliste d'abord, frais ensuite » + blocage
+/// serveur sur les 3 canaux de paiement).
+class _AvalisteWaitingCard extends StatelessWidget {
+  const _AvalisteWaitingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: PaColors.blue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: PaColors.blue.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.hourglass_top_rounded,
+              size: 18, color: PaColors.blue,),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'En attente de l\'avaliste. Il recevra une notification pour '
+              'accepter ou refuser. Les frais d\'étude s\'afficheront ensuite, '
+              'seulement s\'il accepte.',
+              style: TextStyle(
+                color: PaColors.navy.withValues(alpha: 0.95),
+                fontSize: 12,
+                height: 1.45,
+              ),
+            ),
+          ),
         ],
       ),
     );

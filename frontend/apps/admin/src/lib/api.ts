@@ -328,6 +328,9 @@ export type LoanRequest = {
   voie?: "senior_brc" | "avaliste" | "campagne" | "garantie_materielle";
   voie_display?: string;
   avaliste_montant_a_couvrir?: string;
+  // Attribut BRC déclaré — « a fréquenté le centre de formation BRC ».
+  // Informatif, COUPLABLE à toute voie ; jugé par le comité à l'évaluation.
+  is_brc?: boolean;
   // CH-6 — Workflow double approbation : visite terrain entre provisoire et définitive.
   field_visit_outcome?: "" | "favorable" | "defavorable" | "a_revoir";
   field_visit_done_at?: string | null;

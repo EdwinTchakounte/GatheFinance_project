@@ -582,8 +582,14 @@ export default function PortalCreditPage() {
                     ) : null}
                     {/* Voie empruntée (mode employé) + engagement de l'avaliste. */}
                     {r.voie_display ? (
-                      <span className="mt-2 inline-block rounded-full bg-cream px-2 py-0.5 text-[11px] font-medium text-ink-700">
+                      <span className="mt-2 mr-1.5 inline-block rounded-full bg-cream px-2 py-0.5 text-[11px] font-medium text-ink-700">
                         Voie : {r.voie_display}
+                      </span>
+                    ) : null}
+                    {/* Attribut BRC — badge COUPLÉ à la voie (jamais à sa place). */}
+                    {r.is_brc ? (
+                      <span className="mt-2 inline-block rounded-full bg-blue-700/10 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                        BRC
                       </span>
                     ) : null}
                     {r.voie === "avaliste" &&

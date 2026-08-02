@@ -732,7 +732,7 @@
   "wd_err_phone": "Numéro invalide",
   "wd_cta_submit": "Envoyer la demande",
   "wd_cta_close": "Fermer",
-  "wd_disclaimer": "Le solde est débité dès l'envoi. L'admin valide la sortie (espèces ou payout MOMO) sous 24 h.",
+  "wd_disclaimer": "Le montant est réservé dès l'envoi (indisponible au retrait) et débité seulement au paiement. L'admin valide la sortie (espèces ou payout MOMO) sous 24 h.",
   "wd_success_title": "Demande envoyée à la coopérative",
   "wd_recap_amount": "Montant",
   "wd_recap_channel": "Canal",
