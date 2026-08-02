@@ -61,6 +61,16 @@ _TYPES_ALLOWED_FOR_SUSPENDED = {
 }
 
 
+# Frais d'activation UNIQUES (adhésion + inscription) : payés une seule fois à
+# l'entrée. Un compte DÉJÀ ACTIF les a soldés — ils ne doivent JAMAIS être
+# re-facturés (le carnet, lui, reste payable : commande supplémentaire /
+# renouvellement annuel). Garde côté serveur en plus de l'UI.
+_ONE_TIME_ACTIVATION_FEES = {
+    Payment.Type.FRAIS_ADHESION,
+    Payment.Type.FRAIS_INSCRIPTION,
+}
+
+
 @extend_schema(
     tags=["payments"],
     summary="Initie un paiement Mobile Money",
@@ -101,6 +111,21 @@ def init_payment(request):
                     "Compte membre suspendu — seuls les frais d'adhésion, "
                     "d'inscription et de carnet sont autorisés tant que "
                     "l'activation n'est pas faite."
+                )
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Un compte DÉJÀ ACTIF a soldé ses frais d'activation (adhésion +
+    # inscription) : on refuse de les re-facturer (sinon le membre est débité
+    # pour rien — le hook est un no-op mais l'argent est déjà prélevé). Le
+    # carnet n'est PAS bloqué (commande de carnet supplémentaire légitime).
+    if member.statut == "actif" and data["type"] in _ONE_TIME_ACTIVATION_FEES:
+        return Response(
+            {
+                "detail": (
+                    "Compte déjà actif — les frais d'adhésion et d'inscription "
+                    "ont déjà été réglés, ils ne sont pas dus à nouveau."
                 )
             },
             status=status.HTTP_403_FORBIDDEN,
@@ -1124,6 +1149,20 @@ def admin_cash_in_payment(request):
         return Response(
             {"detail": "Membre introuvable."},
             status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # 3bis. Un compte DÉJÀ ACTIF a soldé ses frais d'activation (adhésion +
+    # inscription) : on refuse de les re-encaisser en agence aussi (parité avec
+    # init_payment). Le carnet reste autorisé (commande supplémentaire).
+    if member.statut == Member.Statut.ACTIF and payment_type in _ONE_TIME_ACTIVATION_FEES:
+        return Response(
+            {
+                "detail": (
+                    "Compte déjà actif — les frais d'adhésion et d'inscription "
+                    "ont déjà été réglés, ils ne peuvent pas être re-encaissés."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     # 4. Specifiques par type.
