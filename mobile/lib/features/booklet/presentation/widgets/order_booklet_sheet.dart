@@ -413,18 +413,17 @@ class _TaraConfirmedBadge extends StatelessWidget {
                 ),
               ],
             ),
-          if (LastTaraResponse.message != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Statut Tara. ${LastTaraResponse.status} '
-                  '(${LastTaraResponse.message})',
-              style: AppTypography.bodySmall.copyWith(
-                color: Theme.of(context).colorScheme.onSurface
-                    .withValues(alpha: 0.65),
-                fontSize: 11,
-              ),
+          // Pas d'exposition du nom interne de la passerelle ni du code brut
+          // fournisseur au membre : message neutre.
+          const SizedBox(height: 4),
+          Text(
+            'Confirme le paiement sur ton téléphone pour finaliser.',
+            style: AppTypography.bodySmall.copyWith(
+              color: Theme.of(context).colorScheme.onSurface
+                  .withValues(alpha: 0.65),
+              fontSize: 11,
             ),
-          ],
+          ),
         ],
       ),
     );

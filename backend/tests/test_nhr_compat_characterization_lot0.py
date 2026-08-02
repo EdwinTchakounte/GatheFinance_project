@@ -60,8 +60,10 @@ def _covered_member():
 
 
 def test_declarations_privilege_conservees_via_schema():
-    """Avec le schéma actif flaggé, ancien_apprenant/cga_adherent atterrissent
-    en extra_payload SANS aucune constante en dur (via apply_form_schema)."""
+    """Avec le schéma actif flaggé, la déclaration CGA atterrit en extra_payload
+    SANS aucune constante en dur (via apply_form_schema). 2026-08 : la question
+    « CFP Broad Range » (ancien_apprenant) a été retirée du seed (redondante avec
+    l'attribut is_brc) ; on caractérise donc via cga_adherent."""
     _seed_fee()
     _activate_loan_schema()
     m = _covered_member()
@@ -69,13 +71,11 @@ def test_declarations_privilege_conservees_via_schema():
         "montant_demande": "50000",
         "duree_mois": 3,
         "motif": "Achat de marchandises pour ma boutique",
-        # Les deux déclarations requises par le schéma (=non → pas de preuve exigée).
-        "ancien_apprenant": "non",
+        # Déclaration requise par le schéma (=non → pas de preuve exigée).
         "cga_adherent": "non",
     }
     r = _api(m).post("/api/v1/loans/requests/", body, format="json")
     assert r.status_code == 201, r.content
 
     lr = LoanRequest.objects.get(pk=r.json()["loan_request"]["id"])
-    assert lr.extra_payload.get("ancien_apprenant") == "non"
     assert lr.extra_payload.get("cga_adherent") == "non"

@@ -213,6 +213,23 @@ class CreditPage extends ConsumerWidget {
                 ),
               ),
 
+              // ── Erreur de chargement des demandes ────────────────────
+              // Si l'appel /loans/me/requests/ a échoué, on le DIT au lieu de
+              // laisser un écran vide trompeur : le membre pourrait avoir une
+              // demande en cours (à régler) qu'on n'a pas pu charger. Bouton
+              // « Réessayer ». (Cf. robustesse par-item côté datasource.)
+              SliverToBoxAdapter(
+                child: (requestsAsync.hasError && requests.isEmpty)
+                    ? Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                        child: _RequestsErrorCard(
+                          onRetry: () =>
+                              ref.read(loanRequestsProvider.notifier).refresh(),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+
               // ── Demandes en cours ────────────────────────────────────
               SliverToBoxAdapter(
                 child: requests.isEmpty
@@ -727,6 +744,73 @@ bool _isUnderStudy(LoanRequestStatus statut) {
   }
 }
 
+/// Carte affichée quand le chargement des demandes de crédit a échoué. Évite
+/// l'écran vide trompeur (le membre pourrait avoir une demande en cours) et
+/// propose de réessayer.
+class _RequestsErrorCard extends StatelessWidget {
+  const _RequestsErrorCard({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: PaColors.warningSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: PaColors.warning.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  size: 18, color: PaColors.warning,),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Impossible de charger tes demandes de crédit',
+                  style: AppTypography.labelMedium.copyWith(
+                    color: PaColors.warning,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Si tu as une demande en cours, elle peut être temporairement '
+            'masquée. Réessaie ou reviens dans un instant.',
+            style: TextStyle(
+              color: PaColors.warning.withValues(alpha: 0.95),
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Réessayer'),
+              style: TextButton.styleFrom(
+                foregroundColor: PaColors.warning,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _RequestCard extends ConsumerWidget {
   const _RequestCard({required this.request});
   final LoanRequestEntity request;
@@ -810,10 +894,19 @@ class _RequestCard extends ConsumerWidget {
               ],
             ),
           ],
-          // §6 . Badge de la voie empruntee (BRC / Avaliste / Campagne) si connu.
-          if (request.route != null) ...[
+          // §6 . Badge de la voie empruntee (Avaliste / Campagne / Ancienneté)
+          // + éventuel badge BRC (attribut informatif COUPLÉ à la voie, pas une
+          // voie) — les deux s'affichent côte à côte.
+          if (request.route != null || request.isBrc) ...[
             const SizedBox(height: 6),
-            _RouteBadge(route: request.route!),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (request.route != null) _RouteBadge(route: request.route!),
+                if (request.isBrc) const _BrcBadge(),
+              ],
+            ),
           ],
           // Voie avaliste : le demandeur doit connaître le montant que son
           // garant s'engage à couvrir (le manque = montant − son épargne dispo).
@@ -2207,6 +2300,43 @@ class _RouteBadge extends StatelessWidget {
 }
 
 
+/// Badge de l'attribut BRC — « a fréquenté le centre de formation BRC ».
+/// C'est un ATTRIBUT informatif, affiché À CÔTÉ du badge de voie (jamais à sa
+/// place) : une demande peut être « Voie Campagne » + « BRC ».
+class _BrcBadge extends StatelessWidget {
+  const _BrcBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    const color = PaColors.navy;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.30), width: 0.8),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.school_rounded, color: color, size: 13),
+          SizedBox(width: 5),
+          Text(
+            'BRC',
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
 /// Sélecteur de canal de règlement des frais d'étude.
 ///
 /// Calqué sur `_ChannelChip` du sheet de retrait (même vocabulaire visuel pour
@@ -2396,9 +2526,17 @@ class _ClosedLoanCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppL10n.of(context);
+    // Dates soft sur la carte clôturée (null-guardées : rien si absentes).
+    final dates = <String>[
+      if (loan.dateSoumission != null)
+        'Soumise le ${_formatDateShort(loan.dateSoumission!)}',
+      if (loan.dateButoire != null)
+        'Butoire le ${_formatDateShort(loan.dateButoire!)}',
+    ];
     return PaCard(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
@@ -2422,6 +2560,18 @@ class _ClosedLoanCard extends ConsumerWidget {
                     fontSize: 11,
                   ),
                 ),
+                if (dates.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    dates.join('  ·  '),
+                    style: TextStyle(
+                      color: PaColors.inkMuted.withValues(alpha: 0.75),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w500,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

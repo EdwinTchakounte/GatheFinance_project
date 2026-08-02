@@ -49,6 +49,11 @@ def _fee_configured():
     AppSetting.objects.update_or_create(
         cle="lender.tranche.min_amount", defaults={"valeur": "1000"}
     )
+    # Placement fermé globalement au 1er août 2026 (closed_from) — on rouvre la
+    # fenêtre pour que les scénarios placement restent testables après cette date.
+    AppSetting.objects.update_or_create(
+        cle="savings.placement.closed_from", defaults={"valeur": "2099-01-01"}
+    )
 
 
 def _member(solde=Decimal("0"), *, placements=()):

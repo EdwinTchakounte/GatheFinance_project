@@ -126,6 +126,50 @@ void main() {
       expect(reqs[0].statut, LoanRequestStatus.enAttenteAvaliste);
       expect(reqs[1].statut, LoanRequestStatus.rejeteeCampagne);
     });
+
+    // Régression #82 — une entrée malformée ne doit PAS vider toute la liste.
+    // Avant la résilience (parse par item), un seul item au JSON inattendu
+    // faisait échouer `.map().toList()` → le membre ne voyait AUCUNE demande,
+    // dont sa demande EN_ATTENTE à régler (invisible = cul-de-sac).
+    test('myRequests skips a malformed entry and keeps the valid ones (#82)',
+        () async {
+      final adapter = ScriptedAdapter()
+        ..on('/loans/me/requests/',
+            method: 'GET',
+            status: 200,
+            body: [
+              // Entrée cassée : pas d'`id` → _parseRequest lève.
+              {
+                'montant_demande': '999',
+                'statut': 'rejetee',
+                'date_soumission': '2026-06-01T08:00:00Z',
+              },
+              // Demande EN_ATTENTE type #38 (senior_brc, gel, agence, BRC).
+              {
+                'id': 38,
+                'montant_demande': '50000.00',
+                'duree_mois': 2,
+                'motif': 'Fonds',
+                'statut': 'en_attente',
+                'date_soumission': '2026-07-30T08:00:00Z',
+                'voie': 'senior_brc',
+                'moyen_reception': 'agence_especes',
+                'montant_gele_demandeur': '10000.00',
+                'frais_etude_montant': '5000.00',
+                'frais_demande_credit_paye': false,
+                'epargne_disponible_frais': '21000.00',
+                'is_brc': true,
+              },
+            ],);
+      final ds = LoansDioDataSource(_client(adapter));
+      final reqs = await ds.myRequests();
+      // L'entrée cassée est écartée, la demande #38 SURVIT et reste visible.
+      expect(reqs, hasLength(1));
+      expect(reqs.single.id, 38);
+      expect(reqs.single.statut, LoanRequestStatus.enAttente);
+      expect(reqs.single.isBrc, isTrue);
+      expect(reqs.single.fraisPaye, isFalse);
+    });
   });
 
   group('LoansDioDataSource — writes', () {
