@@ -28,6 +28,17 @@ from apps_coop.savings.models import (
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture(autouse=True)
+def _placement_window_open():
+    """Le placement ferme globalement au 1er août 2026 (closed_from). Ces tests
+    exercent la mécanique placement/tranches et doivent tourner fenêtre OUVERTE
+    quelle que soit la date réelle — on repousse la fermeture loin dans le futur.
+    """
+    AppSetting.objects.update_or_create(
+        cle="savings.placement.closed_from", defaults={"valeur": "2099-01-01"}
+    )
+
+
 def _deposit(member, montant: str, *, is_placement: bool) -> Payment:
     """Crée et valide un dépôt épargne classique. Retourne le Payment validé."""
     payment = Payment.objects.create(

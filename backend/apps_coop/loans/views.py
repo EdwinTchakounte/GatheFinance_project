@@ -1766,23 +1766,30 @@ def loan_request_record_study_fee(request, pk: int):
         )
 
     montant = study_fee_for(getattr(lr, "microcampaign", None))
-    payment = Payment.objects.create(
-        member=lr.member,
-        montant=montant,
-        type=Payment.Type.FRAIS_DEMANDE_CREDIT,
-        source=Payment.Source.MANUEL,
-        statut=Payment.Statut.VALIDE,
-        provider_code="",
-        reference_externe=str(request.data.get("reference", "")).strip(),
-        validated_by=request.user,
-        date_versement=timezone.now(),
-        date_validation=timezone.now(),
-        idempotency_key=uuid.uuid4(),
-    )
-    # Même effet métier que le webhook Tara : en_attente → en_instruction.
+    # `_hook_loan_request_fees` fait un `select_for_update()` : il DOIT tourner
+    # dans une transaction. Sans `ATOMIC_REQUESTS`, la vue est en autocommit →
+    # sous PostgreSQL (recette/prod) le lock lève `TransactionManagementError`
+    # (SQLite l'ignore silencieusement, d'où le masquage en tests locaux). On
+    # englobe donc création du Payment + hook dans un `atomic` — ce qui rend
+    # aussi l'encaissement atomique (pas de Payment orphelin si le hook échoue).
     from apps_coop.payments.services import _hook_loan_request_fees
 
-    _hook_loan_request_fees(payment, {})
+    with transaction.atomic():
+        payment = Payment.objects.create(
+            member=lr.member,
+            montant=montant,
+            type=Payment.Type.FRAIS_DEMANDE_CREDIT,
+            source=Payment.Source.MANUEL,
+            statut=Payment.Statut.VALIDE,
+            provider_code="",
+            reference_externe=str(request.data.get("reference", "")).strip(),
+            validated_by=request.user,
+            date_versement=timezone.now(),
+            date_validation=timezone.now(),
+            idempotency_key=uuid.uuid4(),
+        )
+        # Même effet métier que le webhook Tara : en_attente → en_instruction.
+        _hook_loan_request_fees(payment, {})
     lr.refresh_from_db()
     return Response(LoanRequestReadSerializer(lr, context={"request": request}).data)
 

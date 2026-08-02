@@ -48,6 +48,16 @@ def _override_media_root(tmp_path, settings):
     settings.MEDIA_ROOT = str(tmp_path)
 
 
+@pytest.fixture(autouse=True)
+def _placement_window_open():
+    """Placement fermé globalement au 1er août 2026 (closed_from) — on rouvre la
+    fenêtre pour que le funding (qui consomme des tranches de placement) reste
+    testable après cette date."""
+    AppSetting.objects.update_or_create(
+        cle="savings.placement.closed_from", defaults={"valeur": "2099-01-01"}
+    )
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

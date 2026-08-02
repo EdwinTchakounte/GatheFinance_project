@@ -27,6 +27,16 @@ from apps_coop.savings.models import LenderTranche
 from tests.factories import MemberFactory
 
 
+@pytest.fixture(autouse=True)
+def _placement_window_open():
+    """Placement fermé globalement au 1er août 2026 (closed_from) — on rouvre la
+    fenêtre pour que le funding manuel (sur tranches de placement) reste testable
+    après cette date."""
+    AppSetting.objects.update_or_create(
+        cle="savings.placement.closed_from", defaults={"valeur": "2099-01-01"}
+    )
+
+
 def _build_loan(borrower, *, montant=Decimal("100000")):
     lr = LoanRequest.objects.create(
         member=borrower,

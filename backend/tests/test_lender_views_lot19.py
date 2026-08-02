@@ -35,6 +35,16 @@ from tests.factories import MemberFactory
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture(autouse=True)
+def _placement_window_open():
+    """Placement fermé globalement au 1er août 2026 (closed_from) — on rouvre la
+    fenêtre pour que la création de tranches prêteur (placement) reste testable
+    après cette date."""
+    AppSetting.objects.update_or_create(
+        cle="savings.placement.closed_from", defaults={"valeur": "2099-01-01"}
+    )
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
