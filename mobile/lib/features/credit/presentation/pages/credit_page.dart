@@ -2252,7 +2252,7 @@ class _RouteBadge extends StatelessWidget {
     // (pièce documentaire traitée au back-office).
     final (label, icon, color) = switch (route) {
       LoanRoute.seniorBrc => (
-        'Voie classique',
+        'Sur mon épargne',
         Icons.workspace_premium_rounded,
         PaColors.teal,
       ),

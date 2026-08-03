@@ -107,7 +107,7 @@ export function LoanDetailModal({
 
 
 const VOIE_LABEL: Record<string, string> = {
-  senior_brc: "Ancien / auto-couverture",
+  senior_brc: "Sur mon épargne",
   avaliste: "Avaliste",
   campaign: "Campagne",
   garantie_materielle: "Garantie matérielle",

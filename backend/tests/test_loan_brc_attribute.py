@@ -132,7 +132,10 @@ def test_brc_not_a_routing_signal():
 
 
 def test_voie_label_decoupled_from_brc():
-    """Le libellé de la voie par défaut ne contient plus « BRC »."""
+    """Le libellé de la voie par défaut ne contient plus « BRC » ni « Ancienneté »
+    (auto-couverture épargne — décision cliente 2026-08 : « Ancienneté » n'est pas
+    une voie ; libellé neutre « Sur mon épargne »)."""
     labels = LoanRequestReadSerializer._VOIE_LABELS
-    assert labels["senior_brc"] == "Ancienneté / apport"
+    assert labels["senior_brc"] == "Sur mon épargne"
     assert "BRC" not in labels["senior_brc"]
+    assert "Ancienneté" not in labels["senior_brc"]

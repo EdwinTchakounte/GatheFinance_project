@@ -196,7 +196,7 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
         "campagne": "Campagne",
         "avaliste": "Avaliste",
         "garantie_materielle": "Garantie matérielle",
-        "senior_brc": "Ancienneté / apport",
+        "senior_brc": "Sur mon épargne",
     }
 
     def _derive_voie(self, obj) -> str:
