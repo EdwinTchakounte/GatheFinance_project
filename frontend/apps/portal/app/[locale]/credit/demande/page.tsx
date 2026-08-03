@@ -51,6 +51,10 @@ type FormState = {
   // CH-9 — Canal de réception du décaissement choisi par le membre.
   moyen_reception: Canal;
   recipient_phone: string;
+  // Attribut BRC — « a fréquenté le centre de formation BRC ». Ce n'est PAS une
+  // voie : c'est un attribut couplable à n'importe quelle voie. Informatif ; le
+  // comité en tient compte à l'évaluation (n'influence pas le routage).
+  is_brc: boolean;
 };
 
 // CH-4 — Champs câblés en dur dans cette page (UI dédiée, métier 3 voies).
@@ -105,11 +109,15 @@ export default function PortalLoanRequestPage() {
     // pour les membres). Le membre peut changer avant soumission.
     moyen_reception: "tara_momo",
     recipient_phone: "",
+    is_brc: false,
   });
   const [submitting, setSubmitting] = useState(false);
   // Réforme crédit L4 — titre de propriété (voie garantie matérielle),
   // uploadé après création via l'endpoint attachments (clé titre_propriete).
   const [titreProprieteFile, setTitreProprieteFile] = useState<File | null>(null);
+  // Attestation BRC — requise quand form.is_brc est coché (parité mobile).
+  // Uploadée après création via l'attachment `brc_attestation`.
+  const [brcAttestationFile, setBrcAttestationFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorList, setErrorList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -343,6 +351,13 @@ export default function PortalLoanRequestPage() {
       }
     }
 
+    // Attestation BRC obligatoire si le membre déclare avoir fréquenté le
+    // centre de formation BRC (parité mobile).
+    if (form.is_brc && !brcAttestationFile) {
+      setError("Joins ton attestation du centre de formation BRC (ou décoche).");
+      return;
+    }
+
     // CH-9 — Validation locale : téléphone requis pour les canaux Tara.
     const phone = form.recipient_phone.trim();
     const needsPhone = form.moyen_reception === "tara_om" ||
@@ -376,6 +391,8 @@ export default function PortalLoanRequestPage() {
         // CH-9 — Canal de réception + téléphone (vide pour agence_especes).
         moyen_reception: form.moyen_reception,
         recipient_phone: needsPhone ? phone : "",
+        // Attribut BRC déclaré — couplable à N'IMPORTE QUELLE voie ci-dessous.
+        is_brc: form.is_brc,
         // CH-4 — Champs scalaires supplémentaires routés vers extra_payload.
         ...scalarExtras,
       };
@@ -441,6 +458,20 @@ export default function PortalLoanRequestPage() {
           );
         } catch (uploadErr) {
           console.warn("Upload du titre de propriété échoué.", uploadErr);
+        }
+      }
+
+      // Attestation BRC (clé brc_attestation) — reconnue comme preuve BRC côté
+      // backend (file BRC + visible au dashboard). Uploadée après création.
+      if (form.is_brc && brcAttestationFile && result.loan_request?.id) {
+        try {
+          await portalApi.loans.uploadAttachment(
+            result.loan_request.id,
+            "brc_attestation",
+            brcAttestationFile,
+          );
+        } catch (uploadErr) {
+          console.warn("Upload de l'attestation BRC échoué.", uploadErr);
         }
       }
 
@@ -1007,6 +1038,51 @@ export default function PortalLoanRequestPage() {
                   Image ou PDF. Obligatoire pour cette voie.
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* Attribut BRC — déclaration couplable à N'IMPORTE QUELLE voie
+              ci-dessus (ce n'est pas une voie). Informatif : transmis au comité,
+              pris en compte lors de l'étude du dossier. */}
+          <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-md border border-line-200 bg-paper p-4">
+            <input
+              type="checkbox"
+              checked={form.is_brc}
+              onChange={(e) => set("is_brc", e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-blue-700"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-ink-900">
+                J&apos;ai fréquenté le centre de formation BRC
+              </span>
+              <span className="mt-0.5 block text-xs text-ink-600">
+                Information transmise au comité, indépendante de la voie choisie
+                — prise en compte lors de l&apos;étude du dossier.
+              </span>
+            </span>
+          </label>
+
+          {/* Attestation BRC — REQUISE quand « ancien étudiant » est coché. */}
+          {form.is_brc && (
+            <div className="mt-3 rounded-md border border-line-200 bg-cream/40 p-4">
+              <label
+                className="block text-xs font-medium text-ink-700"
+                htmlFor="brc_attestation"
+              >
+                Attestation du centre de formation BRC
+              </label>
+              <input
+                id="brc_attestation"
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) =>
+                  setBrcAttestationFile(e.target.files?.[0] ?? null)
+                }
+                className="mt-1 block w-full text-xs text-ink-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald file:px-3 file:py-1.5 file:text-white"
+              />
+              <p className="mt-1 text-[11px] text-ink-500">
+                Image ou PDF. Obligatoire pour justifier l&apos;attribut BRC.
+              </p>
             </div>
           )}
 

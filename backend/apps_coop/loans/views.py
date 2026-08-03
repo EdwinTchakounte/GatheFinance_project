@@ -434,6 +434,8 @@ def loan_request_create(request):
             # CH-9 — Canal de réception choisi à la soumission.
             moyen_reception=data.get("moyen_reception") or "",
             recipient_phone=(data.get("recipient_phone") or "").strip(),
+            # Attribut BRC déclaré — informatif, couplable à toute voie.
+            is_brc=bool(data.get("is_brc")),
         )
 
         # Auto-couverture : projette le gel du demandeur sur ses tranches de
@@ -565,7 +567,28 @@ def loan_request_create(request):
 @permission_classes([IsMember])
 def loan_request_list(request):
     qs = LoanRequest.objects.filter(member=request.user.member).order_by("-date_soumission")
-    return Response(LoanRequestReadSerializer(qs, many=True).data)
+    # Résilience #82 — on sérialise chaque demande INDÉPENDAMMENT (au lieu de
+    # ``many=True`` tout-ou-rien) et on passe le ``context`` (URLs de pièces
+    # jointes absolues, comme la liste admin). Si la sérialisation d'UNE demande
+    # échoue (donnée limite), on l'écarte avec un log plutôt que de renvoyer un
+    # 500 qui viderait TOUTE la liste côté client — sinon le membre ne voit
+    # AUCUNE de ses demandes, dont sa demande EN_ATTENTE à régler (cul-de-sac :
+    # « Mes crédits » vide alors qu'une demande existe).
+    ctx = {"request": request}
+    out = []
+    for lr in qs:
+        try:
+            out.append(LoanRequestReadSerializer(lr, context=ctx).data)
+        except Exception:  # noqa: BLE001 — un item fautif ne doit pas tout casser
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "loan_request_list: sérialisation de la demande #%s échouée "
+                "(ignorée pour ne pas vider la liste du membre %s)",
+                lr.id,
+                lr.member_id,
+            )
+    return Response(out)
 
 
 # ---------------------------------------------------------------------------
@@ -1634,10 +1657,18 @@ def loan_request_upload_attachment(request, pk: int):
     # Modularisation Lot 0.5 : un champ « preuve de privilège » est reconnu
     # UNIQUEMENT via son attribut ``is_brc_proof`` dans le schéma actif (générique,
     # par coopérative) — plus aucune liste de noms en dur dans le cœur.
-    from apps_coop.forms.field_flags import brc_proof_field_ids
+    from apps_coop.forms.field_flags import (
+        BRC_ATTESTATION_FIELD_ID,
+        brc_proof_field_ids,
+    )
 
+    # Preuve BRC = champ flaggé is_brc_proof dans le schéma actif OU l'attestation
+    # dédiée à l'attribut hardcodé is_brc (brc_attestation), hors schéma.
     brc_doc_id = None
-    if schema_field_id in brc_proof_field_ids("loan_request"):
+    if (
+        schema_field_id == BRC_ATTESTATION_FIELD_ID
+        or schema_field_id in brc_proof_field_ids("loan_request")
+    ):
         from apps_coop.members.services import upload_brc_document
 
         brc_doc = upload_brc_document(
@@ -1766,23 +1797,30 @@ def loan_request_record_study_fee(request, pk: int):
         )
 
     montant = study_fee_for(getattr(lr, "microcampaign", None))
-    payment = Payment.objects.create(
-        member=lr.member,
-        montant=montant,
-        type=Payment.Type.FRAIS_DEMANDE_CREDIT,
-        source=Payment.Source.MANUEL,
-        statut=Payment.Statut.VALIDE,
-        provider_code="",
-        reference_externe=str(request.data.get("reference", "")).strip(),
-        validated_by=request.user,
-        date_versement=timezone.now(),
-        date_validation=timezone.now(),
-        idempotency_key=uuid.uuid4(),
-    )
-    # Même effet métier que le webhook Tara : en_attente → en_instruction.
+    # `_hook_loan_request_fees` fait un `select_for_update()` : il DOIT tourner
+    # dans une transaction. Sans `ATOMIC_REQUESTS`, la vue est en autocommit →
+    # sous PostgreSQL (recette/prod) le lock lève `TransactionManagementError`
+    # (SQLite l'ignore silencieusement, d'où le masquage en tests locaux). On
+    # englobe donc création du Payment + hook dans un `atomic` — ce qui rend
+    # aussi l'encaissement atomique (pas de Payment orphelin si le hook échoue).
     from apps_coop.payments.services import _hook_loan_request_fees
 
-    _hook_loan_request_fees(payment, {})
+    with transaction.atomic():
+        payment = Payment.objects.create(
+            member=lr.member,
+            montant=montant,
+            type=Payment.Type.FRAIS_DEMANDE_CREDIT,
+            source=Payment.Source.MANUEL,
+            statut=Payment.Statut.VALIDE,
+            provider_code="",
+            reference_externe=str(request.data.get("reference", "")).strip(),
+            validated_by=request.user,
+            date_versement=timezone.now(),
+            date_validation=timezone.now(),
+            idempotency_key=uuid.uuid4(),
+        )
+        # Même effet métier que le webhook Tara : en_attente → en_instruction.
+        _hook_loan_request_fees(payment, {})
     lr.refresh_from_db()
     return Response(LoanRequestReadSerializer(lr, context={"request": request}).data)
 

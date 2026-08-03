@@ -39,6 +39,16 @@ def _override_media_root(tmp_path, settings):
     settings.MEDIA_ROOT = str(tmp_path)
 
 
+@pytest.fixture(autouse=True)
+def _placement_window_open():
+    """Placement fermé globalement au 1er août 2026 (closed_from) — on rouvre la
+    fenêtre pour que la création de tranches prêteur (placement) reste testable
+    après cette date."""
+    AppSetting.objects.update_or_create(
+        cle="savings.placement.closed_from", defaults={"valeur": "2099-01-01"}
+    )
+
+
 def _give_classic_savings(member: Member, *, solde: Decimal) -> ClassicSavingsAccount:
     """Pose un ClassicSavingsAccount au membre avec un solde donné."""
     acc, _ = ClassicSavingsAccount.objects.get_or_create(

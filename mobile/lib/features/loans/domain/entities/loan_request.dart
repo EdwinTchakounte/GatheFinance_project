@@ -91,6 +91,7 @@ class LoanRequestEntity {
     this.fraisPaye = false,
     this.epargneDisponibleFrais = 0,
     this.avalisteMontantACouvrir,
+    this.isBrc = false,
   });
 
   final int id;
@@ -135,6 +136,11 @@ class LoanRequestEntity {
   // Montant que l'avaliste doit couvrir sur ce crédit (le manque). Null hors
   // voie avaliste. Affiché au demandeur pour transparence sur l'engagement.
   final num? avalisteMontantACouvrir;
+
+  // Attribut BRC déclaré à la soumission — « a fréquenté le centre de formation
+  // BRC ». Informatif, couplable à n'importe quelle voie. Le comité en tient
+  // compte à l'évaluation (pas un signal de routage).
+  final bool isBrc;
 
   /// La déduction sur épargne couvre-t-elle les frais dus ?
   /// Faux si l'étude est gratuite (rien à régler) ou si le retirable ne suffit

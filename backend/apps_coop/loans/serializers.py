@@ -81,6 +81,11 @@ class LoanRequestSubmitSerializer(serializers.Serializer):
         max_length=32, required=False, allow_blank=True
     )
 
+    # Attribut BRC — déclaration « j'ai fréquenté le centre de formation BRC ».
+    # Couplable à N'IMPORTE QUELLE voie (campagne, avaliste, garantie,
+    # ancienneté). Purement informatif : n'entre pas dans le routage/éligibilité.
+    is_brc = serializers.BooleanField(required=False, default=False)
+
     def validate(self, attrs):
         moyen = attrs.get("moyen_reception") or ""
         phone = (attrs.get("recipient_phone") or "").strip()
@@ -178,15 +183,20 @@ class LoanRequestReadSerializer(serializers.ModelSerializer):
             "moyen_reception",
             "moyen_reception_display",
             "recipient_phone",
+            # Attribut BRC déclaré — informatif, couplable à toute voie.
+            "is_brc",
         )
         read_only_fields = fields
 
     # Libellés lisibles des voies (aligné sur EligibilityRoute).
+    # NB : « senior_brc » = voie par défaut ancienneté / auto-couverture / apport.
+    # Le BRC n'est PLUS une voie (c'est un attribut `is_brc` couplable à toute
+    # voie) → le libellé retire « BRC » pour lever l'ambiguïté voie↔attribut.
     _VOIE_LABELS = {
         "campagne": "Campagne",
         "avaliste": "Avaliste",
         "garantie_materielle": "Garantie matérielle",
-        "senior_brc": "BRC / ancienneté",
+        "senior_brc": "Ancienneté / apport",
     }
 
     def _derive_voie(self, obj) -> str:

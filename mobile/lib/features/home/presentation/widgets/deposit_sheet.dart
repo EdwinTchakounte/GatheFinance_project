@@ -893,17 +893,18 @@ class _DepositSheetState extends ConsumerState<DepositSheet>
                         ),
                       ],
                     ),
-                  if (LastTaraResponse.message != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Statut Tara : ${LastTaraResponse.status} '
-                      '(${LastTaraResponse.message})',
-                      style: const TextStyle(
-                        color: PaColors.inkMuted,
-                        fontSize: 11,
-                      ),
+                  // Message membre volontairement non technique : on n'expose
+                  // ni le nom interne de la passerelle ni le code brut du
+                  // fournisseur (ex. « API_ORDER_… »). Le vendor confirmé
+                  // ci-dessus suffit à rassurer le membre.
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Confirme le paiement sur ton téléphone pour finaliser.',
+                    style: TextStyle(
+                      color: PaColors.inkMuted,
+                      fontSize: 11,
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),

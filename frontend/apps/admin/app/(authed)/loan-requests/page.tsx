@@ -450,7 +450,24 @@ function Inner() {
           exportTitle="Demandes de crédit — GATHE Finance"
           exportSubtitle={`Filtre : ${filter || "toutes"}`}
           actions={(r) =>
-            r.statut === "en_attente" ? (
+            r.statut === "en_validation_campagne" ? (
+              // La validation d'une candidature campagne se fait dans la page
+              // « Micro-crédit » (détail de la campagne → demandes en attente).
+              // Ici on n'expose que consultation + suppression, pas de doublon.
+              <div className="flex flex-col items-end gap-1.5">
+                <span className="max-w-[13rem] text-right text-[11px] text-ink-500">
+                  À valider dans « Micro-crédit » (détail de la campagne).
+                </span>
+                <a
+                  href={adminApi.loans.noteUrl(r.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:underline"
+                >
+                  <FileText className="size-3" />Note PDF
+                </a>
+              </div>
+            ) : r.statut === "en_attente" ? (
               <div className="flex flex-col items-end gap-1.5">
                 <button
                   type="button"
@@ -1354,10 +1371,20 @@ function VoieBadge({ r }: { r: LoanRequest }) {
   return (
     <div className="min-w-[7rem]">
       <span
-        className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${tone[voie] ?? "bg-ink-100 text-ink-700"}`}
+        className={`mr-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${tone[voie] ?? "bg-ink-100 text-ink-700"}`}
       >
         {label}
       </span>
+      {/* Attribut BRC — badge COUPLÉ à la voie (jamais à sa place) : une demande
+          peut être « Campagne » + « BRC ». Le comité en tient compte à l'étude. */}
+      {r.is_brc ? (
+        <span
+          className="inline-block rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-800"
+          title="A fréquenté le centre de formation BRC (déclaré)"
+        >
+          BRC
+        </span>
+      ) : null}
       {voie === "avaliste" && couvre > 0 ? (
         <p className="mt-1 text-[11px] text-ink-500">
           Avaliste couvre{" "}
@@ -1417,13 +1444,29 @@ function ProfilEmprunteurBadges({ r }: { r: LoanRequest }) {
     proof: findAttachment(row.proofField),
   })).filter((row) => row.value || row.proof);
 
-  if (rows.length === 0) return null;
+  // Attribut BRC (attribut couplable `is_brc`) + son attestation dédiée.
+  const brcAttestation = findAttachment("brc_attestation");
+  const showBrc = Boolean(r.is_brc || brcAttestation);
 
-  const hasBrc = rows.some((row) => row.brc && (row.value === "oui" || row.proof));
+  if (rows.length === 0 && !showBrc) return null;
+
+  const subtitle = `Demande #${r.id}${r.member ? ` · ${fullName(r.member.prenom, r.member.nom)}` : ""}`;
+  const hasBrc =
+    rows.some((row) => row.brc && (row.value === "oui" || row.proof)) ||
+    showBrc;
 
   return (
     <div className="mt-2 space-y-1">
       <div className="flex flex-wrap items-center gap-1.5">
+        {showBrc ? (
+          <ProfilBadge
+            label="Centre de formation BRC"
+            value="oui"
+            proof={brcAttestation}
+            isYes
+            subtitle={subtitle}
+          />
+        ) : null}
         {rows.map((row) => (
           <ProfilBadge
             key={row.flagField}
@@ -1431,7 +1474,7 @@ function ProfilEmprunteurBadges({ r }: { r: LoanRequest }) {
             value={row.value}
             proof={row.proof}
             isYes={row.value === "oui"}
-            subtitle={`Demande #${r.id}${r.member ? ` · ${fullName(r.member.prenom, r.member.nom)}` : ""}`}
+            subtitle={subtitle}
           />
         ))}
       </div>

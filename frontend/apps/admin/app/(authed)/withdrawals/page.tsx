@@ -13,6 +13,7 @@ import {
 import { buttonClasses, SkeletonList } from "@gathe/ui";
 
 import { Modal } from "@/components/modal";
+import { ConfirmModal } from "@/components/confirm-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { MemberRecapModal } from "@/components/member-recap-modal";
 import { StatusPill } from "@/components/status-pill";
@@ -47,6 +48,7 @@ function Inner() {
   const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
   const [rejectTarget, setRejectTarget] = useState<WithdrawalRow | null>(null);
+  const [markPaidTarget, setMarkPaidTarget] = useState<WithdrawalRow | null>(null);
   // Clic sur une ligne → carte annuaire (recap financier) du membre.
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
@@ -121,17 +123,14 @@ function Inner() {
     }
   }
 
-  async function onMarkPaid(row: WithdrawalRow) {
-    if (
-      !window.confirm(
-        `Confirmer que vous avez remis ${row.montant} FCFA en espèces à ${row.member_nom} ?`,
-      )
-    )
-      return;
+  // La confirmation passe par le ConfirmModal custom (plus de window.confirm
+  // natif qui gèle l'UI). Appelée depuis la modale une fois confirmée.
+  async function doMarkPaid(row: WithdrawalRow) {
     setActingId(row.id);
     try {
       await adminApi.withdrawals.markPaid(row.id);
       setMessage({ tone: "ok", text: `Remise espèces confirmée pour ${row.member_nom}.` });
+      setMarkPaidTarget(null);
       await reload();
     } catch (err) {
       const apiErr = err as ApiError;
@@ -263,7 +262,7 @@ function Inner() {
               disabled={actingId === r.id}
               onApprove={() => onApprove(r)}
               onReject={() => setRejectTarget(r)}
-              onMarkPaid={() => onMarkPaid(r)}
+              onMarkPaid={() => setMarkPaidTarget(r)}
               onRetry={() => onRetryPayout(r)}
             />
           )}
@@ -284,6 +283,25 @@ function Inner() {
           />
         )}
       </Modal>
+
+      <ConfirmModal
+        open={!!markPaidTarget}
+        onClose={() => setMarkPaidTarget(null)}
+        onConfirm={() => (markPaidTarget ? doMarkPaid(markPaidTarget) : undefined)}
+        title="Confirmer la remise en espèces"
+        tone="success"
+        confirmLabel="Confirmer la remise"
+        message={
+          markPaidTarget ? (
+            <>
+              Confirmez-vous avoir remis{" "}
+              <strong>{fmtMoney(markPaidTarget.montant)} FCFA</strong> en espèces à{" "}
+              <strong>{markPaidTarget.member_nom}</strong> ? Le solde du membre sera
+              débité à cet instant.
+            </>
+          ) : undefined
+        }
+      />
 
       <MemberRecapModal
         member={selectedMember}

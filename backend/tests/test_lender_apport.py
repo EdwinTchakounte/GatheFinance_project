@@ -12,6 +12,7 @@ from decimal import Decimal
 import pytest
 from django.utils import timezone
 
+from apps_coop.audit.models import AppSetting
 from apps_coop.loans.apport_services import ApportError, restitute_tranche_by_apport
 from apps_coop.loans.lender_payouts import distribute_interest_share
 from apps_coop.loans.models import LenderAllocation, Loan
@@ -35,6 +36,16 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture(autouse=True)
 def _media(tmp_path, settings):
     settings.MEDIA_ROOT = str(tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def _placement_window_open():
+    """Placement fermé globalement au 1er août 2026 (closed_from) — on rouvre la
+    fenêtre pour que la restitution d'apport (sur tranches de placement) reste
+    testable après cette date."""
+    AppSetting.objects.update_or_create(
+        cle="savings.placement.closed_from", defaults={"valeur": "2099-01-01"}
+    )
 
 
 def _lender_with_tranche(montant: str) -> "Member":  # noqa: F821

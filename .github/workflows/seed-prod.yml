@@ -20,6 +20,10 @@ on:
         description: "Rejouer seed_event_catalog ?"
         type: boolean
         default: true
+      seed_form_schemas:
+        description: "Rejouer seed_form_schemas --force ? (active le schema demande sans la question CFP)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -60,6 +64,13 @@ jobs:
               $COMPOSE exec -T backend python manage.py seed_event_catalog
             else
               echo ">>> seed_event_catalog skipped"
+            fi
+
+            if [ "${{ inputs.seed_form_schemas }}" = "true" ]; then
+              echo ">>> seed_form_schemas --force"
+              $COMPOSE exec -T backend python manage.py seed_form_schemas --force
+            else
+              echo ">>> seed_form_schemas skipped"
             fi
 
             echo ">>> Done."

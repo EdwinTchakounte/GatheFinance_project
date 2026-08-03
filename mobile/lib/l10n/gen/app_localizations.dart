@@ -3430,7 +3430,7 @@ abstract class AppL10n {
   /// No description provided for @wd_disclaimer.
   ///
   /// In fr, this message translates to:
-  /// **'Le solde est débité dès l\'envoi. L\'admin valide la sortie (espèces ou payout MOMO) sous 24 h.'**
+  /// **'Le montant est réservé dès l\'envoi (indisponible au retrait) et débité seulement au paiement. L\'admin valide la sortie (espèces ou payout MOMO) sous 24 h.'**
   String get wd_disclaimer;
 
   /// No description provided for @wd_success_title.

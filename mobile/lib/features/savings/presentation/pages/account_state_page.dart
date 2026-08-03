@@ -327,12 +327,29 @@ class _WithdrawalRow extends StatelessWidget {
           ),
       };
 
+  /// Libellé COMPACT pour le tag (le `statutDisplay` backend est trop long
+  /// — ex. « Approuvée — remise espèces en attente » — et débordait le chip).
+  String get _shortStatut => switch (w.statut) {
+        WithdrawalStatus.enAttente => 'En attente',
+        WithdrawalStatus.approuvee =>
+          w.modePaiement == WithdrawalChannel.presentiel
+              ? 'Remise en attente'
+              : 'Approuvé',
+        WithdrawalStatus.enPayout => 'Envoi en cours',
+        WithdrawalStatus.completee => 'Remis',
+        WithdrawalStatus.payoutFailed => 'Envoi échoué',
+        WithdrawalStatus.rejetee => 'Rejeté',
+      };
+
   @override
   Widget build(BuildContext context) {
     final tone = _tone;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
+        // Alignement haut : si le tag passe sur 2 lignes (écran étroit), le
+        // montant reste aligné en tête et rien ne déborde.
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(
@@ -355,18 +372,30 @@ class _WithdrawalRow extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: tone.bg,
-              borderRadius: BorderRadius.circular(999),
+          const SizedBox(width: 10),
+          // Tag contraint (max ~42 % de la largeur) : libellé compact, jamais
+          // tronqué (retour à la ligne au besoin), aligné à droite.
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(context).width * 0.42,
             ),
-            child: Text(
-              w.statutDisplay,
-              style: TextStyle(
-                color: tone.fg,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: tone.bg,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                _shortStatut,
+                textAlign: TextAlign.center,
+                softWrap: true,
+                style: TextStyle(
+                  color: tone.fg,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
               ),
             ),
           ),
