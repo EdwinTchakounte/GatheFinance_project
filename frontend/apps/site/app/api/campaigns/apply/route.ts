@@ -27,16 +27,19 @@ export async function POST(req: NextRequest) {
   let body: BodyInit;
 
   if (incomingCT.startsWith("multipart/form-data")) {
-    // Candidature avec pièces justificatives : on relaie le multipart brut
-    // (boundary préservé). ``campaign_id`` est lu dans le FormData.
-    headers["Content-Type"] = incomingCT;
-    const buf = await req.arrayBuffer();
-    // Extraire campaign_id sans consommer le body : reparse une copie.
-    const form = await new Response(buf.slice(0), {
-      headers: { "content-type": incomingCT },
-    }).formData();
+    // Candidature avec pièces justificatives. On parse le FormData UNE seule
+    // fois puis on le relaie tel quel : ``fetch`` le re-sérialise avec un
+    // boundary valide. On ne fixe donc PAS Content-Type ici (undici s'en
+    // charge). NB : re-parser un ``arrayBuffer`` via ``Response.formData()``
+    // lève dans le runtime Node pour certains multiparts → 500 (bug corrigé).
+    let form: FormData;
+    try {
+      form = await req.formData();
+    } catch {
+      return NextResponse.json({ detail: "Corps invalide." }, { status: 400 });
+    }
     id = (form.get("campaign_id") as string) || null;
-    body = buf;
+    body = form;
   } else {
     let json: Record<string, unknown>;
     try {
