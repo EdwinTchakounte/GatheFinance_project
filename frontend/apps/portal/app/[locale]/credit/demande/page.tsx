@@ -670,8 +670,8 @@ export default function PortalLoanRequestPage() {
             <RadioCard
               checked={form.voie === "senior_brc"}
               onClick={() => set("voie", "senior_brc")}
-              title="Membre ancien + BRC validé"
-              hint={`Plafond : solde × 10 = ${plafondSenior.toLocaleString("fr-FR")} XAF.`}
+              title="Ancienneté / apport"
+              hint={`Plafond basé sur ton épargne : ${plafondSenior.toLocaleString("fr-FR")} XAF.`}
             />
             <RadioCard
               checked={form.voie === "avaliste"}

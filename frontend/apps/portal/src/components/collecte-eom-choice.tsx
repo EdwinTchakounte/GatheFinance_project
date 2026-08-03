@@ -82,6 +82,11 @@ export function CollecteEomChoice({
     // destination est complète (le numéro reste requis côté serveur).
     setPref("mobile_money");
     setError(null);
+    // Parité « tap » : si une destination valide est DÉJÀ renseignée (numéro
+    // pré-rempli inchangé), on persiste le choix immédiatement — sinon
+    // autoSaveMomo n'attendrait qu'une édition et le choix ne serait jamais
+    // enregistré côté serveur.
+    autoSaveMomo(phone, network);
   }
 
   /** Auto-enregistre la destination Mobile Money quand elle est valide. */

@@ -153,9 +153,12 @@ class _CollecteEomCardState extends ConsumerState<CollecteEomCard> {
             title: l.collecte_eom_momo,
             desc: l.collecte_eom_momo_desc,
             onTap: () {
-              // Déplie le formulaire ; la persistance se fait au bouton
-              // « Enregistrer ma destination » (le serveur exige le numéro).
+              // Déplie le formulaire. Parité « tap » : si une destination
+              // valide est DÉJÀ renseignée (numéro pré-rempli inchangé), on
+              // persiste le choix immédiatement — sinon la saisie déclenchera
+              // l'auto-enregistrement, ou le bouton « Enregistrer ».
               setState(() => _pending = 'mobile_money');
+              _autoSaveMomo(immediate: true);
             },
           ),
           if (current == 'mobile_money') _buildMomoForm(l),
