@@ -3040,7 +3040,7 @@ abstract class AppL10n {
   /// No description provided for @mi_intro.
   ///
   /// In fr, this message translates to:
-  /// **'Chez GATHE Finance, tu n\'es pas un simple client : tu deviens **copropriétaire** d\'une coopérative d\'épargne et de crédit. Tes décisions comptent, et les bénéfices reviennent aux membres.'**
+  /// **'Chez GATHE Finance, tu n\'es pas un simple client : tu deviens « copropriétaire » d\'une coopérative d\'épargne et de crédit. Tes décisions comptent, et les bénéfices reviennent aux membres.'**
   String get mi_intro;
 
   /// No description provided for @mi_card1_title.

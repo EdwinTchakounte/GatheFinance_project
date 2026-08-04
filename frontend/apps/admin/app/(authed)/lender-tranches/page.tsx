@@ -210,8 +210,8 @@ function Inner() {
               Crédits
             </Link>{" "}
             puis cliquez sur <strong>« Funding »</strong> : vous sélectionnez les tranches
-            à engager, le prêteur est notifié et reçoit automatiquement sa quote-part
-            d'intérêts (50/50).
+            à engager, le prêteur est notifié et reçoit automatiquement sa rémunération
+            proportionnelle à sa mise (taux prêteur configurable).
           </p>
         </div>
       </div>

@@ -1621,7 +1621,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get mi_intro =>
-      'At GATHE Finance, you\'re not just a customer: you become a **co-owner** of a savings & credit cooperative. Your decisions count, and profits go back to members.';
+      'At GATHE Finance, you\'re not just a customer: you become a “co-owner” of a savings & credit cooperative. Your decisions count, and profits go back to members.';
 
   @override
   String get mi_card1_title => 'Secure savings';

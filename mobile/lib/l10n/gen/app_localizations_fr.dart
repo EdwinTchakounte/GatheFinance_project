@@ -1632,7 +1632,7 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get mi_intro =>
-      'Chez GATHE Finance, tu n\'es pas un simple client : tu deviens **copropriétaire** d\'une coopérative d\'épargne et de crédit. Tes décisions comptent, et les bénéfices reviennent aux membres.';
+      'Chez GATHE Finance, tu n\'es pas un simple client : tu deviens « copropriétaire » d\'une coopérative d\'épargne et de crédit. Tes décisions comptent, et les bénéfices reviennent aux membres.';
 
   @override
   String get mi_card1_title => 'Épargne sécurisée';
