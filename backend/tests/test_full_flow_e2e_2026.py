@@ -255,8 +255,12 @@ class TestVoieCampaignMember:
         r = api.post(CREATE, {"montant_demande": "25000", "duree_mois": 6, "motif": "e2e", "campaign_id": camp.id}, format="json")
         assert r.status_code == 201, r.content
         assert r.json()["route"] == "campaign"
-        # fee=0 respecté côté membre → frais_a_payer.montant == "0"
-        assert r.json()["frais_a_payer"]["montant"] in ("0", "0.00")
+        # Campagne → EN_VALIDATION_CAMPAGNE : aucun frais n'est réglable à la
+        # soumission (ils ne seraient dus qu'APRÈS validation de l'activité, et
+        # ici l'étude est gratuite). Le membre ne doit donc PAS se voir proposer
+        # de paiement — `frais_a_payer` est null (sinon le paiement échouait avec
+        # « Cette demande n'attend pas de frais »).
+        assert r.json()["frais_a_payer"] is None
         lr = LoanRequest.objects.get(pk=r.json()["loan_request"]["id"])
         assert lr.statut == LoanRequest.Statut.EN_VALIDATION_CAMPAGNE
 

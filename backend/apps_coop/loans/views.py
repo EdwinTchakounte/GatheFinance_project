@@ -535,19 +535,38 @@ def loan_request_create(request):
         "de refus de la demande.",
     )
 
+    # Les frais d'étude ne sont proposés au paiement QUE si la demande les attend
+    # réellement dès la soumission : statut EN_ATTENTE, frais > 0 et non réglés.
+    # Sinon on renvoie `frais_a_payer: null` (le client sait alors qu'il n'y a
+    # rien à régler maintenant) :
+    #   • Voie CAMPAGNE → EN_VALIDATION_CAMPAGNE : les frais ne sont dus qu'APRÈS
+    #     validation de l'activité par l'admin (ou nuls si étude gratuite).
+    #     Proposer le paiement ici échouait (« Cette demande n'attend pas de
+    #     frais (statut : en_validation_campagne) »).
+    #   • Voie AVALISTE → EN_ATTENTE_AVALISTE : frais dus seulement après accord
+    #     de l'avaliste.
+    #   • Étude gratuite (frais_montant == 0) : rien à régler.
+    frais_a_payer = None
+    if (
+        loan_request.statut == LoanRequest.Statut.EN_ATTENTE
+        and not loan_request.frais_demande_credit_paye
+        and frais_montant > 0
+    ):
+        frais_a_payer = {
+            "code": "DEMANDE_CREDIT",
+            "libelle": "Frais d'étude du dossier",
+            "montant": str(frais_montant),
+            # CH-7 — Information UI : ces frais sont non-remboursables.
+            "non_remboursable": True,
+            "notice": non_refundable_notice,
+        }
+
     return Response(
         {
             "loan_request": LoanRequestReadSerializer(loan_request, context={"request": request}).data,
             "route": route_eval.route,
             "route_details": route_eval.details,
-            "frais_a_payer": {
-                "code": "DEMANDE_CREDIT",
-                "libelle": "Frais d'étude du dossier",
-                "montant": str(frais_montant),
-                # CH-7 — Information UI : ces frais sont non-remboursables.
-                "non_remboursable": True,
-                "notice": non_refundable_notice,
-            },
+            "frais_a_payer": frais_a_payer,
         },
         status=status.HTTP_201_CREATED,
     )
