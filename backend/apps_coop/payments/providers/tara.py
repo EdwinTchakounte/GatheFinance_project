@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING
 import requests
 from django.conf import settings
 
+from apps_coop.members.naming import full_name
+
 from .base import (
     InitPayinResult,
     PaymentProviderBase,
@@ -175,7 +177,7 @@ class TaraProvider(PaymentProviderBase):
             "apiKey": self.api_key,
             "businessId": self.business_id,
             "receiverName": (
-                f"{payment.member.prenom} {payment.member.nom}"
+                full_name(payment.member.prenom, payment.member.nom)
                 if getattr(payment, "member_id", None)
                 else ""
             ),

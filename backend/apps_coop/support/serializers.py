@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from apps_coop.members.naming import full_name
+
 from .models import SupportMessage, SupportThread
 
 
@@ -36,7 +38,7 @@ class SupportThreadAdminSerializer(serializers.ModelSerializer):
         ]
 
     def get_member_nom(self, obj) -> str:
-        return f"{obj.member.prenom} {obj.member.nom}".strip()
+        return full_name(obj.member.prenom, obj.member.nom)
 
     def get_last_body(self, obj) -> str:
         last = obj.messages.order_by("-created_at").first()

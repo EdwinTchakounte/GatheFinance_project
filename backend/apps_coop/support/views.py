@@ -17,6 +17,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
+from apps_coop.members.naming import full_name
 from apps_coop.members.permissions import IsActiveMember, IsStaff
 
 from . import services
@@ -93,7 +94,7 @@ def admin_thread_detail(request, pk: int):
         {
             "thread_id": thread.id,
             "member_numero": thread.member.numero_membre,
-            "member_nom": f"{thread.member.prenom} {thread.member.nom}".strip(),
+            "member_nom": full_name(thread.member.prenom, thread.member.nom),
             "messages": SupportMessageSerializer(messages, many=True).data,
         }
     )

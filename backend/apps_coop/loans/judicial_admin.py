@@ -20,6 +20,7 @@ from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
+from apps_coop.members.naming import full_name
 from apps_coop.members.permissions import IsAdmin, IsStaff
 
 from .judicial_services import (
@@ -84,7 +85,7 @@ def _row(e: JudicialEscalation, *, loan: Loan | None = None) -> dict:
         "loan_numero_dossier": loan.numero_dossier,
         "member_id": loan.member_id,
         "member_numero": loan.member.numero_membre,
-        "member_nom": f"{loan.member.prenom} {loan.member.nom}".strip(),
+        "member_nom": full_name(loan.member.prenom, loan.member.nom),
         "statut": e.statut,
         "statut_display": e.get_statut_display(),
         "declenche_at": e.declenche_at.isoformat(),
@@ -192,7 +193,7 @@ def admin_escalation_candidates(request):
         {
             "loan_id": loan.id,
             "numero_dossier": loan.numero_dossier,
-            "member_nom": f"{loan.member.prenom} {loan.member.nom}".strip(),
+            "member_nom": full_name(loan.member.prenom, loan.member.nom),
             "member_numero": loan.member.numero_membre,
             "solde_restant": str(loan.solde_restant),
             "poursuite_judiciaire_at": (

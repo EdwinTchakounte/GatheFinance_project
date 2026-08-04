@@ -17,6 +17,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from apps_coop.audit.services import client_ip, record as record_audit
+from apps_coop.members.naming import full_name
 from apps_coop.members.permissions import (
     IsActiveMember,
     IsAdmin,
@@ -1404,7 +1405,7 @@ def admin_list_loan_renewals(request):
             "loan_id": loan.id,
             "numero_dossier": loan.numero_dossier,
             "numero_membre": member.numero_membre,
-            "member_nom": f"{member.prenom} {member.nom}".strip(),
+            "member_nom": full_name(member.prenom, member.nom),
             "montant_credit": str(loan.montant),
             "solde_restant": str(loan.solde_restant),
             "duree_actuelle_mois": loan.duree_mois,

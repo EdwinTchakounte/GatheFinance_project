@@ -24,6 +24,7 @@ import logging
 from django.conf import settings as dj_settings
 
 from apps_coop.audit.services import client_ip, record as record_audit
+from apps_coop.members.naming import full_name
 from apps_coop.members.permissions import IsAdmin
 from apps_coop.savings.models import LenderTranche
 from apps_coop.loans.models import LenderAllocation, Loan
@@ -58,7 +59,7 @@ def _notify_lenders_engagement(
         return
 
     beneficiaire_label = (
-        f"{loan.member.prenom} {loan.member.nom}"
+        full_name(loan.member.prenom, loan.member.nom)
         if getattr(loan, "member", None) else "Membre coopérative"
     )
     portal_link = portal_url()

@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps_coop.audit.services import client_ip, record as record_audit
+from apps_coop.members.naming import full_name
 from apps_coop.members.permissions import IsActiveMember, IsMember, IsStaff
 
 from .cutoff import COLLECTION_LOCATION, DAILY_CUTOFF_HOUR
@@ -496,7 +497,7 @@ def admin_list_withdrawals(request):
         row = WithdrawalRequestReadSerializer(wr).data
         row["member_id"] = member.id
         row["numero_membre"] = member.numero_membre
-        row["member_nom"] = f"{member.prenom} {member.nom}".strip()
+        row["member_nom"] = full_name(member.prenom, member.nom)
         # Hint UI for action buttons
         row["can_mark_paid"] = (
             wr.mode_paiement == WithdrawalRequest.ModePaiement.PRESENTIEL

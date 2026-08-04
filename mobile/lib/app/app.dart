@@ -121,6 +121,9 @@ class _GatheAppState extends ConsumerState<GatheApp>
     safe(() => ref.read(classicSavingsProvider.notifier).refresh());
     safe(() => ref.read(loansProvider.notifier).refresh());
     safe(() => ref.read(loanRequestsProvider.notifier).refresh());
+    // #79 — un crédit peut avoir été clôturé (dernier remboursement / clôture
+    // admin) pendant l'absence : refresh silencieux de la section « Clôturés ».
+    safe(() => ref.read(closedLoansProvider.notifier).refresh());
     safe(() => ref.read(notificationsProvider.notifier).refresh());
     safe(() => ref.read(bookletProvider.notifier).refresh());
     // Statut membre : peut avoir bascule (activation/suspension) cote admin

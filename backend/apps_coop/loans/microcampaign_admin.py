@@ -26,6 +26,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from apps_coop.audit.services import record as record_audit
+from apps_coop.members.naming import full_name
 from apps_coop.members.permissions import IsComite, IsStaff
 
 from .microcampaign_services import close_campaign
@@ -394,7 +395,7 @@ def admin_campaign_detail(request, pk: int):
         {
             "id": lr.id,
             "member_id": lr.member_id,
-            "member_nom": f"{lr.member.prenom} {lr.member.nom}".strip(),
+            "member_nom": full_name(lr.member.prenom, lr.member.nom),
             "member_numero": lr.member.numero_membre,
             "montant_demande": str(lr.montant_demande),
             "duree_mois": lr.duree_mois,

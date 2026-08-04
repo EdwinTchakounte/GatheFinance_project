@@ -48,6 +48,10 @@ class LoansNotifier extends AsyncNotifier<List<Loan>>
       ),
     );
     await refresh();
+    // #79 — si ce remboursement a soldé le crédit, il quitte la liste active :
+    // on rafraîchit aussi la section « Clôturés » pour qu'il y apparaisse tout
+    // de suite (sinon il semble disparaître jusqu'au prochain pull-to-refresh).
+    await ref.read(closedLoansProvider.notifier).refresh();
     return updated;
   }
 
@@ -88,11 +92,16 @@ class ClosedLoansNotifier extends AsyncNotifier<List<Loan>> {
   Future<List<Loan>> build() =>
       ref.read(loansRepositoryProvider).myClosedLoans();
 
+  /// Rafraîchissement SILENCIEUX : on ne repasse pas en `AsyncLoading` (pas de
+  /// skeleton/flicker) et on garde l'état courant sur erreur transitoire — cette
+  /// section est rafraîchie après un remboursement et au resume de l'app.
   Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => ref.read(loansRepositoryProvider).myClosedLoans(),
-    );
+    try {
+      final loans = await ref.read(loansRepositoryProvider).myClosedLoans();
+      state = AsyncData(loans);
+    } catch (_) {
+      // Erreur transitoire : on conserve la liste déjà affichée.
+    }
   }
 
   /// Masque un crédit clôturé de la vue du membre puis rafraîchit la liste.
