@@ -1,3 +1,4 @@
+import 'exceptions.dart';
 import 'failures.dart';
 
 /// Message d'erreur **présentable à l'utilisateur** — jamais de détail
@@ -40,6 +41,28 @@ String friendlyError(
     return e.message == 'Connexion impossible.' ? _kOffline : e.message;
   }
   if (e is Failure) return e.message; // déjà lisible (métier)
+
+  // Exceptions techniques de la couche data (avant conversion en Failure).
+  // IMPORTANT : un 4xx porte un message MÉTIER (`detail` extrait par
+  // mapDioError, ex. « Ce crédit n'est pas remboursable ») → on l'affiche tel
+  // quel. Seul un 5xx est un vrai souci serveur. On NE se fie PAS au nom de la
+  // classe (`ServerException`) : sinon tout 400 finissait en « souci serveur ».
+  if (e is ServerException) {
+    final code = e.statusCode ?? 0;
+    if (code >= 500) return _kServer;
+    final msg = e.message.trim();
+    return (msg.isNotEmpty && msg != 'Server error' && msg != 'Erreur serveur')
+        ? msg
+        : fallback;
+  }
+  if (e is CredentialsException) {
+    return e.message.isNotEmpty ? e.message : fallback;
+  }
+  if (e is NetworkException) {
+    final lower = e.message.toLowerCase();
+    if (lower.contains('lente') || lower.contains('timeout')) return _kTimeout;
+    return e.message == 'Connexion impossible.' ? _kOffline : e.message;
+  }
   if (e == null) return fallback;
 
   final s = e.toString().replaceFirst('Exception: ', '').trim();
@@ -47,9 +70,13 @@ String friendlyError(
   final lower = s.toLowerCase();
   if (lower.contains('timeout')) return _kTimeout;
   if (_looksOffline(lower)) return _kOffline;
+  // 5xx uniquement (codes numériques), pas le mot « server » (matcherait le nom
+  // des classes ServerException/ServerFailure et masquerait un vrai 4xx métier).
   if (lower.contains('http 5') ||
       lower.contains(' 500') ||
-      lower.contains('server')) {
+      lower.contains(' 502') ||
+      lower.contains(' 503') ||
+      lower.contains(' 504')) {
     return _kServer;
   }
   // Reste technique (« exception », très long…) → message générique.

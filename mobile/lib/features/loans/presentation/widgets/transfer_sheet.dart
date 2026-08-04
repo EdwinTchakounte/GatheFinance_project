@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/error/error_message.dart';
+import '../../../../core/network/api_exceptions.dart';
 import '../../../../core/formatters/xaf_formatter.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../../../core/widgets/paysika/pa_card.dart';
@@ -124,7 +126,7 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e))),
+          SnackBar(content: Text(friendlyError(e is DioException ? mapDioError(e) : e))),
         );
       }
     } finally {
@@ -158,7 +160,7 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e))),
+          SnackBar(content: Text(friendlyError(e is DioException ? mapDioError(e) : e))),
         );
       }
     } finally {
