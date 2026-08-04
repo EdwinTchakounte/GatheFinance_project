@@ -138,7 +138,7 @@ void main() {
     expect(list[1].kind, NotifKind.announcement);
   });
 
-  test('Title dérivé du type (type.subtype → "Type Subtype")', () async {
+  test('Title dérivé du type → libellé FR (mapping + clés paiement)', () async {
     final adapter = ScriptedAdapter()
       ..on('/notifications/',
           method: 'GET',
@@ -152,10 +152,26 @@ void main() {
                 'lue': false,
                 'created_at': '2026-06-01T10:00:00Z',
               },
+              {
+                'id': 2,
+                'type': 'payment.confirmed.remboursement',
+                'message': 'msg',
+                'lue': false,
+                'created_at': '2026-06-01T10:01:00Z',
+              },
+              {
+                'id': 3,
+                'type': 'loan.closed',
+                'message': 'msg',
+                'lue': false,
+                'created_at': '2026-06-01T10:02:00Z',
+              },
             ],
           },);
     final ds = NotificationsDioDataSource(_client(adapter));
     final list = await ds.list();
-    expect(list.first.title, 'Payment Confirmed');
+    expect(list[0].title, 'Paiement confirmé');
+    expect(list[1].title, 'Paiement confirmé — remboursement');
+    expect(list[2].title, 'Crédit soldé');
   });
 }
