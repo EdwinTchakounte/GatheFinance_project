@@ -58,9 +58,103 @@ function splitAnnouncement(message: string): { title: string; body: string } {
 }
 
 
+// Libellés FR par type d'événement — parité avec le mobile
+// (notifications_dio_datasource.dart). Le backend ne renvoie que le `type` ;
+// sans cette table le portail « humanisait » le slug anglais (« Loan Approved »).
+const NOTIF_TITLES_FR: Record<string, string> = {
+  "booklet.ordered": "Carnet commandé",
+  "campaign.created": "Nouvelle campagne",
+  "collecte.balance_swept_to_savings": "Collecte versée sur l'épargne",
+  "collecte.eom_choice_reminder": "Collecte : choix de fin de mois",
+  "collecte.monthly_restitution": "Restitution de collecte",
+  "lender.apport_restitution": "Restitution de votre apport",
+  "lender.interest_paid": "Intérêts de prêteur crédités",
+  "lender.interest_paid_at_source": "Intérêts de prêteur crédités",
+  "lender.tranche_engaged": "Tranche engagée",
+  "lender.tranche_released": "Tranche libérée",
+  "loan.approved": "Crédit approuvé",
+  "loan.avaliste_consent_accepted": "Avaliste : engagement accepté",
+  "loan.avaliste_consent_refused": "Avaliste : engagement refusé",
+  "loan.avaliste_consent_requested": "Demande de garantie (avaliste)",
+  "loan.avaliste_gel_released": "Garantie libérée",
+  "loan.biens_seized": "Saisie de biens",
+  "loan.closed": "Crédit soldé",
+  "loan.credit_dossier_ready": "Dossier de crédit prêt",
+  "loan.disbursed": "Crédit décaissé",
+  "loan.installment_due_soon": "Échéance à venir",
+  "loan.installment_overdue": "Échéance en retard",
+  "loan.judicial_escalation_opened": "Escalade judiciaire ouverte",
+  "loan.notice": "Information crédit",
+  "loan.penalite_globale_appliquee": "Pénalité appliquée",
+  "loan.poursuite_engaged": "Poursuite engagée",
+  "loan_renewal.approved": "Reconduction approuvée",
+  "loan_renewal.rejected": "Reconduction rejetée",
+  "loan_renewal.requested": "Reconduction demandée",
+  "loan.repayment_confirmed": "Remboursement confirmé",
+  "loan_request.fees_paid": "Frais d'étude payés",
+  "loan_request.rejected": "Demande de crédit rejetée",
+  "loan_request.submitted": "Demande de crédit envoyée",
+  "loan.savings_seized": "Saisie sur épargne",
+  "member.activated": "Compte activé",
+  "member.brc_document_uploaded": "Justificatif BRC reçu",
+  "member.brc_rejected": "Justificatif BRC rejeté",
+  "member.brc_validated": "Justificatif BRC validé",
+  "member.reinscription_confirmed": "Réinscription confirmée",
+  "member.reinscription_due": "Réinscription à échéance",
+  "member.reinscription_due_today": "Réinscription à régler aujourd'hui",
+  "member.reinscription_due_urgent": "Réinscription urgente",
+  "member.reinscription_expired_suspended": "Compte suspendu (réinscription)",
+  "member.rejected": "Demande d'adhésion rejetée",
+  "membership.archived_for_non_renewal": "Adhésion archivée",
+  "membership.interview_scheduled": "Entretien programmé",
+  "member.welcome": "Bienvenue",
+  "microcampaign.closed": "Campagne clôturée",
+  "placement.matured": "Placement arrivé à terme",
+  "savings.deposit_confirmed": "Dépôt confirmé",
+  "savings.interest_credited": "Intérêts d'épargne crédités",
+  "savings.maturity_reached": "Épargne arrivée à maturité",
+  "savings.renewed": "Épargne renouvelée",
+  "withdrawal.admin_pending": "Retrait à traiter",
+  "withdrawal.approved": "Retrait approuvé",
+  "withdrawal.completed": "Retrait effectué",
+  "withdrawal.rejected": "Retrait rejeté",
+  "withdrawal.requested": "Retrait demandé",
+};
+
+const PAYMENT_KIND_FR: Record<string, string> = {
+  epargne: "épargne",
+  epargne_classique: "épargne",
+  frais_inscription: "frais d'inscription",
+  frais_adhesion: "frais d'adhésion",
+  frais_demande_credit: "frais de demande de crédit",
+  frais_reconduction: "frais de reconduction",
+  frais_carnet: "frais de carnet",
+  remboursement: "remboursement",
+  decaissement: "décaissement",
+};
+
 function titleFromType(type: string): string {
   if (!type) return "Notification";
-  return type
+
+  // Clés paiement dynamiques : payment.confirmed.<kind>, .rejected., .initiated.
+  if (type.startsWith("payment.")) {
+    const segs = type.split(".");
+    const actions: Record<string, string> = {
+      confirmed: "Paiement confirmé",
+      rejected: "Paiement rejeté",
+      initiated: "Paiement initié",
+    };
+    const action = segs.length > 1 ? actions[segs[1]] : undefined;
+    const kind = segs.length > 2 ? PAYMENT_KIND_FR[segs[2]] : undefined;
+    if (action) return kind ? `${action} — ${kind}` : action;
+  }
+
+  const mapped = NOTIF_TITLES_FR[type];
+  if (mapped) return mapped;
+
+  // Repli lisible (type inconnu) : dernier segment humanisé.
+  const seg = type.split(".").pop() ?? type;
+  return seg
     .split(/[._]/)
     .map((p) => (p ? (p[0] ?? "").toUpperCase() + p.slice(1) : p))
     .join(" ");
