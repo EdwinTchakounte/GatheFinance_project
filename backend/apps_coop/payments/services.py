@@ -267,7 +267,9 @@ def _notify_payment_confirmed(payment: Payment) -> None:
 
 def _reject(payment: Payment, *, raw: dict) -> Payment:
     payment.statut = Payment.Statut.REJETE
-    payment.motif_rejet = (raw.get("message") or raw.get("reason") or "Rejected by provider")[:500]
+    payment.motif_rejet = (
+        raw.get("message") or raw.get("reason") or "Rejeté par l'opérateur de paiement."
+    )[:500]
     payment.save(update_fields=["statut", "motif_rejet", "updated_at"])
     record_audit(
         action="payment.rejected",
@@ -570,6 +572,13 @@ def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
     )
     account = ClassicSavingsAccount.objects.select_for_update().get(member=payment.member)
 
+    # L2 — amorce le cycle 12 mois dès la création du compte (ou répare une
+    # maturité nulle) : sans ``date_prochaine_maturite``, le cron d'anniversaire
+    # ignore le compte et aucune restitution/ré-inscription ne se déclenche.
+    from apps_coop.savings.services import ensure_classic_maturity
+
+    ensure_classic_maturity(account)
+
     nouveau_solde = account.solde + payment.montant
     account.solde = nouveau_solde
     account.save(update_fields=["solde", "updated_at"])
@@ -579,7 +588,7 @@ def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
     # L7 — impute l'écriture au carnet le plus récent du membre (le cas échéant).
     from apps_coop.members.models import BookletOrder
 
-    ClassicSavingsTransaction.objects.create(
+    tx = ClassicSavingsTransaction.objects.create(
         account=account,
         payment=payment,
         type_op=ClassicSavingsTransaction.TypeOp.DEPOT,
@@ -617,6 +626,7 @@ def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
             member=payment.member,
             montant=payment.montant,
             statut=LenderTranche.Statut.DISPONIBLE,
+            source_transaction=tx,  # trace l'origine → contre-passation à l'invalidation
         )
         tranche_id = tranche.id
 

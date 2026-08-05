@@ -751,6 +751,18 @@ class LenderTranche(TimestampedModel):
         blank=True,
         help_text="Horodatage du passage ENGAGEE → LIBEREE (crédit clôturé).",
     )
+    #: Écriture d'épargne placement qui a créé cette tranche (dépôt placement).
+    #: Permet de contre-passer proprement la tranche si le paiement source est
+    #: invalidé par l'admin (sinon la tranche DISPONIBLE restait orpheline =
+    #: argent fantôme mobilisable en funding).
+    source_transaction = models.ForeignKey(
+        "ClassicSavingsTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="lender_tranches",
+        help_text="Dépôt placement à l'origine de la tranche (traçabilité invalidation).",
+    )
     # Réforme garantie 2026 — immobilisation en garantie.
     gele_par_loan_request = models.ForeignKey(
         "loans.LoanRequest",

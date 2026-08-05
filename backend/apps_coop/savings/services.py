@@ -44,6 +44,32 @@ def _add_months(d: date, months: int) -> date:
     return d.replace(year=new_year, month=new_month, day=min(d.day, last_day))
 
 
+def ensure_classic_maturity(account) -> None:
+    """Garantit que le compte épargne classique porte une date de maturité.
+
+    Le cron d'anniversaire (``epargne_anniversary_processing``) ne traite QUE
+    les comptes dont ``date_prochaine_maturite`` n'est pas nul. Or la création
+    organique d'un ``ClassicSavingsAccount`` (premier dépôt, bascule collecte)
+    posait seulement ``date_ouverture`` → le cycle 12 mois ne s'amorçait jamais
+    (aucune restitution, aucune ré-inscription). Ce helper pose la maturité à
+    ``date_ouverture + epargne.contract_months`` au moment de la création.
+
+    Idempotent : no-op si la date est déjà posée. Auto-réparateur : appelé sur
+    un compte existant à maturité nulle (créé avant ce correctif), il l'initialise
+    au prochain dépôt/bascule — une maturité déjà dépassée sera prise en charge
+    par le cron dès son prochain passage.
+    """
+    if account.date_prochaine_maturite is not None:
+        return
+    from apps_coop.audit.services import get_int_setting
+
+    contract_months = get_int_setting("epargne.contract_months", 12)
+    account.date_prochaine_maturite = _add_months(
+        account.date_ouverture, contract_months
+    )
+    account.save(update_fields=["date_prochaine_maturite", "updated_at"])
+
+
 # Statuts d'un retrait ENGAGÉ (réservé) : la demande vit encore, l'argent est
 # promis mais pas encore sorti du solde (le débit n'a lieu qu'au paiement). Ces
 # montants sont « bloqués » — plus allouables ailleurs (2ᵉ retrait, garantie…)

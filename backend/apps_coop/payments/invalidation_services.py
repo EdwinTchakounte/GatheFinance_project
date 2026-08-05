@@ -15,6 +15,7 @@ au même paiement. Le décaissement (``DECAISSEMENT``) n'est PAS invalidable ici
 from __future__ import annotations
 
 import logging
+from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
@@ -41,7 +42,9 @@ def _reverse_collecte_tx(tx) -> None:
     account = tx.account
     montant = tx.montant
     if tx.type_op in credit:
-        account.solde = account.solde - montant  # annule un crédit
+        # Borne à 0 : si le membre a déjà retiré les fonds, on n'écrit pas un
+        # solde négatif (l'écart éventuel reste tracé par l'écriture inverse).
+        account.solde = max(account.solde - montant, Decimal("0"))  # annule un crédit
         reverse_op = T.RETRAIT
     else:
         account.solde = account.solde + montant  # annule un débit
@@ -58,17 +61,38 @@ def _reverse_collecte_tx(tx) -> None:
 
 
 def _reverse_classic_tx(tx) -> None:
-    from apps_coop.savings.models import ClassicSavingsTransaction
+    from apps_coop.savings.models import ClassicSavingsTransaction, LenderTranche
 
     T = ClassicSavingsTransaction.TypeOp
     credit = {T.DEPOT, T.INTERET, T.INTERET_PLACEMENT, T.INTERET_PRETEUR, T.BASCULE_COLLECTE}
     info_only = {T.RESTITUTION_PLACEMENT}  # ligne informative : solde inchangé
     if tx.type_op in info_only:
         return
+
+    # Contre-passation de la tranche prêteur créée par un dépôt PLACEMENT : sinon
+    # une tranche DISPONIBLE restait orpheline (argent fantôme mobilisable). Si la
+    # tranche est déjà ENGAGEE/GELEE (elle finance ou garantit un crédit), on
+    # REFUSE l'invalidation — traiter le crédit d'abord.
+    if tx.type_op == T.DEPOT and tx.is_placement:
+        for tr in tx.lender_tranches.all():
+            if tr.statut == LenderTranche.Statut.DISPONIBLE:
+                tr.statut = LenderTranche.Statut.ANNULEE
+                tr.save(update_fields=["statut", "updated_at"])
+            elif tr.statut in {
+                LenderTranche.Statut.ENGAGEE,
+                LenderTranche.Statut.GELEE,
+            }:
+                raise PaymentInvalidationError(
+                    "Ce dépôt placement finance ou garantit déjà un crédit "
+                    "(tranche engagée/gelée) — invalidation impossible. Traitez "
+                    "d'abord le crédit concerné."
+                )
+            # LIBEREE / ANNULEE : rien à faire.
+
     account = tx.account
     montant = tx.montant
     if tx.type_op in credit:
-        account.solde = account.solde - montant
+        account.solde = max(account.solde - montant, Decimal("0"))
         reverse_op = T.RETRAIT
     else:
         account.solde = account.solde + montant
@@ -134,6 +158,27 @@ def invalidate_payment(payment: Payment, *, actor, motif: str = "") -> Payment:
         raise PaymentInvalidationError(
             "Un décaissement ne s'invalide pas ici — traitez le crédit "
             "directement (remboursement / clôture)."
+        )
+    # Les frais déclenchent des effets en cascade non contre-passables de façon
+    # générique et sûre : activation du membre (adhésion/inscription/carnet),
+    # commande de carnet, avancement d'une demande de crédit (frais d'étude),
+    # cycle de reconduction. Les invalider en aveugle laisserait le système
+    # incohérent (membre ACTIF alors que le frais est REJETE, demande « frais
+    # payés », carnet fantôme). On refuse ici — le cas se traite via la fiche
+    # membre / la demande de crédit concernée.
+    _FEE_TYPES = {
+        Payment.Type.FRAIS_ADHESION,
+        Payment.Type.FRAIS_INSCRIPTION,
+        Payment.Type.FRAIS_CARNET,
+        Payment.Type.FRAIS_DEMANDE_CREDIT,
+        Payment.Type.FRAIS_RECONDUCTION,
+    }
+    if payment.type in _FEE_TYPES:
+        raise PaymentInvalidationError(
+            "Un paiement de frais (adhésion, inscription, carnet, demande de "
+            "crédit, reconduction) ne peut pas être invalidé ici : il déclenche "
+            "l'activation du membre, la commande de carnet ou l'avancement d'une "
+            "demande. Traitez le cas via la fiche membre ou la demande concernée."
         )
 
     reversed_summary = {

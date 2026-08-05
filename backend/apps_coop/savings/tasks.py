@@ -351,6 +351,10 @@ def collecte_fin_de_mois() -> dict:
                             },
                         )
                     )
+                    # L2 — amorce le cycle 12 mois si le compte vient d'être créé.
+                    from apps_coop.savings.services import ensure_classic_maturity
+
+                    ensure_classic_maturity(classic_account)
                     nouveau_solde_classic = _q(
                         Decimal(classic_account.solde) + restituable
                     )

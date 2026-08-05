@@ -224,12 +224,19 @@ class TaraProvider(PaymentProviderBase):
 
         # Défense en profondeur : refuse les webhooks qui ne ciblent pas
         # notre businessId Tara. Une URL secrète seule ne suffit pas.
-        if self.business_id and payload.get("businessId") and \
-                payload["businessId"] != self.business_id:
-            raise ProviderError(
-                f"Webhook businessId mismatch: got {payload.get('businessId')!r}",
-                retryable=False,
-            )
+        # Quand TARA_BUSINESS_ID est configuré, le `businessId` du body est
+        # OBLIGATOIRE et doit correspondre — sinon un webhook forgé SANS
+        # `businessId` contournait le contrôle (le `payload.get(...)` truthy
+        # rendait la garde optionnelle). Combiné aux fallbacks de matching
+        # (référence vide / téléphone), c'était un vecteur de confirmation
+        # forgée sur un paiement en attente. On rend le champ requis.
+        if self.business_id:
+            incoming = payload.get("businessId")
+            if not incoming or str(incoming) != str(self.business_id):
+                raise ProviderError(
+                    f"Webhook businessId invalide ou absent: got {incoming!r}",
+                    retryable=False,
+                )
 
         return WebhookEvent(
             # `productId` est notre UUID idempotency_key envoye a l'init . c'est

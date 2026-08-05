@@ -22,6 +22,7 @@ from apps_coop.payments.models import Payment
 from apps_coop.savings.models import (
     ClassicSavingsAccount,
     ClassicSavingsTransaction,
+    LenderTranche,
 )
 from tests.factories import MemberFactory, UserFactory
 
@@ -155,6 +156,83 @@ class TestPaymentInvalidation:
         )
         with pytest.raises(PaymentInvalidationError):
             invalidate_payment(pay, actor=UserFactory())
+
+    def test_blocks_fee_invalidation(self):
+        """Un frais (adhésion…) ne s'invalide pas ici — effets en cascade."""
+        m = MemberFactory()
+        pay = Payment.objects.create(
+            member=m,
+            montant=Decimal("13000"),
+            type=Payment.Type.FRAIS_ADHESION,
+            source=Payment.Source.MOBILE_MONEY,
+            statut=Payment.Statut.VALIDE,
+            date_versement=timezone.now(),
+            date_validation=timezone.now(),
+        )
+        with pytest.raises(PaymentInvalidationError, match="frais"):
+            invalidate_payment(pay, actor=UserFactory())
+        pay.refresh_from_db()
+        assert pay.statut == Payment.Statut.VALIDE  # non modifié
+
+    def _placement_deposit(self, member, montant="20000", statut=None):
+        now = timezone.now()
+        acc = ClassicSavingsAccount.objects.create(
+            member=member, solde=Decimal(montant), date_ouverture=date.today()
+        )
+        pay = Payment.objects.create(
+            member=member,
+            montant=Decimal(montant),
+            type=Payment.Type.EPARGNE_CLASSIQUE,
+            source=Payment.Source.MOBILE_MONEY,
+            statut=Payment.Statut.VALIDE,
+            date_versement=now,
+            date_validation=now,
+            is_placement=True,
+        )
+        tx = ClassicSavingsTransaction.objects.create(
+            account=acc,
+            payment=pay,
+            type_op=ClassicSavingsTransaction.TypeOp.DEPOT,
+            montant=Decimal(montant),
+            solde_apres=Decimal(montant),
+            date=now,
+            is_placement=True,
+        )
+        tranche = LenderTranche.objects.create(
+            member=member,
+            montant=Decimal(montant),
+            statut=statut or LenderTranche.Statut.DISPONIBLE,
+            source_transaction=tx,
+        )
+        return acc, pay, tranche
+
+    def test_reverses_placement_cancels_tranche(self):
+        """Invalider un dépôt placement annule la tranche prêteur DISPONIBLE."""
+        m = MemberFactory()
+        acc, pay, tranche = self._placement_deposit(m)
+        invalidate_payment(pay, actor=UserFactory())
+        acc.refresh_from_db()
+        pay.refresh_from_db()
+        tranche.refresh_from_db()
+        assert pay.statut == Payment.Statut.REJETE
+        assert acc.solde == Decimal("0.00")  # dépôt annulé
+        assert tranche.statut == LenderTranche.Statut.ANNULEE
+
+    def test_blocks_placement_invalidation_if_engaged(self):
+        """Tranche déjà ENGAGEE (finance un crédit) → invalidation refusée."""
+        m = MemberFactory()
+        acc, pay, tranche = self._placement_deposit(
+            m, statut=LenderTranche.Statut.ENGAGEE
+        )
+        with pytest.raises(PaymentInvalidationError, match="engagée|garantit"):
+            invalidate_payment(pay, actor=UserFactory())
+        acc.refresh_from_db()
+        pay.refresh_from_db()
+        tranche.refresh_from_db()
+        # Rollback complet : rien ne bouge.
+        assert pay.statut == Payment.Statut.VALIDE
+        assert acc.solde == Decimal("20000.00")
+        assert tranche.statut == LenderTranche.Statut.ENGAGEE
 
 
 class TestDeletionTraced:
