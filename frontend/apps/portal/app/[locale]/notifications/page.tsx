@@ -144,8 +144,10 @@ function titleFromType(type: string): string {
       rejected: "Paiement rejeté",
       initiated: "Paiement initié",
     };
-    const action = segs.length > 1 ? actions[segs[1]] : undefined;
-    const kind = segs.length > 2 ? PAYMENT_KIND_FR[segs[2]] : undefined;
+    const evt = segs[1];
+    const kindKey = segs[2];
+    const action = evt ? actions[evt] : undefined;
+    const kind = kindKey ? PAYMENT_KIND_FR[kindKey] : undefined;
     if (action) return kind ? `${action} — ${kind}` : action;
   }
 
