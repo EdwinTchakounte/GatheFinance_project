@@ -1,10 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { fmtDate, fmtXAF, type Campaign } from "@/lib/campaign-format";
+import {
+  DynamicFields,
+  validateDynamicFields,
+  type FormSchemaPayload,
+  type FormValues,
+} from "@/components/form-renderer";
 
 export type { Campaign };
+
+// Champs cœur déjà saisis par l'UI figée (identité + montant + motif) : on les
+// exclut du rendu dynamique pour éviter les doublons. Les champs de type
+// « file » du schéma sont aussi exclus : côté visiteur, les pièces passent par
+// ``documents_requis`` (upload dédié), pas par extra_payload.
+const CORE_FIELD_IDS = new Set([
+  "nom",
+  "prenom",
+  "phone",
+  "email",
+  "montant",
+  "montant_demande",
+  "duree",
+  "duree_mois",
+  "motif",
+  "objet",
+]);
 
 const inputCls =
   "mt-1 block w-full rounded-md border border-line-200 bg-paper px-3 py-2 text-ink-900 outline-none transition-colors focus:border-emerald focus:ring-1 focus:ring-emerald";
@@ -23,6 +46,29 @@ export function ApplyForm({ campaign }: { campaign: Campaign }) {
   const docsRequis = campaign.documents_requis ?? [];
   const [files, setFiles] = useState<Record<number, File | null>>({});
 
+  // Champs personnalisés (FormSchema loan_request actif) — chargés à la volée.
+  const [schema, setSchema] = useState<FormSchemaPayload | null>(null);
+  const [dynValues, setDynValues] = useState<FormValues>({});
+  const [dynErrors, setDynErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch("/api/forms/schema/loan_request")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setSchema(d?.schema ? (d as FormSchemaPayload) : null))
+      .catch(() => setSchema(null));
+  }, []);
+
+  // Exclut les champs cœur + tous les champs « file » (pièces via documents_requis).
+  const excludeFieldIds = useMemo(() => {
+    const ids = new Set(CORE_FIELD_IDS);
+    for (const section of schema?.schema.sections ?? []) {
+      for (const field of section.fields) {
+        if (field.type === "file") ids.add(field.id);
+      }
+    }
+    return ids;
+  }, [schema]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (state === "sending") return;
@@ -33,6 +79,30 @@ export function ApplyForm({ campaign }: { campaign: Campaign }) {
       setState("error");
       return;
     }
+    // Valide les champs personnalisés visibles (hors champs cœur/fichier).
+    if (schema) {
+      const errs = validateDynamicFields(schema, dynValues, excludeFieldIds);
+      setDynErrors(errs);
+      if (Object.keys(errs).length > 0) {
+        setError("Merci de compléter les champs du formulaire signalés.");
+        setState("error");
+        return;
+      }
+    }
+    // Construit extra_payload à partir des réponses non vides (hors exclusions).
+    const extra: Record<string, unknown> = {};
+    for (const section of schema?.schema.sections ?? []) {
+      for (const field of section.fields) {
+        if (excludeFieldIds.has(field.id)) continue;
+        const v = dynValues[field.id];
+        if (v === undefined || v === null || v === "") continue;
+        if (Array.isArray(v) && v.length === 0) continue;
+        extra[field.id] = v;
+      }
+    }
+    const hasExtra = Object.keys(extra).length > 0;
+    const schemaVersion = schema?.version;
+
     setState("sending");
     setError(null);
     try {
@@ -45,12 +115,19 @@ export function ApplyForm({ campaign }: { campaign: Campaign }) {
           const f = files[i];
           if (f) fd.append(`doc_${i}`, f);
         });
+        if (hasExtra) fd.append("extra_payload", JSON.stringify(extra));
+        if (schemaVersion) fd.append("form_schema_version", String(schemaVersion));
         res = await fetch("/api/campaigns/apply", { method: "POST", body: fd });
       } else {
         res = await fetch("/api/campaigns/apply", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ campaign_id: campaign.id, ...form }),
+          body: JSON.stringify({
+            campaign_id: campaign.id,
+            ...form,
+            ...(hasExtra ? { extra_payload: extra } : {}),
+            ...(schemaVersion ? { form_schema_version: schemaVersion } : {}),
+          }),
         });
       }
       const data = await res.json().catch(() => ({}));
@@ -146,6 +223,15 @@ export function ApplyForm({ campaign }: { campaign: Campaign }) {
           className={inputCls}
         />
       </label>
+      {schema ? (
+        <DynamicFields
+          schema={schema}
+          values={dynValues}
+          onChange={setDynValues}
+          excludeFieldIds={excludeFieldIds}
+          errors={dynErrors}
+        />
+      ) : null}
       {docsRequis.length > 0 ? (
         <div className="space-y-2 rounded-md border border-line-200 bg-cream/50 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-600">
@@ -183,18 +269,26 @@ export function ApplyForm({ campaign }: { campaign: Campaign }) {
   );
 }
 
-export function CampaignsPublic() {
-  const [items, setItems] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
+export function CampaignsPublic({
+  initialItems,
+}: {
+  /** Campagnes pré-chargées côté serveur (SSR/ISR) → affichage immédiat. */
+  initialItems?: Campaign[];
+}) {
+  const [items, setItems] = useState<Campaign[]>(initialItems ?? []);
+  // Si le serveur a déjà fourni la liste, pas de spinner ni de re-fetch client
+  // (fini le pop-in). Sinon, on retombe sur le fetch client (compat).
+  const [loading, setLoading] = useState(initialItems === undefined);
   const [openId, setOpenId] = useState<number | null>(null);
 
   useEffect(() => {
+    if (initialItems !== undefined) return; // déjà rendu côté serveur
     fetch("/api/campaigns")
       .then((r) => r.json())
       .then((d) => setItems(Array.isArray(d?.results) ? d.results : []))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [initialItems]);
 
   if (loading) {
     return <p className="text-center text-sm text-ink-500">Chargement…</p>;

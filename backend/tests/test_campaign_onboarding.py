@@ -96,6 +96,28 @@ class TestPublicApply:
         resp = APIClient().post(_APPLY.format(camp.id), body, format="json")
         assert resp.status_code == 400
 
+    def test_extra_payload_stored(self):
+        """Les champs personnalisés (FormSchema) sont conservés sur la candidature."""
+        camp = _campaign(membre_requis=False, frais=Decimal("0"))
+        body = {
+            **_BODY,
+            "extra_payload": {"statut_pro": "independant", "annees_activite": 3},
+            "form_schema_version": 2,
+        }
+        resp = APIClient().post(_APPLY.format(camp.id), body, format="json")
+        assert resp.status_code == 201, resp.content
+        app = CampaignApplication.objects.get()
+        assert app.extra_payload == {"statut_pro": "independant", "annees_activite": 3}
+        assert app.form_schema_version == 2
+
+    def test_extra_payload_invalid_ignored(self):
+        """Un extra_payload illisible ne fait jamais échouer la candidature."""
+        camp = _campaign(membre_requis=False, frais=Decimal("0"))
+        body = {**_BODY, "extra_payload": "not-a-dict"}
+        resp = APIClient().post(_APPLY.format(camp.id), body, format="json")
+        assert resp.status_code == 201, resp.content
+        assert CampaignApplication.objects.get().extra_payload == {}
+
 
 class TestAcceptOnboarding:
     def _apply(self):

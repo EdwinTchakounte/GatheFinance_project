@@ -470,7 +470,15 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       // séparément après création du LoanRequest.
       final scalarExtras = <String, Object?>{};
       final fileEntries = <MapEntry<String, PickedFile>>[];
+      // Champs masqués par condition : leur valeur (saisie puis rendue
+      // invisible) ne doit PAS partir dans extra_payload.
+      final fieldById = {
+        if (schema != null)
+          for (final f in schema.allFields) f.id: f,
+      };
       for (final entry in _extraValues.entries) {
+        final field = fieldById[entry.key];
+        if (field != null && !isFieldVisible(field, _extraValues)) continue;
         final v = entry.value;
         if (v is PickedFile) {
           fileEntries.add(MapEntry(entry.key, v));
@@ -523,9 +531,10 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 recipientPhone: needsPhone ? phone : null,
                 extraValues: scalarExtras,
               );
-      // CH-5 . Upload best-effort des pièces jointes. Un échec d'upload ne
-      // bloque pas la création : la demande existe ; l'admin demandera
-      // un re-upload si besoin.
+      // CH-5 . Upload des pièces jointes après création. Un échec n'annule pas
+      // la demande (elle existe déjà), mais on prévient le membre pour qu'il
+      // sache que la/les pièce(s) est/sont à re-fournir (plus de silence total).
+      final failedUploads = <String>[];
       for (final entry in fileEntries) {
         try {
           await ref.read(loanRequestsProvider.notifier).uploadAttachment(
@@ -535,7 +544,7 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                 fileName: entry.value.name,
               );
         } catch (_) {
-          // Best-effort . log silencieux côté mobile (pas d'analytics ici).
+          failedUploads.add(entry.value.name);
         }
       }
       if (!mounted) return;
@@ -545,6 +554,19 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
         _submission = submission;
         _step = _Step.success;
       });
+      if (failedUploads.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              failedUploads.length == 1
+                  ? 'La pièce « ${failedUploads.first} » n\'a pas pu être envoyée — '
+                      'à re-fournir à la coopérative.'
+                  : '${failedUploads.length} pièces n\'ont pas pu être envoyées — '
+                      'à re-fournir à la coopérative.',
+            ),
+          ),
+        );
+      }
       unawaited(HapticFeedback.heavyImpact());
       unawaited(_checkCtrl.forward());
     } catch (err) {

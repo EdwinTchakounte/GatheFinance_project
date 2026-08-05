@@ -218,6 +218,24 @@ def public_campaign_apply(request, pk):
         for i, label in enumerate(requis)
     ]
 
+    # Champs personnalisés du formulaire (FormSchema loan_request) : dict en
+    # corps JSON, ou chaîne JSON sous ``extra_payload`` en multipart. Jamais
+    # bloquant : un payload illisible est simplement ignoré.
+    import json
+
+    raw_extra = data.get("extra_payload")
+    extra_payload = None
+    if isinstance(raw_extra, dict):
+        extra_payload = raw_extra
+    elif isinstance(raw_extra, str) and raw_extra.strip():
+        try:
+            parsed = json.loads(raw_extra)
+            if isinstance(parsed, dict):
+                extra_payload = parsed
+        except (ValueError, TypeError):
+            extra_payload = None
+    form_schema_version = data.get("form_schema_version")
+
     try:
         app = create_public_application(
             campaign,
@@ -228,6 +246,8 @@ def public_campaign_apply(request, pk):
             montant=montant,
             motif=str(data.get("motif", "")),
             documents=documents,
+            extra_payload=extra_payload,
+            form_schema_version=form_schema_version,
         )
     except ValueError as exc:
         return Response({"detail": str(exc)}, status=400)

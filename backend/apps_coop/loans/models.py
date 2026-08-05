@@ -207,6 +207,24 @@ class CampaignApplication(TimestampedModel):
     montant_demande = money_field()
     motif = models.TextField(blank=True)
 
+    # Réponses aux champs personnalisés du formulaire (FormSchema `loan_request`)
+    # renseignées par le candidat visiteur sur la vitrine. Même sémantique que
+    # ``LoanRequest.extra_payload`` : dict {field_id: valeur}. Les pièces
+    # uploadées restent des ``CampaignApplicationDocument`` (indexées par label).
+    extra_payload = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=(
+            "Réponses aux champs personnalisés du formulaire de campagne "
+            "(FormSchema loan_request) : {field_id: valeur}."
+        ),
+    )
+    form_schema_version = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Version du FormSchema loan_request utilisée à la candidature.",
+    )
+
     statut = models.CharField(
         max_length=12,
         choices=Statut.choices,

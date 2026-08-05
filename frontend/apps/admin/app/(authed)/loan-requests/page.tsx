@@ -10,7 +10,13 @@ import { ConfirmModal } from "@/components/confirm-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { DocumentLink } from "@/components/document-preview";
 import { Modal, ModalField, modalInputClass } from "@/components/modal";
-import { adminApi, type ApiError, type LoanRequest } from "@/lib/api";
+import {
+  adminApi,
+  type ApiError,
+  type FormSchemaJSON,
+  type LoanRequest,
+} from "@/lib/api";
+import { formatFieldValue, prettifyFieldKey } from "@/lib/custom-fields";
 import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 
@@ -85,6 +91,20 @@ function Inner() {
   const [guaranteeTarget, setGuaranteeTarget] = useState<LoanRequest | null>(null);
   // Suppression tracée : cible de la modale de confirmation (remplace window.prompt).
   const [deleteTarget, setDeleteTarget] = useState<LoanRequest | null>(null);
+  // Schéma actif du formulaire de demande de crédit : sert à rendre TOUS les
+  // champs personnalisés saisis (label + valeur formatée + fichier importé),
+  // pas seulement le sous-ensemble figé (profils CFP/CGA/BRC).
+  const [loanSchema, setLoanSchema] = useState<FormSchemaJSON | null>(null);
+
+  useEffect(() => {
+    adminApi.forms
+      .list("loan_request")
+      .then((schemas) => {
+        const active = schemas.find((s) => s.is_active) ?? schemas[0] ?? null;
+        setLoanSchema(active?.schema ?? null);
+      })
+      .catch(() => setLoanSchema(null));
+  }, []);
 
   async function reload() {
     setLoading(true);
@@ -322,6 +342,7 @@ function Inner() {
           <p className="line-clamp-3 text-sm">{r.motif}</p>
           <ProfilEmprunteurBadges r={r} />
           <GarantieMaterielleSection r={r} />
+          <CustomFieldsSection r={r} schema={loanSchema} />
         </div>
       ),
     },
@@ -1407,6 +1428,123 @@ function VoieBadge({ r }: { r: LoanRequest }) {
  * (consultable ici et dans `/brc`, en lecture). Plus de validation — le comité
  * juge la demande de crédit en s'appuyant dessus.
  */
+// Champs déjà rendus par des sections dédiées (badges profil, garantie
+// matérielle) ou repris tels quels dans les colonnes du tableau. On les exclut
+// du rendu générique pour éviter les doublons.
+const HANDLED_FIELD_IDS = new Set<string>([
+  // Profil emprunteur — badges CFP / CGA / BRC.
+  "ancien_apprenant",
+  "ancien_apprenant_preuve",
+  "cga_adherent",
+  "cga_preuve",
+  "cga_brc_member",
+  "cga_brc_preuve",
+  "cfp_brc_apprenant",
+  "cfp_brc_preuve",
+  "brc_attestation",
+  // Garantie matérielle — section dédiée.
+  "titre_propriete",
+  // Champs cœur déjà affichés en colonnes.
+  "montant_demande",
+  "montant",
+  "duree_mois",
+  "duree",
+  "motif",
+  "objet",
+]);
+
+/**
+ * Rendu GÉNÉRIQUE de tous les champs personnalisés saisis par le membre
+ * (FormSchema `loan_request`) : pour chaque champ du schéma actif ayant une
+ * valeur ou une pièce jointe, `label → valeur formatée` + lien/aperçu du
+ * fichier importé. Complète les badges profil (figés) au lieu de les remplacer.
+ * Deux filets de sécurité : les réponses présentes en payload mais absentes du
+ * schéma actif (build antérieur / schéma modifié depuis) et les pièces non
+ * rattachées à un champ connu restent affichées.
+ */
+function CustomFieldsSection({
+  r,
+  schema,
+}: {
+  r: LoanRequest;
+  schema: FormSchemaJSON | null;
+}) {
+  const ep = r.extra_payload ?? {};
+  const attachments = r.attachments ?? [];
+  const findAttachment = (fieldId: string) =>
+    attachments.find((a) => a.schema_field_id === fieldId) ?? null;
+
+  type Entry = {
+    key: string;
+    label: string;
+    value: string;
+    file: (typeof attachments)[number] | null;
+  };
+  const entries: Entry[] = [];
+  const seen = new Set<string>(HANDLED_FIELD_IDS);
+
+  const fields = schema?.sections?.flatMap((s) => s.fields) ?? [];
+  for (const field of fields) {
+    if (seen.has(field.id)) continue;
+    seen.add(field.id);
+    const file = field.type === "file" ? findAttachment(field.id) : null;
+    const value = field.type === "file" ? "" : formatFieldValue(field, ep[field.id]);
+    if (!value && !file) continue;
+    entries.push({ key: field.id, label: field.label, value, file });
+  }
+
+  // Filet 1 — réponses en payload hors schéma actif.
+  for (const [k, v] of Object.entries(ep)) {
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const value = v === null || v === undefined ? "" : String(v);
+    if (!value) continue;
+    entries.push({ key: k, label: prettifyFieldKey(k), value, file: null });
+  }
+  // Filet 2 — pièces uploadées non rattachées à un champ connu.
+  for (const a of attachments) {
+    if (seen.has(a.schema_field_id)) continue;
+    seen.add(a.schema_field_id);
+    entries.push({
+      key: a.schema_field_id,
+      label: prettifyFieldKey(a.schema_field_id),
+      value: "",
+      file: a,
+    });
+  }
+
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="mt-2 rounded-md border border-line-200 bg-paper-soft/60 px-3 py-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-600">
+        Champs du formulaire
+      </p>
+      <dl className="mt-1.5 space-y-1">
+        {entries.map((e) => (
+          <div key={e.key} className="flex flex-wrap items-baseline gap-x-2 text-[11px]">
+            <dt className="font-medium text-ink-500">{e.label} :</dt>
+            {e.value ? <dd className="text-ink-800">{e.value}</dd> : null}
+            {e.file?.url ? (
+              <dd>
+                <DocumentLink
+                  url={e.file.url}
+                  name={e.file.nom_original || e.label}
+                  subtitle={`Demande #${r.id} · ${e.label}`}
+                  label="Voir le fichier"
+                  className="inline-flex items-center gap-1 rounded bg-paper px-1.5 py-px font-medium text-blue-700 hover:underline"
+                />
+              </dd>
+            ) : e.file ? (
+              <dd className="text-amber-700">fichier indisponible</dd>
+            ) : null}
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
 const PROFIL_ROWS: {
   label: string;
   flagField: string;

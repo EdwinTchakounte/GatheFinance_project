@@ -1234,7 +1234,7 @@ class AppL10nFr extends AppL10n {
   String get releve_pdf_rate => 'Taux d\'intérêt mensuel';
 
   @override
-  String get releve_pdf_total_contrib => 'Total épargne validée';
+  String get releve_pdf_total_contrib => 'Solde collecte';
 
   @override
   String get releve_pdf_tx_header => 'Opérations d\'épargne';

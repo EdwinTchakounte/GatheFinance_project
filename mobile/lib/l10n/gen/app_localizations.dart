@@ -2338,7 +2338,7 @@ abstract class AppL10n {
   /// No description provided for @releve_pdf_total_contrib.
   ///
   /// In fr, this message translates to:
-  /// **'Total épargne validée'**
+  /// **'Solde collecte'**
   String get releve_pdf_total_contrib;
 
   /// No description provided for @releve_pdf_tx_header.

@@ -32,7 +32,13 @@ import {
   type MicrocampaignPendingRequest,
   type MicrocampaignRow,
   type MicrocampaignTargetedMember,
+  type FormField,
 } from "@/lib/api";
+import {
+  buildFieldIndex,
+  formatFieldValue,
+  prettifyFieldKey,
+} from "@/lib/custom-fields";
 import type { ExportColumn } from "@/lib/export";
 
 
@@ -782,6 +788,21 @@ function ApplicationsSection({ campaignId }: { campaignId: number }) {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Index { field_id → champ } du schéma actif `loan_request` : sert à afficher
+  // les champs personnalisés d'une candidature (label + valeur formatée).
+  const [fieldIndex, setFieldIndex] = useState<Map<string, FormField>>(
+    () => new Map(),
+  );
+
+  useEffect(() => {
+    adminApi.forms
+      .list("loan_request")
+      .then((schemas) => {
+        const active = schemas.find((s) => s.is_active) ?? schemas[0] ?? null;
+        setFieldIndex(buildFieldIndex(active?.schema ?? null));
+      })
+      .catch(() => undefined);
+  }, []);
 
   async function reload() {
     try {
@@ -888,6 +909,29 @@ function ApplicationsSection({ campaignId }: { campaignId: number }) {
                   ),
                 )}
               </div>
+            ) : null}
+            {a.extra_payload && Object.keys(a.extra_payload).length > 0 ? (
+              <dl className="mt-2 space-y-1 rounded-md border border-line-200 bg-paper px-2 py-1.5">
+                {Object.entries(a.extra_payload).map(([k, v]) => {
+                  const field = fieldIndex.get(k);
+                  const label = field?.label ?? prettifyFieldKey(k);
+                  const value = field
+                    ? formatFieldValue(field, v)
+                    : v === null || v === undefined
+                      ? ""
+                      : String(v);
+                  if (!value) return null;
+                  return (
+                    <div
+                      key={k}
+                      className="flex flex-wrap items-baseline gap-x-2 text-xs"
+                    >
+                      <dt className="font-medium text-ink-500">{label} :</dt>
+                      <dd className="text-ink-800">{value}</dd>
+                    </div>
+                  );
+                })}
+              </dl>
             ) : null}
           </li>
         ))}

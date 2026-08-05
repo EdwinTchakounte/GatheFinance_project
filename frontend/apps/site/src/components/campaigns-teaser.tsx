@@ -1,44 +1,19 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 
 import { Container } from "@gathe/ui";
 import { Link } from "@/i18n/navigation";
-
-type Campaign = {
-  id: number;
-  nom: string;
-  profil_cible: string;
-  date_fin: string;
-  montant_min: string;
-  montant_max: string;
-  flyer_url: string;
-};
-
-function fmtXAF(v: string): string {
-  const n = Number(v);
-  return Number.isFinite(n) ? n.toLocaleString("fr-FR") + " XAF" : v;
-}
+import { fmtXAF } from "@/lib/campaign-format";
+import { getActiveCampaigns } from "@/lib/campaigns-server";
 
 /**
  * Section « Campagnes en cours » de la home vitrine — même esprit que les
- * actualités. Ne s'affiche pas s'il n'y a aucune campagne ouverte (le bloc
- * disparaît proprement plutôt que d'afficher un vide).
+ * actualités. Rendu CÔTÉ SERVEUR (RSC/ISR) : les cartes sont dans le HTML
+ * initial (plus de pop-in au chargement). Ne s'affiche pas s'il n'y a aucune
+ * campagne ouverte (le bloc disparaît proprement plutôt que d'afficher un vide).
  */
-export function CampaignsTeaser() {
-  const [items, setItems] = useState<Campaign[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/campaigns")
-      .then((r) => r.json())
-      .then((d) => setItems(Array.isArray(d?.results) ? d.results.slice(0, 3) : []))
-      .catch(() => setItems([]))
-      .finally(() => setLoaded(true));
-  }, []);
-
-  if (!loaded || items.length === 0) return null;
+export async function CampaignsTeaser() {
+  const items = (await getActiveCampaigns(3)).slice(0, 3);
+  if (items.length === 0) return null;
 
   return (
     <section className="relative isolate overflow-hidden section-pad bg-cream">

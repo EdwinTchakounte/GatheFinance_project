@@ -18,6 +18,9 @@ import { getBlogPosts } from "@/lib/wagtail";
 
 type Params = { params: Promise<{ locale: string }> };
 
+// ISR court : un article publié apparaît dans les ~2 min, sans refresh manuel.
+export const revalidate = 120;
+
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "blog" });

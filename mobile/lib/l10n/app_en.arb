@@ -409,7 +409,7 @@
   "releve_pdf_issued_on": "Issued on {date}",
   "releve_pdf_balance": "Savings balance",
   "releve_pdf_rate": "Monthly interest rate",
-  "releve_pdf_total_contrib": "Total validated contributions",
+  "releve_pdf_total_contrib": "Collecte balance",
   "releve_pdf_tx_header": "Savings transactions",
   "releve_pdf_col_date": "Date",
   "releve_pdf_col_label": "Description",

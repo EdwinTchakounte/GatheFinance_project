@@ -27,6 +27,15 @@ bool isFieldVisible(FormSchemaField field, Map<String, Object?> values) {
 /// Renvoie un libellé d'erreur localisé (FR), ou `null` si valide.
 /// Le caller doit avoir filtré les champs non-visibles via [isFieldVisible].
 String? validateField(FormSchemaField field, Object? value) {
+  // Checkbox booléen obligatoire : `false` (décoché) n'est pas « vide » au sens
+  // ci-dessous — on le refuse explicitement. (Le checkbox multi tombe dans la
+  // règle liste-vide.)
+  if (field.type == FormFieldType.checkbox &&
+      field.options.isEmpty &&
+      field.required &&
+      value != true) {
+    return 'Ce champ est obligatoire.';
+  }
   final isEmpty = value == null ||
       value == '' ||
       (value is List && value.isEmpty);
