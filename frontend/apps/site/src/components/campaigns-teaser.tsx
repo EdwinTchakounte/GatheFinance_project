@@ -1,19 +1,42 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 
 import { Container } from "@gathe/ui";
 import { Link } from "@/i18n/navigation";
-import { fmtXAF } from "@/lib/campaign-format";
-import { getActiveCampaigns } from "@/lib/campaigns-server";
+import { fmtXAF, type Campaign } from "@/lib/campaign-format";
 
 /**
- * Section « Campagnes en cours » de la home vitrine — même esprit que les
- * actualités. Rendu CÔTÉ SERVEUR (RSC/ISR) : les cartes sont dans le HTML
- * initial (plus de pop-in au chargement). Ne s'affiche pas s'il n'y a aucune
- * campagne ouverte (le bloc disparaît proprement plutôt que d'afficher un vide).
+ * Section « Campagnes en cours » de la home vitrine. Les campagnes sont
+ * pré-chargées côté serveur (SSR/ISR) et passées en `initialItems` → rendu
+ * immédiat, sans pop-in. Fallback client si le SSR est vide (snapshot ISR
+ * généré à froid, backend injoignable au build) pour rester résilient. Le bloc
+ * disparaît proprement s'il n'y a aucune campagne ouverte.
  */
-export async function CampaignsTeaser() {
-  const items = (await getActiveCampaigns(3)).slice(0, 3);
-  if (items.length === 0) return null;
+export function CampaignsTeaser({
+  initialItems,
+}: {
+  initialItems?: Campaign[];
+}) {
+  const preloaded = Array.isArray(initialItems) && initialItems.length > 0;
+  const [items, setItems] = useState<Campaign[]>(
+    preloaded ? initialItems.slice(0, 3) : [],
+  );
+  const [loaded, setLoaded] = useState(preloaded);
+
+  useEffect(() => {
+    if (preloaded) return;
+    fetch("/api/campaigns")
+      .then((r) => r.json())
+      .then((d) =>
+        setItems(Array.isArray(d?.results) ? d.results.slice(0, 3) : []),
+      )
+      .catch(() => setItems([]))
+      .finally(() => setLoaded(true));
+  }, [preloaded]);
+
+  if (!loaded || items.length === 0) return null;
 
   return (
     <section className="relative isolate overflow-hidden section-pad bg-cream">

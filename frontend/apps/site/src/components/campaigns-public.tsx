@@ -275,20 +275,22 @@ export function CampaignsPublic({
   /** Campagnes pré-chargées côté serveur (SSR/ISR) → affichage immédiat. */
   initialItems?: Campaign[];
 }) {
-  const [items, setItems] = useState<Campaign[]>(initialItems ?? []);
-  // Si le serveur a déjà fourni la liste, pas de spinner ni de re-fetch client
-  // (fini le pop-in). Sinon, on retombe sur le fetch client (compat).
-  const [loading, setLoading] = useState(initialItems === undefined);
+  // Le SSR n'est « fiable » que s'il a renvoyé au moins une campagne : une liste
+  // vide peut aussi venir d'un snapshot ISR généré à froid (backend injoignable
+  // au build). Dans ce cas on retombe sur un fetch client pour rester résilient.
+  const preloaded = Array.isArray(initialItems) && initialItems.length > 0;
+  const [items, setItems] = useState<Campaign[]>(preloaded ? initialItems : []);
+  const [loading, setLoading] = useState(!preloaded);
   const [openId, setOpenId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (initialItems !== undefined) return; // déjà rendu côté serveur
+    if (preloaded) return; // déjà rendu côté serveur avec des données
     fetch("/api/campaigns")
       .then((r) => r.json())
       .then((d) => setItems(Array.isArray(d?.results) ? d.results : []))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  }, [initialItems]);
+  }, [preloaded]);
 
   if (loading) {
     return <p className="text-center text-sm text-ink-500">Chargement…</p>;

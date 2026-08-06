@@ -17,6 +17,7 @@ import { Hero } from "@/sections/hero";
 import { AboutSection } from "@/sections/about";
 import { servicePillars } from "@/lib/site-config";
 import { getBlogPosts } from "@/lib/wagtail";
+import { getActiveCampaigns } from "@/lib/campaigns-server";
 
 type Params = { params: Promise<{ locale: string }> };
 
@@ -41,6 +42,7 @@ export default async function HomePage({ params }: Params) {
   const ts = await getTranslations({ locale, namespace: "services" });
   const tn = await getTranslations({ locale, namespace: "nav" });
   const posts = await getBlogPosts(locale, 3);
+  const campaigns = await getActiveCampaigns(3);
 
   return (
     <>
@@ -236,7 +238,7 @@ export default async function HomePage({ params }: Params) {
 
 
       {/* ===== CAMPAGNES en cours (masqué si aucune ouverte) ===== */}
-      <CampaignsTeaser />
+      <CampaignsTeaser initialItems={campaigns} />
 
       {/* ===== BLOG teaser ===== */}
       <section className="relative isolate overflow-hidden section-pad bg-paper">
