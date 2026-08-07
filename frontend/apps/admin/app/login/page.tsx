@@ -49,12 +49,21 @@ export default function AdminLoginPage() {
     <main className="min-h-svh bg-cream lg:grid lg:grid-cols-[1.08fr_1fr]">
       {/* ── Panneau marque (desktop) — gradient bleu institutionnel ─────── */}
       <aside className="relative hidden overflow-hidden bg-blue-900 lg:flex lg:flex-col lg:justify-between lg:p-14">
+        {/* Photographie de marque en fond. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/images/login-hero.jpg"
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute inset-0 size-full object-cover"
+        />
+        {/* Voile dégradé bleu : sombre à gauche (texte lisible), l'image respire à droite. */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(120% 90% at 12% 0%, #0a63bd 0%, #004ca4 44%, #002247 100%)",
+              "linear-gradient(118deg, rgba(0,28,60,0.92) 0%, rgba(0,44,94,0.82) 46%, rgba(6,72,150,0.40) 100%)",
           }}
         />
         {/* Halos + trame légère pour la profondeur. */}
