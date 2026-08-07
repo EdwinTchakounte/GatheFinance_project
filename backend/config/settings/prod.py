@@ -111,7 +111,13 @@ if env("AWS_STORAGE_BUCKET_NAME", default=""):
                 "file_overwrite": False,
                 "querystring_auth": False,  # public-read media; private docs handled separately
                 "default_acl": None,
-                "addressing_style": "virtual",
+                # "virtual" (<bucket>.<host>) convient à Backblaze B2 (DNS wildcard).
+                # MinIO auto-hébergé (DMZ cliente) EXIGE "path" (<host>/<bucket>) :
+                # sinon botocore forge un hôte `<bucket>.<endpoint>` non résolvable
+                # → gaierror à l'écriture des fichiers. Piloté par env, défaut inchangé.
+                "addressing_style": env(
+                    "AWS_S3_ADDRESSING_STYLE", default="virtual"
+                ),
             },
         },
         "staticfiles": {
