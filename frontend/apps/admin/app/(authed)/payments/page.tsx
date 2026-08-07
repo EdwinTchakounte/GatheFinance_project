@@ -7,6 +7,7 @@ import { Search, Plus } from "lucide-react";
 import { CashInModal } from "@/components/cash-in-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
+import { PageHeader } from "@/components/page-header";
 import { Pagination } from "@/components/pagination";
 import { adminApi, type ApiError, type PaymentRow } from "@/lib/api";
 import { fullName } from "@/lib/name";
@@ -203,38 +204,31 @@ function Inner() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-            Paiements
-          </p>
-          <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-            Suivi des paiements
-          </h1>
-          <p className="mt-1 text-sm text-ink-600">
-            Tous les versements traversant la plateforme (Mobile Money, espèces, virements).
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 text-sm text-ink-600">
-          <span className="font-mono text-ink-900 font-medium">{count}</span>
-          <span>paiement{count > 1 ? "s" : ""}</span>
-          <span className="text-ink-400">·</span>
-          <span className="font-mono text-emerald font-medium">
-            {totalValide.toLocaleString("fr-FR")}
-          </span>
-          <span>XAF validés (vue actuelle)</span>
-          <button
-            type="button"
-            onClick={() => setCashInOpen(true)}
-            title="Enregistrer un versement reçu en agence (espèces, virement, dépôt direct)"
-            className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 px-3 py-2 text-xs font-medium text-white hover:bg-blue-800"
-          >
-            <Plus className="size-3.5" />
-            Saisir versement agence
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Paiements"
+        title="Suivi des paiements"
+        description="Tous les versements traversant la plateforme (Mobile Money, espèces, virements)."
+        actions={
+          <div className="flex items-center gap-3 text-sm text-ink-600">
+            <span className="font-mono text-ink-900 font-medium">{count}</span>
+            <span>paiement{count > 1 ? "s" : ""}</span>
+            <span className="text-ink-400">·</span>
+            <span className="font-mono text-emerald font-medium">
+              {totalValide.toLocaleString("fr-FR")}
+            </span>
+            <span>XAF validés (vue actuelle)</span>
+            <button
+              type="button"
+              onClick={() => setCashInOpen(true)}
+              title="Enregistrer un versement reçu en agence (espèces, virement, dépôt direct)"
+              className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 px-3 py-2 text-xs font-medium text-white hover:bg-blue-800"
+            >
+              <Plus className="size-3.5" />
+              Saisir versement agence
+            </button>
+          </div>
+        }
+      />
 
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
         <FilterPills

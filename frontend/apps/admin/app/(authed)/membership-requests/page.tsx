@@ -10,6 +10,7 @@ import { Modal, ModalField, modalInputClass } from "@/components/modal";
 import { adminApi, type ApiError, type MembershipRequest } from "@/lib/api";
 import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
+import { PageHeader } from "@/components/page-header";
 
 
 export default function MembershipRequestsPage() {
@@ -79,40 +80,32 @@ function Inner() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-8 flex items-end justify-between gap-4">
-        <div>
-          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-            Adhésions
-          </p>
-          <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-            Demandes d'adhésion
-          </h1>
-          <p className="mt-1 text-sm text-ink-600">
-            Examine, approuve ou rejette les demandes soumises depuis la vitrine.
-          </p>
-        </div>
+      <PageHeader
+        eyebrow="Adhésions"
+        title="Demandes d'adhésion"
+        description="Examine, approuve ou rejette les demandes soumises depuis la vitrine."
+      />
 
-        <div className="flex items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
-          {[
-            { v: "en_attente", l: "En attente" },
-            { v: "approuvee", l: "Approuvées" },
-            { v: "rejetee", l: "Rejetées" },
-            { v: "", l: "Toutes" },
-          ].map((opt) => (
-            <button
-              key={opt.v}
-              type="button"
-              onClick={() => setFilter(opt.v as "en_attente" | "approuvee" | "rejetee" | "")}
-              className={[
-                "rounded px-3 py-1.5 text-xs font-medium transition-colors",
-                filter === opt.v ? "bg-blue-700 text-white" : "text-ink-700 hover:text-blue-700",
-              ].join(" ")}
-            >
-              {opt.l}
-            </button>
-          ))}
-        </div>
-      </header>
+      <div className="flex items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
+        {[
+          { v: "en_attente", l: "En attente" },
+          { v: "approuvee", l: "Approuvées" },
+          { v: "rejetee", l: "Rejetées" },
+          { v: "", l: "Toutes" },
+        ].map((opt) => (
+          <button
+            key={opt.v}
+            type="button"
+            onClick={() => setFilter(opt.v as "en_attente" | "approuvee" | "rejetee" | "")}
+            className={[
+              "rounded px-3 py-1.5 text-xs font-medium transition-colors",
+              filter === opt.v ? "bg-blue-700 text-white" : "text-ink-700 hover:text-blue-700",
+            ].join(" ")}
+          >
+            {opt.l}
+          </button>
+        ))}
+      </div>
 
       {message ? (
         <div className={

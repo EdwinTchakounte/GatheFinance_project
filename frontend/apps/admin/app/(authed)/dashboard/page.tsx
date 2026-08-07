@@ -27,6 +27,7 @@ import {
 import { fullName } from "@/lib/name";
 import { LoanDetailModal } from "@/components/loan-detail-modal";
 import { StatusPill } from "@/components/status-pill";
+import { PageHeader } from "@/components/page-header";
 
 
 function formatXAF(amount: string): string {
@@ -203,28 +204,22 @@ function DashboardContent() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-            Vue d'ensemble
-          </p>
-          <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-            Tableau de bord
-          </h1>
-          <p className="mt-1 text-sm text-ink-600">
-            État opérationnel de la coopérative en temps réel.
-          </p>
-        </div>
-        <a
-          href={adminApi.reports.coopUrl()}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-md border border-line-300 bg-white px-3.5 py-2 text-sm font-medium text-ink-800 transition-colors hover:border-blue-400 hover:text-blue-700"
-        >
-          <FileDown className="size-4" aria-hidden="true" />
-          Rapport PDF
-        </a>
-      </header>
+      <PageHeader
+        eyebrow="Vue d'ensemble"
+        title="Tableau de bord"
+        description="État opérationnel de la coopérative en temps réel."
+        actions={
+          <a
+            href={adminApi.reports.coopUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-md border border-line-300 bg-white px-3.5 py-2 text-sm font-medium text-ink-800 transition-colors hover:border-blue-400 hover:text-blue-700"
+          >
+            <FileDown className="size-4" aria-hidden="true" />
+            Rapport PDF
+          </a>
+        }
+      />
 
       {/* Général */}
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

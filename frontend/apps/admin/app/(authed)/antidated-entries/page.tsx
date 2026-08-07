@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CalendarClock, Check } from "lucide-react";
 
 import { ModalField, modalInputClass } from "@/components/modal";
+import { PageHeader } from "@/components/page-header";
 import { buttonClasses } from "@gathe/ui";
 import { adminApi, type ApiError, type Member } from "@/lib/api";
 import { fullName } from "@/lib/name";
@@ -32,21 +33,11 @@ function Inner() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-6">
-        <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-          Épargne
-        </p>
-        <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-          Saisies antidatées
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-ink-600">
-          Reprise d&apos;historique des carnets papier : recrée un carnet à sa
-          date d&apos;origine et ressaisit ses versements et retraits à leur
-          vraie date. Aucune clôture n&apos;est rejouée, aucun paiement réel
-          n&apos;est déclenché. Le solde du compte est simplement aligné sur le
-          carnet.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Épargne"
+        title="Saisies antidatées"
+        description="Reprise d&apos;historique des carnets papier : recrée un carnet à sa date d&apos;origine et ressaisit ses versements et retraits à leur vraie date. Aucune clôture n&apos;est rejouée, aucun paiement réel n&apos;est déclenché. Le solde du compte est simplement aligné sur le carnet."
+      />
 
       {flash ? (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-md bg-emerald px-4 py-2.5 text-sm font-medium text-white shadow-lg">

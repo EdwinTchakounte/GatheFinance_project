@@ -16,7 +16,6 @@ import {
   Megaphone,
   Gavel,
   ArrowDownToLine,
-  Clock,
   FileText,
   BellRing,
   FileEdit,
@@ -111,7 +110,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/costs", label: "Coûts", icon: SlidersHorizontal },
       { href: "/app-settings", label: "Paramètres", icon: Settings2 },
-      { href: "/cron-schedules", label: "Planification (cron)", icon: Clock },
+      // Planification (cron) = outil de recette, masqué en production.
       { href: "/cooperative-asset", label: "Documents officiels", icon: FileText },
       { href: "/forms", label: "Formulaires", icon: FileEdit },
       { href: "/audit", label: "Journal d'audit", icon: ScrollText },

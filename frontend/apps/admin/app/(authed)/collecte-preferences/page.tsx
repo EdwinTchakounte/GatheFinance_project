@@ -8,6 +8,7 @@ import {
   type ApiError,
   type CollecteEomRow,
 } from "@/lib/api";
+import { PageHeader } from "@/components/page-header";
 
 
 function fmtXAF(v: string): string {
@@ -60,28 +61,20 @@ export default function CollectePreferencesPage() {
 
   return (
     <div>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-terra-600">
-            Collecte
-          </p>
-          <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-            Fin de mois collecte
-          </h1>
-          <p className="mt-1 text-sm text-ink-500">
-            Choix de chaque membre à la clôture mensuelle : récupérer sa collecte
-            en cash, se la faire verser en Mobile Money (destination indiquée), ou
-            la basculer vers l&apos;épargne (1 % retenu par la coop).
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={load}
-          className="inline-flex items-center gap-1.5 rounded-md border border-line-200 bg-paper px-3 py-2 text-sm font-medium text-ink-700 hover:border-blue-400 hover:text-blue-700"
-        >
-          <RefreshCw className="size-4" aria-hidden="true" /> Rafraîchir
-        </button>
-      </header>
+      <PageHeader
+        eyebrow="Collecte"
+        title="Fin de mois collecte"
+        description="Choix de chaque membre à la clôture mensuelle : récupérer sa collecte en cash, se la faire verser en Mobile Money (destination indiquée), ou la basculer vers l&apos;épargne (1 % retenu par la coop)."
+        actions={
+          <button
+            type="button"
+            onClick={load}
+            className="inline-flex items-center gap-1.5 rounded-md border border-line-200 bg-paper px-3 py-2 text-sm font-medium text-ink-700 hover:border-blue-400 hover:text-blue-700"
+          >
+            <RefreshCw className="size-4" aria-hidden="true" /> Rafraîchir
+          </button>
+        }
+      />
 
       {/* Récap */}
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -5,6 +5,7 @@ import { SkeletonList } from "@gathe/ui";
 import { Search, Wallet, Loader2, CheckCircle2, Coins } from "lucide-react";
 
 import { DataTable, type DataColumn } from "@/components/data-table";
+import { PageHeader } from "@/components/page-header";
 import { Pagination } from "@/components/pagination";
 import {
   ComposeFundingModal,
@@ -205,29 +206,22 @@ function Inner() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-            Crédits
-          </p>
-          <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-            Portefeuille des crédits
-          </h1>
-          <p className="mt-1 text-sm text-ink-600">
-            Tous les crédits décaissés ou en cours de remboursement.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 text-sm text-ink-600">
-          <span className="font-mono text-ink-900 font-medium">{count}</span>
-          <span>crédit{count > 1 ? "s" : ""}</span>
-          <span className="text-ink-400">·</span>
-          <span className="font-mono text-blue-700 font-medium">
-            {totalEncours.toLocaleString("fr-FR")}
-          </span>
-          <span>XAF d'encours (vue actuelle)</span>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Crédits"
+        title="Portefeuille des crédits"
+        description="Tous les crédits décaissés ou en cours de remboursement."
+        actions={
+          <div className="flex items-center gap-3 text-sm text-ink-600">
+            <span className="font-mono text-ink-900 font-medium">{count}</span>
+            <span>crédit{count > 1 ? "s" : ""}</span>
+            <span className="text-ink-400">·</span>
+            <span className="font-mono text-blue-700 font-medium">
+              {totalEncours.toLocaleString("fr-FR")}
+            </span>
+            <span>XAF d'encours (vue actuelle)</span>
+          </div>
+        }
+      />
 
       <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-[auto_1fr]">
         <div className="flex items-center gap-2">

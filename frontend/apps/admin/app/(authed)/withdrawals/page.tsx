@@ -15,6 +15,7 @@ import { buttonClasses, SkeletonList } from "@gathe/ui";
 import { Modal } from "@/components/modal";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
+import { PageHeader } from "@/components/page-header";
 import { MemberRecapModal } from "@/components/member-recap-modal";
 import { StatusPill } from "@/components/status-pill";
 import {
@@ -215,14 +216,10 @@ function Inner() {
 
   return (
     <section className="space-y-6">
-      <header>
-        <h1 className="font-editorial text-3xl font-medium tracking-tight text-ink-900">
-          Demandes de retrait
-        </h1>
-        <p className="text-sm text-ink-500">
-          Valide les demandes des membres. MOMO = payout Tara automatique. Présentiel = remise espèces à confirmer.
-        </p>
-      </header>
+      <PageHeader
+        title="Demandes de retrait"
+        description="Valide les demandes des membres. MOMO = payout Tara automatique. Présentiel = remise espèces à confirmer."
+      />
 
       <FilterTabs value={filter} onChange={setFilter} />
 
