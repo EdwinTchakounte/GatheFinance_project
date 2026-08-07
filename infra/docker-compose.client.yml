@@ -49,6 +49,17 @@ services:
 
   site:
     networks: [internal, edge]
+    environment:
+      # DMZ : le SSR de la vitrine (route handlers Next) appelle le backend via
+      # CMS_API_URL. En interne, `site` et `backend` partagent DEUX réseaux
+      # (internal ET edge) → le DNS Docker peut résoudre `backend` sur son IP
+      # `edge`, où le port 8000 est droppé par la politique Traefik DMZ →
+      # connexion qui timeout (~10 s) → 502 « Backend injoignable » sur
+      # /api/campaigns, /api/campaigns/apply, etc. On route donc le SSR vers
+      # l'API PUBLIQUE (joignable en sortie depuis le conteneur `site`), ce qui
+      # lève toute ambiguïté. Override de docker-compose.prod.yml (CMS_API_URL:
+      # http://backend:8000), valable uniquement pour ce déploiement cliente.
+      CMS_API_URL: https://${API_DOMAIN}
     labels:
       - "traefik.docker.network=${EDGE_NETWORK:-edge}"
       # Sert AUSSI la vitrine sur l'apex + www (même contenu que app., sans redirection).

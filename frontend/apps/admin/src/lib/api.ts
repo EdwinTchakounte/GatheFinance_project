@@ -1098,6 +1098,10 @@ export type CampaignApplicationRow = {
   numero_membre: string | null;
   loan_request_id: number | null;
   documents: { label: string; url: string | null }[];
+  // Réponses aux champs personnalisés du formulaire de campagne (FormSchema
+  // loan_request) — {field_id: valeur}. L'UI mappe via le schéma actif.
+  extra_payload?: Record<string, unknown>;
+  form_schema_version?: number | null;
 };
 
 export type MicrocampaignTargetedAddResponse = {

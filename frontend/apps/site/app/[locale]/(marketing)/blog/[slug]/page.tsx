@@ -21,6 +21,8 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").r
 type Params = { params: Promise<{ locale: string; slug: string }> };
 
 export const dynamicParams = true;
+// ISR court : une mise à jour d'article se propage dans les ~2 min, sans refresh.
+export const revalidate = 120;
 
 export async function generateStaticParams({ params }: { params: { locale: string } }) {
   const posts = await getBlogPosts(params.locale, 50);

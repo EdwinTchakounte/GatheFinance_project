@@ -7,8 +7,13 @@ import { CampaignsPublic } from "@/components/campaigns-public";
 import { images } from "@/lib/site-config";
 import { pageAlternates, SITE_URL } from "@/lib/seo";
 import { JsonLd, breadcrumbJsonLd } from "@/components/json-ld";
+import { getActiveCampaigns } from "@/lib/campaigns-server";
 
 type Params = { params: Promise<{ locale: string }> };
+
+// ISR court : les campagnes ouvertes sont dans le HTML initial (affichage
+// immédiat) et une nouvelle campagne apparaît dans la minute, sans refresh.
+export const revalidate = 60;
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { locale } = await params;
@@ -23,6 +28,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function CampagnesPage({ params }: Params) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const campaigns = await getActiveCampaigns();
 
   return (
     <>
@@ -42,7 +48,7 @@ export default async function CampagnesPage({ params }: Params) {
 
       <section className="section-pad bg-cream">
         <Container>
-          <CampaignsPublic />
+          <CampaignsPublic initialItems={campaigns} />
         </Container>
       </section>
     </>

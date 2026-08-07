@@ -230,7 +230,11 @@ class _TextInput extends StatelessWidget {
       keyboardType: _keyboard,
       maxLines: multiline ? 4 : 1,
       maxLength: field.maxLength,
-      onChanged: onChange,
+      // number → num (parité portail + conditions typées) ; on garde la saisie
+      // brute tant qu'elle n'est pas parseable (ex. « 12. » en cours de frappe).
+      onChanged: field.type == FormFieldType.number
+          ? (s) => onChange(s.isEmpty ? '' : (num.tryParse(s) ?? s))
+          : onChange,
       decoration: InputDecoration(
         hintText: field.placeholder,
         contentPadding:
@@ -316,6 +320,59 @@ class _CheckboxInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Multi-cases si des options sont définies (parité portail → List<String>).
+    if (field.options.isNotEmpty) {
+      final selected = (value is List)
+          ? (value! as List).map((e) => e.toString()).toList()
+          : <String>[];
+      void toggle(String optValue) {
+        final next = List<String>.from(selected);
+        if (next.contains(optValue)) {
+          next.remove(optValue);
+        } else {
+          next.add(optValue);
+        }
+        onChange(next);
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final o in field.options)
+            InkWell(
+              onTap: () => toggle(o.value),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: Checkbox(
+                        value: selected.contains(o.value),
+                        onChanged: (_) => toggle(o.value),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        o.label,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: PaColors.inkPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    // Case booléenne simple (pas d'options).
     final checked = value == true;
     return InkWell(
       onTap: () => onChange(!checked),

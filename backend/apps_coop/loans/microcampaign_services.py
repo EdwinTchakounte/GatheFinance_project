@@ -212,7 +212,17 @@ _ = get_int_setting  # noqa: F841 (placeholder, no warn)
 
 @transaction.atomic
 def create_public_application(
-    campaign, *, nom, prenom, phone, email, montant, motif="", documents=None
+    campaign,
+    *,
+    nom,
+    prenom,
+    phone,
+    email,
+    montant,
+    motif="",
+    documents=None,
+    extra_payload=None,
+    form_schema_version=None,
 ):
     """Enregistre une candidature d'un VISITEUR non-membre.
 
@@ -224,6 +234,10 @@ def create_public_application(
     ``documents`` = liste de tuples ``(label, uploaded_file)`` fournis par le
     candidat. Chaque libellé de ``campaign.documents_requis`` doit avoir un
     fichier correspondant.
+
+    ``extra_payload`` = réponses aux champs personnalisés du formulaire
+    (FormSchema ``loan_request``), dict {field_id: valeur}. Ignoré s'il n'est
+    pas un dict (robustesse du chemin public : jamais de 500).
     """
     from .models import CampaignApplication, CampaignApplicationDocument
 
@@ -259,6 +273,14 @@ def create_public_application(
             "Pièces justificatives manquantes : " + ", ".join(manquants) + "."
         )
 
+    # Champs personnalisés : on n'enregistre qu'un dict propre (clé → valeur
+    # JSON-sérialisable). Tout autre type est ignoré silencieusement.
+    payload = extra_payload if isinstance(extra_payload, dict) else {}
+    try:
+        schema_version = int(form_schema_version) if form_schema_version else None
+    except (TypeError, ValueError):
+        schema_version = None
+
     app = CampaignApplication.objects.create(
         campaign=campaign,
         nom=nom.strip(),
@@ -267,6 +289,8 @@ def create_public_application(
         email=email.strip().lower(),
         montant_demande=Decimal(montant),
         motif=(motif or "").strip(),
+        extra_payload=payload,
+        form_schema_version=schema_version,
     )
     for lbl in requis:
         CampaignApplicationDocument.objects.create(

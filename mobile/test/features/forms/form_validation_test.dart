@@ -107,6 +107,33 @@ void main() {
       expect(validateField(f, 'ok'), isNull);
     });
 
+    test('checkbox booléen requis → décoché (false) refusé', () {
+      const f = FormSchemaField(
+        id: 'cgu',
+        type: FormFieldType.checkbox,
+        label: "J'accepte",
+        required: true,
+      );
+      expect(validateField(f, false), isNotNull); // décoché
+      expect(validateField(f, null), isNotNull); // jamais touché
+      expect(validateField(f, true), isNull); // coché
+    });
+
+    test('checkbox multi requis → liste vide refusée, non vide OK', () {
+      const f = FormSchemaField(
+        id: 'besoins',
+        type: FormFieldType.checkbox,
+        label: 'Besoins',
+        required: true,
+        options: [
+          FormFieldOption(value: 'a', label: 'A'),
+          FormFieldOption(value: 'b', label: 'B'),
+        ],
+      );
+      expect(validateField(f, const <String>[]), isNotNull);
+      expect(validateField(f, const ['a']), isNull);
+    });
+
     test('file size cap (max_size_mb)', () {
       const f = FormSchemaField(
         id: 'f',

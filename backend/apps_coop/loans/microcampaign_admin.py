@@ -790,6 +790,8 @@ def admin_campaign_applications(request, pk: int):
             "email": a.email,
             "montant_demande": str(a.montant_demande),
             "motif": a.motif,
+            "extra_payload": a.extra_payload or {},
+            "form_schema_version": a.form_schema_version,
             "statut": a.statut,
             "statut_display": a.get_statut_display(),
             "created_at": a.created_at.isoformat(),

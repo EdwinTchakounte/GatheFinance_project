@@ -7,11 +7,20 @@
  */
 const API_BASE = (process.env.CMS_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 const REVALIDATE_SECONDS = Number(process.env.CMS_REVALIDATE_SECONDS ?? 3600);
+// TTL court dédié au contenu éditorial (articles) : un article publié apparaît
+// dans les ~2 min sans que le visiteur ait à réactualiser. Le reste (réglages
+// de site, pages légales) garde le TTL long par défaut.
+const BLOG_REVALIDATE_SECONDS = Number(
+  process.env.CMS_BLOG_REVALIDATE_SECONDS ?? 120,
+);
 
-async function cmsFetch<T>(path: string): Promise<T | null> {
+async function cmsFetch<T>(
+  path: string,
+  revalidate: number = REVALIDATE_SECONDS,
+): Promise<T | null> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
-      next: { revalidate: REVALIDATE_SECONDS, tags: ["cms"] },
+      next: { revalidate, tags: ["cms"] },
       headers: { Accept: "application/json" },
     });
     if (!res.ok) {
@@ -152,6 +161,7 @@ export async function getBlogPosts(locale: string, limit = 12): Promise<BlogList
   const fetchFor = async (l: string) =>
     cmsFetch<{ items: Array<Record<string, unknown>> }>(
       `/api/v2/pages/?type=cms.BlogPostPage&fields=${POST_FIELDS}&order=-date&limit=${limit}&locale=${l}`,
+      BLOG_REVALIDATE_SECONDS,
     );
   let data = await fetchFor(loc);
   if ((!data?.items || data.items.length === 0) && loc !== "fr") data = await fetchFor("fr");
@@ -166,6 +176,7 @@ export async function getBlogPost(slug: string, locale: string): Promise<BlogPos
   const fetchFor = async (l: string) =>
     cmsFetch<{ items: Array<Record<string, unknown>> }>(
       `/api/v2/pages/?type=cms.BlogPostPage&slug=${encodeURIComponent(slug)}&fields=${POST_FIELDS},body,body_en,seo_title,search_description&locale=${l}`,
+      BLOG_REVALIDATE_SECONDS,
     );
   let data = await fetchFor(loc);
   if ((!data?.items || data.items.length === 0) && loc !== "fr") data = await fetchFor("fr");

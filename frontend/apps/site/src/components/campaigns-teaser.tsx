@@ -5,38 +5,36 @@ import { ArrowUpRight } from "lucide-react";
 
 import { Container } from "@gathe/ui";
 import { Link } from "@/i18n/navigation";
-
-type Campaign = {
-  id: number;
-  nom: string;
-  profil_cible: string;
-  date_fin: string;
-  montant_min: string;
-  montant_max: string;
-  flyer_url: string;
-};
-
-function fmtXAF(v: string): string {
-  const n = Number(v);
-  return Number.isFinite(n) ? n.toLocaleString("fr-FR") + " XAF" : v;
-}
+import { fmtXAF, type Campaign } from "@/lib/campaign-format";
 
 /**
- * Section « Campagnes en cours » de la home vitrine — même esprit que les
- * actualités. Ne s'affiche pas s'il n'y a aucune campagne ouverte (le bloc
- * disparaît proprement plutôt que d'afficher un vide).
+ * Section « Campagnes en cours » de la home vitrine. Les campagnes sont
+ * pré-chargées côté serveur (SSR/ISR) et passées en `initialItems` → rendu
+ * immédiat, sans pop-in. Fallback client si le SSR est vide (snapshot ISR
+ * généré à froid, backend injoignable au build) pour rester résilient. Le bloc
+ * disparaît proprement s'il n'y a aucune campagne ouverte.
  */
-export function CampaignsTeaser() {
-  const [items, setItems] = useState<Campaign[]>([]);
-  const [loaded, setLoaded] = useState(false);
+export function CampaignsTeaser({
+  initialItems,
+}: {
+  initialItems?: Campaign[];
+}) {
+  const preloaded = Array.isArray(initialItems) && initialItems.length > 0;
+  const [items, setItems] = useState<Campaign[]>(
+    preloaded ? initialItems.slice(0, 3) : [],
+  );
+  const [loaded, setLoaded] = useState(preloaded);
 
   useEffect(() => {
+    if (preloaded) return;
     fetch("/api/campaigns")
       .then((r) => r.json())
-      .then((d) => setItems(Array.isArray(d?.results) ? d.results.slice(0, 3) : []))
+      .then((d) =>
+        setItems(Array.isArray(d?.results) ? d.results.slice(0, 3) : []),
+      )
       .catch(() => setItems([]))
       .finally(() => setLoaded(true));
-  }, []);
+  }, [preloaded]);
 
   if (!loaded || items.length === 0) return null;
 

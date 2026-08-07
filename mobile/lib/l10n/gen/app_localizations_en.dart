@@ -1228,7 +1228,7 @@ class AppL10nEn extends AppL10n {
   String get releve_pdf_rate => 'Monthly interest rate';
 
   @override
-  String get releve_pdf_total_contrib => 'Total validated contributions';
+  String get releve_pdf_total_contrib => 'Collecte balance';
 
   @override
   String get releve_pdf_tx_header => 'Savings transactions';

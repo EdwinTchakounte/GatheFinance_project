@@ -518,7 +518,7 @@
   },
   "releve_pdf_balance": "Solde épargne",
   "releve_pdf_rate": "Taux d'intérêt mensuel",
-  "releve_pdf_total_contrib": "Total épargne validée",
+  "releve_pdf_total_contrib": "Solde collecte",
   "releve_pdf_tx_header": "Opérations d'épargne",
   "releve_pdf_col_date": "Date",
   "releve_pdf_col_label": "Libellé",
