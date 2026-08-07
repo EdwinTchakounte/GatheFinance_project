@@ -4,10 +4,13 @@ The site vitrine is served by a separate Next.js front-end; this Django project
 exposes the Wagtail admin and a read-only headless API consumed at build/ISR time,
 plus the form-submission endpoints.
 """
+import mimetypes
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.http import HttpResponseForbidden, JsonResponse
+from django.core.files.storage import FileSystemStorage, default_storage
+from django.http import FileResponse, Http404, HttpResponseForbidden, JsonResponse
 from django.urls import include, path, re_path
 from django.views.static import serve as static_serve
 
@@ -58,12 +61,20 @@ def protected_media(request, path):
     pieces d'identite restent privees, tout en exposant les documents
     officiels publics.
     """
-    if any(path.startswith(prefix) for prefix in _PUBLIC_MEDIA_PREFIXES):
+    if not any(path.startswith(prefix) for prefix in _PUBLIC_MEDIA_PREFIXES):
+        user = request.user
+        if not user.is_authenticated or not (user.is_staff or user.is_superuser):
+            return HttpResponseForbidden("Pieces reservees au personnel autorise.")
+
+    # Stockage local (dev / CI) : servir depuis MEDIA_ROOT (respecte
+    # override_settings dans les tests). Stockage distant (S3/MinIO en prod) :
+    # streamer via le storage courant — les fichiers ne sont PAS sur le disque.
+    if isinstance(default_storage, FileSystemStorage) or settings.DEBUG:
         return static_serve(request, path, document_root=settings.MEDIA_ROOT)
-    user = request.user
-    if not user.is_authenticated or not (user.is_staff or user.is_superuser):
-        return HttpResponseForbidden("Pieces reservees au personnel autorise.")
-    return static_serve(request, path, document_root=settings.MEDIA_ROOT)
+    if not default_storage.exists(path):
+        raise Http404("Fichier introuvable.")
+    content_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
+    return FileResponse(default_storage.open(path, "rb"), content_type=content_type)
 
 
 urlpatterns = [
