@@ -82,9 +82,13 @@ export function HeroSlider({
         ))}
       </div>
 
-      {/* Overlays statiques — hors parallaxe pour garder le titre lisible */}
-      <div className="absolute inset-0 bg-[linear-gradient(96deg,rgba(5,29,58,0.95)_0%,rgba(5,29,58,0.78)_45%,rgba(5,29,58,0.45)_90%)]" />
-      <div className="absolute inset-0 bg-blue-950/30" />
+      {/* Overlays statiques — hors parallaxe pour garder le titre lisible.
+          Voile CINÉMATIQUE : la photo respire (haut/milieu), on assombrit le
+          centre juste ce qu'il faut derrière le titre + le bas pour la bande KPI. */}
+      {/* Scrim radial doux derrière le bloc éditorial centré. */}
+      <div className="absolute inset-0 bg-[radial-gradient(72%_62%_at_50%_50%,rgba(4,22,48,0.32)_0%,rgba(4,22,48,0.66)_100%)]" />
+      {/* Dégradé vertical : léger en haut/milieu (photo visible), franc en bas. */}
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,22,48,0.48)_0%,rgba(4,22,48,0.18)_38%,rgba(4,22,48,0.88)_100%)]" />
 
       {/* Indicateurs de slide */}
       {slides.length > 1 ? (
