@@ -10,6 +10,7 @@ import {
   type AppSettingRow,
   type AppSettingsResponse,
 } from "@/lib/api";
+import { PageHeader } from "@/components/page-header";
 
 
 export default function AppSettingsPage() {
@@ -70,20 +71,11 @@ export default function AppSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-6">
-        <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-          Configuration
-        </p>
-        <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-          Règles &amp; paramètres
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-ink-600">
-          Toutes les règles modifiables sans déploiement : ancienneté,
-          éligibilité au crédit, garanties, escalade judiciaire, campagnes,
-          etc. Chaque modification est immédiate et tracée dans le journal
-          d&apos;audit.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Configuration"
+        title="Règles &amp; paramètres"
+        description="Toutes les règles modifiables sans déploiement : ancienneté, éligibilité au crédit, garanties, escalade judiciaire, campagnes, etc. Chaque modification est immédiate et tracée dans le journal d&apos;audit."
+      />
 
       {/* Search */}
       <div className="mb-5 flex items-center gap-2 rounded-md border border-line-200 bg-paper px-3 py-2">

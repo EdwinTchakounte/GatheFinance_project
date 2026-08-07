@@ -10,6 +10,7 @@ import {
   type FeeConfig,
   type RateConfig,
 } from "@/lib/api";
+import { PageHeader } from "@/components/page-header";
 
 
 export default function CostsPage() {
@@ -36,20 +37,11 @@ export default function CostsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-6">
-        <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-          Coûts
-        </p>
-        <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-          Frais &amp; taux
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-ink-600">
-          Les montants et pourcentages appliqués par la coopérative. Toute
-          modification est immédiate et s&apos;applique aux nouveaux calculs
-          (crédits, intérêts d&apos;épargne, reconductions, pénalités). Tracé
-          dans le journal d&apos;audit.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Coûts"
+        title="Frais &amp; taux"
+        description="Les montants et pourcentages appliqués par la coopérative. Toute modification est immédiate et s&apos;applique aux nouveaux calculs (crédits, intérêts d&apos;épargne, reconductions, pénalités). Tracé dans le journal d&apos;audit."
+      />
 
       {/* Rappel métier — les intérêts de crédit sont prélevés à la source. */}
       <div className="mb-6 rounded-md border border-emerald/30 bg-emerald/5 p-4">

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { EyeOff, Eye, MessageSquare, RotateCcw, Search } from "lucide-react";
 
 import { DataTable, type DataColumn } from "@/components/data-table";
+import { PageHeader } from "@/components/page-header";
 import { Modal, ModalField, modalInputClass, buttonClasses } from "@/components/modal";
 import { Pagination } from "@/components/pagination";
 import {
@@ -224,36 +225,27 @@ function Inner() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-            Modération
-          </p>
-          <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-            Commentaires
-          </h1>
-          <p className="mt-1 text-sm text-ink-600">
-            Tous les commentaires postés par les membres sur les articles et
-            campagnes. Masque un commentaire avec un motif si besoin — la trace
-            reste en base pour l'audit.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 text-sm text-ink-600">
-          <span className="font-mono text-ink-900 font-medium">{count}</span>
-          <span>commentaire{count > 1 ? "s" : ""}</span>
-          {activeFilterCount > 0 ? (
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="inline-flex items-center gap-1.5 rounded-md border border-line-200 bg-paper px-2.5 py-1.5 text-xs font-medium text-ink-700 hover:border-blue-700 hover:text-blue-700"
-            >
-              <RotateCcw className="size-3.5" aria-hidden="true" />
-              Réinitialiser ({activeFilterCount})
-            </button>
-          ) : null}
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Modération"
+        title="Commentaires"
+        description="Tous les commentaires postés par les membres sur les articles et campagnes. Masque un commentaire avec un motif si besoin — la trace reste en base pour l'audit."
+        actions={
+          <div className="flex items-center gap-3 text-sm text-ink-600">
+            <span className="font-mono text-ink-900 font-medium">{count}</span>
+            <span>commentaire{count > 1 ? "s" : ""}</span>
+            {activeFilterCount > 0 ? (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex items-center gap-1.5 rounded-md border border-line-200 bg-paper px-2.5 py-1.5 text-xs font-medium text-ink-700 hover:border-blue-700 hover:text-blue-700"
+              >
+                <RotateCcw className="size-3.5" aria-hidden="true" />
+                Réinitialiser ({activeFilterCount})
+              </button>
+            ) : null}
+          </div>
+        }
+      />
 
       {/* Barre de filtres */}
       <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_auto]">

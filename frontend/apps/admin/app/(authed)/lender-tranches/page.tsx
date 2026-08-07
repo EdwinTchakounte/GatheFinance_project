@@ -8,6 +8,7 @@ import { buttonClasses } from "@gathe/ui";
 
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { StatusPill } from "@/components/status-pill";
+import { PageHeader } from "@/components/page-header";
 import { fullName } from "@/lib/name";
 import {
   adminApi,
@@ -186,17 +187,11 @@ function Inner() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-8">
-        <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-          Épargne prêteur
-        </p>
-        <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-          Pool de tranches preteur
-        </h1>
-        <p className="mt-1 text-sm text-ink-600">
-          Visualise les tranches d'épargne placement disponibles pour financer les crédits.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Épargne prêteur"
+        title="Pool de tranches preteur"
+        description="Visualise les tranches d'épargne placement disponibles pour financer les crédits."
+      />
 
       {/* Guide — comment construire le funding d'un crédit par tranches. */}
       <div className="mb-6 flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50/60 p-4">

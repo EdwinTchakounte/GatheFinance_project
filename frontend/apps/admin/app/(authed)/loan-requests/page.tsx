@@ -8,6 +8,7 @@ import { buttonClasses, SkeletonList } from "@gathe/ui";
 import { CashInModal, type CashInPrefill } from "@/components/cash-in-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
+import { PageHeader } from "@/components/page-header";
 import { DocumentLink } from "@/components/document-preview";
 import { Modal, ModalField, modalInputClass } from "@/components/modal";
 import {
@@ -409,44 +410,36 @@ function Inner() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-            Crédits
-          </p>
-          <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-            Demandes de crédit
-          </h1>
-          <p className="mt-1 text-sm text-ink-600">
-            Décide en tant que président du comité — approuver crée le crédit + l'échéancier.
-          </p>
-        </div>
+      <PageHeader
+        eyebrow="Crédits"
+        title="Demandes de crédit"
+        description="Décide en tant que président du comité — approuver crée le crédit + l'échéancier."
+      />
 
-        <div className="flex flex-wrap items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
-          {[
-            { v: "en_attente", l: "Frais à percevoir" },
-            { v: "en_attente_avaliste", l: "Attente avaliste" },
-            { v: "en_validation_campagne", l: "Validation campagne" },
-            { v: "en_instruction", l: "En instruction" },
-            { v: "approuvee_provisoire", l: "Provisoires" },
-            { v: "approuvee", l: "Approuvées" },
-            { v: "rejetee", l: "Rejetées" },
-            { v: "", l: "Toutes" },
-          ].map((opt) => (
-            <button
-              key={opt.v}
-              type="button"
-              onClick={() => setFilter(opt.v as LoanRequestFilter)}
-              className={[
-                "rounded px-3 py-1.5 text-xs font-medium transition-colors",
-                filter === opt.v ? "bg-blue-700 text-white" : "text-ink-700 hover:text-blue-700",
-              ].join(" ")}
-            >
-              {opt.l}
-            </button>
-          ))}
-        </div>
-      </header>
+      <div className="flex flex-wrap items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
+        {[
+          { v: "en_attente", l: "Frais à percevoir" },
+          { v: "en_attente_avaliste", l: "Attente avaliste" },
+          { v: "en_validation_campagne", l: "Validation campagne" },
+          { v: "en_instruction", l: "En instruction" },
+          { v: "approuvee_provisoire", l: "Provisoires" },
+          { v: "approuvee", l: "Approuvées" },
+          { v: "rejetee", l: "Rejetées" },
+          { v: "", l: "Toutes" },
+        ].map((opt) => (
+          <button
+            key={opt.v}
+            type="button"
+            onClick={() => setFilter(opt.v as LoanRequestFilter)}
+            className={[
+              "rounded px-3 py-1.5 text-xs font-medium transition-colors",
+              filter === opt.v ? "bg-blue-700 text-white" : "text-ink-700 hover:text-blue-700",
+            ].join(" ")}
+          >
+            {opt.l}
+          </button>
+        ))}
+      </div>
 
       {message ? (
         <div className={

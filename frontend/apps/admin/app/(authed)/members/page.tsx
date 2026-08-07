@@ -5,6 +5,7 @@ import { SkeletonList } from "@gathe/ui";
 import { Mail, Phone, Search } from "lucide-react";
 
 import { ColumnsMenu } from "@/components/columns-menu";
+import { PageHeader } from "@/components/page-header";
 import { ExportMenu } from "@/components/export-menu";
 import { MemberRecapModal } from "@/components/member-recap-modal";
 import { Pagination } from "@/components/pagination";
@@ -264,45 +265,37 @@ function Inner() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-            Membres
-          </p>
-          <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-            Annuaire des membres
-          </h1>
-          <p className="mt-1 text-sm text-ink-600">
-            Recap financier par membre — épargne (collecte, libre, placement) et
-            crédit en cours. Filtres par colonne + export.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 text-sm text-ink-600">
-          <span className="font-mono font-medium text-ink-900">{count}</span>
-          <span>membre{count > 1 ? "s" : ""}</span>
-          <ColumnsMenu
-            columns={COLUMNS.map((c) => ({ key: c.key, label: c.label }))}
-            visible={visible}
-            lockedKeys={COLUMNS.filter((c) => c.locked).map((c) => c.key)}
-            onToggle={(key) =>
-              setVisible((prev) => {
-                const next = new Set(prev);
-                if (next.has(key)) next.delete(key);
-                else next.add(key);
-                return next;
-              })
-            }
-          />
-          <ExportMenu
-            filenamePrefix="membres"
-            title="Annuaire des membres — GATHE Finance"
-            subtitle={`Filtre : ${statut || "tous"}${q ? ` · recherche : ${q}` : ""}`}
-            columns={exportColumns}
-            rows={filtered}
-          />
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Membres"
+        title="Annuaire des membres"
+        description="Recap financier par membre — épargne (collecte, libre, placement) et crédit en cours. Filtres par colonne + export."
+        actions={
+          <div className="flex items-center gap-3 text-sm text-ink-600">
+            <span className="font-mono font-medium text-ink-900">{count}</span>
+            <span>membre{count > 1 ? "s" : ""}</span>
+            <ColumnsMenu
+              columns={COLUMNS.map((c) => ({ key: c.key, label: c.label }))}
+              visible={visible}
+              lockedKeys={COLUMNS.filter((c) => c.locked).map((c) => c.key)}
+              onToggle={(key) =>
+                setVisible((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key);
+                  else next.add(key);
+                  return next;
+                })
+              }
+            />
+            <ExportMenu
+              filenamePrefix="membres"
+              title="Annuaire des membres — GATHE Finance"
+              subtitle={`Filtre : ${statut || "tous"}${q ? ` · recherche : ${q}` : ""}`}
+              columns={exportColumns}
+              rows={filtered}
+            />
+          </div>
+        }
+      />
 
       <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-[auto_1fr]">
         <div className="flex items-center gap-2">

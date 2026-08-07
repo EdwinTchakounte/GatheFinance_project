@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Copy, Pencil, Plus, Trash2, UserX } from "lucide-react";
 
 import { Modal, ModalField, modalInputClass, buttonClasses } from "@/components/modal";
+import { PageHeader } from "@/components/page-header";
 import {
   adminApi,
   type AccessResource,
@@ -60,18 +61,11 @@ function Inner() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-6">
-        <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-          Administration
-        </p>
-        <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-          Utilisateurs &amp; accès
-        </h1>
-        <p className="mt-1 text-sm text-ink-600">
-          Crée des comptes staff et attribue-leur des rôles. Un rôle = un
-          ensemble d&apos;onglets autorisés (ressources).
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Administration"
+        title="Utilisateurs &amp; accès"
+        description="Crée des comptes staff et attribue-leur des rôles. Un rôle = un ensemble d&apos;onglets autorisés (ressources)."
+      />
 
       {error ? (
         <div className="mb-5 rounded-md border border-terra-400/40 bg-terra-50/60 px-4 py-2.5 text-sm text-terra-700">

@@ -6,6 +6,7 @@ import { DataTable, type DataColumn } from "@/components/data-table";
 import { adminApi, type ApiError, type AvalisteConsentRow } from "@/lib/api";
 import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
+import { PageHeader } from "@/components/page-header";
 
 
 function fmtMoney(v: string | number) {
@@ -211,17 +212,10 @@ export default function AvalistePage() {
 
   return (
     <section className="space-y-6">
-      <header>
-        <h1 className="font-editorial text-3xl font-medium tracking-tight text-ink-900">
-          Avalistes / cautions
-        </h1>
-        <p className="text-sm text-ink-500">
-          Qui garantit qui, la caution gelée sur l&apos;épargne du garant et
-          l&apos;état de chaque mandat. La décision appartient à
-          l&apos;avaliste depuis son espace ; l&apos;acceptation est
-          définitive.
-        </p>
-      </header>
+      <PageHeader
+        title="Avalistes / cautions"
+        description="Qui garantit qui, la caution gelée sur l&apos;épargne du garant et l&apos;état de chaque mandat. La décision appartient à l&apos;avaliste depuis son espace ; l&apos;acceptation est définitive."
+      />
 
       <FilterTabs value={filter} onChange={setFilter} counts={counts} />
 

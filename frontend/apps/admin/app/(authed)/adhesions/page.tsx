@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { adminApi, type AdhesionPipeline, type ApiError } from "@/lib/api";
 import { fullName } from "@/lib/name";
+import { PageHeader } from "@/components/page-header";
 
 
 function formatXAF(s: string): string {
@@ -37,17 +38,11 @@ export default function AdhesionsPipelinePage() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-blue-700">
-          Adhésions · Pipeline
-        </p>
-        <h1 className="mt-2 font-editorial text-2xl font-medium text-ink-900 sm:text-3xl">
-          Suivi des adhésions
-        </h1>
-        <p className="mt-1 text-sm text-ink-600">
-          De la demande publique à l'activation complète des 3 frais.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Adhésions · Pipeline"
+        title="Suivi des adhésions"
+        description="De la demande publique à l'activation complète des 3 frais."
+      />
 
       {/* ─── KPIs funnel ─── */}
       <section>

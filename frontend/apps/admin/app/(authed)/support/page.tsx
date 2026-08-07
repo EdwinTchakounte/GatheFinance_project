@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { LifeBuoy } from "lucide-react";
 
 import { buttonClasses } from "@/components/modal";
+import { PageHeader } from "@/components/page-header";
 import {
   adminApi,
   type ApiError,
@@ -94,18 +95,15 @@ export default function SupportPage() {
 
   return (
     <div>
-      <header className="mb-6">
-        <span className="mb-1 inline-flex items-center gap-1.5 rounded bg-teal-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-700">
-          <LifeBuoy className="size-3" /> Support
-        </span>
-        <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-          Support membres
-        </h1>
-        <p className="mt-1 text-sm text-ink-500">
-          Réponds aux messages des membres. Chaque réponse notifie le membre
-          (in-app + push).
-        </p>
-      </header>
+      <PageHeader
+        eyebrow={
+          <span className="inline-flex items-center gap-1.5 rounded bg-teal-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-700">
+            <LifeBuoy className="size-3" /> Support
+          </span>
+        }
+        title="Support membres"
+        description="Réponds aux messages des membres. Chaque réponse notifie le membre (in-app + push)."
+      />
 
       {error ? (
         <div className="mb-5 rounded-md border border-terra-400/40 bg-terra-50/60 px-4 py-2.5 text-sm text-terra-700">

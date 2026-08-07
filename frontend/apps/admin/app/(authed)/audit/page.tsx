@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, RotateCcw, Eye } from "lucide-react";
 
 import { Pagination } from "@/components/pagination";
+import { PageHeader } from "@/components/page-header";
 import {
   adminApi,
   type ApiError,
@@ -100,36 +101,27 @@ function Inner() {
 
   return (
     <div className="space-y-6">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-terra-600">
-            Audit
-          </p>
-          <h1 className="mt-2 font-editorial text-3xl font-medium text-ink-900">
-            Journal d'audit
-          </h1>
-          <p className="mt-1 text-sm text-ink-600">
-            Toutes les actions tracées sur la plateforme — mutations API
-            automatiques et événements métier (décisions, validations,
-            changements de configuration).
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 text-sm text-ink-600">
-          <span className="font-mono text-ink-900 font-medium">{count}</span>
-          <span>entrée{count > 1 ? "s" : ""}</span>
-          {activeFilterCount > 0 ? (
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="inline-flex items-center gap-1.5 rounded-md border border-line-200 bg-paper px-2.5 py-1.5 text-xs font-medium text-ink-700 hover:border-blue-700 hover:text-blue-700"
-            >
-              <RotateCcw className="size-3.5" aria-hidden="true" />
-              Réinitialiser ({activeFilterCount})
-            </button>
-          ) : null}
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Audit"
+        title="Journal d'audit"
+        description="Toutes les actions tracées sur la plateforme — mutations API automatiques et événements métier (décisions, validations, changements de configuration)."
+        actions={
+          <div className="flex items-center gap-3 text-sm text-ink-600">
+            <span className="font-mono text-ink-900 font-medium">{count}</span>
+            <span>entrée{count > 1 ? "s" : ""}</span>
+            {activeFilterCount > 0 ? (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex items-center gap-1.5 rounded-md border border-line-200 bg-paper px-2.5 py-1.5 text-xs font-medium text-ink-700 hover:border-blue-700 hover:text-blue-700"
+              >
+                <RotateCcw className="size-3.5" aria-hidden="true" />
+                Réinitialiser ({activeFilterCount})
+              </button>
+            ) : null}
+          </div>
+        }
+      />
 
       {/* Barre de filtres */}
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">

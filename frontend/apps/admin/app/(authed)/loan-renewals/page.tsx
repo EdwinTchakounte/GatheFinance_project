@@ -8,6 +8,7 @@ import { buttonClasses } from "@gathe/ui";
 import { CashInModal } from "@/components/cash-in-modal";
 import { Modal } from "@/components/modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
+import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/status-pill";
 import {
   adminApi,
@@ -179,18 +180,10 @@ function Inner() {
 
   return (
     <section className="space-y-6">
-      <header>
-        <h1 className="font-editorial text-3xl font-medium tracking-tight text-ink-900">
-          Reconductions de crédit
-        </h1>
-        <p className="text-sm text-ink-500">
-          Le membre demande la reconduction depuis l&apos;app ou le portail. Le
-          comité approuve (taux + 1re échéance → nouveau dossier) ou rejette
-          avec motif. Les intérêts se versent librement, avant ou après la
-          décision ; s&apos;ils ne sont pas encaissés, ils sont reportés sur le
-          nouvel échéancier.
-        </p>
-      </header>
+      <PageHeader
+        title="Reconductions de crédit"
+        description="Le membre demande la reconduction depuis l&apos;app ou le portail. Le comité approuve (taux + 1re échéance → nouveau dossier) ou rejette avec motif. Les intérêts se versent librement, avant ou après la décision ; s&apos;ils ne sont pas encaissés, ils sont reportés sur le nouvel échéancier."
+      />
 
       <FilterTabs value={filter} onChange={setFilter} />
 
