@@ -43,44 +43,73 @@ export default function AdminLoginPage() {
     }
   }
 
+  const year = new Date().getFullYear();
+
   return (
-    <main className="min-h-svh bg-cream lg:grid lg:grid-cols-[1.05fr_1fr]">
+    <main className="min-h-svh bg-cream lg:grid lg:grid-cols-[1.08fr_1fr]">
       {/* ── Panneau marque (desktop) — gradient bleu institutionnel ─────── */}
-      <aside className="relative hidden overflow-hidden bg-blue-900 lg:flex lg:flex-col lg:justify-between lg:p-12">
+      <aside className="relative hidden overflow-hidden bg-blue-900 lg:flex lg:flex-col lg:justify-between lg:p-14">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(120% 90% at 15% 0%, #0556ab 0%, #004ca4 42%, #002c5e 100%)",
+              "radial-gradient(120% 90% at 12% 0%, #0a63bd 0%, #004ca4 44%, #002247 100%)",
           }}
         />
+        {/* Halos + trame légère pour la profondeur. */}
+        <div aria-hidden className="pointer-events-none absolute -right-28 -top-28 size-[26rem] rounded-full bg-white/5 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-16 size-80 rounded-full bg-emerald-400/10 blur-3xl" />
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-white/5 blur-2xl"
+          className="pointer-events-none absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, #ffffff 1px, transparent 0)",
+            backgroundSize: "22px 22px",
+          }}
         />
+
         <div className="relative z-10">
           {/* Logo officiel sur pastille claire (contraste sur le fond bleu). */}
-          <span className="inline-flex items-center rounded-2xl bg-paper px-4 py-2.5 shadow-sm">
+          <span className="inline-flex items-center rounded-2xl bg-paper px-4 py-2.5 shadow-lg shadow-blue-950/20">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/images/logo.png"
-              alt="GATHE Finance"
-              className="h-8 w-auto"
-            />
+            <img src="/images/logo.png" alt="GATHE Finance" className="h-8 w-auto" />
           </span>
         </div>
+
         <div className="relative z-10 max-w-md">
-          <h2 className="font-editorial text-3xl font-medium leading-tight text-white">
-            Le back-office de la coopérative.
-          </h2>
-          <p className="mt-3 text-sm leading-relaxed text-white/70">
-            Pilotez les adhésions, le crédit, l&apos;épargne et les campagnes
-            depuis un espace unique, sécurisé et réservé au personnel.
+          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-emerald-300/90">
+            Back-office sécurisé
           </p>
+          <h2 className="mt-4 font-editorial text-[2.6rem] font-medium leading-[1.08] text-white">
+            Pilotez la coopérative, d&apos;un seul endroit.
+          </h2>
+          <p className="mt-4 text-sm leading-relaxed text-white/70">
+            Adhésions, crédit, épargne, campagnes et journal d&apos;audit —
+            un espace unique, réservé au personnel.
+          </p>
+
+          <ul className="mt-9 space-y-3.5">
+            {[
+              "Décisions crédit et suivi des remboursements",
+              "Épargne, retraits et versements tracés",
+              "Chaque action horodatée dans le journal d'audit",
+            ].map((line) => (
+              <li key={line} className="flex items-center gap-3">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 ring-1 ring-emerald-300/30">
+                  <svg viewBox="0 0 20 20" fill="none" className="size-3.5" aria-hidden>
+                    <path d="M4 10.5l3.5 3.5L16 5.5" stroke="#6ee7b7" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <span className="text-sm text-white/85">{line}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <p className="relative z-10 text-xs text-white/50">
-          © {new Date().getFullYear()} GATHE Finance · Back-office sécurisé
+
+        <p className="relative z-10 text-xs text-white/45">
+          © {year} GATHE Finance · Coopérative d&apos;épargne et de crédit
         </p>
       </aside>
 

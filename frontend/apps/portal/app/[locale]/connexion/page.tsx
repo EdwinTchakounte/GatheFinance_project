@@ -39,41 +39,102 @@ export default function PortalLoginPage() {
     }
   }
 
+  const year = new Date().getFullYear();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://gathe-finance.com";
+
   return (
-    <main className="relative min-h-svh bg-cream">
-      {/* Fond subtil : 2 gradients tres legers pour donner du grain sans surcharger. */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 size-96 rounded-full bg-blue-100/40 blur-3xl" />
-        <div className="absolute -bottom-32 -right-32 size-96 rounded-full bg-emerald-100/30 blur-3xl" />
-      </div>
+    <main className="min-h-svh bg-cream lg:grid lg:grid-cols-[1.08fr_1fr]">
+      {/* ── Panneau marque (desktop) — gradient bleu institutionnel ─────── */}
+      <aside className="relative hidden overflow-hidden bg-blue-900 lg:flex lg:flex-col lg:justify-between lg:p-14">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(120% 90% at 12% 0%, #0a63bd 0%, #004ca4 44%, #002247 100%)",
+          }}
+        />
+        <div aria-hidden className="pointer-events-none absolute -right-28 -top-28 size-[26rem] rounded-full bg-white/5 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-16 size-80 rounded-full bg-emerald-400/10 blur-3xl" />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage: "radial-gradient(circle at 1px 1px, #ffffff 1px, transparent 0)",
+            backgroundSize: "22px 22px",
+          }}
+        />
 
-      {/* Top bar discret : retour vitrine. */}
-      <div className="relative z-10 mx-auto flex max-w-5xl items-center justify-between px-5 pt-5 sm:px-8">
-        <a href="https://gathe-finance.horus-lab.com" className="inline-flex items-center gap-2 text-xs font-medium text-ink-600 hover:text-ink-900">
-          <span aria-hidden>←</span>
-          Retour au site
-        </a>
-        <a
-          href="/devenir-membre"
-          className="text-xs font-medium text-ink-600 hover:text-ink-900"
-        >
-          Pas encore membre&nbsp;?{" "}
-          <span className="text-blue-700 underline-offset-2 hover:underline">Faire une demande</span>
-        </a>
-      </div>
+        <div className="relative z-10">
+          <span className="inline-flex items-center rounded-2xl bg-paper px-4 py-2.5 shadow-lg shadow-blue-950/20">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/logo.jpg" alt="GATHE Finance" className="h-8 w-auto rounded-md" />
+          </span>
+        </div>
 
-      {/* Card centree. */}
-      <div className="relative z-10 mx-auto flex min-h-[calc(100svh-3.5rem)] max-w-md items-center justify-center px-5 py-12 sm:px-0">
-        <div className="w-full">
-          {/* Logo + marque sobre. */}
-          <div className="mb-8 flex flex-col items-center">
+        <div className="relative z-10 max-w-md">
+          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-emerald-300/90">
+            Espace membre
+          </p>
+          <h2 className="mt-4 font-editorial text-[2.6rem] font-medium leading-[1.08] text-white">
+            Votre coopérative, à portée de main.
+          </h2>
+          <p className="mt-4 text-sm leading-relaxed text-white/70">
+            Suivez votre épargne, vos crédits et vos versements — en toute
+            sécurité, où que vous soyez.
+          </p>
+
+          <ul className="mt-9 space-y-3.5">
+            {[
+              "Consulter votre épargne et vos crédits en temps réel",
+              "Demander un crédit et suivre vos remboursements",
+              "Recevoir vos notifications et documents officiels",
+            ].map((line) => (
+              <li key={line} className="flex items-center gap-3">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 ring-1 ring-emerald-300/30">
+                  <svg viewBox="0 0 20 20" fill="none" className="size-3.5" aria-hidden>
+                    <path d="M4 10.5l3.5 3.5L16 5.5" stroke="#6ee7b7" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <span className="text-sm text-white/85">{line}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="relative z-10 text-xs text-white/45">
+          © {year} GATHE Finance · Coopérative d&apos;épargne et de crédit
+        </p>
+      </aside>
+
+      {/* ── Panneau formulaire ─────────────────────────────────────────── */}
+      <div className="relative flex min-h-svh flex-col px-5 py-6 sm:px-8 lg:py-10">
+        {/* Top bar : retour vitrine + demande d'adhésion. */}
+        <div className="flex items-center justify-between gap-3">
+          <a href={siteUrl} className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-600 transition-colors hover:text-ink-900">
+            <span aria-hidden>←</span>
+            Retour au site
+          </a>
+          <a
+            href={`${siteUrl}/devenir-membre`}
+            className="text-xs font-medium text-ink-600 transition-colors hover:text-ink-900"
+          >
+            Pas encore membre&nbsp;?{" "}
+            <span className="text-blue-700 underline-offset-2 hover:underline">Faire une demande</span>
+          </a>
+        </div>
+
+        <div className="flex flex-1 items-center justify-center py-8">
+          <div className="w-full max-w-md">
+          {/* Logo (mobile : centré ; desktop : discret au-dessus du form). */}
+          <div className="mb-8 flex flex-col items-center lg:items-start">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/logo.jpg"
               alt="GATHE Finance"
-              className="h-12 w-auto rounded-xl ring-1 ring-ink-900/5"
+              className="h-11 w-auto rounded-xl ring-1 ring-ink-900/5 lg:hidden"
             />
-            <p className="mt-3 font-display text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-ink-500">
+            <p className="mt-3 font-display text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-terra-600 lg:mt-0">
               Espace membre
             </p>
           </div>
@@ -163,10 +224,11 @@ export default function PortalLoginPage() {
             </form>
           </div>
 
-          {/* Footer discret. */}
-          <p className="mt-6 text-center text-[0.7rem] text-ink-500">
-            © {new Date().getFullYear()} GATHE Finance · Coopérative d'épargne et de crédit
+          {/* Footer discret (mobile — le panneau marque porte le copyright en desktop). */}
+          <p className="mt-6 text-center text-[0.7rem] text-ink-500 lg:hidden">
+            © {year} GATHE Finance · Coopérative d&apos;épargne et de crédit
           </p>
+          </div>
         </div>
       </div>
     </main>
