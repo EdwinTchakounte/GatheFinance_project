@@ -16,15 +16,10 @@ import { Magnetic } from "@/components/magnetic";
 export async function Hero({ locale }: { locale: string }) {
   const t = await getTranslations({ locale, namespace: "home" });
 
-  const slides = [
-    { src: images.entrepreneurs },
-    { src: images.brcBusinessFormation },
-    { src: images.businesswoman },
-    { src: images.brcTeamSupport },
-    { src: images.entrepreneurFamily },
-    { src: images.brcTeamEnterprise },
-    { src: images.fatherDaughterSaving },
-  ];
+  // Hero photographique : une image forte et humaine (famille d'entrepreneurs),
+  // visible sous un voile cinématique (cf. HeroSlider) plutôt qu'un carrousel
+  // noyé dans le navy.
+  const slides = [{ src: images.entrepreneurFamily }];
 
   return (
     <section className="relative isolate flex min-h-[88svh] flex-col overflow-hidden bg-blue-950 text-white">
