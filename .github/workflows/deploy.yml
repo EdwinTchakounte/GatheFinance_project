@@ -146,8 +146,26 @@ jobs:
             echo ">>> Current tag: $CURRENT_TAG | New tag: $NEW_TAG"
             sed -i.bak "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$NEW_TAG/" .env.prod
 
-            echo ">>> Pulling images..."
-            $COMPOSE pull $APP_SERVICES
+            # Pull avec retry : la route IPv6 du serveur vers GHCR se fait
+            # parfois couper en plein transfert ("connection reset by peer"),
+            # ce qui, sous `set -e`, avortait tout le deploy. On retente, puis
+            # on tombe en repli sur les images DÉJÀ EN CACHE : le `up -d` doit
+            # tourner de toute façon pour propager les changements compose/.env
+            # (ex. CMS_API_URL), même si de nouvelles images n'ont pu être tirées.
+            echo ">>> Pulling images (retry sur coupure réseau GHCR)..."
+            PULL_OK=0
+            for attempt in 1 2 3 4; do
+              if $COMPOSE pull $APP_SERVICES; then
+                PULL_OK=1
+                break
+              fi
+              echo "  !! pull tentative $attempt/4 échouée (GHCR injoignable ?). Nouvel essai dans 15s..."
+              sleep 15
+            done
+            if [ "$PULL_OK" -ne 1 ]; then
+              echo "!!! pull GHCR toujours KO après 4 tentatives — REPLI sur les images en cache."
+              echo "    Les changements compose/.env sont appliqués ; le code des images reste celui déjà présent."
+            fi
 
             echo ">>> Starting services (--no-deps)... ${RECREATE_FLAG:-(no recreate)}"
             $COMPOSE up -d --no-deps ${RECREATE_FLAG} $APP_SERVICES
