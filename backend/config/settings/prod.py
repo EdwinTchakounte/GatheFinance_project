@@ -101,7 +101,9 @@ CSRF_COOKIE_DOMAIN = _COOKIE_DOMAIN
 if env("AWS_STORAGE_BUCKET_NAME", default=""):
     STORAGES = {
         "default": {
-            "BACKEND": "storages.backends.s3.S3Storage",
+            # url() renvoie le proxy backend /media/<clé> (protected_media),
+            # jamais l'URL MinIO interne — cf. config/storage.py.
+            "BACKEND": "config.storage.ProxiedMediaS3Storage",
             "OPTIONS": {
                 "bucket_name": env("AWS_STORAGE_BUCKET_NAME"),
                 "access_key": env("AWS_ACCESS_KEY_ID"),
