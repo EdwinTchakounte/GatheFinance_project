@@ -878,6 +878,7 @@ def accept_counter_proposal(loan_request: LoanRequest, *, member) -> LoanRequest
     # Notif best-effort (une plateforme sans catalogue d'events ne casse pas).
     try:
         from apps_coop.notifications.events import emit_event
+        from apps_coop.portal_urls import portal_url as build_portal_url
 
         emit_event(
             "loan_request.counter_proposal_accepted",
@@ -885,6 +886,7 @@ def accept_counter_proposal(loan_request: LoanRequest, *, member) -> LoanRequest
             context={
                 "prenom": member.prenom,
                 "montant": str(loan_request.montant_demande),
+                "portal_url": build_portal_url(),
             },
         )
     except Exception:  # noqa: BLE001 — best-effort
