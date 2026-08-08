@@ -121,28 +121,25 @@ TEMPLATES = [
         "variables": ["prenom", "nom", "motif", "portal_url"],
     },
     {
-        "code": "membership.interview_scheduled",
-        "objet": "Ton entretien d'admission à GATHE Finance",
+        # Contre-proposition de crédit acceptée par le membre : l'événement
+        # était émis (loans/services.py) sans template → e-mail jamais envoyé.
+        "code": "loan_request.counter_proposal_accepted",
+        "objet": "Contre-proposition acceptée · {montant} XAF",
         "corps_html": _join(
             hi("{prenom}"),
-            title("Ton entretien d'admission a été enregistré"),
+            title("Contre-proposition acceptée"),
             lead(
-                "Conformément à l'Article 3 du Règlement, le comité a tenu "
-                "ton entretien d'admission. Voici l'avis transmis."
+                "Tu as accepté la contre-proposition du comité. Ta demande de "
+                "crédit se poursuit sur le montant convenu."
             ),
-            callout(
-                "<strong>Issue :</strong> {favorable}<br/>"
-                "<strong>Avis du comité :</strong> {avis}",
-                tone="info",
-            ),
-            p(
-                "La décision finale (approbation ou rejet) te sera notifiée "
-                "par e-mail dans les jours qui suivent."
-            ),
-            cta_secondary("Suivre ma demande", "{portal_url}"),
+            info_card([
+                ("Montant retenu", "<strong>{montant} XAF</strong>"),
+                ("Statut", "En instruction"),
+            ], tone="success"),
+            cta("Suivre ma demande", "{portal_url}/credit"),
             closing(),
         ),
-        "variables": ["prenom", "nom", "favorable", "avis", "portal_url"],
+        "variables": ["prenom", "montant", "portal_url"],
     },
     {
         "code": "campaign.created",

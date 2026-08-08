@@ -31,20 +31,14 @@ EVENTS: list[tuple[str, str, str, bool]] = [
     ),
     (
         "member.activated",
-        "Adhésion approuvée",
-        "Article 1 - le membre est officiellement sociétaire après l'entretien d'admission.",
+        "Compte activé (3 frais réglés)",
+        "Le membre devient ACTIF une fois les 3 frais (adhésion + inscription + carnet) réglés. Email de confirmation d'activation.",
         True,
     ),
     (
         "member.rejected",
         "Adhésion rejetée",
         "Le candidat n'a pas été admis. Email avec motif.",
-        True,
-    ),
-    (
-        "membership.interview_scheduled",
-        "Entretien d'admission enregistré",
-        "Le comité a tenu l'entretien d'admission (Art. 3). Email d'information au candidat avec l'issue favorable / défavorable et l'avis.",
         True,
     ),
     (
@@ -109,6 +103,12 @@ EVENTS: list[tuple[str, str, str, bool]] = [
         "loan_request.rejected",
         "Demande de crédit rejetée",
         "Décision du comité avec motif.",
+        True,
+    ),
+    (
+        "loan_request.counter_proposal_accepted",
+        "Contre-proposition acceptée",
+        "Le membre a accepté la contre-proposition de montant du comité. Email de confirmation.",
         True,
     ),
     (
