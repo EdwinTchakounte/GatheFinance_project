@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { images } from "@/lib/site-config";
 import { Reveal } from "@/components/reveal";
 import { SectionHeading } from "@/components/section-heading";
+import { AboutObjectives } from "@/components/about-objectives";
 
 /** Manifesto section — 2 columns on a clean white surface. Left: numbered
  *  eyebrow + serif H2 + lead + objectives list with vertical filet & emerald
@@ -15,18 +16,22 @@ import { SectionHeading } from "@/components/section-heading";
 export async function AboutSection({ locale }: { locale: string }) {
   const t = await getTranslations({ locale, namespace: "home" });
   const ta = await getTranslations({ locale, namespace: "about" });
+  const tc = await getTranslations({ locale, namespace: "common" });
   const objectives = ta.raw("objectives") as string[];
 
   return (
-    <section className="relative isolate overflow-hidden bg-paper section-pad">
-      {/* Hairlines top + bottom */}
-      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-line-200" />
-      <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-line-200" />
+    <section className="relative isolate overflow-hidden bg-sand section-pad-sm">
+      {/* Bande éditoriale chaude (sable) — l'UNIQUE de la page (cf. DS).
+          Filets top/bottom légèrement plus chauds que le slate pur. */}
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-terra-200/60" />
+      <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-terra-200/60" />
 
       <Container className="relative">
-        <div className="grid items-start gap-12 lg:grid-cols-[1fr_0.78fr] lg:gap-20">
+        {/* items-stretch : la colonne image épouse la hauteur de la colonne
+            texte → image et texte alignés (haut ET bas). */}
+        <div className="grid items-stretch gap-10 lg:grid-cols-[1fr_0.82fr] lg:gap-14">
           {/* ---- text column ---- */}
-          <div>
+          <div className="flex flex-col">
             <SectionHeading
               number="01"
               eyebrow={ta("missionTitle")}
@@ -35,32 +40,29 @@ export async function AboutSection({ locale }: { locale: string }) {
               wideLead
             />
 
-            <ul className="mt-10 space-y-5 border-l border-line-200 pl-7">
-              {objectives.map((item, i) => (
-                <Reveal as="li" key={i} delay={i * 60} className="relative">
-                  <span aria-hidden="true" className="absolute -left-[31px] top-2 size-1.5 rounded-full bg-emerald" />
-                  <p className="text-[0.98rem] leading-relaxed text-ink-700">
-                    {item}
-                  </p>
-                </Reveal>
-              ))}
-            </ul>
+            {/* Objectifs repliés (3) + « Voir plus » — garde la colonne à une
+                hauteur proche de la photo. */}
+            <AboutObjectives
+              items={objectives}
+              moreLabel={tc("showMore")}
+              lessLabel={tc("showLess")}
+            />
 
-            <Reveal delay={500} className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div className="mt-auto pt-8">
               <Link href="/a-propos" className={buttonClasses({ variant: "success" })}>
                 {t("about.cta")} <ArrowRight aria-hidden="true" className="size-4" />
               </Link>
-            </Reveal>
+            </div>
           </div>
 
-          {/* ---- portrait column ---- */}
+          {/* ---- portrait column — s'étire à la hauteur du texte ---- */}
           <Reveal className="relative">
-            <div className="relative aspect-[4/4.4] overflow-hidden rounded-2xl shadow-[var(--shadow-md)] ring-1 ring-line-200">
+            <div className="relative h-full min-h-[18rem] overflow-hidden rounded-2xl shadow-[var(--shadow-md)] ring-1 ring-line-200">
               <Image
                 src={images.businesswoman}
                 alt="Entrepreneuse camerounaise accompagnée par la coopérative"
                 fill
-                sizes="(min-width: 1024px) 38vw, 90vw"
+                sizes="(min-width: 1024px) 40vw, 90vw"
                 className="object-cover"
               />
               <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-blue-950/30 via-transparent to-transparent" />

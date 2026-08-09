@@ -68,9 +68,33 @@ export default async function HomePage({ params }: Params) {
             number="02"
             eyebrow={t("services.eyebrow")}
             title={t("services.title")}
-            lead={ts("lead")}
             wideLead
           />
+
+          {/* Chapô éditorial : barre d'accent dégradée (terra → émeraude → bleu)
+              + chapô en grande graisse de lecture + lien. Donne du corps au
+              paragraphe au lieu d'un bloc de texte isolé. */}
+          <div className="mt-8 grid max-w-5xl gap-5 sm:grid-cols-[auto_1fr] sm:gap-7">
+            <span
+              aria-hidden="true"
+              className="hidden w-1 shrink-0 rounded-full bg-gradient-to-b from-terra-500 via-emerald to-blue-700 sm:block"
+            />
+            <div>
+              <p className="text-lead leading-relaxed text-pretty text-ink-700">
+                {ts("lead")}
+              </p>
+              <Link
+                href="/services-financiers"
+                className="group/lnk mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 transition-colors hover:text-blue-800"
+              >
+                {tc("discoverServices")}
+                <ArrowRight
+                  aria-hidden="true"
+                  className="size-4 transition-transform duration-300 group-hover/lnk:translate-x-1"
+                />
+              </Link>
+            </div>
+          </div>
 
           {/* Bento asymmetric — 1 big tall card on the left, 2 stacked cards
               on the right, 1 wide horizontal card below. Reste en 1 colonne
@@ -240,7 +264,9 @@ export default async function HomePage({ params }: Params) {
       {/* ===== CAMPAGNES en cours (masqué si aucune ouverte) ===== */}
       <CampaignsTeaser initialItems={campaigns} />
 
-      {/* ===== BLOG teaser ===== */}
+      {/* ===== BLOG teaser — entièrement masqué s'il n'y a aucun article
+             (aucun placeholder "en cours d'intégration", aucun squelette). ===== */}
+      {posts.length > 0 ? (
       <section className="relative isolate overflow-hidden section-pad bg-paper">
         <MeshAccent variant="split" />
         <InstitutionalDecor variant="nodes" />
@@ -263,23 +289,15 @@ export default async function HomePage({ params }: Params) {
             </Link>
           </div>
           <div className="mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-            {posts.length > 0
-              ? posts.map((post, i) => (
-                  <Reveal key={post.id} delay={i * 80}>
-                    <ArticleCard post={post} locale={locale} />
-                  </Reveal>
-                ))
-              : Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="border-t border-line-200 pt-5">
-                    <div className="aspect-[16/10] bg-line-100" aria-hidden="true" />
-                    <div className="mt-4 h-3 w-16 rounded bg-line-200" aria-hidden="true" />
-                    <div className="mt-3 h-4 w-3/4 rounded bg-line-200" aria-hidden="true" />
-                    <div className="mt-2 h-3 w-full rounded bg-line-100" aria-hidden="true" />
-                  </div>
-                ))}
+            {posts.map((post, i) => (
+              <Reveal key={post.id} delay={i * 80}>
+                <ArticleCard post={post} locale={locale} />
+              </Reveal>
+            ))}
           </div>
         </Container>
       </section>
+      ) : null}
 
       <CtaBand />
     </>

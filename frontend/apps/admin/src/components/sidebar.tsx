@@ -31,6 +31,7 @@ import {
   Handshake,
   PanelLeftClose,
   PanelLeftOpen,
+  Activity,
 } from "lucide-react";
 
 import { adminApi, type Identity } from "@/lib/api";
@@ -114,6 +115,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/cooperative-asset", label: "Documents officiels", icon: FileText },
       { href: "/forms", label: "Formulaires", icon: FileEdit },
       { href: "/audit", label: "Journal d'audit", icon: ScrollText },
+      { href: "/supervision", label: "Supervision", icon: Activity },
     ],
   },
 ];

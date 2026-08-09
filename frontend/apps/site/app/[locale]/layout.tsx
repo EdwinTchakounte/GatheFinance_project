@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { DM_Sans, Syne } from "next/font/google";
+import { DM_Sans, Syne, JetBrains_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 // `getTranslations` is still used by generateMetadata below.
@@ -17,6 +17,8 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").r
 // être utilisées (écrasées dans la cascade) → retirées (payload WOFF2 en moins).
 const syne = Syne({ subsets: ["latin", "latin-ext"], weight: ["700", "800"], variable: "--font-syne", display: "swap" });
 const dmSans = DM_Sans({ subsets: ["latin", "latin-ext"], weight: ["300", "400", "500"], variable: "--font-dmsans", display: "swap" });
+// JetBrains Mono — chiffres, montants et références (design system).
+const jetbrains = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-jetbrains", display: "swap" });
 
 export const viewport: Viewport = {
   // Aligné sur le manifest (theme_color #0e4d92) — la vitrine est en thème clair
@@ -87,7 +89,7 @@ export default async function LocaleLayout(props: {
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className={`${syne.variable} ${dmSans.variable}`} suppressHydrationWarning>
+    <html lang={locale} className={`${syne.variable} ${dmSans.variable} ${jetbrains.variable}`} suppressHydrationWarning>
       <body>
         <JsonLd data={[organizationJsonLd(SITE_URL), websiteJsonLd(SITE_URL)]} />
         <NextIntlClientProvider messages={messages}>

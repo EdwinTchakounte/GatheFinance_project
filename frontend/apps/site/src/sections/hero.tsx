@@ -22,7 +22,7 @@ export async function Hero({ locale }: { locale: string }) {
   const slides = [{ src: images.entrepreneurFamily }];
 
   return (
-    <section className="relative isolate flex min-h-[88svh] flex-col overflow-hidden bg-blue-950 text-white">
+    <section className="relative isolate flex min-h-[calc(100svh_-_7rem)] flex-col overflow-hidden bg-blue-950 text-white md:min-h-[calc(100svh_-_8rem)]">
       <HeroSlider slides={slides} />
 
       {/* Decorative blobs floating above the slider overlay for soft depth */}
@@ -46,18 +46,18 @@ export async function Hero({ locale }: { locale: string }) {
 
       {/* Main content — centered editorial block */}
       <div className="flex flex-1 items-center">
-        <Container className="relative py-20 lg:py-24">
+        <Container className="relative py-8 lg:py-10">
           <div className="relative mx-auto max-w-4xl text-center">
             {/* Contenu au-dessus de la ligne de flottaison : rendu immédiatement
                 (pas de Reveal/opacity:0) pour ne pas retarder le LCP du H1. */}
             <span className="label-num label-num--on-dark mx-auto">{t("hero.eyebrow")}</span>
-            <h1 className="mt-7 font-editorial text-display font-semibold leading-[1.02] tracking-[-0.02em] text-white [text-shadow:0_2px_28px_rgba(5,29,58,0.6)]">
+            <h1 className="mt-6 font-editorial text-display font-semibold leading-[1.02] tracking-[-0.02em] text-white [text-shadow:0_2px_28px_rgba(5,29,58,0.6)]">
               <span className="block text-white sm:whitespace-nowrap">{t("hero.titlePre")}</span>
               <span className="mt-1 block text-emerald sm:mt-2">{t("hero.titleAccent")}</span>
             </h1>
             <p
               className={
-                "mx-auto mt-9 max-w-3xl text-balance font-editorial italic " +
+                "mx-auto mt-7 max-w-3xl text-balance font-editorial italic " +
                 "text-[clamp(1.1rem,1.65vw,1.45rem)] leading-[1.55] text-blue-50"
               }
             >
@@ -65,7 +65,7 @@ export async function Hero({ locale }: { locale: string }) {
               {t("hero.text")}
               <span className="text-emerald/80 font-display not-italic ml-1.5">”</span>
             </p>
-            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Magnetic strength={0.32}>
                 <Link href="/devenir-membre" className={buttonClasses({ variant: "success", size: "lg" })}>
                   {t("hero.primaryCta")} <ArrowRight aria-hidden="true" className="size-4" />

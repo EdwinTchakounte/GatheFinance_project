@@ -47,7 +47,9 @@
     "backToTop": "Revenir en haut",
     "openingHoursLabel": "Heures d'ouvertures",
     "contentComingSoon": "Cette page est en cours d'intégration. Son contenu — identique à celui du site actuel — sera mis en ligne très prochainement.",
-    "home": "Accueil"
+    "home": "Accueil",
+    "showMore": "Voir plus",
+    "showLess": "Voir moins"
   },
   "footer": {
     "whyTitle": "Pourquoi GATHE Finance ?",
@@ -93,7 +95,7 @@
       "title": "Un avenir financier entre vos mains",
       "titlePre": "Un avenir financier",
       "titleAccent": "entre vos mains",
-      "text": "Que vous démarriez une activité ou cherchiez à la développer, nous vous offrons des outils financiers adaptés à vos ambitions et à vos capacités.",
+      "text": "Épargner, entreprendre, préparer l'avenir : à chaque étape, nous avançons à vos côtés, avec des solutions simples, humaines et à votre mesure.",
       "primaryCta": "Rejoindre la coopérative",
       "secondaryCta": "Découvrir nos services"
     },
@@ -110,10 +112,22 @@
       "eyebrow": "Nos services",
       "title": "Des solutions pour chaque étape",
       "items": {
-        "credit": { "title": "Crédit", "text": "Obtenez des prêts flexibles et rapides pour financer vos projets." },
-        "savings": { "title": "Épargner", "text": "Faites fructifier vos économies en toute sécurité avec des taux d'intérêt attractifs." },
-        "transfers": { "title": "Envoi et retrait d'argent", "text": "Transférez et retirez facilement de l'argent, localement et internationalement." },
-        "investment": { "title": "Investissement communautaire", "text": "Contribuez au développement de votre communauté tout en augmentant vos revenus." }
+        "credit": {
+          "title": "Crédit",
+          "text": "Obtenez des prêts flexibles et rapides pour financer vos projets."
+        },
+        "savings": {
+          "title": "Épargner",
+          "text": "Faites fructifier vos économies en toute sécurité avec des taux d'intérêt attractifs."
+        },
+        "transfers": {
+          "title": "Envoi et retrait d'argent",
+          "text": "Transférez et retirez facilement de l'argent, localement et internationalement."
+        },
+        "investment": {
+          "title": "Investissement communautaire",
+          "text": "Contribuez au développement de votre communauté tout en augmentant vos revenus."
+        }
       }
     },
     "about": {
@@ -126,10 +140,22 @@
       "eyebrow": "Notre engagement",
       "title": "Une coopérative à votre image",
       "items": {
-        "accessibility": { "title": "Accessibilité pour Tous", "text": "Nos services sont conçus pour être accessibles à tous les entrepreneurs, quelle que soit la taille de votre projet ou votre secteur d'activité." },
-        "transparency": { "title": "Conditions Souples et Transparentes", "text": "Nous proposons des solutions de crédit et d'épargne avec des conditions claires, sans frais cachés, et des options de remboursement flexibles." },
-        "community": { "title": "Communauté Solidaire", "text": "En rejoignant GATHE Finance, vous intégrez une communauté d'entrepreneurs solidaires qui s'entraident pour réussir. Ensemble, nous créons une dynamique positive pour soutenir la croissance des entreprises locales." },
-        "local": { "title": "Engagement Local", "text": "En tant que coopérative locale, nous comprenons les défis spécifiques auxquels font face les entrepreneurs camerounais. Nos services sont adaptés à ces réalités." }
+        "accessibility": {
+          "title": "Accessibilité pour Tous",
+          "text": "Nos services sont conçus pour être accessibles à tous les entrepreneurs, quelle que soit la taille de votre projet ou votre secteur d'activité."
+        },
+        "transparency": {
+          "title": "Conditions Souples et Transparentes",
+          "text": "Nous proposons des solutions de crédit et d'épargne avec des conditions claires, sans frais cachés, et des options de remboursement flexibles."
+        },
+        "community": {
+          "title": "Communauté Solidaire",
+          "text": "En rejoignant GATHE Finance, vous intégrez une communauté d'entrepreneurs solidaires qui s'entraident pour réussir. Ensemble, nous créons une dynamique positive pour soutenir la croissance des entreprises locales."
+        },
+        "local": {
+          "title": "Engagement Local",
+          "text": "En tant que coopérative locale, nous comprenons les défis spécifiques auxquels font face les entrepreneurs camerounais. Nos services sont adaptés à ces réalités."
+        }
       }
     },
     "cta": {
