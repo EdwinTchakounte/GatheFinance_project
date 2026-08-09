@@ -80,7 +80,7 @@ export default async function HomePage({ params }: Params) {
               className="hidden w-1 shrink-0 rounded-full bg-gradient-to-b from-terra-500 via-emerald to-blue-700 sm:block"
             />
             <div>
-              <p className="text-lead leading-relaxed text-pretty text-ink-700">
+              <p className="text-lead leading-relaxed text-justify hyphens-auto text-ink-700">
                 {ts("lead")}
               </p>
               <Link

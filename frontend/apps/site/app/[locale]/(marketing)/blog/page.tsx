@@ -100,10 +100,10 @@ export default async function BlogIndexPage({ params }: Params) {
                   <span className="font-display text-[0.62rem] font-medium uppercase tracking-[0.22em] text-emerald">
                     Article à la une
                   </span>
-                  <h2 className="mt-4 font-editorial text-[clamp(1.75rem,3vw,2.6rem)] font-medium leading-[1.15] text-ink-900 transition-colors group-hover:text-blue-800">
+                  <h2 className="mt-4 line-clamp-3 font-editorial text-[clamp(1.75rem,3vw,2.6rem)] font-medium leading-[1.15] text-ink-900 transition-colors group-hover:text-blue-800">
                     {featured.title}
                   </h2>
-                  <p className="mt-5 text-[1.0625rem] leading-[1.65] text-ink-600 line-clamp-4">
+                  <p className="mt-5 line-clamp-6 text-justify text-[1.0625rem] leading-[1.75] text-ink-600 hyphens-auto">
                     {featured.excerpt}
                   </p>
                   <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">
