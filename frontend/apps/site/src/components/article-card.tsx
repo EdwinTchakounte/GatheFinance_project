@@ -20,7 +20,7 @@ export async function ArticleCard({ post, locale }: { post: BlogListItem; locale
       href={`/blog/${post.slug}`}
       className="group flex h-full flex-col border-t border-line-200 pt-5 transition-colors hover:border-blue-700"
     >
-      <div className="relative aspect-[16/10] overflow-hidden bg-line-100">
+      <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-line-100 ring-1 ring-line-200/60">
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -38,10 +38,12 @@ export async function ArticleCard({ post, locale }: { post: BlogListItem; locale
       </div>
       <div className="flex grow flex-col gap-2 pt-4">
         <span className="caption">{t("byline", { author: post.authorName ?? "GATHE", date })}</span>
-        <h3 className="font-editorial text-lg font-medium leading-snug text-ink-900 transition-colors group-hover:text-blue-700">
+        <h3 className="line-clamp-2 font-editorial text-lg font-medium leading-snug text-ink-900 transition-colors group-hover:text-blue-700">
           {post.title}
         </h3>
-        <p className="line-clamp-3 grow text-sm leading-relaxed text-ink-600">{post.excerpt}</p>
+        <p className="line-clamp-5 grow text-justify text-sm leading-[1.7] text-ink-600 hyphens-auto">
+          {post.excerpt}
+        </p>
         <span className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700">
           {t("readArticle")}
           <ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-1" />
