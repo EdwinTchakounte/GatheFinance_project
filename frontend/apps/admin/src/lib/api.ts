@@ -1274,8 +1274,66 @@ export type CreditExposure = {
 };
 
 
+export type SupervisionOverview = {
+  generated_at: string;
+  health: { backend: boolean; database: boolean };
+  scheduler: {
+    available: boolean;
+    error?: string;
+    schedules?: number;
+    next_run?: string | null;
+    success_24h?: number;
+    failed_24h?: number;
+    upcoming?: { name: string; cron: string; next_run: string | null }[];
+  };
+  emails: {
+    total: number;
+    sent_7d: number;
+    failed_7d: number;
+    pending: number;
+    failed_total: number;
+  };
+  monitor_url: string;
+  quick_links: { label: string; href: string; resource: string }[];
+};
+
+export type SupervisionEmail = {
+  id: number;
+  destinataire: string;
+  objet: string;
+  template: string;
+  statut: string;
+  statut_display: string;
+  erreur: string;
+  member: string | null;
+  created_at: string;
+  sent_at: string | null;
+};
+
+export type SupervisionEmailsResponse = {
+  results: SupervisionEmail[];
+  count: number;
+  page: number;
+  page_size: number;
+  has_next: boolean;
+};
+
 export const adminApi = {
   primeCsrf: () => request<{ csrfToken: string }>("/auth/csrf/"),
+
+  supervision: {
+    overview: () => request<SupervisionOverview>("/audit/admin/supervision/"),
+    emails: (params?: { statut?: string; q?: string; page?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.statut) qs.set("statut", params.statut);
+      if (params?.q) qs.set("q", params.q);
+      if (params?.page) qs.set("page", String(params.page));
+      const s = qs.toString();
+      return request<SupervisionEmailsResponse>(
+        `/audit/admin/supervision/emails/${s ? `?${s}` : ""}`,
+      );
+    },
+  },
   login: (email: string, password: string) =>
     request<Identity>("/auth/login/", {
       method: "POST",

@@ -5,7 +5,13 @@ Endpoints staff pour l'admin Next.js — édition du catalogue AppSettings
 """
 from django.urls import path
 
-from . import admin_views, coop_documents_views, cron_admin_views, log_admin_views
+from . import (
+    admin_views,
+    coop_documents_views,
+    cron_admin_views,
+    log_admin_views,
+    supervision_views,
+)
 
 
 app_name = "coop_audit"
@@ -70,5 +76,16 @@ urlpatterns = [
         "admin/cron-schedules/<str:name>/run-now/",
         cron_admin_views.admin_cron_schedules_run_now,
         name="admin-cron-run-now",
+    ),
+    # Supervision (ops) — overview santé/planificateur/e-mails + liste EmailLog.
+    path(
+        "admin/supervision/",
+        supervision_views.admin_supervision_overview,
+        name="admin-supervision-overview",
+    ),
+    path(
+        "admin/supervision/emails/",
+        supervision_views.admin_supervision_emails,
+        name="admin-supervision-emails",
     ),
 ]
