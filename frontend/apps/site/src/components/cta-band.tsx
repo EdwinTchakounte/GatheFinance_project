@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { buttonClasses, Container } from "@gathe/ui";
 import { Link } from "@/i18n/navigation";
 import { InstitutionalDecor } from "./institutional-decor";
+import { BrandWatermark } from "./brand-watermark";
 import { Reveal } from "./reveal";
 
 /** Recurring "Join the cooperative" CTA — calm editorial band on cream paper.
@@ -20,6 +21,8 @@ export async function CtaBand() {
       <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-line-200" />
 
       <InstitutionalDecor variant="flow" />
+      {/* Filigrane de marque centré, très discret, derrière le message. */}
+      <BrandWatermark tone="light" className="left-1/2 top-1/2 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 lg:h-[34rem] lg:w-[34rem]" />
 
       <Container className="relative">
         <Reveal className="mx-auto text-center">

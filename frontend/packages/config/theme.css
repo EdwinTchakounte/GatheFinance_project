@@ -48,30 +48,47 @@
   --color-terra-800: #5e3414;
   --color-terra-900: #3e220d;
 
-  /* ---- Neutrals — re-warmed: no more cold "black", browns pulled in from
-         the logo's terra accent. Body copy + headlines now read in a warm
-         dark-brown registre rather than near-black navy. -------------------- */
-  --color-ink-950: #160c05;    /* deepest brown-black ink */
-  --color-ink-900: #2a1908;    /* H1 / display ink — warm dark brown */
-  --color-ink-800: #3d2a14;
-  --color-ink-700: #50402a;
-  --color-ink-600: #6a5c44;
-  --color-ink-500: #897c64;
-  --color-ink-400: #b0a48c;
-  --color-ink-300: #d4cab5;
-  --color-line-200: #e3deca;   /* warm hairline — replaces cold gray */
-  --color-line-100: #efebd9;
-  --color-line-50:  #f6f3e6;
-  --color-cream:    #fbf7ec;   /* warm cream — chosen surface alt */
-  --color-paper:    #fdfbf3;   /* the page bg : faint warm white */
-  --color-surface-50: #f7f4e9;
+  /* ---- Neutrals — SLATE ramp (design system). La crème chaude est retirée :
+         un produit financier dense a besoin d'une coque near-neutral nette
+         (les chiffres tiennent le contraste, les panneaux blancs restent
+         propres, les longues sessions restent lisibles). Sous-ton bleu léger
+         hérité du bleu logo, donc la rampe passe SOUS la marque. Les noms sont
+         gardés à l'identique : les ~300 usages « text-ink » / « border-line »
+         ne font que se repeindre. La chaleur vient désormais des accents et
+         de la photographie — plus des surfaces. -------------------------- */
+  --color-ink-950: #0b1220;    /* deepest slate ink */
+  --color-ink-900: #111927;    /* H1 / display ink */
+  --color-ink-800: #1f2a37;
+  --color-ink-700: #364152;    /* body copy */
+  --color-ink-600: #4b5565;
+  --color-ink-500: #697586;    /* muted */
+  --color-ink-400: #9aa4b2;
+  --color-ink-300: #cdd5df;
+  --color-line-200: #e3e8ef;   /* structural hairline */
+  --color-line-100: #eef2f6;   /* table / panel dividers */
+  --color-line-50:  #f8fafc;   /* row separators */
+  --color-cream:    #f8fafc;   /* alias legacy → slate le plus clair (plus de crème) */
+  --color-paper:    #ffffff;   /* page bg = panneau blanc pur */
+  --color-surface-50: #f8fafc;
   --color-surface-0: #ffffff;
+
+  /* ---- Coque applicative (aliases DS) — repris par les shells en phase 3/5.
+         Le canvas légèrement teinté fait lire les panneaux blancs comme des
+         objets : c'est pourquoi aucune ombre n'est nécessaire au repos. --- */
+  --color-app-canvas: #f4f6f9; /* la page derrière les panneaux blancs */
+  --color-app-rail:   #ffffff; /* sidebar / rail */
+  --color-app-panel:  #ffffff; /* cartes & tableaux */
+
+  /* ---- Sable — l'UNIQUE bande éditoriale chaude, VITRINE UNIQUEMENT ---- */
+  --color-sand: #f7f4ee;
 
   /* "night" surface set, kept for the rare dark immersive band. */
   --color-midnight: #06121f;
   --color-deep:     #0a1e33;
   --color-cobalt:   #0a56ab;    /* aligné bleu logo (plus de bleu vif) */
-  --color-emerald:  #13820e;    /* vert foncé logo (plus de vert vif) */
+  --color-emerald:  #13820e;    /* vert foncé logo — corps de texte / success */
+  --color-emerald-vivid: #16a34a; /* accents / CTA / glows sur fond sombre (DS) */
+  --color-emerald-glow:  #34d77a;
 
   /* ---- Semantic ------------------------------------------------------- */
   --color-success: #13820e;
@@ -80,13 +97,15 @@
   --color-error:   #c5221f;
 
   /* ---- Typography ----------------------------------------------------- */
-  /* `--font-jakarta` / `--font-inter` / `--font-lora` are injected by next/font
-     in the app layout; the in-var fallbacks keep things sane if they are missing. */
-  --font-display: var(--font-jakarta, "Plus Jakarta Sans"), "Outfit", "Manrope", ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-sans: var(--font-inter, "Inter"), ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-editorial: var(--font-lora, "Lora"), Georgia, "Times New Roman", "Source Serif Pro", serif;
+  /* Syne (display) / DM Sans (corps) / JetBrains Mono (chiffres) — injectés par
+     next/font dans chaque app layout : --font-syne / --font-dmsans / --font-jetbrains.
+     Les fallbacks in-var gardent tout sain si une variable manque. */
+  --font-display: var(--font-syne, "Syne"), ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-dmsans, "DM Sans"), ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Aucun serif dans le système — l'éditorial se replie sur le display (parité vitrine). */
+  --font-editorial: var(--font-syne, "Syne"), Georgia, "Times New Roman", serif;
   --font-serif: var(--font-editorial);
-  --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --font-mono: var(--font-jetbrains, "JetBrains Mono"), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   /* Type scale — quieter than before, press-style. */
   --text-eyebrow: 0.78rem;
@@ -108,21 +127,38 @@
   --text-5xl--line-height: 1.08;
   --text-6xl: 4.25rem;
   --text-6xl--line-height: 1.04;
-  /* Fluid sizes — confident hierarchy, calm wraps. */
-  --text-display: clamp(1.875rem, 6.4vw, 6.25rem);  /* hero H1 — imposing,
-                                                       sized so "Un avenir
-                                                       financier" stays on a
-                                                       single row on mobile */
-  --text-display--line-height: 1.03;
-  --text-display--letter-spacing: -0.018em;
-  --text-section: clamp(1.625rem, 2.6vw, 2.375rem); /* H2 — confident */
-  --text-section--line-height: 1.18;
-  --text-section--letter-spacing: 0;                /* serif Lora reads softer without negative tracking */
-  --text-headline: clamp(1.25rem, 1.7vw, 1.5rem);   /* card H3 / sub-section heading */
+  /* Fluid sizes (design system) — titres éditoriaux pleine largeur.
+     Syne supporte un tracking serré ; les titres courent près de la pleine
+     largeur sur grands écrans (le « texte en pleine largeur » demandé). */
+  --text-display: clamp(2.75rem, 7.4vw, 7rem);      /* hero H1 — monumental */
+  --text-display--line-height: 0.98;
+  --text-display--letter-spacing: -0.03em;
+  --text-section: clamp(2rem, 4.6vw, 4rem);         /* H2 — confident */
+  --text-section--line-height: 1.14;
+  --text-section--letter-spacing: -0.02em;
+  --text-headline: clamp(1.375rem, 1.9vw, 1.75rem); /* card H3 / sub-section heading */
   --text-headline--line-height: 1.3;
-  --text-mega: clamp(2.75rem, 7vw, 6rem);           /* big stat numbers */
+  --text-mega: clamp(3.25rem, 11vw, 10rem);         /* big stat numbers */
   --text-mega--line-height: 1;
-  --text-mega--letter-spacing: -0.015em;
+  --text-mega--letter-spacing: -0.03em;
+  --text-lead: clamp(1.0625rem, 1.5vw, 1.375rem);   /* chapô / lead paragraph */
+
+  /* Semantic type tokens (DS) — repris par les primitives en phase 3. */
+  --leading-display: 0.98;
+  --leading-tight: 1.14;
+  --leading-snug: 1.3;
+  --leading-normal: 1.55;
+  --leading-body: 1.7;
+  --tracking-display: -0.03em;
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-eyebrow: 0.18em;
+  --tracking-caps: 0.12em;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-display: 800;
 
   /* ---- Radii — tightened: editorial cards are rectangular, not pill -- */
   --radius-xs: 0.25rem;
@@ -132,13 +168,28 @@
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
   --radius-full: 9999px;
+  /* Rayons nommés (DS) — resserrés. Boutons & pastilles restent --radius-full. */
+  --radius-card:  0.875rem;   /* cartes — 14px */
+  --radius-panel: 1.125rem;   /* grands panneaux — 18px */
+  --radius-field: 0.5rem;     /* champs de formulaire — 8px */
 
-  /* ---- Shadows — minimal: institutional cards rely on filets, not depth */
-  --shadow-xs: 0 1px 2px rgb(11 19 32 / 0.05);
-  --shadow-sm: 0 2px 6px rgb(11 19 32 / 0.06);
-  --shadow-md: 0 6px 18px rgb(11 19 32 / 0.07);
-  --shadow-lg: 0 14px 36px rgb(11 19 32 / 0.09);
-  --shadow-xl: 0 24px 56px rgb(11 19 32 / 0.13);
+  /* ---- Shadows — filet OU ombre, jamais les deux (cf. elevation.css) ---
+     Panneaux/cartes/tables/KPI = blanc + filet 1px, sans ombre au repos.
+     L'ombre est réservée à ce qui flotte réellement (hover, menus, modales,
+     carte-stat sur photo). Sur fond sombre : verre + glow. */
+  --shadow-xs: 0 1px 2px rgb(17 25 39 / 0.05);
+  --shadow-sm: 0 1px 3px rgb(17 25 39 / 0.06), 0 1px 2px rgb(17 25 39 / 0.04);
+  --shadow-md: 0 4px 12px -2px rgb(17 25 39 / 0.08), 0 2px 4px -2px rgb(17 25 39 / 0.05);
+  --shadow-lg: 0 12px 28px -6px rgb(17 25 39 / 0.12), 0 4px 8px -4px rgb(17 25 39 / 0.06);
+  --shadow-xl: 0 24px 56px -12px rgb(17 25 39 / 0.20);
+  --shadow-float: 0 24px 60px -16px rgb(0 76 164 / 0.28); /* carte-stat sur photo */
+  --glow-emerald: 0 0 60px rgb(22 163 74 / 0.25);
+  --glow-cobalt:  0 0 60px rgb(10 86 171 / 0.28);
+  --ring-focus:   0 0 0 3px rgb(22 99 181 / 0.16);
+  --glass-bg:        rgba(255, 255, 255, 0.08);
+  --glass-border:    rgba(255, 255, 255, 0.15);
+  --glass-blur:      18px;
+  --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 0.15);
 
   /* ---- Layout --------------------------------------------------------- */
   --container-content: 90rem;      /* 1440px — institutional press width */

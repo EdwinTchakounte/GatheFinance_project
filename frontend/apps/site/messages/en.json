@@ -47,7 +47,9 @@
     "backToTop": "Back to top",
     "openingHoursLabel": "Opening hours",
     "contentComingSoon": "This page is being integrated. Its content — identical to the current site — will be published very soon.",
-    "home": "Home"
+    "home": "Home",
+    "showMore": "See more",
+    "showLess": "See less"
   },
   "footer": {
     "whyTitle": "Why GATHE Finance?",
@@ -93,7 +95,7 @@
       "title": "A financial future in your hands",
       "titlePre": "A financial future",
       "titleAccent": "in your hands",
-      "text": "Whether you are starting a business or looking to grow it, we offer financial tools tailored to your ambitions and your means.",
+      "text": "Saving, building, planning ahead — at every step, we move forward by your side, with solutions that are simple, human and made to fit you.",
       "primaryCta": "Join the cooperative",
       "secondaryCta": "Explore our services"
     },
@@ -110,10 +112,22 @@
       "eyebrow": "Our services",
       "title": "Solutions for every step",
       "items": {
-        "credit": { "title": "Credit", "text": "Get flexible, fast loans to finance your projects." },
-        "savings": { "title": "Save", "text": "Grow your savings safely with attractive interest rates." },
-        "transfers": { "title": "Money transfers & withdrawals", "text": "Send and withdraw money easily, locally and internationally." },
-        "investment": { "title": "Community investment", "text": "Contribute to the development of your community while increasing your income." }
+        "credit": {
+          "title": "Credit",
+          "text": "Get flexible, fast loans to finance your projects."
+        },
+        "savings": {
+          "title": "Save",
+          "text": "Grow your savings safely with attractive interest rates."
+        },
+        "transfers": {
+          "title": "Money transfers & withdrawals",
+          "text": "Send and withdraw money easily, locally and internationally."
+        },
+        "investment": {
+          "title": "Community investment",
+          "text": "Contribute to the development of your community while increasing your income."
+        }
       }
     },
     "about": {
@@ -126,10 +140,22 @@
       "eyebrow": "Our commitment",
       "title": "A cooperative built for you",
       "items": {
-        "accessibility": { "title": "Accessible to all", "text": "Our services are designed to be accessible to all entrepreneurs, whatever the size of your project or your sector of activity." },
-        "transparency": { "title": "Flexible, transparent terms", "text": "We offer credit and savings solutions with clear terms, no hidden fees, and flexible repayment options." },
-        "community": { "title": "A community that stands together", "text": "By joining GATHE Finance, you become part of a community of entrepreneurs who support one another to succeed. Together, we create a positive dynamic that fuels the growth of local businesses." },
-        "local": { "title": "Local commitment", "text": "As a local cooperative, we understand the specific challenges Cameroonian entrepreneurs face. Our services are adapted to those realities." }
+        "accessibility": {
+          "title": "Accessible to all",
+          "text": "Our services are designed to be accessible to all entrepreneurs, whatever the size of your project or your sector of activity."
+        },
+        "transparency": {
+          "title": "Flexible, transparent terms",
+          "text": "We offer credit and savings solutions with clear terms, no hidden fees, and flexible repayment options."
+        },
+        "community": {
+          "title": "A community that stands together",
+          "text": "By joining GATHE Finance, you become part of a community of entrepreneurs who support one another to succeed. Together, we create a positive dynamic that fuels the growth of local businesses."
+        },
+        "local": {
+          "title": "Local commitment",
+          "text": "As a local cooperative, we understand the specific challenges Cameroonian entrepreneurs face. Our services are adapted to those realities."
+        }
       }
     },
     "cta": {
