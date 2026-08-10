@@ -218,10 +218,10 @@ def test_scenario_credit_voie_avaliste():
     print("=" * 78)
     _fee()
     m = MemberFactory()
-    _classic(m, "10000")
+    _classic(m, "20000")  # apport 20 % du montant (100k)
     av = _ancien(MemberFactory())
     _classic(av, "200000")
-    print("[Étape 0] Demandeur épargne 10 000 ; avaliste (ancien) épargne 200 000")
+    print("[Étape 0] Demandeur épargne 20 000 (20 %) ; avaliste (ancien) épargne 200 000")
 
     r = _api(m).post(CREATE, {
         "montant_demande": "100000", "duree_mois": 6, "motif": "Achat stock",

@@ -96,6 +96,16 @@ class Member(TimestampedModel):
         help_text="Admin ayant validé le statut BRC du membre.",
     )
 
+    # Ajout d'un membre DEPUIS le dashboard admin (M1) : les pièces (CNI, photo,
+    # plan) n'ont pas transité par le formulaire public d'adhésion. Le membre les
+    # charge lui-même au moment de définir son mot de passe. Le flag est posé à la
+    # création admin et retiré une fois les pièces reçues (confirm_password_setup).
+    pieces_a_fournir = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="True si le membre (créé par l'admin) doit encore charger ses pièces.",
+    )
+
     # LOT 11 (refonte 2026) — Voie 3 MICROCAMPAIGN.
     # Posé à la création d'un Member ``TEMPORAIRE`` issu d'une campagne
     # micro-crédit. String ref pour éviter un cycle loans ↔ members.

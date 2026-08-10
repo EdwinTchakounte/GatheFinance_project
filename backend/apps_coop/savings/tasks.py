@@ -431,6 +431,10 @@ def collecte_fin_de_mois() -> dict:
                         "solde_avant": f"{int(solde):,}".replace(",", " "),
                         "commission": f"{int(commission):,}".replace(",", " "),
                         "restituable": f"{int(restituable):,}".replace(",", " "),
+                        # Les templates collecte.* utilisent {montant} = le net
+                        # restitué/basculé (après commission). Sans cet alias, le
+                        # rendu échouait et l'e-mail partait en texte brut.
+                        "montant": f"{int(restituable):,}".replace(",", " "),
                     },
                 )
             except Exception:  # noqa: BLE001

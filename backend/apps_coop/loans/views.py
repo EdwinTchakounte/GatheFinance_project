@@ -331,6 +331,18 @@ def loan_request_create(request):
         # Statut initial + FK selon la voie (campaign_fk déjà résolu ci-dessus).
         if route_eval.route == EligibilityRoute.CAMPAIGN:
             initial_statut = LoanRequest.Statut.EN_VALIDATION_CAMPAGNE
+        elif route_eval.route == EligibilityRoute.AVALISTE:
+            # La pré-étape avaliste (request_avaliste_consent ci-dessous) place la
+            # demande en EN_ATTENTE_AVALISTE puis, à l'acceptation,
+            # status_after_prevoie gère la porte des frais (frais 0 → instruction).
+            initial_statut = LoanRequest.Statut.EN_ATTENTE
+        elif frais_montant <= 0:
+            # Voie directe (senior_brc / garantie matérielle) avec étude GRATUITE :
+            # aucune porte de frais à franchir → on passe directement en
+            # instruction. Sans ce garde-fou, la demande resterait coincée en
+            # EN_ATTENTE (aucun frais à payer pour la débloquer) — parité avec
+            # status_after_prevoie et avec la voie campagne (frais 0).
+            initial_statut = LoanRequest.Statut.EN_INSTRUCTION
         else:
             initial_statut = LoanRequest.Statut.EN_ATTENTE
 

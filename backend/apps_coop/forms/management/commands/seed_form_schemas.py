@@ -105,16 +105,19 @@ LOAN_REQUEST_SCHEMA = {
                 },
             ],
         },
-        # NOTE 2026-08-02 : section « Votre parcours de formation » (profil_apprenant,
-        # question « CFP Broad Range » + attestation) RETIRÉE — redondante avec le
-        # nouvel attribut `LoanRequest.is_brc` (« a fréquenté le centre de formation
-        # BRC »), qui est déclaratif, couplable à toute voie et SANS preuve (le
-        # comité juge à l'évaluation, cf. décision cliente BRC 2026-08). On garde
-        # « Adhésion CGA » (profil_cga) — concept fiscal distinct. Ne pas
-        # réintroduire la question CFP sans décision métier.
+        # DÉCISION CLIENTE 2026-08 : « BRC » n'existe PAS seul — il y a exactement
+        # DEUX affiliations « Broad Range », déclaratives, couplables à N'IMPORTE
+        # QUELLE voie et pilotées par le schéma (comme tout champ privilège) :
+        #   - CGA BRC (profil_cga) : adhérent d'un Centre de Gestion Agréé.
+        #   - CFP BRC (profil_cfp) : ancien apprenant d'un Centre de Formation
+        #     Professionnelle.
+        # Les deux preuves sont `is_brc_proof` → alimentent la file de validation
+        # BRC (BRCDocument) + le flag Member.is_brc_member. Le toggle générique
+        # `LoanRequest.is_brc` (« centre de formation BRC » isolé) est retiré des
+        # clients au profit de ces deux attributs explicites.
         {
             "id": "profil_cga",
-            "title": "Adhésion CGA",
+            "title": "CGA BRC — Centre de Gestion Agréé",
             "description": "Un Centre de Gestion Agréé donne des avantages fiscaux et facilite l'analyse de ton dossier.",
             "fields": [
                 {
@@ -139,10 +142,33 @@ LOAN_REQUEST_SCHEMA = {
                 },
             ],
         },
-        # NOTE 2026-07-23 : section « Rattachement Broad Range Consulting »
-        # (profil_brc) RETIRÉE des questions sur demande. On garde « Votre
-        # parcours de formation » (profil_apprenant) et « Adhésion CGA »
-        # (profil_cga). Ne pas réintroduire sans décision métier.
+        {
+            "id": "profil_cfp",
+            "title": "CFP BRC — Centre de Formation Professionnelle",
+            "description": "Un parcours en Centre de Formation Professionnelle est pris en compte lors de l'étude de ton dossier.",
+            "fields": [
+                {
+                    "id": "ancien_apprenant",
+                    "type": "radio",
+                    "is_privilege_declaration": True,
+                    "label": "Es-tu ancien apprenant d'un Centre de Formation Professionnelle (CFP) ?",
+                    "required": True,
+                    "options": [
+                        {"value": "oui", "label": "Oui, je suis ancien apprenant CFP"},
+                        {"value": "non", "label": "Non"},
+                    ],
+                },
+                {
+                    "id": "ancien_apprenant_preuve",
+                    "type": "file",
+                    "is_brc_proof": True,
+                    "label": "Attestation / diplôme CFP",
+                    "help": "Photo ou PDF de ton attestation ou diplôme du CFP.",
+                    "required": True,
+                    "condition": {"field": "ancien_apprenant", "operator": "equals", "value": "oui"},
+                },
+            ],
+        },
     ],
 }
 

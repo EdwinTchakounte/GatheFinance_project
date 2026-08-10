@@ -71,8 +71,9 @@ def test_declarations_privilege_conservees_via_schema():
         "montant_demande": "50000",
         "duree_mois": 3,
         "motif": "Achat de marchandises pour ma boutique",
-        # Déclaration requise par le schéma (=non → pas de preuve exigée).
+        # Déclarations requises par le schéma (=non → pas de preuve exigée).
         "cga_adherent": "non",
+        "ancien_apprenant": "non",
     }
     r = _api(m).post("/api/v1/loans/requests/", body, format="json")
     assert r.status_code == 201, r.content

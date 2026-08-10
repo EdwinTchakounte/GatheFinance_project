@@ -612,16 +612,39 @@ export const portalApi = {
       body: JSON.stringify(payload),
     }),
   // PWD Option B . Verifie un token de definition de mot de passe initial.
+  // `pieces_required` = true pour un membre créé par l'admin (M1) : il doit
+  // charger ses pièces (CNI, photo, plan) en même temps que le mot de passe.
   verifyPasswordSetup: (token: string) =>
-    request<{ email_mask: string; expires_at: string }>(
+    request<{ email_mask: string; expires_at: string; pieces_required?: boolean }>(
       `/auth/setup-password/verify/?token=${encodeURIComponent(token)}`,
     ),
-  // PWD Option B . Consomme le token et pose le mot de passe initial.
-  confirmPasswordSetup: (payload: { token: string; password: string }) =>
-    request<{ detail: string; email: string }>("/auth/setup-password/confirm/", {
+  // PWD Option B . Consomme le token et pose le mot de passe initial. Si des
+  // pièces sont fournies (cas M1), on bascule en multipart (FormData).
+  confirmPasswordSetup: (payload: {
+    token: string;
+    password: string;
+    cni?: File;
+    photo?: File;
+    plan?: File;
+  }) => {
+    const hasFiles = Boolean(payload.cni || payload.photo || payload.plan);
+    if (!hasFiles) {
+      return request<{ detail: string; email: string }>("/auth/setup-password/confirm/", {
+        method: "POST",
+        body: JSON.stringify({ token: payload.token, password: payload.password }),
+      });
+    }
+    const fd = new FormData();
+    fd.append("token", payload.token);
+    fd.append("password", payload.password);
+    if (payload.cni) fd.append("cni", payload.cni);
+    if (payload.photo) fd.append("photo", payload.photo);
+    if (payload.plan) fd.append("plan", payload.plan);
+    return request<{ detail: string; email: string }>("/auth/setup-password/confirm/", {
       method: "POST",
-      body: JSON.stringify(payload),
-    }),
+      body: fd,
+    });
+  },
   logout: () => request<void>("/auth/logout/", { method: "POST" }),
   me: () => request<Identity>("/auth/me/"),
   savings: () => request<SavingsSnapshot>("/savings/me/"),

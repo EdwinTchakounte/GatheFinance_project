@@ -18,7 +18,7 @@ de changement.
 from __future__ import annotations
 
 import logging
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
 from django.utils import timezone
@@ -346,10 +346,26 @@ def request_avaliste_consent(
             f"épargne, ou baisser le montant demandé."
         )
 
-    # Réforme garantie : l'avaliste ne comble QUE le manque. Le demandeur gèle
-    # d'abord sa propre épargne dispo ; l'avaliste engage le reste.
+    # Le demandeur gèle d'abord sa propre épargne dispo (libre + placement) ;
+    # l'avaliste comble le reste jusqu'à 100 %.
     gel_demandeur = min(montant, epargne_borrower)
     gel_avaliste = montant - gel_demandeur  # ≤ epargne_avaliste (garanti par le ratio)
+
+    # Décision cliente 2026-08 : l'avaliste ne peut couvrir AU MAXIMUM que
+    # (1 − apport_rate) du montant = 80 %. Autrement dit, le demandeur doit
+    # apporter au MINIMUM l'apport personnel (20 %) sur sa propre épargne
+    # classique (il peut apporter plus). Si son épargne dispo est sous l'apport,
+    # l'avaliste devrait couvrir > 80 % → refus.
+    apport_min = (montant * _apport_rate()).quantize(
+        Decimal("1"), rounding=ROUND_HALF_UP
+    )
+    if apport_min > 0 and gel_demandeur < apport_min:
+        raise ValueError(
+            f"Apport personnel insuffisant : le demandeur doit apporter au "
+            f"moins {apport_min} XAF ({int(_apport_rate() * 100)} % du montant) "
+            f"sur son épargne classique. Un avaliste ne peut couvrir que "
+            f"{montant - apport_min} XAF au maximum (80 %)."
+        )
 
     # Garde-fou : la caution engagée ne peut dépasser l'épargne dispo de
     # l'avaliste (cohérent avec le ratio, mais on borne explicitement).

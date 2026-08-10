@@ -152,14 +152,13 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
   bool _withGarantieMaterielle = false;
   final _garantieDescCtrl = TextEditingController();
   PickedFile? _titreProprieteFile;
-  // Attribut BRC — déclaration « j'ai fréquenté le centre de formation BRC ».
-  // Ce N'EST PAS une voie : c'est un attribut informatif COUPLABLE à n'importe
-  // quelle voie ci-dessus. N'influence pas le routage ; le comité juge à l'étude.
-  bool _isBrc = false;
-  // Attestation du centre de formation BRC — REQUISE quand [_isBrc] est coché.
-  // Uploadée après création via l'attachment `brc_attestation` (reconnu comme
-  // preuve BRC côté backend → alimente la file BRC + visible au dashboard).
-  PickedFile? _brcAttestationFile;
+  // NOTE 2026-08 : le toggle générique « BRC » (is_brc) est retiré au profit des
+  // deux attributs schéma-driven « CGA BRC » (profil_cga) et « CFP BRC »
+  // (profil_cfp), rendus par DynamicFields et couplables à toute voie.
+  // Voie campagne : un fichier par pièce déclarée dans `documents_requis` de la
+  // campagne sélectionnée (clé = index). Uploadés après création via
+  // l'attachment `campaign_doc_<i>` (même mécanisme que les autres preuves).
+  final Map<int, PickedFile> _campaignDocFiles = {};
   // CH-9 . Canal de réception choisi par le membre + numéro Mobile Money.
   final _phoneCtrl = TextEditingController();
   // CH-7 . Numéro Mobile Money pour régler les frais d'étude.
@@ -395,6 +394,22 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
+    // Voie campagne : chaque pièce déclarée dans `documents_requis` doit être
+    // jointe (parité avec la candidature vitrine).
+    if (_withCampaign && camp != null) {
+      for (var i = 0; i < camp.documentsRequis.length; i++) {
+        if (_campaignDocFiles[i] == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Joins la pièce « ${camp.documentsRequis[i]} » requise par la campagne.',
+              ),
+            ),
+          );
+          return;
+        }
+      }
+    }
     // L4 . Voie garantie matérielle : si activée, une description du bien
     // (min 10 caractères) et le titre de propriété sont requis.
     final garantieDesc = _garantieDescCtrl.text.trim();
@@ -416,18 +431,8 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       );
       return;
     }
-    // Attestation BRC obligatoire si le membre déclare avoir fréquenté le
-    // centre de formation BRC (sinon on ne peut pas justifier l'attribut).
-    if (_isBrc && _brcAttestationFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Joins ton attestation du centre de formation BRC (ou décoche).',
-          ),
-        ),
-      );
-      return;
-    }
+    // (Les preuves CGA BRC / CFP BRC sont des champs `file` du schéma : leur
+    // caractère requis est géré par validateSchema, comme tout champ schéma.)
     // CH-9 . Si canal Tara MoMo/OM, un numéro est requis (validation locale
     // avant l'appel use case qui re-vérifie).
     final phone = _phoneCtrl.text.trim();
@@ -499,6 +504,11 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
       // valide (le serveur vérifie que la campagne est active).
       if (_withCampaign && _selectedCampaignId != null) {
         scalarExtras['campaign_id'] = _selectedCampaignId;
+        // Documents requis par la campagne → pièces jointes `campaign_doc_<i>`
+        // (uploadées via le même endpoint attachments après création).
+        _campaignDocFiles.forEach((i, file) {
+          fileEntries.add(MapEntry('campaign_doc_$i', file));
+        });
       }
       // L4 . Voie garantie matérielle : le backend route sur
       // EligibilityRoute.GARANTIE_MATERIELLE quand `garantie_materielle=true`
@@ -511,17 +521,9 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
           fileEntries.add(MapEntry('titre_propriete', _titreProprieteFile!));
         }
       }
-      // Attribut BRC — déclaration informative couplable à N'IMPORTE QUELLE voie
-      // ci-dessus (campagne, avaliste, garantie, ancienneté). Le backend le
-      // stocke tel quel (n'influence pas le routage) ; le comité juge à l'étude.
-      if (_isBrc) {
-        scalarExtras['is_brc'] = true;
-        // Attestation BRC (requise) → pièce jointe `brc_attestation`, reconnue
-        // comme preuve BRC par le backend (file BRC + visible au dashboard).
-        if (_brcAttestationFile != null) {
-          fileEntries.add(MapEntry('brc_attestation', _brcAttestationFile!));
-        }
-      }
+      // CGA BRC / CFP BRC : déclarations (cga_adherent / ancien_apprenant) et
+      // preuves (cga_preuve / ancien_apprenant_preuve) sont des champs du
+      // schéma → déjà véhiculés par scalarExtras + fileEntries ci-dessus.
       final submission =
           await ref.read(loanRequestsProvider.notifier).submit(
                 montantDemande: _montant.round(),
@@ -993,7 +995,10 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                             ),
                         ],
                         onChanged: (v) =>
-                            setState(() => _selectedCampaignId = v),
+                            setState(() {
+                              _selectedCampaignId = v;
+                              _campaignDocFiles.clear();
+                            }),
                       );
                     },
                     loading: () => const Padding(
@@ -1008,6 +1013,37 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
                   );
                 },
               ),
+              // Documents requis par la campagne sélectionnée — un picker par
+              // pièce déclarée (parité avec la candidature vitrine).
+              if (selectedCampaign != null &&
+                  selectedCampaign.documentsRequis.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.m),
+                Text('Documents à fournir',
+                    style: AppTypography.labelMedium,),
+                const SizedBox(height: AppSpacing.xs),
+                const Text(
+                  'Cette campagne exige les pièces suivantes.',
+                  style: TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: AppSpacing.s),
+                for (var i = 0;
+                    i < selectedCampaign.documentsRequis.length;
+                    i++) ...[
+                  _ProofPickerTile(
+                    label: selectedCampaign.documentsRequis[i],
+                    picked: _campaignDocFiles[i],
+                    onPick: () async {
+                      final f = await _pickFile();
+                      if (f != null) {
+                        setState(() => _campaignDocFiles[i] = f);
+                      }
+                    },
+                    onClear: () =>
+                        setState(() => _campaignDocFiles.remove(i)),
+                  ),
+                  const SizedBox(height: AppSpacing.s),
+                ],
+              ],
               const SizedBox(height: AppSpacing.m),
             ],
 
@@ -1069,38 +1105,11 @@ class _LoanRequestSheetState extends ConsumerState<LoanRequestSheet>
               const SizedBox(height: AppSpacing.m),
             ],
 
-            // --- Attribut BRC (couplable à toute voie ci-dessus) ---
-            // Volontairement HORS de l'exclusion mutuelle des voies : on peut
-            // cocher BRC avec une campagne, un avaliste, une garantie ou rien.
-            SwitchListTile.adaptive(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              value: _isBrc,
-              onChanged: (v) => setState(() => _isBrc = v),
-              title: const Text(
-                'J\'ai fréquenté le centre de formation BRC',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-              subtitle: const Text(
-                'Information transmise au comité (indépendante de la voie '
-                'choisie) — prise en compte lors de l\'étude du dossier.',
-                style: TextStyle(fontSize: 12),
-              ),
-            ),
-            // Attestation BRC REQUISE quand le membre coche « ancien étudiant ».
-            if (_isBrc) ...[
-              const SizedBox(height: AppSpacing.s),
-              _ProofPickerTile(
-                label: 'Attestation centre de formation BRC',
-                picked: _brcAttestationFile,
-                onPick: () async {
-                  final f = await _pickFile();
-                  if (f != null) setState(() => _brcAttestationFile = f);
-                },
-                onClear: () => setState(() => _brcAttestationFile = null),
-              ),
-            ],
-            const SizedBox(height: AppSpacing.m),
+            // --- CGA BRC / CFP BRC : rendus par DynamicFields (schéma) ---
+            // Les deux attributs Broad Range (adhésion CGA, ancien apprenant
+            // CFP) + leurs preuves sont des champs du FormSchema `loan_request`,
+            // affichés par le renderer dynamique plus bas — couplables à toute
+            // voie, sans doublon avec un toggle hardcodé.
 
             // --- CH-9 . Canal de réception du décaissement ---
             Text('Comment recevoir l\'argent ?',

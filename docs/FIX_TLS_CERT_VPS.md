@@ -69,7 +69,7 @@ conf.d dans le `docker-compose` d'afrikamode.
 ---
 
 ## Symptôme
-- **Login mobile impossible** (l'app valide le TLS → rejette la connexion).
+- **Login mobile impossible** (l'app valide le TLS → rdocker inspect backend-nginx-1 --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'ejette la connexion).
 - Le web affiche (ou devrait afficher) un **avertissement de certificat**.
 
 ## Cause racine

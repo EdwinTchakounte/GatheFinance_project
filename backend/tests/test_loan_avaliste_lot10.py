@@ -186,7 +186,7 @@ class TestRequestAvalisteConsent:
             cle="loans.avaliste.min_coverage_ratio",
             defaults={"valeur": "1.50"},
         )
-        borrower = _make_new_member(savings_collecte=Decimal("10000"))
+        borrower = _make_new_member(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("50000"))
         lr = _make_loan_request(borrower, montant=Decimal("50000"))
         with pytest.raises(ValueError, match="Couverture insuffisante"):
@@ -195,7 +195,7 @@ class TestRequestAvalisteConsent:
             )
 
     def test_already_has_consent_raises(self):
-        borrower = _make_new_member(savings_collecte=Decimal("10000"))
+        borrower = _make_new_member(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         lr = _make_loan_request(borrower, montant=Decimal("50000"))
         request_avaliste_consent(
@@ -210,7 +210,7 @@ class TestRequestAvalisteConsent:
 
     def test_identification_inputs_persisted(self):
         """Les chaînes saisies par le demandeur sont conservées brutes."""
-        borrower = _make_new_member(savings_collecte=Decimal("10000"))
+        borrower = _make_new_member(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         senior.nom = "Mbappe"
         senior.save(update_fields=["nom"])
@@ -230,7 +230,7 @@ class TestRequestAvalisteConsent:
 
 class TestRespondAccept:
     def test_accept_sets_lr_avaliste_and_en_instruction(self):
-        borrower = _make_new_member(savings_collecte=Decimal("10000"))
+        borrower = _make_new_member(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         lr = _make_loan_request(borrower, montant=Decimal("50000"))
         consent = request_avaliste_consent(
@@ -245,7 +245,7 @@ class TestRespondAccept:
         assert lr.statut == LoanRequest.Statut.EN_INSTRUCTION
 
     def test_double_accept_is_idempotent(self):
-        borrower = _make_new_member(savings_collecte=Decimal("10000"))
+        borrower = _make_new_member(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         lr = _make_loan_request(borrower, montant=Decimal("50000"))
         consent = request_avaliste_consent(
@@ -264,7 +264,7 @@ class TestRespondAccept:
 
 class TestRespondRefuse:
     def test_refuse_sets_rejetee_avaliste_terminal(self):
-        borrower = _make_new_member(savings_collecte=Decimal("10000"))
+        borrower = _make_new_member(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         lr = _make_loan_request(borrower, montant=Decimal("50000"))
         consent = request_avaliste_consent(
@@ -283,7 +283,7 @@ class TestRespondRefuse:
 
     def test_refuse_without_motif_ok(self):
         """Le motif est facultatif (vs LenderConsentRequest qui l'exige)."""
-        borrower = _make_new_member(savings_collecte=Decimal("10000"))
+        borrower = _make_new_member(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         lr = _make_loan_request(borrower, montant=Decimal("50000"))
         consent = request_avaliste_consent(
@@ -296,7 +296,7 @@ class TestRespondRefuse:
 
     def test_refuse_after_accept_raises_q13(self):
         """Rétractation après acceptation = interdit (Q13)."""
-        borrower = _make_new_member(savings_collecte=Decimal("10000"))
+        borrower = _make_new_member(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         lr = _make_loan_request(borrower, montant=Decimal("50000"))
         consent = request_avaliste_consent(
@@ -307,7 +307,7 @@ class TestRespondRefuse:
             respond_to_avaliste_consent(consent, accept=False, motif="oups")
 
     def test_re_refuse_after_refuse_is_idempotent(self):
-        borrower = _make_new_member(savings_collecte=Decimal("10000"))
+        borrower = _make_new_member(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         lr = _make_loan_request(borrower, montant=Decimal("50000"))
         consent = request_avaliste_consent(
