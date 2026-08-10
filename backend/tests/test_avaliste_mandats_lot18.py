@@ -62,12 +62,16 @@ def _make_senior(*, savings_classique=Decimal("0"), savings_collecte=Decimal("0"
     return m
 
 
-def _make_new(*, savings_collecte=Decimal("0")):
+def _make_new(*, savings_collecte=Decimal("0"), savings_classique=Decimal("0")):
     m = MemberFactory(date_adhesion=date.today() - timedelta(days=30))
     if savings_collecte > 0:
         sa = SavingsAccount.objects.get(member=m)
         sa.solde = savings_collecte
         sa.save(update_fields=["solde"])
+    if savings_classique > 0:
+        ClassicSavingsAccount.objects.create(
+            member=m, solde=savings_classique, date_ouverture=date.today()
+        )
     return m
 
 
@@ -97,7 +101,7 @@ def _client(member):
 
 class TestList:
     def test_returns_mandats_where_im_avaliste(self):
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         _pose_consent(borrower=borrower, senior=senior)
 
@@ -110,7 +114,7 @@ class TestList:
 
     def test_borrower_does_not_see_own_request_as_mandat(self):
         """Le demandeur ne voit pas SON propre mandat avaliste — il n'est pas avaliste."""
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         _pose_consent(borrower=borrower, senior=senior)
 
@@ -119,7 +123,7 @@ class TestList:
         assert r.json()["count"] == 0
 
     def test_filter_by_statut(self):
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         c = _pose_consent(borrower=borrower, senior=senior)
         # Mark as ACCEPTED so we can filter.
@@ -152,7 +156,7 @@ class TestList:
 
 class TestDetail:
     def test_detail_returns_data(self):
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         c = _pose_consent(borrower=borrower, senior=senior)
 
@@ -165,7 +169,7 @@ class TestDetail:
         assert "ratio" in body["couverture"]
 
     def test_detail_404_if_not_my_mandat(self):
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         other = _make_senior()
         c = _pose_consent(borrower=borrower, senior=senior)
@@ -181,7 +185,7 @@ class TestDetail:
 
 class TestRespond:
     def test_accept_passes_lr_to_en_instruction(self):
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         c = _pose_consent(borrower=borrower, senior=senior)
 
@@ -201,7 +205,7 @@ class TestRespond:
         assert c.cni_avaliste == "CNI-AV-001"
 
     def test_refuse_with_motif_marks_lr_rejetee_avaliste(self):
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         c = _pose_consent(borrower=borrower, senior=senior)
 
@@ -219,7 +223,7 @@ class TestRespond:
 
     def test_accept_then_refuse_rejected_q13(self):
         """Q13 — non-rétractation : après ACCEPTED, on ne peut plus REFUSED."""
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         c = _pose_consent(borrower=borrower, senior=senior)
 
@@ -239,7 +243,7 @@ class TestRespond:
         assert "rétractation" in r.json()["detail"].lower()
 
     def test_double_accept_idempotent(self):
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         c = _pose_consent(borrower=borrower, senior=senior)
 
@@ -258,7 +262,7 @@ class TestRespond:
         assert r2.json()["statut"] == "accepted"
 
     def test_respond_404_if_not_my_mandat(self):
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         other = _make_senior()
         c = _pose_consent(borrower=borrower, senior=senior)
@@ -278,7 +282,7 @@ class TestRespond:
 
 class TestL5AvalisteCni:
     def test_accept_without_cni_number_rejected(self):
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         c = _pose_consent(borrower=borrower, senior=senior)
         r = _client(senior).post(
@@ -292,7 +296,7 @@ class TestL5AvalisteCni:
         assert c.statut == AvalisteConsent.Statut.PENDING  # pas accepté
 
     def test_accept_without_cni_file_rejected(self):
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         c = _pose_consent(borrower=borrower, senior=senior)
         r = _client(senior).post(
@@ -305,7 +309,7 @@ class TestL5AvalisteCni:
         assert c.statut == AvalisteConsent.Statut.PENDING
 
     def test_refuse_needs_no_cni(self):
-        borrower = _make_new(savings_collecte=Decimal("10000"))
+        borrower = _make_new(savings_classique=Decimal("10000"))
         senior = _make_senior(savings_classique=Decimal("100000"))
         c = _pose_consent(borrower=borrower, senior=senior)
         r = _client(senior).post(

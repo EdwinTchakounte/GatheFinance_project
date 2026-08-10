@@ -152,6 +152,17 @@ class TestGelManque:
         assert lr.montant_gele_demandeur == Decimal("80000")
         assert consent.montant_caution == Decimal("0")
 
+    def test_borrower_below_apport_min_is_rejected(self):
+        # Décision cliente 2026-08 : l'avaliste couvre au MAX 80 % → le demandeur
+        # doit apporter au moins 20 % (ici 5k < 20k pour un montant de 100k) → refus.
+        borrower = _new(classique=Decimal("5000"))
+        avaliste = _senior(classique=Decimal("500000"))
+        lr = _lr(borrower, montant=Decimal("100000"))
+        with pytest.raises(ValueError, match="Apport personnel insuffisant"):
+            request_avaliste_consent(
+                lr, numero_identification=avaliste.numero_membre, nom=avaliste.nom
+            )
+
 
 # ---------------------------------------------------------------------------
 # Anti double-nantissement / cap-solde avaliste
@@ -161,18 +172,20 @@ class TestGelManque:
 class TestDoubleNantissement:
     def test_avaliste_capacity_reduced_by_prior_commitment(self):
         avaliste = _senior(classique=Decimal("100000"))
-        b1 = _new(nom="BORROWER1")
+        # b1 apporte ses 20 % (12k), l'avaliste comble le reste (48k).
+        b1 = _new(nom="BORROWER1", classique=Decimal("12000"))
         lr1 = _lr(b1, montant=Decimal("60000"))
-        _accept(lr1, avaliste)  # gèle 60k chez l'avaliste (b1 a 0 d'épargne)
+        _accept(lr1, avaliste)  # 48k gelés chez l'avaliste
 
-        # Capacité restante de l'avaliste = 100k − 60k = 40k.
+        # Capacité restante de l'avaliste = 100k − 48k = 52k.
         solde, engaged, free = member_caution_capacity(avaliste)
-        assert engaged == Decimal("60000")
-        assert free == Decimal("40000")
+        assert engaged == Decimal("48000")
+        assert free == Decimal("52000")
 
-        # b2 demande 60k avec le même avaliste → couverture 0 + 40k < 60k → KO.
-        b2 = _new(nom="BORROWER2")
-        lr2 = _lr(b2, montant=Decimal("60000"))
+        # b2 demande 500k (apport 100k OK) mais couverture cumulée
+        # (100k + 52k dispo avaliste) / 500k < 1 → KO.
+        b2 = _new(nom="BORROWER2", classique=Decimal("100000"))
+        lr2 = _lr(b2, montant=Decimal("500000"))
         with pytest.raises(ValueError, match="Couverture insuffisante"):
             request_avaliste_consent(
                 lr2, numero_identification=avaliste.numero_membre, nom=avaliste.nom
@@ -187,14 +200,14 @@ class TestDoubleNantissement:
 class TestGriseRetrait:
     def test_avaliste_frozen_amount_reduces_withdrawable(self):
         avaliste = _senior(classique=Decimal("100000"))
-        borrower = _new(classique=Decimal("0"))
+        borrower = _new(classique=Decimal("12000"))  # apporte ses 20 %
         lr = _lr(borrower, montant=Decimal("60000"))
-        _accept(lr, avaliste)  # gèle 60k chez l'avaliste
+        _accept(lr, avaliste)  # 48k gelés chez l'avaliste
 
         acc = _classic_acc(avaliste)
-        # Retirable = 100k − max(placement 0, gel 60k) = 40k.
-        assert classic_withdrawable(acc) == Decimal("40000")
-        assert member_frozen_guarantee(avaliste) == Decimal("60000")
+        # Retirable = 100k − max(placement 0, gel 48k) = 52k.
+        assert classic_withdrawable(acc) == Decimal("52000")
+        assert member_frozen_guarantee(avaliste) == Decimal("48000")
 
     def test_rejected_request_releases_borrower_gel(self):
         borrower = _new(classique=Decimal("100000"))
@@ -211,14 +224,14 @@ class TestGriseRetrait:
 
     def test_cloture_releases_avaliste_caution(self):
         avaliste = _senior(classique=Decimal("100000"))
-        borrower = _new(classique=Decimal("0"))
+        borrower = _new(classique=Decimal("12000"))  # apporte ses 20 %
         lr = _lr(borrower, montant=Decimal("60000"))
         _accept(lr, avaliste)
-        assert member_frozen_guarantee(avaliste) == Decimal("60000")
+        assert member_frozen_guarantee(avaliste) == Decimal("48000")
 
         # Le crédit est décaissé puis soldé → caution libérée.
         loan = _make_loan(lr, statut=Loan.Statut.ACTIF)
-        assert member_frozen_guarantee(avaliste) == Decimal("60000")  # toujours gelé
+        assert member_frozen_guarantee(avaliste) == Decimal("48000")  # toujours gelé
         loan.statut = Loan.Statut.CLOTURE
         loan.save(update_fields=["statut"])
         assert member_frozen_guarantee(avaliste) == Decimal("0")

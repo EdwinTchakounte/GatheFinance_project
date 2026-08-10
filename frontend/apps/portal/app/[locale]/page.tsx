@@ -321,6 +321,13 @@ export default function PortalDashboardPage() {
             </button>
             <button
               type="button"
+              onClick={() => router.push("/credit?transfer=1")}
+              className={buttonClasses({ variant: "ghost", size: "md", fullWidth: true }) + " mt-3"}
+            >
+              Transférer (rembourser un crédit)
+            </button>
+            <button
+              type="button"
               onClick={() => router.push("/epargne/retrait")}
               className={buttonClasses({ variant: "ghost", size: "md", fullWidth: true }) + " mt-3"}
             >

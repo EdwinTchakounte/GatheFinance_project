@@ -299,12 +299,22 @@ def admin_compose_funding_manual(request, pk: int):
     # le brut nominal : les intérêts retenus à la source ne sortent pas de la
     # caisse. Ex. crédit 60 000 dont 10 % coupés → funding sur 54 000.
     net_finance = Decimal(loan.montant_decaisse_net or loan.montant)
-    if total > net_finance:
+    # Garde CUMULATIF : additionne les allocations DÉJÀ posées sur ce crédit
+    # (compositions successives) pour ne jamais sur-financer au-delà du net
+    # finançable. La contrainte unique (loan, tranche) ne bloque que la
+    # réutilisation d'une MÊME tranche — pas le sur-financement via d'autres.
+    deja_alloue = LenderAllocation.objects.filter(loan=loan).aggregate(
+        s=Sum("montant_alloue")
+    )["s"] or Decimal("0")
+    reste_a_financer = net_finance - deja_alloue
+    if total > reste_a_financer:
         return Response(
             {
                 "detail": (
-                    f"Total selectionne {total} XAF depasse le net a financer "
-                    f"du credit {net_finance} XAF."
+                    f"Sur-financement : {deja_alloue} XAF déjà alloués + "
+                    f"{total} XAF sélectionnés dépassent le net à financer "
+                    f"{net_finance} XAF (reste finançable : "
+                    f"{max(Decimal('0'), reste_a_financer)} XAF)."
                 ),
             },
             status=status.HTTP_400_BAD_REQUEST,

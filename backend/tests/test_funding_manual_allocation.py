@@ -171,6 +171,34 @@ def test_compose_funding_locks_loan_inside_transaction(monkeypatch):
 
 
 @pytest.mark.django_db
+def test_cumulative_over_allocation_is_blocked():
+    """Garde cumulatif : deux compositions successives ne peuvent pas
+    sur-financer un crédit au-delà de son net (bug d'audit 2026-08)."""
+    staff = get_user_model().objects.create(
+        username="admin_over", is_staff=True, is_superuser=True
+    )
+    borrower = MemberFactory()
+    loan = _build_loan(borrower, montant=Decimal("100000"))
+    l1 = _make_lender_with_tranche("60000")
+    l2 = _make_lender_with_tranche("60000")
+    t1 = LenderTranche.objects.get(member=l1)
+    t2 = LenderTranche.objects.get(member=l2)
+
+    # 1re composition : 60k sur 100k → OK.
+    r1 = _compose(loan, [{"tranche_id": t1.id, "montant": "60000"}], staff)
+    assert r1.status_code == 200, r1.data
+
+    # 2e composition : +60k → cumul 120k > 100k → refus (pas de sur-financement).
+    r2 = _compose(loan, [{"tranche_id": t2.id, "montant": "60000"}], staff)
+    assert r2.status_code == 400, r2.data
+    assert "financ" in str(r2.data).lower()
+    # La 2e tranche reste DISPONIBLE (pas engagée) et aucune 2e allocation.
+    t2.refresh_from_db()
+    assert t2.statut == LenderTranche.Statut.DISPONIBLE
+    assert LenderAllocation.objects.filter(loan=loan).count() == 1
+
+
+@pytest.mark.django_db
 def test_partial_manual_funding_quote_part_is_prorata():
     staff = get_user_model().objects.create(
         username="admin2", is_staff=True, is_superuser=True

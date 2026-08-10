@@ -88,6 +88,14 @@ def apply_form_schema(
             continue
         if not _is_visible(field, payload):
             continue
+        # Les champs FICHIER sont uploadés hors-bande (endpoint attachments)
+        # APRÈS la création de l'objet — ils ne sont donc jamais présents dans
+        # le payload de création. Ne pas les exiger ici : sinon toute demande
+        # avec un champ file requis (ex. preuve CGA/CFP quand la réponse est
+        # « oui ») lèverait une ValidationError → bascule legacy → extra_payload
+        # vidé (la déclaration « oui » serait silencieusement perdue).
+        if field.get("type") == "file":
+            continue
         if field.get("required"):
             val = payload.get(field["id"])
             if val is None or val == "" or (isinstance(val, (list, tuple)) and len(val) == 0):
@@ -109,6 +117,12 @@ def apply_form_schema(
         # pourrait poser un champ caché).
         field_def = next((f for f in _iter_fields(schema) if f["id"] == key), None)
         if field_def is not None and not _is_visible(field_def, payload):
+            continue
+        # Les champs FICHIER (preuves BRC, titres…) ne vont JAMAIS dans
+        # extra_payload : ils ne sont pas JSON-sérialisables (crash 500) et sont
+        # stockés comme Documents via l'endpoint attachments. On les ignore ici,
+        # que la valeur soit un fichier uploadé inline ou déclarée type=file.
+        if (field_def is not None and field_def.get("type") == "file") or hasattr(val, "read"):
             continue
 
         if key in hardcoded_keys:

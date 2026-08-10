@@ -78,6 +78,7 @@ function statutColor(s: LoanRequest["statut"]): string {
 
 export default function PortalCreditPage() {
   const router = useRouter();
+  const [transferHandled, setTransferHandled] = useState(false);
   const [eligibility, setEligibility] = useState<{
     eligible: boolean;
     plafond_max: string;
@@ -187,6 +188,22 @@ export default function PortalCreditPage() {
   const [renewalSchema, setRenewalSchema] = useState<FormSchemaPublic | null>(null);
   const [renewalValues, setRenewalValues] = useState<FormValues>({});
   const [renewalExtraErrors, setRenewalExtraErrors] = useState<Record<string, string>>({});
+
+  // Deep-link « Transférer » depuis le dashboard (parité action rapide mobile) :
+  // ouvre le remboursement depuis l'épargne sur le crédit actif non soldé.
+  useEffect(() => {
+    if (transferHandled || !activeLoans) return;
+    // Client-only : évite le bailout CSR de useSearchParams au prerender.
+    const wantsTransfer =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("transfer") === "1";
+    if (!wantsTransfer) return;
+    const target = activeLoans.find((l) => Number(l.solde_restant) > 0);
+    if (target) {
+      setRepayTarget(target);
+      setTransferHandled(true);
+    }
+  }, [activeLoans, transferHandled]);
 
   useEffect(() => {
     let cancelled = false;

@@ -200,7 +200,7 @@ class TestVoieAvaliste:
         """
         _seed_fee()
         _new_member(active_member)
-        _seed_classic(active_member, 10000)
+        _seed_classic(active_member, 20000)  # apport 20 % du montant
         avaliste = MemberFactory(nom="DUPONT")
         _ancient_brc(avaliste)
         _seed_classic(avaliste, 200000)  # couverture suffisante
@@ -235,8 +235,8 @@ class TestVoieAvaliste:
         assert lr.avaliste_nom_saisi == "DUPONT"
 
         # À l'encaissement, l'avaliste est sollicité et le gel se pose :
-        # le demandeur gèle son épargne dispo (10k), l'avaliste comble le
-        # manque (100k − 10k = 90k).
+        # le demandeur gèle son apport (20k = 20 %), l'avaliste comble le reste
+        # jusqu'à 100 % (100k − 20k = 80k, plafond avaliste 80 %).
         from apps_coop.loans.study_fee_services import open_instruction_after_fees
 
         open_instruction_after_fees(lr)
@@ -244,8 +244,8 @@ class TestVoieAvaliste:
         lr.refresh_from_db()
         assert lr.statut == LoanRequest.Statut.EN_ATTENTE_AVALISTE
         assert lr.avaliste_consent.statut == AvalisteConsent.Statut.PENDING
-        assert lr.montant_gele_demandeur == Decimal("10000")
-        assert lr.avaliste_consent.montant_caution == Decimal("90000")
+        assert lr.montant_gele_demandeur == Decimal("20000")
+        assert lr.avaliste_consent.montant_caution == Decimal("80000")
 
     def test_insufficient_coverage_rejects(self, active_member):
         _seed_fee()

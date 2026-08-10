@@ -184,7 +184,7 @@ class TestVoieAvaliste:
     def test_full_lifecycle(self, active_member, comite):
         _seed_fee("1000")
         _new(active_member)
-        _classic(active_member, "10000")  # cagnotte 10k == 10 % → passe le garde-fou
+        _classic(active_member, "20000")  # apport 20 % du montant (100k)
         avaliste = MemberFactory(nom="DUPONT")
         _ancient_brc(avaliste)
         _classic(avaliste, "200000")
@@ -225,7 +225,7 @@ class TestVoieAvaliste:
     def test_avaliste_refuse_termine_en_rejet(self, active_member, comite):
         _seed_fee("1000")
         _new(active_member)
-        _classic(active_member, "10000")
+        _classic(active_member, "20000")
         avaliste = MemberFactory(nom="DUPONT")
         _ancient_brc(avaliste)
         _classic(avaliste, "200000")
