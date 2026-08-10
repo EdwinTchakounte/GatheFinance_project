@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Dossier de tests locaux — GATHE Finance</title>
+<style>
+  :root{
+    --bleu:#0747FF; --navy:#1E3A8A; --vert:#13820E; --vert-vif:#33FF00;
+    --gris:#F0F4F3; --ink:#0F172A; --muted:#5A6472; --line:#E3E8EE;
+    --ok:#0F8A46; --okbg:#EAF7EF; --warn:#B45309; --warnbg:#FBF3E4;
+    --bug:#B42318; --bugbg:#FBEAE8;
+  }
+  @page{ size:A4; margin:18mm 15mm; }
+  *{ box-sizing:border-box; }
+  body{
+    font-family:'DM Sans',-apple-system,Segoe UI,Helvetica,Arial,sans-serif;
+    color:var(--ink); font-size:11.5px; line-height:1.6; margin:0;
+  }
+  h1,h2,h3{ font-family:'Syne',Georgia,serif; letter-spacing:.2px; }
+  .cover{
+    background:linear-gradient(135deg,#00B894 0%,var(--bleu) 55%,var(--navy) 100%);
+    color:#fff; border-radius:20px; padding:38px 34px; margin-bottom:26px;
+  }
+  .cover .kicker{ font-size:11px; letter-spacing:.18em; text-transform:uppercase; opacity:.9; }
+  .cover h1{ font-size:30px; margin:10px 0 6px; color:#fff; }
+  .cover .sub{ font-size:13px; opacity:.92; }
+  .cover .meta{ margin-top:18px; font-size:11px; opacity:.9; }
+  h2{ font-size:17px; color:var(--navy); margin:26px 0 4px; }
+  h2 .bar{ display:inline-block; width:26px; height:4px; border-radius:3px;
+    background:var(--vert); vertical-align:middle; margin-right:9px; }
+  h3{ font-size:13.5px; color:var(--ink); margin:16px 0 4px; }
+  p{ margin:6px 0; }
+  .muted{ color:var(--muted); }
+  .card{ border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin:10px 0; }
+  .grid{ display:flex; gap:12px; flex-wrap:wrap; }
+  .grid .card{ flex:1 1 210px; margin:0; }
+  table{ width:100%; border-collapse:collapse; margin:8px 0; font-size:10.8px; }
+  th,td{ text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th{ color:var(--navy); font-weight:600; background:var(--gris); }
+  code{ font-family:'JetBrains Mono',Menlo,monospace; font-size:10px;
+    background:var(--gris); padding:1px 5px; border-radius:5px; }
+  .pill{ display:inline-block; font-size:9.5px; font-weight:600; padding:2px 9px;
+    border-radius:999px; letter-spacing:.03em; }
+  .pill.ok{ background:var(--okbg); color:var(--ok); }
+  .pill.warn{ background:var(--warnbg); color:var(--warn); }
+  .pill.bug{ background:var(--bugbg); color:var(--bug); }
+  .flow{ margin:8px 0; }
+  .flow .step{ padding:7px 0 7px 20px; border-left:2px solid var(--line);
+    position:relative; margin-left:6px; }
+  .flow .step::before{ content:''; position:absolute; left:-6px; top:11px;
+    width:10px; height:10px; border-radius:50%; background:var(--vert); }
+  .flow .step b{ color:var(--navy); }
+  .callout{ border-radius:12px; padding:12px 15px; margin:12px 0; }
+  .callout.bug{ background:var(--bugbg); border:1px solid #F1C7C2; }
+  .callout.ok{ background:var(--okbg); border:1px solid #BBE6CB; }
+  .callout .t{ font-weight:700; font-size:12px; }
+  .callout.bug .t{ color:var(--bug); }
+  .callout.ok .t{ color:var(--ok); }
+  .num{ font-variant-numeric:tabular-nums; }
+  footer{ margin-top:30px; padding-top:12px; border-top:2px solid var(--gris);
+    color:var(--muted); font-size:10px; text-align:center; }
+  .pending{ color:var(--muted); font-style:italic; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="kicker">GATHE Finance · Coopérative d'épargne &amp; de crédit</div>
+  <h1>Dossier de tests locaux</h1>
+  <div class="sub">Simulation détaillée des flux — crédit (4 voies), épargne collecte, collecte antidatée, adhésion & ajout de membre</div>
+  <div class="meta">Environnement : stack locale (backend :8210 · vitrine :3401 · admin :3402 · portail :3403) — pilotage via les endpoints réels de l'API.<br>Version vivante — mise à jour à chaque scénario validé.</div>
+</div>
+
+<h2><span class="bar"></span>1. Contexte & méthode</h2>
+<p>Chaque scénario est joué contre le <b>backend local réel</b> via les mêmes endpoints que déclenchent le portail membre et le dashboard admin. Après <b>chaque transition</b>, on capture l'état effectif : statut de la demande, montant gelé en garantie, voie retenue, soldes d'épargne, paiements. Les données restent en base et sont ré-inspectables dans l'admin et le portail.</p>
+<div class="grid">
+  <div class="card"><b>Emprunteur (voie 1)</b><br><span class="muted">mbr15 · 250 000 classique · ancienneté 400 j</span></div>
+  <div class="card"><b>Emprunteur (voie 2)</b><br><span class="muted">mbr12 · 60 000 classique (apport)</span></div>
+  <div class="card"><b>Avaliste</b><br><span class="muted">mbr14 · 400 000 classique disponible</span></div>
+  <div class="card"><b>Campagne active</b><br><span class="muted">20 000–200 000 · frais 500 · 2 docs requis</span></div>
+</div>
+<p class="muted">Règles transverses observées : durée <b>dérivée du montant</b> (Article 7, lecture seule côté UI) ; <b>intérêts précomptés à la source</b> (le membre reçoit le net et rembourse le net) ; garantie = <b>gel</b> d'épargne classique, libéré à la clôture/au rejet.</p>
+
+<h2><span class="bar"></span>2. Anomalies & correctifs</h2>
+<table>
+  <tr><th>#</th><th>Flux</th><th>Anomalie</th><th>Gravité</th><th>Correctif</th><th>État</th></tr>
+  <tr>
+    <td>A1</td><td>Crédit — voie directe</td>
+    <td>Frais d'étude à <b>0</b> (valeur par défaut du seed) → la demande reste coincée en <code>EN_ATTENTE</code>, impossible à instruire.</td>
+    <td><span class="pill bug">Livraison-critique</span></td>
+    <td>Voie directe + étude gratuite → <code>EN_INSTRUCTION</code> direct (parité campagne/avaliste). 2 tests de non-régression.</td>
+    <td><span class="pill ok">Corrigé</span></td>
+  </tr>
+  <tr>
+    <td>A3</td><td>Collecte — e-mails fin de mois</td>
+    <td>Les templates <code>collecte.monthly_restitution</code> / <code>balance_swept_to_savings</code> utilisent <code>{montant}</code>, mais la tâche ne fournissait que <code>restituable</code> → rendu échoué → e-mail envoyé en <b>texte brut</b> chaque mois à tous les membres collecte.</td>
+    <td><span class="pill warn">Cosmétique</span></td>
+    <td>Ajout de l'alias <code>montant</code> au contexte de l'événement (net restitué/basculé). Suite collecte verte (170).</td>
+    <td><span class="pill ok">Corrigé</span></td>
+  </tr>
+  <tr>
+    <td>A2</td><td>Crédit — attributs CGA / CFP BRC</td>
+    <td>La preuve (champ <code>file</code>) est uploadée après création ; <code>apply_form_schema</code> l'exigeait dès la création → <code>ValidationError</code> → bascule legacy → <b><code>extra_payload</code> vidé</b> : la déclaration « CGA=oui / CFP=oui » était <b>silencieusement perdue</b> (et un fichier inline provoquait un 500).</td>
+    <td><span class="pill bug">Élevée</span></td>
+    <td>Les champs <code>type=file</code> sont exclus de la validation <code>required</code> et du split <code>extra_payload</code> (ils vivent en <code>Document</code> via <code>attachments</code>). 4 tests de non-régression.</td>
+    <td><span class="pill ok">Corrigé</span></td>
+  </tr>
+</table>
+
+<h2><span class="bar"></span>3. Scénario — Voie 1 « Ancienneté / apport »</h2>
+<p class="muted">Voie par défaut, sans tiers. Éligible par ancienneté <i>ou</i> auto-couverture (épargne classique ≥ montant).</p>
+<div class="callout bug">
+  <div class="t">🔴 Bug A1 découvert ici</div>
+  Avec le frais d'étude à 0, la demande restait bloquée. Corrigé avant de poursuivre — le cycle ci-dessous est joué sur le code corrigé.
+</div>
+<div class="flow">
+  <div class="step"><b>Demande 100 000</b> → voie <code>senior_brc</code>, <code>auto_couverture=True</code>. Statut <b>en_instruction</b>, <b>gel 100 000</b>, retirable 250 000 → <span class="num">150 000</span>.</div>
+  <div class="step"><b>Frais d'étude</b> 0 XAF → rien à payer.</div>
+  <div class="step"><b>Comité approuve</b> (taux 12 %) → crédit <code>GF-CR-2026-0001</code>, échéancier créé.</div>
+  <div class="step"><b>Décaissement manuel</b> → net décaissé <span class="num">88 000</span> (intérêts 12 000 précomptés).</div>
+  <div class="step"><b>Remboursement</b> 40 000 puis 48 000 depuis l'épargne → solde 0 → <b>clôturé</b>.</div>
+  <div class="step"><b>Clôture</b> → gel libéré, retirable revenu à <span class="num">162 000</span>.</div>
+</div>
+<p><span class="pill ok">Résultat</span> Cycle complet cohérent. Gel posé/consommé/libéré correctement. <b>1 bug corrigé.</b></p>
+
+<h2><span class="bar"></span>4. Scénario — Voie 2 « Avaliste »</h2>
+<p class="muted">Le demandeur apporte ≥ 20 %, l'avaliste couvre le manque (≤ 80 %). Consentement explicite + CNI de l'avaliste requis. Gel réparti demandeur/avaliste.</p>
+<p class="muted">Ordre imposé : <b>avaliste d'abord, frais d'étude ensuite</b>. Les frais ne sont exigibles qu'<i>après</i> l'accord de l'avaliste ; ce n'est qu'une fois les frais payés que le comité étudie.</p>
+<div class="flow">
+  <div class="step"><b>Demande 250 000</b>, avaliste désigné (mbr14) → voie <code>avaliste</code>, ratio couverture <b>1,84</b> (≥ 1,00). Statut <b>en_attente_avaliste</b>. Caution attendue = <span class="num">190 000</span> (manque). Apport demandeur <b>60 000 gelé</b>. Avaliste : <b>rien gelé</b> tant qu'il n'a pas accepté. Frais : <b>pas encore exigibles</b>.</div>
+  <div class="step"><b>L'avaliste consulte son mandat</b> (1 en attente) et <b>accepte</b> avec n° + scan CNI. → Caution avaliste <b>190 000 gelée</b> (retirable 400 000 → <span class="num">210 000</span>).</div>
+  <div class="step">→ La demande tombe sur la <b>porte des frais</b> : statut <b>en_attente</b>, le portail affiche <b>frais d'étude 2 000 à régler</b> (et non « en instruction »).</div>
+  <div class="step"><b>Le membre paie les frais</b> (Mobile Money / espèces au guichet / depuis l'épargne) → statut <b>en_instruction</b> : le comité peut alors étudier.</div>
+  <div class="step"><b>Comité approuve</b> (12 %) → crédit <code>GF-CR-2026-0003</code>. Net décaissé <span class="num">220 000</span> (intérêts 30 000 précomptés).</div>
+  <div class="step"><b>Décaissement manuel</b> puis <b>remboursement 220 000</b> → <b>clôturé</b> → <b>les deux gels libérés</b>.</div>
+</div>
+<div class="callout ok">
+  <div class="t">✓ Séquence des frais validée</div>
+  Avec un frais réel (2 000), la porte des frais apparaît bien <b>entre l'acceptation de l'avaliste et l'instruction</b> : acceptation → <b>en_attente (frais à payer)</b> → paiement → <b>en_instruction</b> → comité. (Avec le frais à 0 du seed, cette porte est sautée — d'où l'importance de fixer un frais réel, cf. anomalie A1.)
+</div>
+<p><span class="pill ok">Résultat</span> Parcours parfait, aucun bug. Règle 20 % / 80 % respectée ; ordre « avaliste puis frais » correct ; gels posés au bon moment et libérés à la clôture.</p>
+
+<h2><span class="bar"></span>5. Scénario — Voie 3 « Garantie matérielle »</h2>
+<p class="muted">Le membre déclare un <b>bien</b> en garantie ; le comité en juge la valeur <b>hors système</b> — aucune règle de couverture n'est imposée, et <b>l'épargne n'est pas gelée</b>.</p>
+<div class="flow">
+  <div class="step"><b>Demande 150 000</b>, garantie « terrain 400 m², titre foncier » → voie <code>garantie_materielle</code>. <b>gel épargne = 0</b> (l'épargne reste 100 % retirable).</div>
+  <div class="step"><b>Titre foncier uploadé</b> en pièce jointe.</div>
+  <div class="step"><b>Frais d'étude 2 000</b> (Mobile Money) → porte des frais → <b>en_instruction</b> (notice : frais non-remboursables, visite terrain éventuelle).</div>
+  <div class="step"><b>Comité juge le bien</b> (hors système) et <b>approuve</b> (12 %) → crédit <code>GF-CR-2026-0004</code>, net décaissé <span class="num">132 000</span>.</div>
+  <div class="step"><b>Décaissement manuel</b> puis <b>remboursement 132 000 par Mobile Money</b> → <b>clôturé</b>.</div>
+  <div class="step">Tout du long : <b>épargne 50 000 intacte</b>, jamais gelée.</div>
+</div>
+<p><span class="pill ok">Résultat</span> Parcours parfait, aucun bug. Garantie = bien (pas de gel d'épargne) ; comité souverain sur la valeur ; remboursement Mobile Money validé.</p>
+
+<h2><span class="bar"></span>6. Scénario — Voie 4 « Campagne micro-crédit » + attribut CGA BRC</h2>
+<p class="muted">Le membre candidate à une campagne ; le comité valide l'activité, puis la porte des frais applique le <b>frais de la campagne</b> (500). La coop porte le risque → <b>pas de gel d'épargne</b>. Test simultané des attributs <b>CGA BRC / CFP BRC</b>.</p>
+<div class="callout bug">
+  <div class="t">🔴 Bug A2 découvert ici</div>
+  La déclaration « CGA=oui » était perdue (fallback legacy). Corrigé : <code>extra_payload</code> capture maintenant <code>{cga_adherent: oui, ancien_apprenant: non}</code>.
+</div>
+<div class="flow">
+  <div class="step"><b>Candidature 80 000</b> (campagne), <code>cga_adherent=oui</code> → voie <code>campaign</code>, statut <b>en_validation_campagne</b>. <b>extra_payload capturé</b>. gel épargne = 0.</div>
+  <div class="step"><b>Preuve CGA uploadée</b> via <code>attachments</code> → <code>Document</code> + <code>BRCDocument</code> (statut <i>en_attente</i>) créés, événement <code>brc_document_uploaded</code>. <span class="muted">(<code>is_brc_member</code> ne passe à vrai qu'après validation admin — informatif, le comité juge à l'approbation.)</span></div>
+  <div class="step"><b>Comité valide la campagne</b> → porte des frais : le portail affiche <b>frais 500</b> (frais de la campagne, pas le frais standard).</div>
+  <div class="step"><b>Membre paie 500</b> (Mobile Money) → <b>en_instruction</b>.</div>
+  <div class="step"><b>Comité approuve</b> (taux campagne 5 %) → crédit <code>GF-CR-2026-0005</code>, net décaissé <span class="num">76 000</span>.</div>
+  <div class="step"><b>Décaissement + remboursement</b> → <b>clôturé</b>.</div>
+</div>
+<p><span class="pill ok">Résultat</span> Cycle campagne complet cohérent (frais campagne respecté, pas de gel). <b>1 bug corrigé (A2)</b> ; l'attribut CGA/CFP est désormais persisté et visible du comité.</p>
+
+<h3>6.2 — Campagne : candidature NON-MEMBRE (vitrine)</h3>
+<p class="muted">Cas d'un visiteur pas encore membre : il candidate depuis la vitrine (<code>membre_requis=False</code>), l'admin accepte, un compte est créé.</p>
+<div class="flow">
+  <div class="step"><b>Candidature SANS pièces</b> → <b>400</b> « Pièces justificatives manquantes » : les <b>documents_requis sont exigés côté serveur</b>.</div>
+  <div class="step"><b>Candidature AVEC 2 pièces + extra_payload</b> → <b>201</b>. <code>CampaignApplication</code> en_attente, <b>aucun compte créé</b>, 2 documents, <code>extra_payload</code> capturé.</div>
+  <div class="step"><b>Admin accepte</b> → <b>membre créé ACTIF sans les 13K</b> (origine campagne), <code>LoanRequest</code> <b>EN_ATTENTE</b>, <b>mail de définition de mot de passe</b> envoyé. L'acceptation fait office de validation campagne.</div>
+  <div class="step"><b>Frais d'étude 500 + carnet 1000</b> réglés (le <b>carnet est obligatoire</b> pour un bénéficiaire campagne) → <b>en_instruction</b>.</div>
+  <div class="step"><b>Comité approuve (5 %)</b> → crédit <code>GF-CR-2026-0006</code> → décaissement → remboursement → <b>clôturé</b>.</div>
+</div>
+<p><span class="pill ok">Résultat</span> Parcours non-membre complet, aucun bug : documents exigés, compte créé sans 13K, mail mot de passe, frais étude + carnet avant instruction.</p>
+
+<h3>6.3 — Campagne : garde-fous</h3>
+<table>
+  <tr><th>Garde-fou</th><th>Réponse</th><th>État</th></tr>
+  <tr><td>Montant sous le plancher (10 000 &lt; 20 000)</td><td>400 « Montant &lt; plancher campagne »</td><td><span class="pill ok">OK</span></td></tr>
+  <tr><td>Montant au-dessus du plafond (300 000 &gt; 200 000)</td><td>400 « Montant &gt; plafond campagne »</td><td><span class="pill ok">OK</span></td></tr>
+  <tr><td>Candidature publique sur campagne <code>membre_requis=True</code></td><td>400 « réservée aux membres — connecte-toi »</td><td><span class="pill ok">OK</span></td></tr>
+  <tr><td>Admin rejette une candidature</td><td><code>rejetee</code>, aucun compte créé</td><td><span class="pill ok">OK</span></td></tr>
+</table>
+
+<h2><span class="bar"></span>7. Bilan crédit — les 4 voies + les 2 entrées campagne</h2>
+<table>
+  <tr><th>Voie</th><th>Gel épargne</th><th>Frais d'étude</th><th>Cycle complet</th><th>Verdict</th></tr>
+  <tr><td>Ancienneté / apport</td><td>montant (auto-couv.)</td><td>porte standard</td><td>✓</td><td><span class="pill ok">OK (bug A1 corrigé)</span></td></tr>
+  <tr><td>Avaliste</td><td>apport + caution</td><td>après accord avaliste</td><td>✓</td><td><span class="pill ok">OK</span></td></tr>
+  <tr><td>Garantie matérielle</td><td>aucun (bien)</td><td>porte standard</td><td>✓</td><td><span class="pill ok">OK</span></td></tr>
+  <tr><td>Campagne</td><td>aucun (coop porte)</td><td>frais campagne</td><td>✓</td><td><span class="pill ok">OK (bug A2 corrigé)</span></td></tr>
+</table>
+
+<h2><span class="bar"></span>8. Scénario — E1 « Collecte journalière »</h2>
+<p class="muted">Épargne de proximité : dépôts quotidiens (min 1000/jour), imputés à un carnet, avec commission 1 % et restitution/bascule en fin de mois.</p>
+<div class="callout warn">
+  <div class="t">🟡 Bug A3 découvert ici</div>
+  Les e-mails de fin de mois partaient en texte brut (variable <code>{montant}</code> non fournie). Corrigé.
+</div>
+<div class="flow">
+  <div class="step"><b>Dépôt 500</b> → <b>400</b> « Montant minimum de la collecte : 1000 FCFA par jour » : le <b>plancher journalier est appliqué</b>.</div>
+  <div class="step"><b>Dépôt 2 000</b> (1 jour) → collecte = 2 000. <b>Dépôt 10 000</b> couvrant <b>5 jours</b> (prépaiement) → collecte = 12 000.</div>
+  <div class="step"><b>Cut-off</b> : les écritures portent une <b>date-valeur au cut-off (17:00)</b>. <b>Imputation carnet</b> : les 2 dépôts pointent le carnet commandé.</div>
+  <div class="step"><b>Fin de mois</b> (<code>collecte_fin_de_mois</code>) : <b>commission 1 % = 120</b> (sur 12 000), solde collecte remis à <b>0</b>.</div>
+  <div class="step"><b>Bascule</b> (préférence = épargne) : le net <span class="num">11 880</span> (12 000 − 120) est <b>versé sur l'épargne classique</b>. Idempotent : une seule commission par compte et par mois.</div>
+</div>
+<p><span class="pill ok">Résultat</span> Mécanique collecte complète et exacte (plancher, cut-off, carnet, commission 1 %, bascule). <b>1 bug cosmétique corrigé (A3)</b>. Les 3 destinations de fin de mois existent : cash (agence), Mobile Money, bascule épargne.</p>
+
+<h2><span class="bar"></span>9. Scénario — E2 « Collecte antidatée » (reprise d'historique)</h2>
+<p class="muted">Outil admin pour saisir des écritures collecte rétroactives (reprise d'un carnet papier) — sans paiement, sans notification, sans rejouer la clôture du mois.</p>
+<div class="flow">
+  <div class="step"><b>Dépôt antidaté 5 000</b> au 2026-07-15 → solde 5 000, écriture <b>datée au 15/07</b>, imputée au carnet, <code>payment=None</code>.</div>
+  <div class="step"><b>Dépôt 3 000</b> (20/07) + <b>retrait 2 000</b> (25/07) → solde <b>6 000</b>.</div>
+  <div class="step"><b>Retrait 10 000</b> (&gt; solde) → <b>409</b> « Ce retrait rendrait le solde collecte négatif (6 000 disponibles) » : <b>garde négatif</b> actif.</div>
+  <div class="step"><b>Contrôles</b> : <b>0 Payment</b> et <b>0 notification</b> créés (delta nul), écritures datées au passé, imputées au carnet. Aucun rejeu de la commission de juillet.</div>
+</div>
+<p><span class="pill ok">Résultat</span> Reprise d'historique fidèle : ledger-only, garde négatif, aucune fuite (ni paiement ni notification). Aucun bug.</p>
+
+<h2><span class="bar"></span>10. Feature — M1 « Ajout d'un membre depuis le dashboard »</h2>
+<p class="muted">Nouvelle fonctionnalité (construite pendant la session). Cas particulier : l'admin crée le membre ; le membre charge lui-même ses pièces au moment de définir son mot de passe (elles n'ont pas transité par le formulaire public).</p>
+<div class="flow">
+  <div class="step"><b>Admin → « Ajouter un membre »</b> (dashboard) : nom, prénom, e-mail, tél → membre créé <b>SUSPENDU</b>, <code>pieces_a_fournir=True</code>, <b>mail de définition de mot de passe</b> envoyé. Doublon e-mail → <b>409</b>.</div>
+  <div class="step"><b>Membre → lien du mail</b> : la page « définir mot de passe » détecte <code>pieces_required</code> et affiche <b>3 champs pièces</b> (CNI, photo, plan) en plus des champs mot de passe.</div>
+  <div class="step"><b>Sans les pièces</b> → refus <b>400</b> « Pièces requises manquantes ». <b>Avec les 3 pièces</b> → mot de passe posé + pièces rangées en <code>Document</code> (CNI = pièce d'identité), flag retiré.</div>
+  <div class="step"><b>Un membre normal</b> (parcours adhésion) n'a <b>pas</b> à charger de pièces : la page reste inchangée pour lui.</div>
+</div>
+<p><span class="pill ok">Construit + testé</span> Backend (endpoint IsAdmin + setup enrichi + migration) · Admin (bouton + modale) · Portail (champs pièces conditionnels). 5 tests backend dédiés, suite complète <b>1329 verte</b>, les 3 apps typecheck OK.</p>
+
+<h2><span class="bar"></span>11. Autres flows couverts</h2>
+<table>
+  <tr><th>Flow</th><th>Ce qui a été vérifié</th><th>Verdict</th></tr>
+  <tr>
+    <td><b>Adhésion → activation</b></td>
+    <td>Demande → approbation admin (membre <b>SUSPENDU</b> + mail mot de passe) → 3 frais (10 000 + 2 000 + 1 000) : activation <b>ACTIF seulement au triplet complet</b>, <code>date_activation</code> posée. Re-paiement après activation → 400 (garde-fou).</td>
+    <td><span class="pill ok">OK</span></td>
+  </tr>
+  <tr>
+    <td><b>Retrait</b></td>
+    <td>Demande (aucun débit) → approbation (<b>réserve</b>, toujours aucun débit) → mark-paid (<b>débit effectif</b>). Refus si &gt; solde. Invariant « débit au paiement seul » confirmé.</td>
+    <td><span class="pill ok">OK</span></td>
+  </tr>
+  <tr>
+    <td><b>Transfert</b></td>
+    <td><code>transfer/available</code> = {classique, collecte, total} ; remboursement pioche <b>classique d'abord, puis collecte</b> (ordre confirmé).</td>
+    <td><span class="pill ok">OK</span></td>
+  </tr>
+  <tr>
+    <td><b>Suppression membre</b></td>
+    <td>Membre propre → <b>cascade 200</b> ; membre <b>avaliste actif</b> d'un tiers → <b>409</b> bloqué (message clair), membre conservé.</td>
+    <td><span class="pill ok">OK</span></td>
+  </tr>
+  <tr>
+    <td><b>Épargne classique (libre)</b></td>
+    <td>Dépôt → solde crédité + <b>maturité 12 mois</b> semée (<code>date_prochaine_maturite</code>) + <code>cycle_courant=1</code>. Retrait couvert via le flow Retrait.</td>
+    <td><span class="pill ok">OK</span></td>
+  </tr>
+  <tr>
+    <td><b>Pool prêteur</b></td>
+    <td>Funding manuel, intérêt <b>k = 3 %</b> × contribution, libération des tranches à la clôture, garde sur-allocation cumulative. <b>118 tests verts</b>.</td>
+    <td><span class="pill ok">OK</span></td>
+  </tr>
+  <tr>
+    <td><b>Auth</b></td>
+    <td>Changement de mot de passe (membre connecté) · réinitialisation par <b>OTP</b> (demande → code → nouveau mot de passe). Session 30 min glissante (config).</td>
+    <td><span class="pill ok">OK</span></td>
+  </tr>
+  <tr>
+    <td><b>Support</b></td>
+    <td>Fil unique membre ↔ coop : le membre écrit, l'admin répond, le membre voit les 2 messages (compteur non-lus à jour).</td>
+    <td><span class="pill ok">OK</span></td>
+  </tr>
+  <tr>
+    <td><b>Annonces / notifications</b></td>
+    <td>Admin crée une annonce (audience « tous ») → le membre la voit + une <b>notification</b> lui est créée.</td>
+    <td><span class="pill ok">OK</span></td>
+  </tr>
+  <tr>
+    <td><b>RBAC admin</b></td>
+    <td>Rôles réutilisables + enforcement fail-closed + anti-escalade. <b>33 tests verts</b>.</td>
+    <td><span class="pill ok">OK</span></td>
+  </tr>
+</table>
+<p class="muted">Reste non rejoué en live (rendu, couvert par l'audit + la suite backend) : CMS/vitrine (Wagtail i18n, formulaires publics captcha).</p>
+
+<footer>
+  GATHE Finance — Dossier de tests locaux · document interne, mis à jour au fil des scénarios validés.
+</footer>
+
+</body>
+</html>
