@@ -102,10 +102,10 @@ def acknowledge(kind: str, data: dict) -> None:
                 "7 jours ouvrés."
             )
             next_steps = _(
-                "Vous serez recontacté(e) par email dès qu'une décision sera "
-                "prise. Préparez vos pièces (CNI, photo, plan de localisation) "
-                "pour l'entretien d'admission, conformément à l'Article 3 du "
-                "Règlement."
+                "Les pièces jointes à votre demande (pièce d'identité, photo, "
+                "plan de localisation) ont bien été enregistrées : vous n'avez "
+                "rien d'autre à préparer pour le moment. Vous serez recontacté(e) "
+                "par email dès qu'une décision sera prise."
             )
             text_body = (
                 f"Bonjour {name},\n\n"

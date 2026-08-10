@@ -18,6 +18,24 @@
 
 ---
 
+## ✅✅ RÉSOLU (2026-08-07)
+
+Candidature avec pièce jointe = **HTTP 201** en prod cliente (direct backend +
+via proxy vitrine). Deux correctifs cumulés :
+
+1. **PR #52** — `prod.py` : `addressing_style` piloté par `AWS_S3_ADDRESSING_STYLE`
+   (défaut `virtual`). MinIO exige `path`.
+2. **PR #53** — `docker-compose.prod.yml` : **déclarer** `AWS_S3_ADDRESSING_STYLE`
+   dans le bloc `environment:` du backend (sinon `--env-file` ne l'injecte pas
+   dans le conteneur — il ne sert qu'à interpoler le compose).
+
++ côté serveur : `AWS_S3_ADDRESSING_STYLE=path` dans `infra/.env.prod`.
+
+> Piège clé : une variable de `.env.prod` n'atteint le conteneur **que** si elle
+> est listée dans `environment:` du service. `--env-file` ≠ injection.
+
+---
+
 ## 🎯 CAUSE RACINE (2026-08-07) — addressing_style « virtual » sur MinIO
 
 Host fautif révélé par le test §2 :

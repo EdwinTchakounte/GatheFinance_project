@@ -3,23 +3,21 @@
 Branche : `feat/credit-hardening-campaigns-cms-emails` → poussée sur `staging`.
 PR : [#46](https://github.com/EdwinTchakounte/GatheFinance_project/pull/46).
 
-## État (au 2026-07-27)
-- ✅ **Code validé** : tous les tests + builds CI verts (backend pytest 10m, frontend, mobile, 4 images Docker sur GHCR).
-- ✅ **Disque serveur nettoyé** (`docker system prune -af`) — le blocage « no space left on device » est levé.
-- ✅ **DÉPLOIEMENT STAGING RÉUSSI** (rerun du run `30289252796`, `conclusion=success`). Le code est LIVE sur le staging Contabo (tag `:staging`).
-- ⏳ **RESTE À FAIRE MAINTENANT → §3** : commandes de données sur le serveur (migrate + `seed_form_schemas --force` + réglages), puis smoke test (§4).
-
-> §1 et §2 ci-dessous sont conservés pour référence (déjà faits).
+## État
+- ✅ **Code validé** : tous les tests + builds CI verts (backend pytest 10m, frontend, mobile, 4 images Docker construites et poussées sur GHCR).
+- ❌ **Déploiement staging échoué** — cause : **disque plein sur le serveur Contabo**
+  (`failed to extract layer ... no space left on device`). **Pas un bug de code.**
 
 ---
 
-## 1. Libérer l'espace disque (sur le serveur Contabo) — ✅ FAIT
+## 1. Libérer l'espace disque (sur le serveur Contabo)
 
 ```bash
 ssh root@81.0.246.144        # host alias : afrikamode-vps
 
 # Voir l'espace avant
-df -h
+clear
+
 
 # Nettoyer images / conteneurs / cache Docker inutilisés
 docker system prune -af
@@ -42,7 +40,7 @@ journalctl --vacuum-size=200M   # purge des logs systemd si volumineux
 
 ---
 
-## 2. Relancer le déploiement — ✅ FAIT (rerun réussi)
+## 2. Relancer le déploiement
 
 Les images sont déjà construites sur GHCR → on relance **seulement** le job échoué :
 
@@ -57,7 +55,7 @@ inutile ici, le rerun du job suffit.)
 
 ---
 
-## 3. 👉 À FAIRE MAINTENANT — commandes de données (sur le serveur)
+## 3. Après un déploiement staging RÉUSSI (sur le serveur)
 
 ```bash
 # Conteneur backend staging (adapter le nom si besoin)

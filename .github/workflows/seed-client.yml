@@ -1,0 +1,76 @@
+# Manuel — workflow_dispatch pour rejouer les seeds idempotents sur le serveur
+# CLIENT (DMZ, api.gathe-finance.com) sans SSH à la main. Jumeau de seed-prod.yml
+# mais ciblant les secrets CLIENT_VPS_* + le compose client (docker-compose.client.yml).
+#
+# Motivation : l'entrypoint ne seede PAS les FormSchema → le schéma « demande de
+# crédit » (dont la question CGA / profil_cga) n'est pas actif sur le DMZ (404
+# sur /forms/schemas/loan_request/active/). Ce workflow l'active.
+#
+# Idempotent : peut être rejoué sans risque (ne touche AUCUNE donnée métier).
+
+name: Seed client DMZ (form schemas + templates)
+
+on:
+  workflow_dispatch:
+    inputs:
+      seed_form_schemas:
+        description: "Rejouer seed_form_schemas --force ? (active le schéma demande de crédit + question CGA)"
+        type: boolean
+        default: true
+      seed_email_templates:
+        description: "Rejouer seed_email_templates --force ?"
+        type: boolean
+        default: false
+      seed_event_catalog:
+        description: "Rejouer seed_event_catalog ?"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    name: Seed client via SSH
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Run seeds via SSH (serveur client DMZ)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.CLIENT_VPS_HOST }}
+          username: ${{ secrets.CLIENT_VPS_USER }}
+          key: ${{ secrets.CLIENT_VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+
+            DEPLOY_PATH="${{ secrets.CLIENT_VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.client.yml --env-file .env.prod"
+
+            cd "$DEPLOY_PATH/infra"
+
+            if [ "${{ inputs.seed_form_schemas }}" = "true" ]; then
+              echo ">>> seed_form_schemas --force"
+              $COMPOSE exec -T backend python manage.py seed_form_schemas --force
+            else
+              echo ">>> seed_form_schemas skipped"
+            fi
+
+            if [ "${{ inputs.seed_email_templates }}" = "true" ]; then
+              echo ">>> seed_email_templates --force"
+              $COMPOSE exec -T backend python manage.py seed_email_templates --force
+            else
+              echo ">>> seed_email_templates skipped"
+            fi
+
+            if [ "${{ inputs.seed_event_catalog }}" = "true" ]; then
+              echo ">>> seed_event_catalog"
+              $COMPOSE exec -T backend python manage.py seed_event_catalog
+            else
+              echo ">>> seed_event_catalog skipped"
+            fi
+
+            echo ">>> Done."
