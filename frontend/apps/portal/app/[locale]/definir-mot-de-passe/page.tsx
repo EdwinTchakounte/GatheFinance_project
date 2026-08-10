@@ -21,6 +21,11 @@ function SetupPasswordInner() {
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // M1 — Membre créé par l'admin : il charge ses pièces ici (CNI, photo, plan).
+  const [piecesRequired, setPiecesRequired] = useState(false);
+  const [cni, setCni] = useState<File | null>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [plan, setPlan] = useState<File | null>(null);
 
   useEffect(() => {
     portalApi.primeCsrf().catch(() => undefined);
@@ -37,6 +42,7 @@ function SetupPasswordInner() {
         const res = await portalApi.verifyPasswordSetup(token);
         if (cancelled) return;
         setEmailMask(res.email_mask);
+        setPiecesRequired(Boolean(res.pieces_required));
         setPhase("form");
       } catch (err) {
         if (cancelled) return;
@@ -62,9 +68,17 @@ function SetupPasswordInner() {
       setError("Les deux mots de passe ne correspondent pas.");
       return;
     }
+    if (piecesRequired && (!cni || !photo || !plan)) {
+      setError("Merci de joindre les 3 pièces : CNI, photo d'identité et plan de localisation.");
+      return;
+    }
     setSubmitting(true);
     try {
-      await portalApi.confirmPasswordSetup({ token, password });
+      await portalApi.confirmPasswordSetup(
+        piecesRequired
+          ? { token, password, cni: cni!, photo: photo!, plan: plan! }
+          : { token, password },
+      );
       setPhase("done");
     } catch (err) {
       const apiErr = err as ApiError;
@@ -195,6 +209,38 @@ function SetupPasswordInner() {
                   className="block w-full rounded-xl border border-line-200 bg-paper px-3.5 py-2.5 text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/15"
                 />
               </div>
+
+              {piecesRequired ? (
+                <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+                  <p className="text-xs font-semibold text-emerald-800">
+                    Pièces à joindre pour finaliser ton inscription
+                  </p>
+                  {(
+                    [
+                      { key: "cni", label: "Pièce d'identité (CNI)", value: cni, set: setCni },
+                      { key: "photo", label: "Photo d'identité", value: photo, set: setPhoto },
+                      { key: "plan", label: "Plan de localisation", value: plan, set: setPlan },
+                    ] as const
+                  ).map((f) => (
+                    <div key={f.key}>
+                      <label
+                        htmlFor={`piece-${f.key}`}
+                        className="mb-1 block text-xs font-medium text-ink-700"
+                      >
+                        {f.label}
+                      </label>
+                      <input
+                        id={`piece-${f.key}`}
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => f.set(e.target.files?.[0] ?? null)}
+                        className="block w-full text-xs text-ink-600 file:mr-3 file:rounded-md file:border-0 file:bg-blue-700 file:px-3 file:py-1.5 file:text-white hover:file:bg-blue-800"
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
               <button
                 type="submit"
                 disabled={submitting || !password || !confirm}

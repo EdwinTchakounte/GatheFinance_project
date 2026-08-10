@@ -538,9 +538,12 @@ def verify_password_setup_token(request):
             status=status.HTTP_410_GONE,
         )
 
+    # M1 — Un membre créé par l'admin doit charger ses pièces à cette étape.
+    member = getattr(token.user, "member", None)
     return Response({
         "email_mask": _mask_email(token.user.email),
         "expires_at": token.expires_at.isoformat(),
+        "pieces_required": bool(member and member.pieces_a_fournir),
     })
 
 
@@ -600,6 +603,23 @@ def confirm_password_setup(request):
         )
 
     user = token.user
+
+    # M1 — Membre créé par l'admin depuis le dashboard : il charge ses pièces
+    # (CNI, photo, plan) EN MÊME TEMPS que la définition du mot de passe. On
+    # valide leur présence AVANT de poser le mot de passe (rien de partiel).
+    member = getattr(user, "member", None)
+    pieces_required = bool(member and member.pieces_a_fournir)
+    piece_files: dict = {}
+    if pieces_required:
+        piece_files = {k: request.FILES.get(k) for k in ("cni", "photo", "plan")}
+        libelles = {"cni": "CNI", "photo": "photo d'identité", "plan": "plan de localisation"}
+        missing = [libelles[k] for k, v in piece_files.items() if v is None]
+        if missing:
+            return Response(
+                {"detail": "Pièces requises manquantes : " + ", ".join(missing) + "."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
     try:
         validate_password(new_password, user=user)
     except ValidationError as exc:
@@ -610,6 +630,12 @@ def confirm_password_setup(request):
 
     user.set_password(new_password)
     user.save(update_fields=["password"])
+
+    if pieces_required:
+        from .services import attach_member_pieces
+
+        attach_member_pieces(member, files=piece_files)
+
     token.used_at = timezone.now()
     token.ip_confirm = client_ip(request)
     token.save(update_fields=["used_at", "ip_confirm"])

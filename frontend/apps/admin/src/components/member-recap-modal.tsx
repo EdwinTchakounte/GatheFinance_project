@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, FileDown } from "lucide-react";
+import { ChevronDown, FileDown, Trash2 } from "lucide-react";
 
+import { ConfirmModal } from "@/components/confirm-modal";
 import {
   DocumentPreview,
   DocumentThumbnail,
@@ -23,14 +24,21 @@ import { fullName } from "@/lib/name";
 export function MemberRecapModal({
   member,
   onClose,
+  onDeleted,
 }: {
   member: Member | null;
   onClose: () => void;
+  /** Fourni uniquement là où la suppression membre est autorisée (page Membres) :
+   *  affiche le bouton « Supprimer le membre » + confirmation. Appelé après une
+   *  suppression réussie (l'appelant rafraîchit la liste et ferme la modale). */
+  onDeleted?: (member: Member) => void;
 }) {
   const [showAdh, setShowAdh] = useState(false);
   const [adh, setAdh] = useState<MemberAdhesion | null>(null);
   const [adhLoading, setAdhLoading] = useState(false);
   const [adhErr, setAdhErr] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
 
   async function toggleAdhesion() {
     if (showAdh) {
@@ -55,6 +63,25 @@ export function MemberRecapModal({
     }
   }
 
+  async function handleDelete(motif: string) {
+    if (!member) return;
+    setDeleteErr(null);
+    try {
+      await adminApi.members.remove(member.id, motif);
+      setConfirmDelete(false);
+      onDeleted?.(member);
+    } catch (e) {
+      const err = e as ApiError;
+      setDeleteErr(
+        err.status === 409
+          ? err.detail ?? "Suppression bloquée : engagement sur le crédit d'un tiers."
+          : err.status === 403
+            ? "Action réservée aux administrateurs."
+            : err.detail ?? "Suppression impossible.",
+      );
+    }
+  }
+
   if (!member) return null;
   const collecte = Number(member.epargne_collecte ?? 0);
   const libre = Number(member.epargne_classique_libre ?? 0);
@@ -64,6 +91,7 @@ export function MemberRecapModal({
   const net = epargneTotal - credit;
 
   return (
+    <>
     <Modal
       open
       onClose={onClose}
@@ -162,8 +190,62 @@ export function MemberRecapModal({
             <AdhesionDetails adh={adh} />
           ) : null
         ) : null}
+
+        {/* Zone dangereuse — suppression définitive (page Membres uniquement). */}
+        {onDeleted ? (
+          <div className="border-t border-line-200 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteErr(null);
+                setConfirmDelete(true);
+              }}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-terra-300 bg-terra-50/50 px-3.5 py-2.5 text-sm font-semibold text-terra-700 transition-colors hover:border-terra-500 hover:bg-terra-50"
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+              Supprimer le membre
+            </button>
+          </div>
+        ) : null}
       </div>
     </Modal>
+
+    {onDeleted ? (
+      <ConfirmModal
+        open={confirmDelete}
+        onClose={() => {
+          setConfirmDelete(false);
+          setDeleteErr(null);
+        }}
+        onConfirm={handleDelete}
+        title="Supprimer définitivement ce membre ?"
+        tone="danger"
+        confirmLabel="Supprimer définitivement"
+        message={
+          <div className="space-y-2">
+            <p>
+              Cette action est <strong>irréversible</strong>. Le compte, l&apos;épargne
+              (collecte, classique, placement), les crédits, les paiements et tout
+              l&apos;historique de{" "}
+              <strong>{fullName(member.prenom, member.nom)}</strong> seront
+              supprimés définitivement.
+            </p>
+            {deleteErr ? (
+              <p className="rounded-md bg-terra-50 px-3 py-2 text-sm text-terra-700">
+                {deleteErr}
+              </p>
+            ) : null}
+          </div>
+        }
+        input={{
+          label: "Motif (tracé dans l'audit)",
+          placeholder: "Ex. doublon, compte de test…",
+          required: true,
+          multiline: true,
+        }}
+      />
+    ) : null}
+    </>
   );
 }
 

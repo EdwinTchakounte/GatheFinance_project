@@ -1568,6 +1568,21 @@ export const adminApi = {
     // Fiche d'adhésion (infos renseignées à la soumission de la demande).
     adhesion: (memberId: number) =>
       request<MemberAdhesion>(`/admin/members/${memberId}/adhesion/`),
+    // Suppression DÉFINITIVE d'un membre + cascade (IsAdmin). 409 si engagé
+    // sur le crédit d'un tiers (prêteur/avaliste actif). Motif optionnel tracé.
+    remove: (memberId: number, motif?: string) =>
+      request<{ deleted: boolean; member: string; numero_membre: string }>(
+        `/admin/members/${memberId}/delete/`,
+        { method: "DELETE", body: JSON.stringify(motif ? { motif } : {}) },
+      ),
+    // M1 — Création d'un membre depuis le dashboard (IsAdmin). Le membre reçoit
+    // un mail de définition de mot de passe et chargera ses pièces à ce moment.
+    // 409 si un membre existe déjà pour cet e-mail.
+    create: (payload: { nom: string; prenom?: string; email: string; phone?: string }) =>
+      request<Member>(`/admin/members/create/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
   },
 
   // Fin de mois collecte — choix des membres (cash vs bascule épargne).

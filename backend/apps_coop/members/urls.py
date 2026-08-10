@@ -70,6 +70,14 @@ urlpatterns = [
         name="pay-membership-fee",
     ),
     path("admin/members/", views.admin_list_members, name="admin-members-list"),
+    # M1 — Création d'un membre depuis le dashboard (IsAdmin, mail mot de passe + pièces).
+    path("admin/members/create/", views.admin_create_member, name="admin-member-create"),
+    # Suppression définitive d'un membre + cascade (IsAdmin, tracée, 409 si tiers).
+    path(
+        "admin/members/<int:pk>/delete/",
+        views.admin_delete_member,
+        name="admin-member-delete",
+    ),
     path("admin/membership-requests/", views.admin_list_membership_requests, name="admin-membership-list"),
     path("admin/membership-requests/<int:pk>/approve/", views.admin_approve_membership_request, name="admin-membership-approve"),
     path("admin/membership-requests/<int:pk>/reject/", views.admin_reject_membership_request, name="admin-membership-reject"),

@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { SkeletonList } from "@gathe/ui";
-import { Mail, Phone, Search } from "lucide-react";
+import { SkeletonList, buttonClasses } from "@gathe/ui";
+import { Mail, Phone, Search, UserPlus } from "lucide-react";
 
 import { ColumnsMenu } from "@/components/columns-menu";
 import { PageHeader } from "@/components/page-header";
 import { ExportMenu } from "@/components/export-menu";
 import { MemberRecapModal } from "@/components/member-recap-modal";
+import { MemberCreateModal } from "@/components/member-create-modal";
 import { Pagination } from "@/components/pagination";
 import type { ExportColumn } from "@/lib/export";
 import { fullName } from "@/lib/name";
@@ -204,6 +205,7 @@ function Inner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Member | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   // Colonnes visibles + filtres par colonne (appliqués à la page courante).
   const [visible, setVisible] = useState<Set<string>>(
@@ -271,6 +273,14 @@ function Inner() {
         description="Recap financier par membre — épargne (collecte, libre, placement) et crédit en cours. Filtres par colonne + export."
         actions={
           <div className="flex items-center gap-3 text-sm text-ink-600">
+            <button
+              type="button"
+              className={buttonClasses({ variant: "primary", size: "sm" })}
+              onClick={() => setCreateOpen(true)}
+            >
+              <UserPlus className="h-4 w-4" />
+              Ajouter un membre
+            </button>
             <span className="font-mono font-medium text-ink-900">{count}</span>
             <span>membre{count > 1 ? "s" : ""}</span>
             <ColumnsMenu
@@ -452,7 +462,20 @@ function Inner() {
         </div>
       )}
 
-      <MemberRecapModal member={selected} onClose={() => setSelected(null)} />
+      <MemberRecapModal
+        member={selected}
+        onClose={() => setSelected(null)}
+        onDeleted={() => {
+          setSelected(null);
+          reload();
+        }}
+      />
+
+      <MemberCreateModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => reload()}
+      />
 
       {!loading && count > 0 ? (
         <Pagination

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/paysika/pa_colors.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/network/api_config.dart';
 import '../../../../core/widgets/paysika/pa_button.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 
@@ -161,11 +162,11 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _StepHeader(
+        _StepHeader(
           eyebrow: 'Etape 1 / 2',
           title: 'Colle le code recu par email',
           subtitle:
-              'Apres ton approbation, tu as recu un lien https://gathe-finance.horus-lab.com/fr/definir-mot-de-passe?token=XXX. Copie la partie apres token= et colle-la ici.',
+              'Apres ton approbation, tu as recu un lien ${ApiConfig.siteBaseUrl}/fr/definir-mot-de-passe?token=XXX. Copie la partie apres token= et colle-la ici.',
         ),
         const SizedBox(height: 24),
         TextField(

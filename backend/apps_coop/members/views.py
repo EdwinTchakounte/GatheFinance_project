@@ -16,6 +16,7 @@ from apps_coop.audit.services import client_ip, record as record_audit
 from apps_coop.portal_urls import portal_url as _portal_url
 
 from . import services
+from .deletion_services import MemberDeletionError, delete_member_cascade
 from .models import BRCDocument, Member, MembershipRequest
 from .permissions import IsActiveMember, IsAdmin, IsMember, IsStaff
 from .serializers import (
@@ -23,6 +24,7 @@ from .serializers import (
     BRCDocumentReadSerializer,
     BRCDocumentRejectSerializer,
     BRCDocumentUploadSerializer,
+    MemberCreateSerializer,
     MemberReadSerializer,
     MemberReinscriptionConfirmSerializer,
     MembershipApproveSerializer,
@@ -310,6 +312,43 @@ def admin_approve_membership_request(request, pk: int):
 
 @extend_schema(
     tags=["members"],
+    summary="🔒 Admin — créer un membre depuis le dashboard",
+    description=(
+        "M1 — Crée un membre directement (User + Member SUSPENDU + compte "
+        "épargne), envoie le mail de définition de mot de passe et marque le "
+        "membre `pieces_a_fournir=True` : il chargera ses pièces (CNI, photo, "
+        "plan) au moment de définir son mot de passe. Permission : `IsAdmin`."
+    ),
+    request=MemberCreateSerializer,
+    responses={
+        201: MemberReadSerializer,
+        400: OpenApiResponse(description="Champs invalides"),
+        409: OpenApiResponse(description="Un membre existe déjà pour cet e-mail"),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def admin_create_member(request):
+    serializer = MemberCreateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+    try:
+        member = services.create_member_by_admin(
+            nom=data["nom"],
+            prenom=data.get("prenom", ""),
+            email=data["email"],
+            phone=data.get("phone", ""),
+            actor=request.user,
+        )
+    except services.MemberAlreadyExists as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(MemberReadSerializer(member).data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(
+    tags=["members"],
     summary="🔒 Admin — rejeter une demande d'adhésion",
     description="Pose `statut=rejetee` + `motif_rejet`. Permission : `IsAdmin`.",
     request=MembershipRejectSerializer,
@@ -354,6 +393,37 @@ def admin_confirm_member_reinscription(request, pk: int):
     )
     member.refresh_from_db()
     return Response(MemberReadSerializer(member).data)
+
+
+@extend_schema(
+    tags=["members"],
+    summary="🔒 Admin — SUPPRESSION définitive d'un membre (cascade)",
+    description=(
+        "Supprime DÉFINITIVEMENT un `Member` et toutes ses données (compte "
+        "auth, épargne, crédits & demandes, paiements, carnets, documents, "
+        "notifications, support) — IRRÉVERSIBLE. Motif optionnel dans le body "
+        "(`{ \"motif\": \"…\" }`), tracé (fichier + AuditLog). "
+        "Renvoie **409** si le membre est engagé sur le crédit d'un tiers "
+        "(prêteur/avaliste actif). Permission : `IsAdmin`."
+    ),
+    responses={
+        200: OpenApiResponse(description="`{ deleted: true, … recap }`"),
+        404: OpenApiResponse(description="Membre introuvable."),
+        409: OpenApiResponse(description="Engagement tiers : suppression bloquée."),
+    },
+)
+@api_view(["DELETE"])
+@permission_classes([IsAdmin])
+def admin_delete_member(request, pk: int):
+    member = get_object_or_404(Member, pk=pk)
+    motif = ""
+    if isinstance(request.data, dict):
+        motif = (request.data.get("motif") or "").strip()
+    try:
+        recap = delete_member_cascade(member, actor=request.user, motif=motif)
+    except MemberDeletionError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+    return Response({"deleted": True, **recap}, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])

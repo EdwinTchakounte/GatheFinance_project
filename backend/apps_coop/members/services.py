@@ -247,6 +247,105 @@ def approve_membership_request(
     return member
 
 
+class MemberAlreadyExists(Exception):
+    """Un membre existe déjà pour cet e-mail (création admin refusée)."""
+
+
+@transaction.atomic
+def create_member_by_admin(*, nom: str, prenom: str, email: str, phone: str = "", actor=None) -> "Member":
+    """M1 — Création d'un membre DEPUIS le dashboard admin.
+
+    Crée le compte (User + Member SUSPENDU + compte épargne), pose le flag
+    ``pieces_a_fournir`` (le membre chargera ses pièces d'identité au moment de
+    définir son mot de passe — cas particulier : elles n'ont pas transité par le
+    formulaire public d'adhésion) et envoie le mail de bienvenue + lien de
+    définition de mot de passe. Réutilise le socle de ``approve_membership_request``.
+    """
+    email = (email or "").strip().lower()
+    nom = (nom or "").strip()
+    prenom = (prenom or "").strip()
+    if not email or not nom:
+        raise ValueError("Le nom et l'e-mail sont requis.")
+
+    User = get_user_model()
+    existing = User.objects.filter(email__iexact=email).first()
+    if existing is not None and hasattr(existing, "member"):
+        raise MemberAlreadyExists(f"Un membre existe déjà avec l'e-mail {email}.")
+
+    user, user_created = User.objects.get_or_create(
+        email=email,
+        defaults={"username": email, "first_name": prenom, "last_name": nom, "is_active": True},
+    )
+    if user_created:
+        user.set_password(_random_password())
+        user.save(update_fields=["password"])
+
+    member_group, _ = Group.objects.get_or_create(name="member")
+    user.groups.add(member_group)
+
+    member, _created = Member.objects.get_or_create(
+        user=user,
+        defaults={
+            "numero_membre": generate_numero_membre(),
+            "nom": nom,
+            "prenom": prenom,
+            "phone": (phone or "").strip(),
+            "statut": Member.Statut.SUSPENDU,
+            "date_adhesion": date.today(),
+            "pieces_a_fournir": True,
+        },
+    )
+    SavingsAccount.objects.get_or_create(
+        member=member,
+        defaults={"solde": 0, "date_ouverture": date.today(), "taux_interet_applique": 0},
+    )
+    record_audit(
+        action="member.created_by_admin",
+        entite_type="Member",
+        entite_id=member.id,
+        user=actor,
+        details={"numero_membre": member.numero_membre, "email": email},
+    )
+    transaction.on_commit(lambda: _send_welcome_email(member, email))
+    return member
+
+
+def attach_member_pieces(member: "Member", *, files: dict) -> int:
+    """M1 — Range les pièces (CNI, photo, plan) chargées par le membre à la
+    définition du mot de passe dans des ``Document`` rattachés au membre.
+
+    ``files`` : mapping schema_field_id → UploadedFile (les valeurs None sont
+    ignorées). Retourne le nombre de pièces enregistrées et retire le flag
+    ``pieces_a_fournir`` dès qu'au moins une pièce est fournie.
+    """
+    from .models import Document
+
+    type_map = {
+        "cni": Document.TypeDoc.PIECE_IDENTITE,
+        "photo": Document.TypeDoc.AUTRE,
+        "plan": Document.TypeDoc.AUTRE,
+    }
+    count = 0
+    for field_id, f in (files or {}).items():
+        if f is None:
+            continue
+        Document.objects.create(
+            member=member,
+            type_doc=type_map.get(field_id, Document.TypeDoc.AUTRE),
+            entite_liee_type="Member",
+            entite_liee_id=member.id,
+            fichier=f,
+            nom_original=(getattr(f, "name", "") or "")[:255],
+            taille=getattr(f, "size", 0) or 0,
+            schema_field_id=field_id,
+        )
+        count += 1
+    if count and member.pieces_a_fournir:
+        member.pieces_a_fournir = False
+        member.save(update_fields=["pieces_a_fournir", "updated_at"])
+    return count
+
+
 def _send_welcome_email(member: Member, to_email: str) -> None:
     """E-mail de bienvenue (UC1) — jamais bloquant pour l'approbation.
 

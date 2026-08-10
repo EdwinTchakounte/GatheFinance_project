@@ -246,6 +246,15 @@ class MembershipRejectSerializer(serializers.Serializer):
     motif = serializers.CharField(max_length=2000)
 
 
+class MemberCreateSerializer(serializers.Serializer):
+    """M1 — Body du POST admin pour créer un membre depuis le dashboard."""
+
+    nom = serializers.CharField(max_length=120)
+    prenom = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    email = serializers.EmailField()
+    phone = serializers.CharField(max_length=32, required=False, allow_blank=True)
+
+
 class MemberReinscriptionConfirmSerializer(serializers.Serializer):
     """A2 — Body du POST admin pour acter la réinscription annuelle."""
 
