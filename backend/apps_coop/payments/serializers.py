@@ -28,7 +28,15 @@ class PaymentInitSerializer(serializers.Serializer):
     """POST /api/v1/payments/init/ body."""
 
     type = serializers.ChoiceField(choices=sorted(_ALLOWED_INIT_TYPES))
-    montant = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=100)
+    # Montant : OPTIONNEL pour les frais fixes (adhésion, inscription, carnet,
+    # reconduction, demande de crédit) — le serveur impose le tarif officiel
+    # (FeeType), le client n'a rien à envoyer. OBLIGATOIRE (≥ 100) pour les
+    # autres opérations (versement, épargne, remboursement, collecte) : la view
+    # rejette un montant manquant hors frais fixes.
+    montant = serializers.DecimalField(
+        max_digits=14, decimal_places=2, min_value=100,
+        required=False, default=None,
+    )
     phone = serializers.CharField(max_length=32)
     # Opérateur : OPTIONNEL. Tara détecte le réseau à partir du préfixe du
     # numéro (décision client 2026-06-25) et ignore ce champ → on ne l'impose

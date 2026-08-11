@@ -102,6 +102,7 @@ class MembershipFeesNotifier extends AsyncNotifier<MembershipFeesState> {
   Future<Map<String, dynamic>?> initMobileMoney({
     required String code,
     required String phone,
+    num? montant,
   }) async {
     final dio = ref.read(apiClientProvider).dio;
     final type = switch (code) {
@@ -110,9 +111,17 @@ class MembershipFeesNotifier extends AsyncNotifier<MembershipFeesState> {
       'CARNET' => 'frais_carnet',
       _ => 'frais_adhesion',
     };
+    // Le montant reste AUTORITAIRE côté serveur (barème FeeType) ; on l'envoie
+    // quand même par robustesse. Réseau NON forcé : Tara détecte l'opérateur
+    // depuis le préfixe du numéro (plus de « MTN » codé en dur qui cassait
+    // Orange).
     final res = await dio.post<Map<String, dynamic>>(
       '/payments/init/',
-      data: {'type': type, 'phone': phone, 'network': 'MTN'},
+      data: {
+        'type': type,
+        'phone': phone,
+        if (montant != null && montant > 0) 'montant': montant,
+      },
     );
     return res.data;
   }

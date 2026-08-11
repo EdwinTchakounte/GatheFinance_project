@@ -31,6 +31,20 @@ const RECEPTION_LABEL: Record<string, string> = {
   agence_especes: "Espèces (agence)",
 };
 
+// Suppression réservée aux demandes PRÉ-instruction (règle client 2026-08-11) :
+// jamais une demande déjà étudiée par le comité (en_instruction et au-delà).
+// Doit rester aligné sur DELETABLE_STATUSES côté backend (deletion_services.py).
+const PRE_INSTRUCTION_STATUSES = new Set<string>([
+  "en_attente",
+  "en_attente_avaliste",
+  "en_attente_acceptation_membre",
+  "en_validation_campagne",
+  "rejetee_avaliste",
+  "rejetee_campagne",
+]);
+const canDeleteRequest = (statut: string): boolean =>
+  PRE_INSTRUCTION_STATUSES.has(statut);
+
 
 function formatXAF(amount: string): string {
   const n = Number(amount);
@@ -480,6 +494,17 @@ function Inner() {
                 >
                   <FileText className="size-3" />Note PDF
                 </a>
+                {canDeleteRequest(r.statut) && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(r)}
+                    disabled={actingId === r.id}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
+                    title="Supprimer la demande (pré-instruction, tracé dans l'audit)"
+                  >
+                    <X className="size-3" />Supprimer
+                  </button>
+                )}
               </div>
             ) : r.statut === "en_attente" ? (
               <div className="flex flex-col items-end gap-1.5">
@@ -503,6 +528,17 @@ function Inner() {
                 >
                   <FileText className="size-3" />Note PDF
                 </a>
+                {canDeleteRequest(r.statut) && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(r)}
+                    disabled={actingId === r.id}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
+                    title="Supprimer la demande (pré-instruction, tracé dans l'audit)"
+                  >
+                    <X className="size-3" />Supprimer
+                  </button>
+                )}
               </div>
             ) : r.statut === "en_instruction" ? (
               <div className="flex flex-col items-end gap-1.5">
@@ -585,15 +621,17 @@ function Inner() {
                 >
                   <FileText className="size-3" />Note PDF
                 </a>
-                <button
-                  type="button"
-                  onClick={() => setDeleteTarget(r)}
-                  disabled={actingId === r.id}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
-                  title="Supprimer la demande (tracé dans l'audit)"
-                >
-                  <X className="size-3" />Supprimer
-                </button>
+                {canDeleteRequest(r.statut) && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(r)}
+                    disabled={actingId === r.id}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
+                    title="Supprimer la demande (pré-instruction, tracé dans l'audit)"
+                  >
+                    <X className="size-3" />Supprimer
+                  </button>
+                )}
               </div>
             ) : r.statut === "approuvee" && r.loan ? (
               <div className="flex flex-col items-end gap-1.5">
@@ -620,15 +658,17 @@ function Inner() {
                 >
                   <FileText className="size-3" />Note PDF
                 </a>
-                <button
-                  type="button"
-                  onClick={() => setDeleteTarget(r)}
-                  disabled={actingId === r.id}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
-                  title="Supprimer la demande / le crédit (tracé dans l'audit)"
-                >
-                  <X className="size-3" />Supprimer
-                </button>
+                {canDeleteRequest(r.statut) && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(r)}
+                    disabled={actingId === r.id}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
+                    title="Supprimer la demande / le crédit (tracé dans l'audit)"
+                  >
+                    <X className="size-3" />Supprimer
+                  </button>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-end gap-1.5">
@@ -641,15 +681,17 @@ function Inner() {
                 >
                   <FileText className="size-3" />Note PDF
                 </a>
-                <button
-                  type="button"
-                  onClick={() => setDeleteTarget(r)}
-                  disabled={actingId === r.id}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
-                  title="Supprimer la demande (tracé dans l'audit)"
-                >
-                  <X className="size-3" />Supprimer
-                </button>
+                {canDeleteRequest(r.statut) && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(r)}
+                    disabled={actingId === r.id}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-700 hover:underline disabled:opacity-50"
+                    title="Supprimer la demande (pré-instruction, tracé dans l'audit)"
+                  >
+                    <X className="size-3" />Supprimer
+                  </button>
+                )}
               </div>
             )
           }

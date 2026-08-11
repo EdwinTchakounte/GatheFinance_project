@@ -131,6 +131,32 @@ def init_payment(request):
             status=status.HTTP_403_FORBIDDEN,
         )
 
+    # Montant AUTORITAIRE pour les frais fixes d'activation / reconduction
+    # (adhésion, inscription, carnet, reconduction) : le tarif officiel
+    # (FeeType) prime TOUJOURS et le client peut même ne rien envoyer (montant
+    # omis). Corrige le bug mobile « impossible de payer les frais d'activation »
+    # (l'app n'envoyait pas de montant → 400 obligatoire) : le serveur déduit
+    # désormais le montant du barème. Symétrique du cash-in admin (_FIXED_FEE_CODE).
+    _AUTHORITATIVE_FEE_CODE = {
+        Payment.Type.FRAIS_ADHESION: FeeType.Code.ADHESION,
+        Payment.Type.FRAIS_INSCRIPTION: FeeType.Code.INSCRIPTION,
+        Payment.Type.FRAIS_CARNET: FeeType.Code.CARNET,
+        Payment.Type.FRAIS_RECONDUCTION: FeeType.Code.RECONDUCTION,
+    }
+    _auth_code = _AUTHORITATIVE_FEE_CODE.get(data["type"])
+    if _auth_code is not None:
+        official = (
+            FeeType.objects.filter(code=_auth_code, actif=True)
+            .values_list("montant", flat=True)
+            .first()
+        )
+        if official is None or official <= 0:
+            return Response(
+                {"detail": "Aucun frais dû pour cette opération (barème à 0)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        data["montant"] = official
+
     # Frais d'étude de dossier : le montant est PILOTÉ PAR L'ADMIN
     # (FeeType.DEMANDE_CREDIT), jamais par le client. On écrase le montant reçu
     # par le tarif officiel dès qu'il est configuré (> 0) — sinon un client
@@ -186,6 +212,15 @@ def init_payment(request):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+    # Hors frais fixes (dont le serveur vient d'imposer le montant), le montant
+    # est OBLIGATOIRE : un client qui n'envoie rien pour un versement / une
+    # épargne / un remboursement est rejeté proprement (plus de crash sur None).
+    if data.get("montant") is None:
+        return Response(
+            {"detail": "Le montant est requis pour cette opération."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     # For repayments, the Loan must exist, belong to the member, and the
     # amount must not exceed what's still owed (anti-surplus).
@@ -380,19 +415,21 @@ def init_payment(request):
                 status=status.HTTP_200_OK,
             )
 
-    # Frais de transaction (%) prélevés EN PLUS du montant (RateParam
-    # TRANSACTION_FEE, piloté admin, 0 par défaut). Le membre paie
-    # `montant + frais` via Tara ; les hooks créditent uniquement `montant`.
-    # Arrondi au XAF entier (pas de centimes en Mobile Money).
-    from decimal import ROUND_HALF_UP
-
-    from .rates import get_rate
+    # Frais de transaction (%) prélevés EN PLUS du montant, UNIQUEMENT sur un
+    # VERSEMENT (dépôt d'épargne / collecte) et seulement si l'admin a inscrit
+    # « versement » dans le périmètre (payments.transaction_fee.operations). Le
+    # membre paie `montant + frais` via Tara ; les hooks créditent `montant`.
+    # Jamais de frais sur les frais fixes (adhésion…) ni sur un remboursement.
+    from .fee_policy import OP_VERSEMENT, transaction_fee_for
 
     _base_montant = data["montant"]
-    _fee_rate = get_rate(RateParam.Code.TRANSACTION_FEE)
+    _is_versement = data["type"] in (
+        Payment.Type.EPARGNE,
+        Payment.Type.EPARGNE_CLASSIQUE,
+    )
     _frais = (
-        (_base_montant * _fee_rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-        if _fee_rate > 0
+        transaction_fee_for(_base_montant, OP_VERSEMENT)
+        if _is_versement
         else Decimal("0")
     )
 
@@ -769,7 +806,17 @@ def admin_config(request):
         }
         for r in RateParam.objects.all()
     ]
-    return Response({"fees": fees, "rates": rates})
+    # Périmètre du frais de transaction : quelles opérations sont frappées.
+    from .fee_policy import ALL_OPERATIONS, fee_operations
+
+    _ops = fee_operations()
+    return Response(
+        {
+            "fees": fees,
+            "rates": rates,
+            "transaction_fee_operations": {op: (op in _ops) for op in ALL_OPERATIONS},
+        }
+    )
 
 
 @extend_schema(
@@ -878,6 +925,41 @@ def admin_update_rate(request, code: str):
     )
     return Response(
         {"code": rate.code, "libelle": rate.libelle, "valeur": str(rate.valeur), "actif": rate.actif}
+    )
+
+
+@extend_schema(
+    tags=["payments"],
+    summary="Périmètre du frais de transaction (admin)",
+    description=(
+        "PATCH staff : définit les opérations frappées par le frais de "
+        "transaction (`versement`, `retrait`, `transfert`) via l'AppSetting "
+        "`payments.transaction_fee.operations`. Body : `{versement: bool, "
+        "retrait: bool, transfert: bool}`. Tracé (`config.transaction_fee_operations_updated`)."
+    ),
+)
+@api_view(["PATCH"])
+@permission_classes([IsStaff])
+def admin_update_transaction_fee_operations(request):
+    from apps_coop.audit.models import AppSetting
+
+    from .fee_policy import ALL_OPERATIONS, SETTING_KEY
+
+    payload = request.data or {}
+    enabled = [op for op in ALL_OPERATIONS if bool(payload.get(op))]
+    value = ",".join(enabled)
+    AppSetting.objects.update_or_create(cle=SETTING_KEY, defaults={"valeur": value})
+    record_audit(
+        action="config.transaction_fee_operations_updated",
+        entite_type="AppSetting",
+        entite_id=0,
+        user=request.user,
+        details={"operations": value},
+        ip=client_ip(request),
+        user_agent=request.META.get("HTTP_USER_AGENT", ""),
+    )
+    return Response(
+        {"transaction_fee_operations": {op: (op in enabled) for op in ALL_OPERATIONS}}
     )
 
 

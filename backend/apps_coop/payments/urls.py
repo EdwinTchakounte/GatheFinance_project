@@ -31,6 +31,11 @@ urlpatterns = [
     path("admin/config/", views.admin_config, name="admin-config"),
     path("admin/fees/<str:code>/", views.admin_update_fee, name="admin-update-fee"),
     path("admin/rates/<str:code>/", views.admin_update_rate, name="admin-update-rate"),
+    path(
+        "admin/transaction-fee-operations/",
+        views.admin_update_transaction_fee_operations,
+        name="admin-update-transaction-fee-operations",
+    ),
     # Reçu de versement (mini-facture PDF) — membre propriétaire ou admin.
     path("<int:pk>/receipt/", views.payment_receipt, name="receipt"),
     path("<int:pk>/", views.payment_detail, name="detail"),

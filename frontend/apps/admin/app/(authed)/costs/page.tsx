@@ -66,6 +66,7 @@ export default function CostsPage() {
       {loading ? (
         <p className="text-ink-600">Chargement…</p>
       ) : config ? (
+        <>
         <div className="grid gap-8 lg:grid-cols-2">
           <section>
             <h2 className="mb-3 font-display text-xs font-semibold uppercase tracking-wider text-ink-500">
@@ -111,8 +112,97 @@ export default function CostsPage() {
             </div>
           </section>
         </div>
+        <TransactionFeeOperations initial={config.transaction_fee_operations} />
+        </>
       ) : null}
     </div>
+  );
+}
+
+
+/** Périmètre du frais de transaction (%) : cases par opération. */
+function TransactionFeeOperations({
+  initial,
+}: {
+  initial?: { versement: boolean; retrait: boolean; transfert: boolean };
+}) {
+  const base = initial ?? { versement: true, retrait: true, transfert: true };
+  const [ops, setOps] = useState(base);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [rowError, setRowError] = useState<string | null>(null);
+  const dirty =
+    ops.versement !== base.versement ||
+    ops.retrait !== base.retrait ||
+    ops.transfert !== base.transfert;
+
+  const LABELS: { key: keyof typeof ops; label: string; hint: string }[] = [
+    { key: "versement", label: "Versement", hint: "Dépôt d’épargne / collecte (Mobile Money)" },
+    { key: "retrait", label: "Retrait", hint: "Retrait d’épargne (débité au paiement)" },
+    { key: "transfert", label: "Transfert", hint: "Transfert de l’épargne vers un crédit" },
+  ];
+
+  async function save() {
+    setSaving(true);
+    setRowError(null);
+    setSaved(false);
+    try {
+      await adminApi.costs.updateTransactionFeeOperations(ops);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setRowError((err as ApiError).detail ?? "Enregistrement impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="mt-8 max-w-2xl rounded-xl border border-line-100 bg-paper p-5 shadow-xs">
+      <h2 className="font-display text-xs font-semibold uppercase tracking-wider text-ink-500">
+        Frais de transaction — opérations concernées
+      </h2>
+      <p className="mt-1 text-sm text-ink-600">
+        Coche les opérations sur lesquelles le <strong>frais de transaction (%)</strong>
+        {" "}s’applique. Le frais est prélevé <strong>en plus</strong> (le solde est débité du
+        montant + frais ; le bénéficiaire reçoit le montant plein). Il reste nul tant que le
+        taux « Frais de transaction » ci-dessus est à 0 %.
+      </p>
+      <div className="mt-4 space-y-2">
+        {LABELS.map((o) => (
+          <label
+            key={o.key}
+            className="flex cursor-pointer items-start gap-3 rounded-lg border border-line-100 px-3 py-2 hover:bg-line-50"
+          >
+            <input
+              type="checkbox"
+              checked={ops[o.key]}
+              onChange={(e) => setOps({ ...ops, [o.key]: e.target.checked })}
+              className="mt-0.5 size-4 accent-blue-700"
+            />
+            <span>
+              <span className="text-sm font-medium text-ink-900">{o.label}</span>
+              <span className="block text-xs text-ink-500">{o.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {rowError ? (
+        <p className="mt-2 text-xs text-terra-700">{rowError}</p>
+      ) : null}
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={save}
+          disabled={!dirty || saving}
+          className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+          Enregistrer
+        </button>
+        {saved ? <span className="text-xs font-medium text-emerald-700">Enregistré ✓</span> : null}
+      </div>
+    </section>
   );
 }
 

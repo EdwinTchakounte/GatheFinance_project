@@ -744,7 +744,12 @@ export type RateConfig = {
   actif: boolean;
 };
 
-export type CostsConfig = { fees: FeeConfig[]; rates: RateConfig[] };
+export type FeeOperations = { versement: boolean; retrait: boolean; transfert: boolean };
+export type CostsConfig = {
+  fees: FeeConfig[];
+  rates: RateConfig[];
+  transaction_fee_operations?: FeeOperations;
+};
 
 // Cron schedules (django-q).
 export type CronScheduleRow = {
@@ -2100,6 +2105,12 @@ export const adminApi = {
         method: "PATCH",
         body: JSON.stringify(payload),
       }),
+    // Périmètre du frais de transaction : opérations frappées (versement / retrait / transfert).
+    updateTransactionFeeOperations: (ops: FeeOperations) =>
+      request<{ transaction_fee_operations: FeeOperations }>(
+        "/payments/admin/transaction-fee-operations/",
+        { method: "PATCH", body: JSON.stringify(ops) },
+      ),
   },
 
   // CH-4 — Moteur FormSchema (admin CRUD + activate + duplicate).

@@ -78,7 +78,7 @@ class _ActivationSheetState extends ConsumerState<ActivationSheet>
     try {
       final data = await ref
           .read(membershipFeesProvider.notifier)
-          .initMobileMoney(code: fee.code, phone: phone);
+          .initMobileMoney(code: fee.code, phone: phone, montant: fee.amount);
       if (!mounted) return;
       // On ne ferme pas la feuille : le membre valide sur son téléphone puis
       // revient — didChangeAppLifecycleState réactualise le statut au retour.

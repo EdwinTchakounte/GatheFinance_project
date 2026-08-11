@@ -227,6 +227,15 @@ SETTINGS: list[tuple[str, str, str]] = [
         "Défaut 0.01 = 1 % du solde. L'admin peut ajuster (0 = restitution "
         "intégrale, 0.02 = 2 %, etc.) depuis la page Paramètres 2026.",
     ),
+    (
+        "payments.transaction_fee.operations",
+        "versement,retrait,transfert",
+        "Opérations frappées par le frais de transaction (%) — liste CSV parmi "
+        "versement, retrait, transfert. Le TAUX vit dans RateParam.TRANSACTION_FEE "
+        "(0 par défaut). Le frais est prélevé EN PLUS : le solde est débité du "
+        "montant + frais, le bénéficiaire reçoit le montant plein. Éditable "
+        "depuis la page Coûts (cases à cocher).",
+    ),
     # LOT 7 — Convention prêteur / épargne-prêteur (§6 BUSINESS_RULES_2026).
     (
         "lender.tranche.min_amount",

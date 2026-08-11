@@ -500,6 +500,11 @@ class WithdrawalRequest(TimestampedModel):
         related_name="withdrawal_requests",
     )
     montant = money_field()
+    # Frais de transaction (%) prélevé EN PLUS, au paiement (règle 2026-08-11) :
+    # l'épargne est débitée de `montant + frais_transaction`, le membre reçoit
+    # `montant`, la coopérative encaisse `frais_transaction`. 0 par défaut
+    # (dépend du taux TRANSACTION_FEE + du périmètre payments.transaction_fee.operations).
+    frais_transaction = money_field(default=0)
     motif = models.TextField(blank=True, help_text="Raison du retrait (renseignée par le membre).")
 
     # --- Canal de remise (refonte 2026 — choisi par le membre) ----------

@@ -101,7 +101,11 @@ def reserved_withdrawals(
         qs = qs.filter(account=account)
     if exclude_id is not None:
         qs = qs.exclude(pk=exclude_id)
-    return qs.aggregate(s=Sum("montant"))["s"] or Decimal("0")
+    # On réserve montant + frais_transaction : le débit au paiement prélève les
+    # deux, donc le disponible doit déjà les bloquer (sinon un 2e retrait
+    # pourrait promettre un argent qui servira à payer les frais du 1er).
+    agg = qs.aggregate(m=Sum("montant"), f=Sum("frais_transaction"))
+    return (agg["m"] or Decimal("0")) + (agg["f"] or Decimal("0"))
 
 
 def _classic_retirable_raw(account: ClassicSavingsAccount) -> Decimal:
@@ -219,10 +223,17 @@ def request_withdrawal(
         account_kwargs = {"account": locked}
         pending_filter = {"account": locked}
 
-    if montant > disponible:
+    # Frais de transaction (%) prélevé EN PLUS, sur le solde (si l'admin a mis
+    # « retrait » dans le périmètre) : l'épargne est débitée de montant + frais
+    # au paiement, le membre reçoit montant. Le disponible doit couvrir les deux.
+    from apps_coop.payments.fee_policy import OP_RETRAIT, transaction_fee_for
+
+    frais = transaction_fee_for(montant, OP_RETRAIT)
+    if montant + frais > disponible:
         raise ValueError(
-            f"Montant demandé ({montant}) supérieur au solde disponible "
-            f"({disponible})."
+            f"Montant demandé ({montant})"
+            + (f" + {int(frais)} de frais" if frais > 0 else "")
+            + f" supérieur au solde disponible ({disponible})."
         )
 
     existing = (
@@ -239,6 +250,7 @@ def request_withdrawal(
     member = locked.member
     wr = WithdrawalRequest.objects.create(
         montant=montant,
+        frais_transaction=frais,
         motif=(motif or "").strip(),
         mode_paiement=mode,
         recipient_phone=recipient_phone,
@@ -737,24 +749,29 @@ def apply_withdrawal_debit(wr: WithdrawalRequest, *, now=None) -> Decimal:
     """
     now = now or timezone.now()
     montant = Decimal(wr.montant)
+    # Débit RÉEL = montant + frais de transaction : le membre reçoit `montant`,
+    # la coopérative encaisse `frais`. La transaction ledger porte le total sorti
+    # du solde. `frais` = 0 tant que le retrait n'est pas dans le périmètre.
+    frais = Decimal(wr.frais_transaction or 0)
+    total = montant + frais
     if wr.source == WithdrawalRequest.Source.CLASSIQUE_LIBRE:
         if wr.classic_transaction_id:  # déjà débité → idempotent
             return Decimal(wr.classic_account.solde)
         cacc = ClassicSavingsAccount.objects.select_for_update().get(
             pk=wr.classic_account_id
         )
-        if montant > Decimal(cacc.solde):
+        if total > Decimal(cacc.solde):
             raise ValueError(
-                f"Solde classique insuffisant au paiement : {cacc.solde} < {montant}."
+                f"Solde classique insuffisant au paiement : {cacc.solde} < {total}."
             )
-        nouveau_solde = Decimal(cacc.solde) - montant
+        nouveau_solde = Decimal(cacc.solde) - total
         cacc.solde = nouveau_solde
         cacc.save(update_fields=["solde", "updated_at"])
         ctx = ClassicSavingsTransaction.objects.create(
             account=cacc,
             payment=None,
             type_op=ClassicSavingsTransaction.TypeOp.RETRAIT,
-            montant=montant,
+            montant=total,
             solde_apres=nouveau_solde,
             date=now,
         )
@@ -764,18 +781,18 @@ def apply_withdrawal_debit(wr: WithdrawalRequest, *, now=None) -> Decimal:
         if wr.transaction_id:  # déjà débité → idempotent
             return Decimal(wr.account.solde)
         account = SavingsAccount.objects.select_for_update().get(pk=wr.account_id)
-        if montant > Decimal(account.solde):
+        if total > Decimal(account.solde):
             raise ValueError(
-                f"Solde collecte insuffisant au paiement : {account.solde} < {montant}."
+                f"Solde collecte insuffisant au paiement : {account.solde} < {total}."
             )
-        nouveau_solde = Decimal(account.solde) - montant
+        nouveau_solde = Decimal(account.solde) - total
         account.solde = nouveau_solde
         account.save(update_fields=["solde", "updated_at"])
         tx = SavingsTransaction.objects.create(
             account=account,
             payment=None,
             type_op=SavingsTransaction.TypeOp.RETRAIT,
-            montant=montant,
+            montant=total,
             solde_apres=nouveau_solde,
             date=now,
         )

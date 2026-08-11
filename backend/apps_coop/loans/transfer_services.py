@@ -107,11 +107,21 @@ def repay_loan_from_savings(loan: Loan, montant: Decimal) -> "object":
     collecte_solde = Decimal(collecte.solde) if collecte else Decimal("0")
     total_dispo = classic_dispo + collecte_solde
 
-    if total_dispo < montant:
+    # Frais de transaction (%) prélevé EN PLUS, sur le solde (si l'admin a mis
+    # « transfert » dans le périmètre). Le crédit est remboursé de `montant` ;
+    # l'épargne est ponctionnée de `montant + frais` ; la coop encaisse `frais`.
+    from apps_coop.payments.fee_policy import OP_TRANSFERT, transaction_fee_for
+
+    frais = transaction_fee_for(montant, OP_TRANSFERT)
+    ponction = montant + frais
+
+    if total_dispo < ponction:
         raise TransferError(
             f"Argent disponible insuffisant : {total_dispo} XAF mobilisables "
-            f"(épargne retirable + collecte) pour {montant} XAF. Le placement "
-            f"et l'épargne gelée en garantie ne sont pas ponctionnables."
+            f"(épargne retirable + collecte) pour {montant} XAF"
+            + (f" + {int(frais)} XAF de frais de transfert" if frais > 0 else "")
+            + ". Le placement et l'épargne gelée en garantie ne sont pas "
+            "ponctionnables."
         )
 
     now = timezone.now()
@@ -120,6 +130,7 @@ def repay_loan_from_savings(loan: Loan, montant: Decimal) -> "object":
         member=member,
         loan=loan,
         montant=montant,
+        frais_transaction=frais,
         type=Payment.Type.REMBOURSEMENT,
         source=Payment.Source.DEDUCTION_EPARGNE,
         statut=Payment.Statut.VALIDE,
@@ -127,7 +138,9 @@ def repay_loan_from_savings(loan: Loan, montant: Decimal) -> "object":
         date_validation=now,
     )
 
-    reste = montant
+    # On ponctionne montant + frais de l'épargne (le hook n'impute que `montant`
+    # au crédit ; les `frais` restent acquis à la coopérative).
+    reste = ponction
     pris_classique = Decimal("0")
     pris_collecte = Decimal("0")
 
@@ -170,6 +183,7 @@ def repay_loan_from_savings(loan: Loan, montant: Decimal) -> "object":
         details={
             "payment_id": payment.id,
             "montant": str(montant),
+            "frais_transaction": str(frais),
             "pris_classique": str(pris_classique),
             "pris_collecte": str(pris_collecte),
         },

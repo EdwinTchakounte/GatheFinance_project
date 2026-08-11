@@ -95,9 +95,10 @@ class _State extends ConsumerState<MembershipRenewalSheet>
     }
     setState(() => _busy = true);
     try {
+      final fee = _fee(ref.read(membershipFeesProvider).valueOrNull);
       final data = await ref
           .read(membershipFeesProvider.notifier)
-          .initMobileMoney(code: _feeCode, phone: phone);
+          .initMobileMoney(code: _feeCode, phone: phone, montant: fee?.amount);
       if (!mounted) return;
       setState(() => _launched = true);
       await TaraCheckoutLauncher.launchFromInitResponse(data);

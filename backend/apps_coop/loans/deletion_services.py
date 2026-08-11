@@ -31,6 +31,24 @@ class LoanDeletionError(ValueError):
     """Suppression impossible (motif lisible)."""
 
 
+# États PRÉ-INSTRUCTION : la demande n'a jamais été étudiée par le comité.
+# Règle client (2026-08-11) : seule une demande « pas encore en instruction »
+# est supprimable. Dès `en_instruction` (et au-delà : approuvée, rejetée après
+# étude…), on interdit la suppression — on rejette / invalide les paiements.
+# Les rejets PRÉ-instruction (avaliste / campagne) restent supprimables : la
+# demande n'a jamais atteint le comité.
+DELETABLE_STATUSES = frozenset(
+    {
+        LoanRequest.Statut.EN_ATTENTE,
+        LoanRequest.Statut.EN_ATTENTE_AVALISTE,
+        LoanRequest.Statut.EN_ATTENTE_ACCEPTATION_MEMBRE,
+        LoanRequest.Statut.EN_VALIDATION_CAMPAGNE,
+        LoanRequest.Statut.REJETEE_AVALISTE,
+        LoanRequest.Statut.REJETEE_CAMPAGNE,
+    }
+)
+
+
 def _trace_path() -> Path:
     base = Path(settings.MEDIA_ROOT) / "audit"
     base.mkdir(parents=True, exist_ok=True)
@@ -60,6 +78,14 @@ def delete_loan_request_traced(loan_request: LoanRequest, *, actor, motif: str =
 
     member = loan_request.member
     loan = getattr(loan_request, "loan", None)
+
+    # Garde-fou statut : suppression réservée aux demandes PRÉ-instruction.
+    if loan_request.statut not in DELETABLE_STATUSES:
+        raise LoanDeletionError(
+            "Cette demande est déjà passée en instruction (ou au-delà) : "
+            "suppression interdite. Utilisez le rejet, ou l'invalidation des "
+            "paiements pour un dossier déjà étudié."
+        )
 
     if loan is not None:
         # Garde-fou : un crédit financé par des prêteurs ou en procédure ne

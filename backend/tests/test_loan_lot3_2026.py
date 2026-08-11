@@ -253,11 +253,33 @@ class TestDeletionTraced:
         assert trace.exists()
         assert "SUPPRESSION" in trace.read_text(encoding="utf-8")
 
-    def test_delete_request_with_simple_loan(self, tmp_path, settings):
+    def test_delete_request_with_loan_blocked_post_instruction(self, tmp_path, settings):
+        """Règle 2026-08 : une demande APPROUVÉE (donc passée en instruction, avec
+        crédit) n'est plus supprimable — seules les demandes PRÉ-instruction le
+        sont. La suppression lève LoanDeletionError et ne détruit rien."""
         settings.MEDIA_ROOT = tmp_path
         m = MemberFactory()
         loan = _loan(m, solde="40000")
         lr_id = loan.loan_request_id
-        delete_loan_request_traced(loan.loan_request, actor=UserFactory())
-        assert not Loan.objects.filter(pk=loan.pk).exists()
-        assert not LoanRequest.objects.filter(pk=lr_id).exists()
+        with pytest.raises(LoanDeletionError):
+            delete_loan_request_traced(loan.loan_request, actor=UserFactory())
+        assert Loan.objects.filter(pk=loan.pk).exists()
+        assert LoanRequest.objects.filter(pk=lr_id).exists()
+
+    def test_delete_pre_instruction_states_allowed(self, tmp_path, settings):
+        """Chaque état pré-instruction est supprimable (avaliste / campagne inclus)."""
+        settings.MEDIA_ROOT = tmp_path
+        for statut in (
+            LoanRequest.Statut.EN_ATTENTE_AVALISTE,
+            LoanRequest.Statut.EN_VALIDATION_CAMPAGNE,
+            LoanRequest.Statut.REJETEE_CAMPAGNE,
+        ):
+            lr = LoanRequest.objects.create(
+                member=MemberFactory(),
+                montant_demande=Decimal("50000"),
+                duree_mois=6,
+                motif="x",
+                statut=statut,
+            )
+            delete_loan_request_traced(lr, actor=UserFactory(), motif="nettoyage")
+            assert not LoanRequest.objects.filter(pk=lr.pk).exists()
