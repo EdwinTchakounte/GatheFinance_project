@@ -7,16 +7,16 @@ import { BrandWatermark } from "./brand-watermark";
  * et `apps_coop/savings/...`). Aucun chiffre n'est inventé.
  *
  * Style éditorial press : eyebrow numéroté terra, grande valeur Syne,
- * label majuscule, sous-label discret avec référence à l'article. Bandeau
- * cream avec hairlines top/bottom, responsive (2 cols mobile → 4 cols lg).
+ * label majuscule. Bandeau cream avec hairlines top/bottom, responsive
+ * (2 cols mobile → 4 cols lg). Pas de référence d'article affichée.
  */
-type Figure = { value: string; label: string; sub: string };
+type Figure = { value: string; label: string };
 
 const DEFAULT_FIGURES: Figure[] = [
-  { value: "10 %", label: "Taux crédit", sub: "Article 5 — par transaction" },
-  { value: "8", label: "Paliers de durée", sub: "Article 7 — de 2 à 9 mois" },
-  { value: "1 000 F", label: "Collecte journalière", sub: "Article 4 — cut-off 17 h" },
-  { value: "1 % / mois", label: "Intérêts épargne", sub: "Article 4 — capitalisés" },
+  { value: "10 %", label: "Taux crédit" },
+  { value: "8", label: "Paliers de durée" },
+  { value: "1 000 F", label: "Collecte journalière" },
+  { value: "1 % / mois", label: "Intérêts épargne" },
 ];
 
 export function KeyFiguresBand({ figures = DEFAULT_FIGURES }: { figures?: Figure[] }) {
@@ -57,7 +57,6 @@ export function KeyFiguresBand({ figures = DEFAULT_FIGURES }: { figures?: Figure
               <p className="mt-3 text-[0.74rem] font-medium uppercase tracking-[0.12em] text-white/75">
                 {f.label}
               </p>
-              <p className="mt-1 text-[0.72rem] leading-snug text-white/45">{f.sub}</p>
             </div>
           ))}
         </dl>
