@@ -144,6 +144,19 @@ SCHEDULES = [
         ),
     },
     {
+        "name": "ecritures.backup.daily",
+        "func": "django.core.management.call_command",
+        "args": "'backup_ecritures'",
+        "schedule_type": Schedule.CRON,
+        "cron": "0 22 * * *",  # tous les jours à 22:00 (Africa/Douala).
+        "description": (
+            "Sauvegarde quotidienne des ECRITURES (Payment + registres épargne "
+            "collecte/classique + remboursements/échéances/intérêts prêteur) → "
+            "MEDIA_ROOT/coop/backups/ecritures_YYYY-MM-DD.jsonl.gz. Non "
+            "destructif, rétention 90 j. Complète le dump SGBD (service backup, 03h)."
+        ),
+    },
+    {
         "name": "audit.archive_logs_3d",
         "func": "django.core.management.call_command",
         "args": "'archive_audit_logs'",

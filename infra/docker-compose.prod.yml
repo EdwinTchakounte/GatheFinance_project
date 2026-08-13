@@ -155,6 +155,11 @@ services:
     command: ["python", "manage.py", "qcluster"]
     environment:
       <<: *backend-env
+    # Même volume média que `backend` : les jobs planifiés qui écrivent sur
+    # disque (backup_ecritures → coop/backups, archive_audit_logs →
+    # coop/logs_archive) doivent persister au-delà du cycle de vie du conteneur.
+    volumes:
+      - backend_media:/app/media
     depends_on:
       backend:
         condition: service_healthy

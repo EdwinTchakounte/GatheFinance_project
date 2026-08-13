@@ -6,6 +6,7 @@ import { Check, Loader2, RotateCcw } from "lucide-react";
 import {
   adminApi,
   type ApiError,
+  type BusinessRate,
   type CostsConfig,
   type FeeConfig,
   type RateConfig,
@@ -107,9 +108,19 @@ export default function CostsPage() {
                   {config.rates.map((rate) => (
                     <RateRow key={rate.code} rate={rate} />
                   ))}
+                  {(config.business_rates ?? []).map((br) => (
+                    <BusinessRateRow key={br.key} rate={br} />
+                  ))}
                 </tbody>
               </table>
             </div>
+            {config.business_rates && config.business_rates.length > 0 ? (
+              <p className="mt-2 text-xs text-ink-500">
+                La commission de collecte et l&apos;intérêt prêteur sont aussi
+                modifiables depuis <strong>Réglages</strong> ; ils sont surfacés ici
+                pour regrouper tous les taux au même endroit.
+              </p>
+            ) : null}
           </section>
         </div>
         <TransactionFeeOperations initial={config.transaction_fee_operations} />
@@ -310,6 +321,71 @@ function RateRow({ rate }: { rate: RateConfig }) {
         <p className="font-medium text-ink-900">{rate.libelle}</p>
         <p className="font-mono text-[10px] uppercase tracking-wide text-ink-400">
           {rate.code}
+        </p>
+        {e.rowError ? (
+          <p className="mt-1 text-xs text-terra-700">{e.rowError}</p>
+        ) : null}
+      </td>
+      <td className="text-right">
+        <div className="inline-flex items-center gap-1">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={0.5}
+            value={e.value}
+            onChange={(ev) => e.setValue(ev.target.value)}
+            onKeyDown={(ev) => ev.key === "Enter" && e.dirty && save()}
+            className="w-24 rounded-md border border-line-200 bg-paper py-1.5 px-2 text-right font-mono text-sm focus:border-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-700"
+          />
+          <span className="text-xs text-ink-500">%</span>
+        </div>
+      </td>
+      <td>
+        <SaveButton dirty={e.dirty} saving={e.saving} saved={e.saved} onSave={save} />
+      </td>
+    </tr>
+  );
+}
+
+
+/** Taux métier stocké en AppSetting (ratio 0–1) — édité en % comme un RateRow,
+ *  mais sauvegardé via l'API générique appSettings (clé → valeur). */
+function BusinessRateRow({ rate }: { rate: BusinessRate }) {
+  const initialPct = trimZeros(String(Number(rate.valeur) * 100));
+  const e = useRowEdit(initialPct);
+
+  async function save() {
+    const pct = Number(e.value);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      e.setRowError("Pourcentage entre 0 et 100.");
+      return;
+    }
+    e.setSaving(true);
+    e.setRowError(null);
+    try {
+      const res = await adminApi.appSettings.update(
+        rate.key,
+        Number((pct / 100).toFixed(4)),
+      );
+      // La réponse renvoie la valeur normalisée (string) ; on réaffiche en %.
+      const raw = (res as { value?: string | number }).value ?? rate.valeur;
+      e.setValue(trimZeros(String(Number(raw) * 100)));
+      e.setSaved(true);
+      setTimeout(() => e.setSaved(false), 2000);
+    } catch (err) {
+      e.setRowError((err as ApiError).detail ?? "Échec.");
+    } finally {
+      e.setSaving(false);
+    }
+  }
+
+  return (
+    <tr>
+      <td>
+        <p className="font-medium text-ink-900">{rate.libelle}</p>
+        <p className="font-mono text-[10px] uppercase tracking-wide text-ink-400">
+          {rate.key}
         </p>
         {e.rowError ? (
           <p className="mt-1 text-xs text-terra-700">{e.rowError}</p>

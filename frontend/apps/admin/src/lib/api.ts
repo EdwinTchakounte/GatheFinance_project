@@ -745,10 +745,14 @@ export type RateConfig = {
 };
 
 export type FeeOperations = { versement: boolean; retrait: boolean; transfert: boolean };
+// Taux métier stockés en AppSetting (commission collecte, intérêt prêteur),
+// surfacés sur la page Coûts. Édités via l'API appSettings (clé → valeur).
+export type BusinessRate = { key: string; libelle: string; valeur: string };
 export type CostsConfig = {
   fees: FeeConfig[];
   rates: RateConfig[];
   transaction_fee_operations?: FeeOperations;
+  business_rates?: BusinessRate[];
 };
 
 // Cron schedules (django-q).

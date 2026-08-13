@@ -810,11 +810,31 @@ def admin_config(request):
     from .fee_policy import ALL_OPERATIONS, fee_operations
 
     _ops = fee_operations()
+
+    # Taux métier stockés en AppSetting (hors RateParam) — surfacés ici pour que
+    # l'admin retrouve TOUS les taux au même endroit (« rubrique des taux »).
+    # Édition via l'endpoint générique /audit/admin/settings/<key>/.
+    from apps_coop.audit.services import get_str_setting
+
+    business_rates = [
+        {
+            "key": "collecte.monthly.commission_rate",
+            "libelle": "Commission collecte (clôture mensuelle)",
+            "valeur": get_str_setting("collecte.monthly.commission_rate", "0.01"),
+        },
+        {
+            "key": "loans.lender.interest_rate",
+            "libelle": "Intérêt prêteur (k × mise placée)",
+            "valeur": get_str_setting("loans.lender.interest_rate", "0.03"),
+        },
+    ]
+
     return Response(
         {
             "fees": fees,
             "rates": rates,
             "transaction_fee_operations": {op: (op in _ops) for op in ALL_OPERATIONS},
+            "business_rates": business_rates,
         }
     )
 
