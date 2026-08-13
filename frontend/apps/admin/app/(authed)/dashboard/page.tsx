@@ -171,7 +171,7 @@ function DashboardContent() {
     {
       label: "BRC validés",
       value: kpis.members.brc_validated,
-      hint: "voie crédit directe débloquée",
+      hint: "attribut confirmé · couplable à toute voie",
       icon: ShieldAlert,
       tone: "emerald",
     },
