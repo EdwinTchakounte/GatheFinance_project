@@ -15,6 +15,10 @@ on:
         description: "Rétention des backups (jours)"
         type: string
         default: "90"
+      skip_backup:
+        description: "Ne PAS lancer le backup, seulement vérifier le cron 22h ?"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -42,16 +46,42 @@ jobs:
 
             cd "$DEPLOY_PATH/infra"
 
-            echo ">>> backup_ecritures --retention ${{ inputs.retention_days }}"
-            $COMPOSE exec -T backend python manage.py backup_ecritures --retention "${{ inputs.retention_days }}"
+            if [ "${{ inputs.skip_backup }}" != "true" ]; then
+              echo ">>> backup_ecritures --retention ${{ inputs.retention_days }}"
+              $COMPOSE exec -T backend python manage.py backup_ecritures --retention "${{ inputs.retention_days }}"
+
+              echo ""
+              echo "================ Fichiers de backup présents ================"
+              $COMPOSE exec -T backend sh -c 'ls -lh /app/media/coop/backups/ || echo "(dossier absent)"'
+
+              echo ""
+              echo "================ Manifeste du backup du jour ================"
+              $COMPOSE exec -T backend sh -c 'zcat /app/media/coop/backups/ecritures_$(date +%Y-%m-%d).jsonl.gz | head -1'
+            else
+              echo ">>> backup ignoré (skip_backup=true)"
+            fi
 
             echo ""
-            echo "================ Fichiers de backup présents ================"
-            $COMPOSE exec -T backend sh -c 'ls -lh /app/media/coop/backups/ || echo "(dossier absent)"'
+            echo "================ Vérif du cron 22h (django-q Schedule) ================"
+            $COMPOSE exec -T backend python manage.py shell -c "
+            from django_q.models import Schedule
+            s = Schedule.objects.filter(name='ecritures.backup.daily').first()
+            if not s:
+                print('ABSENT — le schedule ecritures.backup.daily n existe pas (relancer seed_q_schedules)')
+            else:
+                print('PRESENT :', s.name)
+                print('  func     :', s.func)
+                print('  cron     :', s.cron)
+                print('  type     :', s.schedule_type)
+                print('  next_run :', s.next_run)
+            print('--- tous les schedules ---')
+            for row in Schedule.objects.order_by('name').values_list('name','cron'):
+                print(' ', row[0], '=>', row[1])
+            "
 
             echo ""
-            echo "================ Manifeste du backup du jour ================"
-            $COMPOSE exec -T backend sh -c 'zcat /app/media/coop/backups/ecritures_$(date +%Y-%m-%d).jsonl.gz | head -1'
+            echo "================ Worker qcluster (doit tourner) ================"
+            $COMPOSE ps qcluster || true
 
             echo ""
             echo ">>> Done."
