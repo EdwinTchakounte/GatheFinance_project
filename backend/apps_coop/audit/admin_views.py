@@ -77,6 +77,7 @@ def admin_settings_list(request):
             is_admin_edited=entry["key"] in db_values,
         )
         for entry in CATALOG
+        if not entry.get("hidden")  # réglages obsolètes masqués de l'UI
     ]
     groups_payload = [
         {"key": key, "label": label} for key, label in GROUPS_ORDER

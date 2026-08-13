@@ -80,9 +80,11 @@ class TestList:
         assert "manual" in mode["choices"]
         assert "auto" in mode["choices"]
         # decimal doit exposer min/max.
-        rate = keys["lender.interest_share_rate"]
+        rate = keys["loans.lender.interest_rate"]
         assert rate["type"] == "decimal"
         assert rate["min"] == 0 and rate["max"] == 1
+        # Le réglage legacy obsolète est masqué de la liste (hidden).
+        assert "lender.interest_share_rate" not in keys
 
     def test_forbidden_for_non_staff(self, member_client):
         r = member_client.get("/api/v1/audit/admin/settings/")

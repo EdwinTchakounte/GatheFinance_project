@@ -280,6 +280,9 @@ CATALOG: list[dict] = [
         "default": "0.5",
         "min": 0,
         "max": 1,
+        # Masqué de l'UI d'administration : plus aucun code ne le lit, l'éditer
+        # n'a aucun effet. Conservé au catalogue pour rester une clé valide.
+        "hidden": True,
     },
     # 2026-07-24 — Taux d'intérêt prêteur (k × contribution, au décaissement)
     {
