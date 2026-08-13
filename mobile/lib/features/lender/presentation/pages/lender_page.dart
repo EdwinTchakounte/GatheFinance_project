@@ -308,8 +308,8 @@ class _OptInCard extends StatelessWidget {
           const SizedBox(height: 6),
           const Text(
             'Une partie de ton épargne classique pourra financer les crédits '
-            "d'autres membres. Tu reçois 50 % des intérêts générés, "
-            'conformément au Règlement intérieur.',
+            "d'autres membres. Tu perçois un intérêt proportionnel à ta mise "
+            '(environ 3 %, réglable par la coopérative), crédité automatiquement.',
             style: TextStyle(
               color: PaColors.inkSecondary,
               fontSize: 13,
