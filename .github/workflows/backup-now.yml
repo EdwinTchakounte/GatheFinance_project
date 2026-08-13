@@ -1,0 +1,57 @@
+# Manuel — workflow_dispatch pour générer un backup des ECRITURES immédiat sur
+# le serveur CLIENT (DMZ, api.gathe-finance.com) sans SSH à la main. Jumeau du
+# schedule django-q `ecritures.backup.daily` (0 22 * * *), mais déclenché à la
+# demande pour vérification.
+#
+# Non destructif : la commande `backup_ecritures` ne supprime AUCUNE donnée
+# métier (elle exporte les registres en .jsonl.gz + purge des backups > rétention).
+
+name: Backup écritures NOW (client)
+
+on:
+  workflow_dispatch:
+    inputs:
+      retention_days:
+        description: "Rétention des backups (jours)"
+        type: string
+        default: "90"
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Backup écritures via SSH (serveur client DMZ)
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Run backup_ecritures + vérification du fichier
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.CLIENT_VPS_HOST }}
+          username: ${{ secrets.CLIENT_VPS_USER }}
+          key: ${{ secrets.CLIENT_VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+
+            DEPLOY_PATH="${{ secrets.CLIENT_VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.client.yml --env-file .env.prod"
+
+            cd "$DEPLOY_PATH/infra"
+
+            echo ">>> backup_ecritures --retention ${{ inputs.retention_days }}"
+            $COMPOSE exec -T backend python manage.py backup_ecritures --retention "${{ inputs.retention_days }}"
+
+            echo ""
+            echo "================ Fichiers de backup présents ================"
+            $COMPOSE exec -T backend sh -c 'ls -lh /app/media/coop/backups/ || echo "(dossier absent)"'
+
+            echo ""
+            echo "================ Manifeste du backup du jour ================"
+            $COMPOSE exec -T backend sh -c 'zcat /app/media/coop/backups/ecritures_$(date +%Y-%m-%d).jsonl.gz | head -1'
+
+            echo ""
+            echo ">>> Done."
