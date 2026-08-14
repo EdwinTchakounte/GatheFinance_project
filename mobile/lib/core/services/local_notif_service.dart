@@ -114,8 +114,8 @@ class LocalNotifService {
           AndroidFlutterLocalNotificationsPlugin>();
       if (androidImpl == null) return false;
       final granted = await androidImpl.requestNotificationsPermission();
-      // Permet aussi les alarmes exactes (Android 12+) pour zonedSchedule.
-      await androidImpl.requestExactAlarmsPermission();
+      // Pas d'alarme exacte : les rappels utilisent AndroidScheduleMode.inexact*
+      // (USE_EXACT_ALARM est reservee par Google Play aux apps alarme/agenda).
       return granted ?? false;
     }
     if (Platform.isIOS) {
@@ -263,7 +263,7 @@ class LocalNotifService {
           ),
           iOS: const DarwinNotificationDetails(),
         ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.time,

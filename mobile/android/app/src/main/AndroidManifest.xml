@@ -8,12 +8,11 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <!-- Notifications locales (flutter_local_notifications) :
          . POST_NOTIFICATIONS requis Android 13+ pour afficher les push
-         . SCHEDULE_EXACT_ALARM zonedSchedule precis (rappel 16h cotisation)
-         . USE_EXACT_ALARM equivalent Android 14+
-         . RECEIVE_BOOT_COMPLETED re-arme les schedules au reboot device -->
+         . RECEIVE_BOOT_COMPLETED re-arme les schedules au reboot device
+         Note : pas de SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM . les rappels
+         utilisent AndroidScheduleMode.inexact* (permissions reservees par
+         Google Play aux apps alarme/agenda, rejet sinon). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <application
