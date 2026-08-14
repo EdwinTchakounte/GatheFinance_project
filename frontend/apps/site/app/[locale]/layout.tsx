@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { DM_Sans, Syne, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 // `getTranslations` is still used by generateMetadata below.
@@ -15,10 +15,12 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").r
 // Seules Syne (display/editorial) + DM Sans (corps) sont réellement mappées par
 // globals.css (@theme). Les familles Jakarta/Inter/Lora étaient chargées sans
 // être utilisées (écrasées dans la cascade) → retirées (payload WOFF2 en moins).
-const syne = Syne({ subsets: ["latin", "latin-ext"], weight: ["700", "800"], variable: "--font-syne", display: "swap" });
-const dmSans = DM_Sans({ subsets: ["latin", "latin-ext"], weight: ["300", "400", "500"], variable: "--font-dmsans", display: "swap" });
+// Polices variables AUTO-HÉBERGÉES (subset latin, couvre le français) : plus
+// aucune dépendance réseau à Google Fonts au moment du build.
+const syne = localFont({ src: "../../../../fonts/syne-latin.woff2", weight: "600 800", variable: "--font-syne", display: "swap" });
+const dmSans = localFont({ src: "../../../../fonts/dmsans-latin.woff2", weight: "300 700", variable: "--font-dmsans", display: "swap" });
 // JetBrains Mono — chiffres, montants et références (design system).
-const jetbrains = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-jetbrains", display: "swap" });
+const jetbrains = localFont({ src: "../../../../fonts/jetbrains-latin.woff2", weight: "400 600", variable: "--font-jetbrains", display: "swap" });
 
 export const viewport: Viewport = {
   // Aligné sur le manifest (theme_color #0e4d92) — la vitrine est en thème clair

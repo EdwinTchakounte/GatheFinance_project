@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Syne, DM_Sans, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 
 import "./globals.css";
 
 // Design system : Syne (display) / DM Sans (corps) / JetBrains Mono (chiffres).
-const syne = Syne({ subsets: ["latin", "latin-ext"], weight: ["600", "700", "800"], variable: "--font-syne", display: "swap" });
-const dmSans = DM_Sans({ subsets: ["latin", "latin-ext"], weight: ["400", "500", "600", "700"], variable: "--font-dmsans", display: "swap" });
-const jetbrains = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-jetbrains", display: "swap" });
+// Polices variables AUTO-HÉBERGÉES (subset latin, couvre le français) : plus
+// aucune dépendance réseau à Google Fonts au moment du build.
+const syne = localFont({ src: "../../../fonts/syne-latin.woff2", weight: "600 800", variable: "--font-syne", display: "swap" });
+const dmSans = localFont({ src: "../../../fonts/dmsans-latin.woff2", weight: "400 700", variable: "--font-dmsans", display: "swap" });
+const jetbrains = localFont({ src: "../../../fonts/jetbrains-latin.woff2", weight: "400 600", variable: "--font-jetbrains", display: "swap" });
 
 export const metadata: Metadata = {
   title: "GATHE Finance · Administration",
