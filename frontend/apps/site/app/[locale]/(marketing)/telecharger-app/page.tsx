@@ -14,26 +14,23 @@ type Params = { params: Promise<{ locale: string }> };
 // APK heberge sur Google Drive (74 Mo, evite de gonfler le repo et le
 // container Docker). File ID stable ; pour le rotater il suffit d'uploader
 // une nouvelle version et de coller le nouvel ID ici.
-const APK_DRIVE_FILE_ID = "1CqqRehipMPZOwk28oZ9q2DYJtgSqVlPQ";
-// URL "share" (preview Drive) : utilisee pour le QR code → ouvre l'app
-// Drive sur mobile, l'utilisateur clique "Télécharger" depuis l'app.
+const APK_DRIVE_FILE_ID = "1kJEkKbHthwVWTdF47SazLJKqbL-5T88f";
+// URL "share" (preview Drive) : encodee dans le QR code (public/downloads/
+// qr-app.png) → ouvre l'app Drive sur mobile, l'utilisateur clique Telecharger.
 const APK_SHARE_URL =
   `https://drive.google.com/file/d/${APK_DRIVE_FILE_ID}/view?usp=sharing`;
-// URL "direct download" : pour le bouton desktop, force le telechargement
-// du blob sans passer par l'UI Drive (necessite le param uc + export).
+// URL "direct download" : `confirm=t` contourne l'ecran anti-virus que Drive
+// affiche pour les gros fichiers (>25 Mo) → le clic lance directement le
+// telechargement du blob au lieu d'ouvrir une page d'avertissement.
 const APK_DOWNLOAD_URL =
-  `https://drive.google.com/uc?export=download&id=${APK_DRIVE_FILE_ID}`;
+  `https://drive.google.com/uc?export=download&id=${APK_DRIVE_FILE_ID}&confirm=t`;
 const APK_VERSION = "1.0.0";
 const APK_SIZE = "74,5 Mo";
 
-// QR code via service tiers (api.qrserver.com, gratuit, sans dependance npm).
-// L'URL pointe vers la version absolue prod de l'APK pour scan depuis n'importe
-// quel mobile. Si on n'est pas en prod (NEXT_PUBLIC_SITE_URL non set) on
-// fallback sur un placeholder.
-function qrUrl(targetUrl: string): string {
-  const encoded = encodeURIComponent(targetUrl);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encoded}&margin=8`;
-}
+// QR code AUTO-HEBERGE (public/downloads/qr-app.png), genere avec la lib
+// `qrcode` et encodant APK_SHARE_URL. Pas de service tiers (fin de la
+// dependance a api.qrserver.com). A regenerer si le file ID Drive change.
+const QR_IMAGE_SRC = "/downloads/qr-app.png";
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { locale } = await params;
@@ -161,7 +158,7 @@ export default async function DownloadAppPage({ params }: Params) {
                 <div className="mt-5 flex justify-center">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={qrUrl(apkAbsoluteUrl)}
+                    src={QR_IMAGE_SRC}
                     width={240}
                     height={240}
                     alt={t("qrAlt")}
