@@ -24,6 +24,10 @@ on:
         description: "Rejouer seed_form_schemas --force ? (active le schema demande sans la question CFP)"
         type: boolean
         default: false
+      seed_fees:
+        description: "Rejouer seed_fees ? (crée FeeType + RateParam TRANSACTION_FEE 3% si absents, jamais écrasés)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -71,6 +75,13 @@ jobs:
               $COMPOSE exec -T backend python manage.py seed_form_schemas --force
             else
               echo ">>> seed_form_schemas skipped"
+            fi
+
+            if [ "${{ inputs.seed_fees }}" = "true" ]; then
+              echo ">>> seed_fees"
+              $COMPOSE exec -T backend python manage.py seed_fees
+            else
+              echo ">>> seed_fees skipped"
             fi
 
             echo ">>> Done."
