@@ -26,9 +26,10 @@ OP_TRANSFERT = "transfert"
 ALL_OPERATIONS = (OP_VERSEMENT, OP_RETRAIT, OP_TRANSFERT)
 
 SETTING_KEY = "payments.transaction_fee.operations"
-# Défaut : les 3 opérations sont dans le périmètre (le frais reste nul tant que
-# le taux TRANSACTION_FEE n'est pas relevé > 0).
-DEFAULT_OPERATIONS = "versement,retrait,transfert"
+# Défaut : SEUL le versement est dans le périmètre (retrait et transfert → 0).
+# Le frais versement s'applique donc automatiquement (taux TRANSACTION_FEE,
+# 3 % par défaut) ; l'admin peut élargir le périmètre sur la page Coûts.
+DEFAULT_OPERATIONS = "versement"
 
 
 def fee_operations() -> set[str]:

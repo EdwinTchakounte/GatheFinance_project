@@ -38,10 +38,15 @@ def _set_scope(csv: str):
     AppSetting.objects.update_or_create(cle=SETTING_KEY, defaults={"valeur": csv})
 
 
-def test_no_rate_means_zero_on_all_operations():
-    """Défaut (aucun RateParam TRANSACTION_FEE) → frais = 0 partout."""
-    for op in (OP_VERSEMENT, OP_RETRAIT, OP_TRANSFERT):
-        assert transaction_fee_for(Decimal("10000"), op) == Decimal("0")
+def test_default_is_3pct_on_versement_only():
+    """Défaut métier (aucune config admin) : versement = 3 %, autres = 0.
+
+    Sans ligne RateParam ni AppSetting, le taux retombe sur le défaut 3 %
+    et le périmètre par défaut ne contient QUE le versement.
+    """
+    assert transaction_fee_for(Decimal("10000"), OP_VERSEMENT) == Decimal("300")
+    assert transaction_fee_for(Decimal("10000"), OP_RETRAIT) == Decimal("0")
+    assert transaction_fee_for(Decimal("10000"), OP_TRANSFERT) == Decimal("0")
 
 
 @pytest.mark.parametrize("op", [OP_VERSEMENT, OP_RETRAIT, OP_TRANSFERT])

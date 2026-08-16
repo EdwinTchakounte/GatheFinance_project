@@ -16,7 +16,7 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from apps_coop.payments.models import FeeType
+from apps_coop.payments.models import FeeType, RateParam
 
 
 # Frais imposés par le Règlement Intérieur (montants exacts, non négociables).
@@ -82,5 +82,26 @@ class Command(BaseCommand):
                 self.stdout.write(
                     f"  · Kept     {code:<22} → {fee.montant} FCFA (admin-edited)"
                 )
+
+        # 3) Taux de frais de transaction sur versement — créé à 3 % si absent,
+        #    jamais réécrit (l'admin l'ajuste ensuite sur la page Coûts).
+        rate, was_created = RateParam.objects.get_or_create(
+            code=RateParam.Code.TRANSACTION_FEE,
+            defaults={
+                "libelle": "Frais de transaction sur versement (%)",
+                "valeur": Decimal("0.03"),
+                "actif": True,
+            },
+        )
+        if was_created:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    "  ✓ Created  TRANSACTION_FEE        → 3 % (versement)"
+                )
+            )
+        else:
+            self.stdout.write(
+                f"  · Kept     TRANSACTION_FEE        → {rate.valeur} (admin-edited)"
+            )
 
         self.stdout.write(self.style.SUCCESS("Seed fees done."))

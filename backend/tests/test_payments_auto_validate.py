@@ -255,9 +255,19 @@ def test_transaction_fee_added_on_top_credits_base(
 
 
 @override_settings(PAYMENTS_TEST_AUTO_VALIDATE=True)
-def test_no_transaction_fee_by_default(member_client, active_member, init_payload):
-    """Sans RateParam TRANSACTION_FEE (défaut 0) → frais_transaction = 0."""
+def test_default_transaction_fee_is_3pct_on_versement(
+    member_client, active_member, init_payload
+):
+    """Défaut métier (sans config admin) : versement facturé 3 % en plus.
+
+    Le taux TRANSACTION_FEE vaut 3 % par défaut et le périmètre par défaut ne
+    contient que le versement : un dépôt d'épargne se voit donc appliquer 3 %,
+    tandis que le compte reste crédité du seul montant de base.
+    """
+    solde_initial = active_member.savings_account.solde
     res = member_client.post("/api/v1/payments/init/", data=init_payload, format="json")
     assert res.status_code == 201
     payment = Payment.objects.get(pk=res.json()["payment"]["id"])
-    assert payment.frais_transaction == Decimal("0")
+    assert payment.frais_transaction == Decimal("30")  # 1000 × 0.03
+    active_member.savings_account.refresh_from_db()
+    assert active_member.savings_account.solde == solde_initial + Decimal("1000")

@@ -36,9 +36,10 @@ def _defaults() -> dict[str, Decimal]:
         "RENEWAL_CASH": RenewalRate.INTERETS_AU_COMPTANT,
         "RENEWAL_DEFERRED": RenewalRate.INTERETS_REPORTES,
         "LATE_PENALTY": RenewalRate.PENALITE_NON_VERSEMENT,
-        # Frais de transaction sur versement : 0 par défaut (aucun frais tant
-        # que l'admin n'a pas fixé un pourcentage).
-        "TRANSACTION_FEE": Decimal("0"),
+        # Frais de transaction sur versement : 3 % par défaut (versement via
+        # Mobile Money / Tara). L'admin peut le modifier sur la page Coûts ;
+        # ce défaut s'applique tant qu'aucune ligne RateParam n'a été posée.
+        "TRANSACTION_FEE": Decimal("0.03"),
     }
 
 
