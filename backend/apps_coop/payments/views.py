@@ -345,16 +345,23 @@ def init_payment(request):
     )
     if data["type"] in _SPECIAL_TYPES:
         from apps_coop.special_collections.models import SpecialCollectionMembership
+        from apps_coop.special_collections.services import current_open_cycle
 
-        membership = SpecialCollectionMembership.objects.filter(
-            member=request.user.member, type=data["type"]
-        ).first()
+        cycle = current_open_cycle(data["type"])
+        membership = (
+            SpecialCollectionMembership.objects.filter(
+                member=request.user.member, cycle=cycle
+            ).first()
+            if cycle is not None
+            else None
+        )
         if membership is None or not membership.is_active:
             return Response(
                 {
                     "detail": (
-                        "Ta participation à cette collecte doit d'abord être "
-                        "validée par la coopérative avant tout versement."
+                        "Ta participation au cycle en cours de cette collecte "
+                        "doit d'abord être validée par la coopérative avant tout "
+                        "versement."
                     )
                 },
                 status=status.HTTP_403_FORBIDDEN,

@@ -49,19 +49,23 @@ class SpecialCollectionPage extends ConsumerWidget {
           ),
           data: (_) {
             final notifier = ref.read(specialCollectionsProvider.notifier);
-            final coll = notifier.byType(type);
-            final statut = coll?.statut;
-            if (statut == 'valide') {
-              return _ActiveView(type: type, collection: coll!);
+            final slot = notifier.slotFor(type);
+            // Pas de cycle ouvert → rien à faire pour l'instant.
+            if (slot == null || !slot.hasOpenCycle) {
+              return _NoCycleBanner(title: title);
             }
-            if (statut == 'en_attente') {
+            final m = slot.membership;
+            if (m != null && m.statut == 'valide') {
+              return _ActiveView(type: type, collection: m);
+            }
+            if (m != null && m.statut == 'en_attente') {
               return _PendingBanner(title: title);
             }
-            // Absente ou rejetée → formulaire (avec motif de rejet le cas échéant).
+            // Aucune participation ou rejetée → formulaire de demande.
             return _RequestForm(
               type: type,
               title: title,
-              previousRejet: coll?.motifRejet,
+              previousRejet: m?.motifRejet,
             );
           },
         ),
@@ -234,6 +238,61 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
             onPressed: _busy ? null : _submit,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Bandeau « pas de cycle ouvert » ──────────────────────────────────────────
+class _NoCycleBanner extends StatelessWidget {
+  const _NoCycleBanner({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: const BoxDecoration(
+                color: PaColors.cardBg,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.event_busy_rounded,
+                color: PaColors.inkMuted,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Aucun cycle en cours',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: PaColors.inkPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'La coopérative n\'a pas encore ouvert de cycle pour « $title ». '
+              'Reviens dès qu\'un nouveau cycle sera lancé pour t\'y inscrire.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: PaColors.inkSecondary,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

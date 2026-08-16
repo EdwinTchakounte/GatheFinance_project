@@ -1,9 +1,35 @@
-"""Serializers des collectes particulières (membre + admin)."""
+"""Serializers des collectes particulières (membre + admin + cycles)."""
 from __future__ import annotations
 
 from rest_framework import serializers
 
-from .models import SpecialCollectionMembership, SpecialCollectionTransaction
+from .models import (
+    SpecialCollectionCycle,
+    SpecialCollectionMembership,
+    SpecialCollectionTransaction,
+)
+
+
+class SpecialCollectionCycleSerializer(serializers.ModelSerializer):
+    type_display = serializers.CharField(source="get_type_display", read_only=True)
+    statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    is_open = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = SpecialCollectionCycle
+        fields = [
+            "id",
+            "type",
+            "type_display",
+            "nom",
+            "date_debut",
+            "date_fin",
+            "statut",
+            "statut_display",
+            "is_open",
+            "created_at",
+            "closed_at",
+        ]
 
 
 class SpecialCollectionTransactionSerializer(serializers.ModelSerializer):
@@ -23,11 +49,14 @@ class SpecialCollectionTransactionSerializer(serializers.ModelSerializer):
 
 
 class SpecialCollectionMembershipSerializer(serializers.ModelSerializer):
-    """Vue membre d'une participation (statut + solde + objectif)."""
+    """Vue membre d'une participation (statut + solde + objectif + cycle)."""
 
     type_display = serializers.CharField(source="get_type_display", read_only=True)
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     is_active = serializers.BooleanField(read_only=True)
+    cycle_id = serializers.IntegerField(source="cycle.id", read_only=True)
+    cycle_nom = serializers.CharField(source="cycle.nom", read_only=True)
+    cycle_statut = serializers.CharField(source="cycle.statut", read_only=True)
 
     class Meta:
         model = SpecialCollectionMembership
@@ -45,6 +74,9 @@ class SpecialCollectionMembershipSerializer(serializers.ModelSerializer):
             "motif_rejet",
             "created_at",
             "validated_at",
+            "cycle_id",
+            "cycle_nom",
+            "cycle_statut",
         ]
 
 
@@ -83,3 +115,12 @@ class TransferSerializer(serializers.Serializer):
 
 class RejectSerializer(serializers.Serializer):
     motif = serializers.CharField(max_length=2000, allow_blank=True, required=False, default="")
+
+
+class OpenCycleSerializer(serializers.Serializer):
+    """Ouverture d'un cycle par l'admin."""
+
+    type = serializers.ChoiceField(choices=SpecialCollectionMembership.Type.choices)
+    nom = serializers.CharField(max_length=120)
+    date_debut = serializers.DateField(required=False, allow_null=True)
+    date_fin = serializers.DateField(required=False, allow_null=True)

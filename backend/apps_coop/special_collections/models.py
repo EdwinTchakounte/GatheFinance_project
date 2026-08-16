@@ -42,6 +42,14 @@ class SpecialCollectionMembership(TimestampedModel):
         on_delete=models.CASCADE,
         related_name="special_collections",
     )
+    # Cycle d'appartenance : chaque participation vit dans UN cycle (ouvert ou
+    # clos). À chaque nouveau cycle, le membre re-demande → nouvelle ligne, solde
+    # propre à 0. Le solde d'un cycle clos reste figé (gel + archivage).
+    cycle = models.ForeignKey(
+        "SpecialCollectionCycle",
+        on_delete=models.PROTECT,
+        related_name="memberships",
+    )
     type = models.CharField(max_length=32, choices=Type.choices, db_index=True)
     statut = models.CharField(
         max_length=16,
@@ -81,9 +89,11 @@ class SpecialCollectionMembership(TimestampedModel):
         verbose_name = "Participation collecte particulière"
         verbose_name_plural = "Participations collectes particulières"
         constraints = [
+            # Une seule participation par membre et par cycle (re-demande =
+            # ré-arme la même ligne tant qu'on est dans le même cycle).
             models.UniqueConstraint(
-                fields=["member", "type"],
-                name="uniq_member_special_collection_type",
+                fields=["member", "cycle"],
+                name="uniq_member_special_collection_cycle",
             )
         ]
         ordering = ["-created_at", "-id"]
@@ -93,8 +103,80 @@ class SpecialCollectionMembership(TimestampedModel):
 
     @property
     def is_active(self) -> bool:
-        """Le membre peut-il verser / transférer sur cette collecte ?"""
-        return self.statut == self.Statut.VALIDE
+        """Le membre peut-il verser / transférer sur cette collecte ?
+
+        Il faut être validé ET dans un cycle encore ouvert (un cycle clos est
+        gelé : plus aucun mouvement).
+        """
+        return self.statut == self.Statut.VALIDE and self.cycle.is_open
+
+
+class SpecialCollectionCycle(TimestampedModel):
+    """Cycle d'une collecte particulière (caisse scolaire / tontine alimentaire).
+
+    Un cycle = une période bornée, propre à un type. **Un seul cycle ouvert par
+    type** à la fois (contrainte DB partielle). L'admin ouvre un nouveau cycle
+    (ce qui clôt le précédent) ; les participants re-demandent pour ce cycle. À
+    la clôture, le cycle et ses soldes sont **gelés + archivés** (aucun mouvement
+    d'argent automatique — rapprochement géré par l'admin).
+    """
+
+    class Statut(models.TextChoices):
+        OUVERT = "ouvert", "Ouvert"
+        CLOS = "clos", "Clos"
+
+    type = models.CharField(
+        max_length=32,
+        choices=SpecialCollectionMembership.Type.choices,
+        db_index=True,
+    )
+    nom = models.CharField(
+        max_length=120,
+        help_text="Libellé du cycle (ex. « Caisse scolaire 2026-2027 »).",
+    )
+    date_debut = models.DateField()
+    date_fin = models.DateField(null=True, blank=True)
+    statut = models.CharField(
+        max_length=8,
+        choices=Statut.choices,
+        default=Statut.OUVERT,
+        db_index=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="special_collection_cycles_created",
+    )
+    closed_at = models.DateTimeField(null=True, blank=True)
+    closed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="special_collection_cycles_closed",
+    )
+
+    class Meta:
+        verbose_name = "Cycle de collecte particulière"
+        verbose_name_plural = "Cycles de collectes particulières"
+        constraints = [
+            # Au plus UN cycle ouvert par type (barrière DB).
+            models.UniqueConstraint(
+                fields=["type"],
+                condition=models.Q(statut="ouvert"),
+                name="uniq_open_cycle_per_type",
+            )
+        ]
+        ordering = ["-date_debut", "-id"]
+
+    def __str__(self) -> str:
+        return f"{self.get_type_display()} · {self.nom} · {self.statut}"
+
+    @property
+    def is_open(self) -> bool:
+        return self.statut == self.Statut.OUVERT
 
 
 class SpecialCollectionTransaction(TimestampedModel):

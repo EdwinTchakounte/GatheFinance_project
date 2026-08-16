@@ -3,15 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/providers.dart';
 import '../../core/services/tara_checkout_launcher.dart';
 
-/// Collecte particulière (caisse scolaire / tontine alimentaire) côté membre.
-///
-/// Chaque membre a au plus une participation par type. Le versement et le
-/// transfert ne sont possibles qu'une fois la participation VALIDÉE par la
-/// coopérative (statut `valide`).
+/// Participation d'un membre à une collecte particulière, DANS un cycle donné.
 class SpecialCollection {
   const SpecialCollection({
-    required this.type,
-    required this.typeDisplay,
     required this.statut,
     required this.statutDisplay,
     required this.isActive,
@@ -21,8 +15,6 @@ class SpecialCollection {
     this.motifRejet = '',
   });
 
-  final String type; // caisse_scolaire | tontine_alimentaire
-  final String typeDisplay;
   final String statut; // en_attente | valide | rejete | suspendu
   final String statutDisplay;
   final bool isActive;
@@ -33,8 +25,6 @@ class SpecialCollection {
 
   factory SpecialCollection.fromJson(Map<String, dynamic> j) =>
       SpecialCollection(
-        type: j['type'] as String? ?? '',
-        typeDisplay: j['type_display'] as String? ?? '',
         statut: j['statut'] as String? ?? 'en_attente',
         statutDisplay: j['statut_display'] as String? ?? '',
         isActive: j['is_active'] as bool? ?? false,
@@ -46,15 +36,44 @@ class SpecialCollection {
                 num.tryParse('${j['montant_cible']}'),
         motifRejet: j['motif_rejet'] as String? ?? '',
       );
+}
+
+/// Un « slot » par type : l'état du cycle ouvert (le cas échéant) + ma
+/// participation dans ce cycle (le cas échéant).
+class SpecialCollectionSlot {
+  const SpecialCollectionSlot({
+    required this.type,
+    required this.typeDisplay,
+    required this.hasOpenCycle,
+    this.cycleNom = '',
+    this.membership,
+  });
+
+  final String type; // caisse_scolaire | tontine_alimentaire
+  final String typeDisplay;
+  final bool hasOpenCycle;
+  final String cycleNom;
+  final SpecialCollection? membership;
+
+  factory SpecialCollectionSlot.fromJson(Map<String, dynamic> j) {
+    final cycle = j['cycle'] as Map<String, dynamic>?;
+    final membership = j['membership'] as Map<String, dynamic>?;
+    return SpecialCollectionSlot(
+      type: j['type'] as String? ?? '',
+      typeDisplay: j['type_display'] as String? ?? '',
+      hasOpenCycle: cycle != null && (cycle['is_open'] as bool? ?? false),
+      cycleNom: (cycle?['nom'] as String?) ?? '',
+      membership:
+          membership != null ? SpecialCollection.fromJson(membership) : null,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'type': type,
-        'statut': statut,
-        'is_active': isActive,
-        'solde': solde,
-        'objectif': objectif,
-        'montant_cible': montantCible,
-        'motif_rejet': motifRejet,
+        'hasOpenCycle': hasOpenCycle,
+        'cycleNom': cycleNom,
+        'statut': membership?.statut,
+        'solde': membership?.solde,
       };
 }
 
@@ -65,33 +84,33 @@ const kSpecialCollectionTypes = <String, String>{
 };
 
 class SpecialCollectionsNotifier
-    extends AsyncNotifier<List<SpecialCollection>> {
-  Future<List<SpecialCollection>> _fetch() async {
+    extends AsyncNotifier<List<SpecialCollectionSlot>> {
+  Future<List<SpecialCollectionSlot>> _fetch() async {
     final dio = ref.read(apiClientProvider).dio;
     final res = await dio.get<List<dynamic>>('/special-collections/');
     return (res.data ?? const [])
         .whereType<Map<String, dynamic>>()
-        .map(SpecialCollection.fromJson)
+        .map(SpecialCollectionSlot.fromJson)
         .toList();
   }
 
   @override
-  Future<List<SpecialCollection>> build() => _fetch();
+  Future<List<SpecialCollectionSlot>> build() => _fetch();
 
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(_fetch);
   }
 
-  /// Participation existante pour [type], ou `null` si le membre n'a rien demandé.
-  SpecialCollection? byType(String type) {
-    for (final c in state.valueOrNull ?? const <SpecialCollection>[]) {
-      if (c.type == type) return c;
+  /// Slot (cycle + participation) pour [type].
+  SpecialCollectionSlot? slotFor(String type) {
+    for (final s in state.valueOrNull ?? const <SpecialCollectionSlot>[]) {
+      if (s.type == type) return s;
     }
     return null;
   }
 
-  /// Envoie une demande de participation (petit formulaire).
+  /// Envoie une demande de participation (dans le cycle ouvert).
   Future<void> requestParticipation({
     required String type,
     required String objectif,
@@ -123,7 +142,6 @@ class SpecialCollectionsNotifier
   }
 
   /// Versement Mobile Money : initie le paiement puis lance le checkout Tara.
-  /// Le solde se met à jour au retour dans l'app (poll/refresh).
   Future<void> initVersement({
     required String type,
     required num montant,
@@ -144,7 +162,7 @@ class SpecialCollectionsNotifier
   }
 }
 
-final specialCollectionsProvider =
-    AsyncNotifierProvider<SpecialCollectionsNotifier, List<SpecialCollection>>(
+final specialCollectionsProvider = AsyncNotifierProvider<
+    SpecialCollectionsNotifier, List<SpecialCollectionSlot>>(
   SpecialCollectionsNotifier.new,
 );

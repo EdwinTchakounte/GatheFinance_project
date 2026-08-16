@@ -1,4 +1,4 @@
-"""Routes des collectes particulières (membre + admin)."""
+"""Routes des collectes particulières (membre + admin + cycles)."""
 from django.urls import path
 
 from . import views
@@ -13,7 +13,19 @@ urlpatterns = [
         views.my_collection_transactions,
         name="special-collections-transactions",
     ),
-    # Admin
+    # Admin — cycles (AVANT les routes <int:pk> pour éviter la capture)
+    path("admin/cycles/", views.admin_cycles, name="special-collections-admin-cycles"),
+    path(
+        "admin/cycles/<int:pk>/",
+        views.admin_cycle_detail,
+        name="special-collections-admin-cycle-detail",
+    ),
+    path(
+        "admin/cycles/<int:pk>/close/",
+        views.admin_cycle_close,
+        name="special-collections-admin-cycle-close",
+    ),
+    # Admin — participations
     path("admin/", views.admin_list, name="special-collections-admin-list"),
     path("admin/<int:pk>/", views.admin_detail, name="special-collections-admin-detail"),
     path(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Coins, Eye, XCircle } from "lucide-react";
+import { CalendarPlus, CheckCircle2, Coins, Eye, Lock, XCircle } from "lucide-react";
 
 import { buttonClasses, SkeletonList } from "@gathe/ui";
 
@@ -13,10 +13,16 @@ import { StatusPill } from "@/components/status-pill";
 import {
   adminApi,
   type ApiError,
+  type SpecialCollectionCycleRow,
   type SpecialCollectionRow,
   type SpecialCollectionTx,
   type SpecialCollectionType,
 } from "@/lib/api";
+
+const COLLECTION_TYPES: Array<{ key: SpecialCollectionType; label: string }> = [
+  { key: "caisse_scolaire", label: "Caisse scolaire" },
+  { key: "tontine_alimentaire", label: "Tontine alimentaire" },
+];
 
 const TYPE_TABS: Array<{ key: SpecialCollectionType | "all"; label: string }> = [
   { key: "all", label: "Toutes" },
@@ -131,6 +137,21 @@ export default function SpecialCollectionsPage() {
       render: (r) => <span className="text-sm text-ink-700">{r.type_display}</span>,
     },
     {
+      key: "cycle",
+      label: "Cycle",
+      text: (r) => r.cycle_nom,
+      render: (r) => (
+        <span className="text-xs text-ink-600">
+          {r.cycle_nom}
+          {r.cycle_statut === "clos" ? (
+            <span className="ml-1 rounded bg-ink-100 px-1 py-0.5 text-[10px] text-ink-500">
+              clos
+            </span>
+          ) : null}
+        </span>
+      ),
+    },
+    {
       key: "objectif",
       label: "Objectif",
       text: (r) => r.objectif ?? "",
@@ -220,6 +241,9 @@ export default function SpecialCollectionsPage() {
           {message.text}
         </div>
       ) : null}
+
+      {/* Cycles — 1 ouvert par type ; ouvrir un nouveau clôt le précédent */}
+      <CyclesPanel onMessage={setMessage} onChanged={reload} />
 
       {/* Filtres */}
       <div className="flex flex-wrap items-center gap-2">
@@ -392,5 +416,227 @@ export default function SpecialCollectionsPage() {
         </Modal>
       ) : null}
     </div>
+  );
+}
+
+
+// ── Panneau Cycles ────────────────────────────────────────────────────────────
+function CyclesPanel({
+  onMessage,
+  onChanged,
+}: {
+  onMessage: (m: { tone: "ok" | "err"; text: string }) => void;
+  onChanged: () => void;
+}) {
+  const [cycles, setCycles] = useState<SpecialCollectionCycleRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [openFor, setOpenFor] = useState<SpecialCollectionType | null>(null);
+  const [nom, setNom] = useState("");
+  const [dateDebut, setDateDebut] = useState("");
+  const [dateFin, setDateFin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [closeTarget, setCloseTarget] = useState<SpecialCollectionCycleRow | null>(null);
+
+  async function reload() {
+    setLoading(true);
+    try {
+      setCycles(await adminApi.specialCollections.cycles.list());
+    } catch (err) {
+      onMessage({ tone: "err", text: (err as ApiError).detail ?? "Cycles indisponibles." });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function openCycle(type: SpecialCollectionType) {
+    setOpenFor(type);
+    setNom("");
+    setDateDebut("");
+    setDateFin("");
+  }
+
+  async function submitOpen() {
+    if (!openFor || !nom.trim()) return;
+    setBusy(true);
+    try {
+      await adminApi.specialCollections.cycles.open({
+        type: openFor,
+        nom: nom.trim(),
+        date_debut: dateDebut || undefined,
+        date_fin: dateFin || undefined,
+      });
+      onMessage({ tone: "ok", text: `Cycle « ${nom.trim()} » ouvert. Le précédent est clôturé.` });
+      setOpenFor(null);
+      await reload();
+      onChanged();
+    } catch (err) {
+      onMessage({ tone: "err", text: (err as ApiError).detail ?? "Ouverture impossible." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doClose(cycle: SpecialCollectionCycleRow) {
+    setBusy(true);
+    try {
+      await adminApi.specialCollections.cycles.close(cycle.id);
+      onMessage({ tone: "ok", text: `Cycle « ${cycle.nom} » clôturé (gelé + archivé).` });
+      setCloseTarget(null);
+      await reload();
+      onChanged();
+    } catch (err) {
+      onMessage({ tone: "err", text: (err as ApiError).detail ?? "Clôture impossible." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-line-200 bg-paper-soft/30 p-4">
+      <h2 className="mb-3 text-sm font-semibold text-ink-900">Cycles</h2>
+      {loading ? (
+        <SkeletonList count={2} />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {COLLECTION_TYPES.map((t) => {
+            const list = cycles.filter((c) => c.type === t.key);
+            const open = list.find((c) => c.is_open) ?? null;
+            return (
+              <div key={t.key} className="rounded-md border border-line-200 bg-white p-3.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-ink-900">{t.label}</p>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => openCycle(t.key)}
+                    className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                  >
+                    <CalendarPlus className="size-3.5" /> Nouveau cycle
+                  </button>
+                </div>
+                {open ? (
+                  <div className="mt-2 flex items-center justify-between rounded-md bg-emerald/10 px-3 py-2">
+                    <div>
+                      <p className="text-sm font-medium text-ink-900">{open.nom}</p>
+                      <p className="text-xs text-ink-500">
+                        Ouvert · {open.participants ?? 0} participant(s) ·{" "}
+                        {fmtXAF(open.total_collecte ?? 0)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setCloseTarget(open)}
+                      className="inline-flex items-center gap-1 rounded-md border border-line-300 px-2.5 py-1.5 text-xs font-medium text-ink-700 hover:border-terra-400 hover:text-terra-700 disabled:opacity-50"
+                    >
+                      <Lock className="size-3.5" /> Clôturer
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-2 rounded-md bg-cream px-3 py-2 text-xs text-ink-500">
+                    Aucun cycle ouvert — ouvres-en un pour permettre les demandes.
+                  </p>
+                )}
+                {list.filter((c) => !c.is_open).length > 0 ? (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                      Cycles clos (archivés)
+                    </p>
+                    {list
+                      .filter((c) => !c.is_open)
+                      .map((c) => (
+                        <div
+                          key={c.id}
+                          className="flex items-center justify-between text-xs text-ink-600"
+                        >
+                          <span>{c.nom}</span>
+                          <span className="tabular-nums">
+                            {c.participants ?? 0} · {fmtXAF(c.total_collecte ?? 0)}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modale ouverture de cycle */}
+      {openFor ? (
+        <Modal
+          open
+          onClose={() => setOpenFor(null)}
+          title="Ouvrir un nouveau cycle"
+          description={COLLECTION_TYPES.find((t) => t.key === openFor)?.label}
+        >
+          <div className="space-y-3">
+            <p className="rounded-md bg-cream px-3 py-2 text-xs text-ink-600">
+              Ouvrir un nouveau cycle clôture automatiquement le cycle en cours
+              (gelé + archivé). Les membres devront refaire une demande.
+            </p>
+            <label className="block text-sm">
+              <span className="mb-1 block text-xs font-semibold text-ink-600">Nom du cycle</span>
+              <input
+                value={nom}
+                onChange={(e) => setNom(e.target.value)}
+                placeholder="Ex. Caisse scolaire 2026-2027"
+                className="w-full rounded-md border border-line-300 px-3 py-2 text-sm"
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block text-sm">
+                <span className="mb-1 block text-xs font-semibold text-ink-600">Début (optionnel)</span>
+                <input
+                  type="date"
+                  value={dateDebut}
+                  onChange={(e) => setDateDebut(e.target.value)}
+                  className="w-full rounded-md border border-line-300 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block text-xs font-semibold text-ink-600">Fin (optionnel)</span>
+                <input
+                  type="date"
+                  value={dateFin}
+                  onChange={(e) => setDateFin(e.target.value)}
+                  className="w-full rounded-md border border-line-300 px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              disabled={busy || !nom.trim()}
+              onClick={submitOpen}
+              className={buttonClasses({ variant: "primary", fullWidth: true })}
+            >
+              {busy ? "Ouverture…" : "Ouvrir le cycle"}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      <ConfirmModal
+        open={closeTarget !== null}
+        onClose={() => setCloseTarget(null)}
+        onConfirm={() => (closeTarget ? doClose(closeTarget) : undefined)}
+        title="Clôturer ce cycle ?"
+        tone="danger"
+        confirmLabel="Clôturer (geler)"
+        message={
+          <p>
+            Le cycle <strong>{closeTarget?.nom}</strong> sera gelé et archivé : les
+            soldes sont figés, plus aucun versement possible. Aucun mouvement
+            d’argent automatique.
+          </p>
+        }
+      />
+    </section>
   );
 }

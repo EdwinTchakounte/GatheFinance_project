@@ -1354,10 +1354,29 @@ export type SpecialCollectionRow = {
   motif_rejet: string;
   created_at: string;
   validated_at: string | null;
+  cycle_id: number;
+  cycle_nom: string;
+  cycle_statut: "ouvert" | "clos";
   member_id: number;
   numero_membre: string;
   member_nom: string;
   member_prenom: string;
+};
+
+export type SpecialCollectionCycleRow = {
+  id: number;
+  type: SpecialCollectionType;
+  type_display: string;
+  nom: string;
+  date_debut: string;
+  date_fin: string | null;
+  statut: "ouvert" | "clos";
+  statut_display: string;
+  is_open: boolean;
+  created_at: string;
+  closed_at: string | null;
+  participants?: number;
+  total_collecte?: string;
 };
 
 export const adminApi = {
@@ -1666,10 +1685,11 @@ export const adminApi = {
   // demande à participer (mobile/portail), l'admin valide/rejette ici et
   // consulte les participants + soldes par type.
   specialCollections: {
-    list: (params: { type?: string; statut?: string } = {}) => {
+    list: (params: { type?: string; statut?: string; cycle?: number } = {}) => {
       const sp = new URLSearchParams();
       if (params.type) sp.set("type", params.type);
       if (params.statut) sp.set("statut", params.statut);
+      if (params.cycle != null) sp.set("cycle", String(params.cycle));
       const qs = sp.toString();
       return request<SpecialCollectionRow[]>(
         `/special-collections/admin/${qs ? `?${qs}` : ""}`,
@@ -1688,6 +1708,36 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify({ motif }),
       }),
+    // Cycles (1 ouvert par type ; ouvrir clôt le précédent = gel + archivage)
+    cycles: {
+      list: (type?: string) =>
+        request<SpecialCollectionCycleRow[]>(
+          `/special-collections/admin/cycles/${type ? `?type=${type}` : ""}`,
+        ),
+      open: (payload: {
+        type: string;
+        nom: string;
+        date_debut?: string;
+        date_fin?: string;
+      }) =>
+        request<SpecialCollectionCycleRow>(`/special-collections/admin/cycles/`, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }),
+      detail: (id: number) =>
+        request<
+          SpecialCollectionCycleRow & {
+            participants: SpecialCollectionRow[];
+            participants_count: number;
+            total_collecte: string;
+          }
+        >(`/special-collections/admin/cycles/${id}/`),
+      close: (id: number) =>
+        request<SpecialCollectionCycleRow>(
+          `/special-collections/admin/cycles/${id}/close/`,
+          { method: "POST" },
+        ),
+    },
   },
 
   // Reconductions de crédit (Art.10/11) — le membre demande sur mobile/portail

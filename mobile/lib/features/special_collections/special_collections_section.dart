@@ -19,8 +19,6 @@ class SpecialCollectionsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // On lit l'état sans bloquer l'accueil : la liste peut être en cours de
-    // chargement (les cartes affichent alors « Découvrir »).
     final notifier = ref.watch(specialCollectionsProvider.notifier);
     ref.watch(specialCollectionsProvider); // rebuild quand la liste change
 
@@ -43,10 +41,9 @@ class SpecialCollectionsSection extends ConsumerWidget {
             for (final entry in kSpecialCollectionTypes.entries) ...[
               Expanded(
                 child: _CollectionCard(
-                  type: entry.key,
                   title: entry.value,
                   icon: _meta[entry.key] ?? Icons.savings_rounded,
-                  collection: notifier.byType(entry.key),
+                  slot: notifier.slotFor(entry.key),
                   onTap: () =>
                       context.push('/special-collections/${entry.key}'),
                 ),
@@ -63,30 +60,20 @@ class SpecialCollectionsSection extends ConsumerWidget {
 
 class _CollectionCard extends StatelessWidget {
   const _CollectionCard({
-    required this.type,
     required this.title,
     required this.icon,
-    required this.collection,
+    required this.slot,
     required this.onTap,
   });
 
-  final String type;
   final String title;
   final IconData icon;
-  final SpecialCollection? collection;
+  final SpecialCollectionSlot? slot;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final (String hint, Color hintColor) = switch (collection?.statut) {
-      'valide' => (
-          '${XAFFormatter.formatNumber(collection!.solde)} XAF',
-          PaColors.teal
-        ),
-      'en_attente' => ('En attente de validation', PaColors.warning),
-      'rejete' => ('Demande refusée', PaColors.danger),
-      _ => ('Découvrir', PaColors.inkSecondary),
-    };
+    final (String hint, Color hintColor) = _hint();
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -129,5 +116,24 @@ class _CollectionCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  (String, Color) _hint() {
+    final s = slot;
+    if (s == null || !s.hasOpenCycle) {
+      return ('Pas de cycle en cours', PaColors.inkSecondary);
+    }
+    final m = s.membership;
+    if (m == null) return ('Participer', PaColors.teal);
+    switch (m.statut) {
+      case 'valide':
+        return ('${XAFFormatter.formatNumber(m.solde)} XAF', PaColors.teal);
+      case 'en_attente':
+        return ('En attente de validation', PaColors.warning);
+      case 'rejete':
+        return ('Demande refusée', PaColors.danger);
+      default:
+        return ('Participer', PaColors.teal);
+    }
   }
 }
