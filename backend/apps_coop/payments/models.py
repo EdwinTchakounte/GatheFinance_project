@@ -92,6 +92,9 @@ class Payment(TimestampedModel):
     class Type(models.TextChoices):
         EPARGNE = "epargne", "Épargne"
         EPARGNE_CLASSIQUE = "epargne_classique", "Épargne classique"
+        # Collectes particulières (individuelles, gated sur validation admin).
+        CAISSE_SCOLAIRE = "caisse_scolaire", "Caisse scolaire"
+        TONTINE_ALIMENTAIRE = "tontine_alimentaire", "Tontine alimentaire"
         FRAIS_INSCRIPTION = "frais_inscription", "Frais d'inscription"
         FRAIS_ADHESION = "frais_adhesion", "Frais d'adhésion"
         FRAIS_DEMANDE_CREDIT = "frais_demande_credit", "Frais de demande de crédit"

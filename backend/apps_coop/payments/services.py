@@ -1202,11 +1202,26 @@ def _hook_renewal_interest(payment: Payment, meta: dict) -> None:
     hook_renewal_interest(payment, meta)
 
 
+def _hook_special_collection_deposit(payment: Payment, _raw: dict) -> None:
+    """Versement validé sur une collecte particulière → crédite le solde membre.
+
+    Le type du paiement (``caisse_scolaire`` / ``tontine_alimentaire``) est
+    identique au type de la participation, ce qui permet au service de retrouver
+    la bonne collecte. Le point d'entrée ``payments/init`` garantit une
+    participation VALIDÉE ; le service lève en défense en profondeur sinon.
+    """
+    from apps_coop.special_collections.services import credit_versement
+
+    credit_versement(payment)
+
+
 _BUSINESS_HOOKS: dict[str, Callable[[Payment, dict], None]] = {
     Payment.Type.FRAIS_ADHESION: _hook_adhesion,
     Payment.Type.FRAIS_INSCRIPTION: _hook_adhesion,  # both activate the member
     Payment.Type.EPARGNE: _hook_savings_deposit,
     Payment.Type.EPARGNE_CLASSIQUE: _hook_classic_savings_deposit,
+    Payment.Type.CAISSE_SCOLAIRE: _hook_special_collection_deposit,
+    Payment.Type.TONTINE_ALIMENTAIRE: _hook_special_collection_deposit,
     Payment.Type.FRAIS_DEMANDE_CREDIT: _hook_loan_request_fees,
     Payment.Type.REMBOURSEMENT: _hook_loan_repayment,
     # FRAIS_RECONDUCTION : pas un « frais » — ce sont les INTÉRÊTS que le

@@ -336,6 +336,30 @@ def init_payment(request):
                 {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST,
             )
 
+    # Collectes particulières : le versement Mobile Money n'est possible que si
+    # le membre a une participation VALIDÉE pour ce type (caisse scolaire /
+    # tontine alimentaire). Barrière serveur (le client masque déjà l'action).
+    _SPECIAL_TYPES = (
+        Payment.Type.CAISSE_SCOLAIRE,
+        Payment.Type.TONTINE_ALIMENTAIRE,
+    )
+    if data["type"] in _SPECIAL_TYPES:
+        from apps_coop.special_collections.models import SpecialCollectionMembership
+
+        membership = SpecialCollectionMembership.objects.filter(
+            member=request.user.member, type=data["type"]
+        ).first()
+        if membership is None or not membership.is_active:
+            return Response(
+                {
+                    "detail": (
+                        "Ta participation à cette collecte doit d'abord être "
+                        "validée par la coopérative avant tout versement."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
     # CH-3 — placement valable uniquement sur EPARGNE_CLASSIQUE.
     is_placement = bool(data.get("is_placement", False)) and (
         data["type"] == Payment.Type.EPARGNE_CLASSIQUE
@@ -426,6 +450,9 @@ def init_payment(request):
     _is_versement = data["type"] in (
         Payment.Type.EPARGNE,
         Payment.Type.EPARGNE_CLASSIQUE,
+        # Les collectes particulières sont aussi des versements → mêmes frais %.
+        Payment.Type.CAISSE_SCOLAIRE,
+        Payment.Type.TONTINE_ALIMENTAIRE,
     )
     _frais = (
         transaction_fee_for(_base_montant, OP_VERSEMENT)

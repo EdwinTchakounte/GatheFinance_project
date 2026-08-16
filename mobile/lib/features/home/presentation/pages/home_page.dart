@@ -38,6 +38,7 @@ import '../widgets/activation_sheet.dart';
 import '../state/membership_fees_notifier.dart';
 import '../../../loans/presentation/widgets/transfer_sheet.dart';
 import '../../../../core/widgets/paysika/pa_empty_state.dart';
+import '../../../special_collections/special_collections_section.dart';
 
 /// Accueil . **prototype Paysika** (style validé sur captures `capture_paysika/`).
 ///
@@ -172,6 +173,14 @@ class HomePage extends ConsumerWidget {
                       ],
                     ),
                   ),
+                ),
+              ),
+
+              // ── Collectes particulières (caisse scolaire / tontine) ────
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  child: SpecialCollectionsSection(),
                 ),
               ),
 

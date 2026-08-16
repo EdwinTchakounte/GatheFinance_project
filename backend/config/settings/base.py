@@ -118,6 +118,7 @@ INSTALLED_APPS = [
     "apps_coop.forms",
     "apps_coop.social",
     "apps_coop.support",
+    "apps_coop.special_collections",
     # Wagtail
     "wagtail.contrib.forms",
     "wagtail.contrib.redirects",

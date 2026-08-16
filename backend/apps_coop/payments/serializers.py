@@ -19,6 +19,9 @@ _ALLOWED_INIT_TYPES = {
     # Intérêts de reconduction versés au comptant (taux réduit).
     Payment.Type.FRAIS_RECONDUCTION,
     Payment.Type.FRAIS_CARNET,
+    # Collectes particulières (gated sur participation validée côté vue).
+    Payment.Type.CAISSE_SCOLAIRE,
+    Payment.Type.TONTINE_ALIMENTAIRE,
 }
 
 _ALLOWED_NETWORKS = {"MTN", "ORANGE", "WAVE", "AIRTEL"}

@@ -10,6 +10,7 @@ import '../../features/auth/presentation/pages/setup_password_page.dart';
 import '../../features/auth/presentation/state/auth_notifier.dart';
 import '../../features/avaliste/presentation/pages/avaliste_mandats_page.dart';
 import '../../features/booklet/presentation/pages/booklet_page.dart';
+import '../../features/special_collections/special_collection_page.dart';
 import '../../features/contributions/presentation/pages/contributions_page.dart';
 import '../../features/credit/presentation/pages/credit_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
@@ -186,6 +187,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
             _paSlideFadePage(state, const BookletPage()),
+      ),
+
+      // Collectes particulières (caisse scolaire / tontine alimentaire) —
+      // vue par type, poussée depuis la section d'accueil.
+      GoRoute(
+        path: '/special-collections/:type',
+        name: 'special-collection',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) => _paSlideFadePage(
+          state,
+          SpecialCollectionPage(type: state.pathParameters['type'] ?? ''),
+        ),
       ),
 
       // Cotisations (chronologie des frais payés) — pushée depuis Profil.

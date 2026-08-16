@@ -93,6 +93,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/booklet-orders", label: "Commandes carnet", icon: Notebook },
       { href: "/antidated-entries", label: "Saisies antidatées", icon: CalendarClock },
       { href: "/collecte-preferences", label: "Fin de mois collecte", icon: CalendarClock },
+      { href: "/special-collections", label: "Collectes particulières", icon: Coins },
       { href: "/renewals", label: "Renouvellements épargne", icon: RefreshCw },
     ],
   },

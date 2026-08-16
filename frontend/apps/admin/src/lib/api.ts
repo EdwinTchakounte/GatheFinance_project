@@ -1327,6 +1327,39 @@ export type SupervisionEmailsResponse = {
   has_next: boolean;
 };
 
+export type SpecialCollectionType = "caisse_scolaire" | "tontine_alimentaire";
+export type SpecialCollectionStatut = "en_attente" | "valide" | "rejete" | "suspendu";
+
+export type SpecialCollectionTx = {
+  id: number;
+  type_op: string;
+  type_op_display: string;
+  montant: string;
+  solde_apres: string;
+  libelle: string;
+  created_at: string;
+};
+
+export type SpecialCollectionRow = {
+  id: number;
+  type: SpecialCollectionType;
+  type_display: string;
+  statut: SpecialCollectionStatut;
+  statut_display: string;
+  is_active: boolean;
+  solde: string;
+  objectif: string;
+  montant_cible: string | null;
+  form_payload: Record<string, unknown>;
+  motif_rejet: string;
+  created_at: string;
+  validated_at: string | null;
+  member_id: number;
+  numero_membre: string;
+  member_nom: string;
+  member_prenom: string;
+};
+
 export const adminApi = {
   primeCsrf: () => request<{ csrfToken: string }>("/auth/csrf/"),
 
@@ -1626,6 +1659,34 @@ export const adminApi = {
     retryPayout: (id: number) =>
       request<WithdrawalRow>(`/admin/withdrawals/${id}/retry-payout/`, {
         method: "POST",
+      }),
+  },
+
+  // Collectes particulières (caisse scolaire / tontine alimentaire) — le membre
+  // demande à participer (mobile/portail), l'admin valide/rejette ici et
+  // consulte les participants + soldes par type.
+  specialCollections: {
+    list: (params: { type?: string; statut?: string } = {}) => {
+      const sp = new URLSearchParams();
+      if (params.type) sp.set("type", params.type);
+      if (params.statut) sp.set("statut", params.statut);
+      const qs = sp.toString();
+      return request<SpecialCollectionRow[]>(
+        `/special-collections/admin/${qs ? `?${qs}` : ""}`,
+      );
+    },
+    detail: (id: number) =>
+      request<SpecialCollectionRow & { transactions: SpecialCollectionTx[] }>(
+        `/special-collections/admin/${id}/`,
+      ),
+    validate: (id: number) =>
+      request<SpecialCollectionRow>(`/special-collections/admin/${id}/validate/`, {
+        method: "POST",
+      }),
+    reject: (id: number, motif: string) =>
+      request<SpecialCollectionRow>(`/special-collections/admin/${id}/reject/`, {
+        method: "POST",
+        body: JSON.stringify({ motif }),
       }),
   },
 

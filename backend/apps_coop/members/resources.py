@@ -27,6 +27,7 @@ ADMIN_RESOURCES: list[tuple[str, str]] = [
     ("booklet-orders", "Commandes carnet"),
     ("antidated-entries", "Saisies antidatées"),
     ("collecte-preferences", "Fin de mois collecte"),
+    ("special-collections", "Collectes particulières"),
     ("members", "Membres"),
     ("brc", "Justificatifs BRC"),
     ("renewals", "Renouvellements épargne"),
