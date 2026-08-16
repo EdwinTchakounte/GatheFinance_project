@@ -335,6 +335,13 @@ export default function PortalDashboardPage() {
             </button>
             <button
               type="button"
+              onClick={() => router.push("/collectes")}
+              className={buttonClasses({ variant: "ghost", size: "md", fullWidth: true }) + " mt-3"}
+            >
+              Collectes particulières
+            </button>
+            <button
+              type="button"
               onClick={() => router.push("/actualites")}
               className={buttonClasses({ variant: "ghost", size: "md", fullWidth: true }) + " mt-3"}
             >

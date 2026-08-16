@@ -488,6 +488,8 @@ export type PaymentInitInput = {
   type:
     | "epargne"
     | "epargne_classique"
+    | "caisse_scolaire"
+    | "tontine_alimentaire"
     | "remboursement"
     | "frais_adhesion"
     | "frais_inscription"
@@ -510,6 +512,36 @@ export type PaymentInitResponse = {
   payment: PaymentRead;
   paymentUrl: string | null;
   instructions: string;
+};
+
+// ── Collectes particulières (caisse scolaire / tontine alimentaire) ──────────
+export type SpecialCollectionType = "caisse_scolaire" | "tontine_alimentaire";
+
+export type SpecialCollectionMembershipRead = {
+  id: number;
+  statut: "en_attente" | "valide" | "rejete" | "suspendu";
+  statut_display: string;
+  is_active: boolean;
+  solde: string;
+  objectif: string;
+  montant_cible: string | null;
+  motif_rejet: string;
+  cycle_nom: string;
+};
+
+export type SpecialCollectionCycleRead = {
+  id: number;
+  nom: string;
+  is_open: boolean;
+  date_debut: string;
+  date_fin: string | null;
+};
+
+export type SpecialCollectionSlot = {
+  type: SpecialCollectionType;
+  type_display: string;
+  cycle: SpecialCollectionCycleRead | null;
+  membership: SpecialCollectionMembershipRead | null;
 };
 
 // Refonte 2026 — Retrait avec choix MOMO/présentiel
@@ -960,6 +992,26 @@ export const portalApi = {
       request<LoanRequest>(
         `/loans/requests/${requestId}/study-fee/from-savings/`,
         { method: "POST" },
+      ),
+  },
+  specialCollections: {
+    /** Par type : cycle ouvert (le cas échéant) + ma participation. */
+    mine: () => request<SpecialCollectionSlot[]>("/special-collections/"),
+    /** Demande de participation au cycle ouvert. */
+    request: (payload: {
+      type: SpecialCollectionType;
+      objectif: string;
+      montant_cible?: number | null;
+    }) =>
+      request<SpecialCollectionMembershipRead>("/special-collections/request/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    /** Transfert interne depuis l'épargne classique disponible. */
+    transfer: (payload: { type: SpecialCollectionType; montant: number }) =>
+      request<{ id: number; solde_apres: string }>(
+        "/special-collections/transfer/",
+        { method: "POST", body: JSON.stringify(payload) },
       ),
   },
   payments: {
