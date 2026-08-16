@@ -61,11 +61,15 @@ class TestMemberAdhesion:
         assert r.data["extra_payload"]["carte_cga"] == "CGA-42"
         assert r.data["form_schema_version"] == 3
 
-    def test_membre_sans_demande_liee_404(self):
+    def test_membre_sans_demande_liee_fallback(self):
+        """Membre sans MembershipRequest → fiche MINIMALE (données membre),
+        plus de 404 « n'existe pas »."""
         staff = _staff()
-        member = MemberFactory()  # créé sans MembershipRequest
+        member = MemberFactory(nom="SANSREQ")  # créé sans MembershipRequest
         r = _api(staff.user).get(f"/api/v1/admin/members/{member.id}/adhesion/")
-        assert r.status_code == 404
+        assert r.status_code == 200
+        assert r.data["identity"]["nom"] == "SANSREQ"
+        assert r.data["source"] == "membre"
 
     def test_non_staff_refuse(self):
         member = MemberFactory()

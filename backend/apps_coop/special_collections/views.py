@@ -216,15 +216,15 @@ def admin_cycles(request):
     if type_:
         qs = qs.filter(type=type_)
     # Enrichit chaque cycle du nb de participants + total collecté (rapprochement).
-    qs = qs.annotate(
-        participants=Count("memberships", distinct=True),
-        total_collecte=Sum("memberships__solde"),
-    )
+    # Calcul PAR CYCLE (pas d'annotate Count+Sum combiné, dont le résultat peut
+    # différer entre PostgreSQL et SQLite) : robuste et exact sur toute base.
+    # Le nombre de cycles est petit → le coût est négligeable.
     rows = []
-    for c in qs:
+    for c in qs.order_by("-date_debut", "-id"):
+        agg = c.memberships.aggregate(n=Count("id"), total=Sum("solde"))
         row = SpecialCollectionCycleSerializer(c).data
-        row["participants"] = c.participants
-        row["total_collecte"] = str(c.total_collecte or 0)
+        row["participants"] = agg["n"] or 0
+        row["total_collecte"] = str(agg["total"] or 0)
         rows.append(row)
     return Response(rows)
 

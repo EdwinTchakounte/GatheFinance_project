@@ -198,7 +198,7 @@ class TestValidateAmount:
             microcampaign=c,
             statut=LoanRequest.Statut.EN_INSTRUCTION,
         )
-        with pytest.raises(ValueError, match="[Qq]uota"):
+        with pytest.raises(ValueError, match="maximum de b|closes"):
             validate_amount_against_campaign(c, Decimal("10000"))
 
     def test_beneficiary_definition_matches_validation(self):

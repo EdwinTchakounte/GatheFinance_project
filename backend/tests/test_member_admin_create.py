@@ -67,6 +67,19 @@ def test_admin_created_member_has_adhesion_sheet(admin_user):
     assert body["statut"] == "approuvee"
 
 
+def test_adhesion_fallback_for_member_without_request(admin_user):
+    """Membre SANS demande liée (legacy / créé avant le fix) → la fiche
+    d'adhésion tombe sur les données du membre (200, plus de 404)."""
+    from tests.factories import MemberFactory
+
+    c = _admin_client(admin_user)
+    m = MemberFactory(nom="LEGACY", prenom="Jean")  # pas de MembershipRequest
+    res = c.get(f"/api/v1/admin/members/{m.id}/adhesion/")
+    assert res.status_code == 200, res.content
+    assert res.json()["identity"]["nom"] == "LEGACY"
+    assert res.json()["source"] == "membre"
+
+
 def test_admin_create_requires_admin(staff_user):
     c = APIClient()
     c.force_authenticate(user=staff_user)  # non-admin

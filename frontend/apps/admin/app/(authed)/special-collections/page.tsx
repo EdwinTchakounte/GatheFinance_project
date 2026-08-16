@@ -524,8 +524,10 @@ function CyclesPanel({
                     <div>
                       <p className="text-sm font-medium text-ink-900">{open.nom}</p>
                       <p className="text-xs text-ink-500">
-                        Ouvert · {open.participants ?? 0} participant(s) ·{" "}
-                        {fmtXAF(open.total_collecte ?? 0)}
+                        Ouvert · {open.participants ?? 0} participant(s)
+                      </p>
+                      <p className="mt-0.5 text-sm font-semibold text-emerald">
+                        Total collecté : {fmtXAF(open.total_collecte ?? 0)}
                       </p>
                     </div>
                     <button

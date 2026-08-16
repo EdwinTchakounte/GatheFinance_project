@@ -19,6 +19,8 @@ type CashInType =
   | "frais_demande_credit"
   | "epargne"
   | "epargne_classique"
+  | "caisse_scolaire"
+  | "tontine_alimentaire"
   | "frais_reconduction"
   | "remboursement";
 
@@ -30,6 +32,8 @@ const TYPE_OPTIONS: { value: CashInType; label: string }[] = [
   { value: "frais_demande_credit", label: "Frais demande de crédit (CH-7)" },
   { value: "epargne", label: "Collecte journalière" },
   { value: "epargne_classique", label: "Épargne classique (libre / placement)" },
+  { value: "caisse_scolaire", label: "Caisse scolaire (collecte particulière)" },
+  { value: "tontine_alimentaire", label: "Tontine alimentaire (collecte particulière)" },
   { value: "frais_reconduction", label: "Intérêts de reconduction" },
   { value: "remboursement", label: "Remboursement de crédit" },
 ];

@@ -164,8 +164,9 @@ def validate_amount_against_campaign(
         used = len(reserved_slot_member_ids(campaign))
         if used >= campaign.plafond_beneficiaires:
             raise ValueError(
-                f"Quota bénéficiaires atteint pour campagne #{campaign.id} "
-                f"({used}/{campaign.plafond_beneficiaires})."
+                "Cette campagne a atteint son nombre maximum de bénéficiaires "
+                f"({campaign.plafond_beneficiaires}). Les inscriptions sont closes "
+                "pour le moment — tu ne peux plus y souscrire."
             )
 
 

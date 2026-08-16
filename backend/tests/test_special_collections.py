@@ -282,3 +282,19 @@ def test_admin_open_cycle_endpoint(admin_client):
     assert res.status_code == 201
     assert res.json()["statut"] == "ouvert"
     assert res.json()["is_open"] is True
+
+
+def test_cash_in_caisse_scolaire_credits_membership(admin_client, member_client, active_member):
+    """Cash-in manuel caisse scolaire → crédite la participation validée du membre."""
+    _cycle()
+    _request(member_client)
+    m = _membership(active_member)
+    _validate(admin_client, m)
+    res = admin_client.post(
+        "/api/v1/payments/admin/cash-in/",
+        data={"member_id": active_member.id, "type": "caisse_scolaire", "montant": 5000},
+        format="json",
+    )
+    assert res.status_code in (200, 201), res.content
+    m.refresh_from_db()
+    assert m.solde == Decimal("5000")  # crédité, sans frais (manuel)

@@ -241,9 +241,18 @@ def loan_request_create(request):
             },
             ip=client_ip(request),
         )
+        # Message EXPLICITE : si le membre a choisi une campagne précise (ou si
+        # un seul motif est remonté, ex. « campagne pleine »), on le met en
+        # `detail` au lieu du générique — sinon la vraie raison reste enfouie
+        # dans `motifs` et le membre voit un message peu clair.
+        _detail = "Aucune voie d'éligibilité ne s'applique à votre demande."
+        if data.get("campaign_id") and route_eval.motifs:
+            _detail = route_eval.motifs[0]
+        elif len(route_eval.motifs) == 1:
+            _detail = route_eval.motifs[0]
         return Response(
             {
-                "detail": "Aucune voie d'éligibilité ne s'applique à votre demande.",
+                "detail": _detail,
                 "motifs": route_eval.motifs,
                 "suggested_campaigns": route_eval.suggested_campaigns,
             },

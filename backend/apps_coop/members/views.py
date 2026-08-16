@@ -1210,9 +1210,37 @@ def admin_member_adhesion(request, pk: int):
     member = get_object_or_404(Member, pk=pk)
     req = getattr(member, "adhesion_request", None)
     if req is None:
+        # Membre sans demande liée (créé manuellement AVANT le correctif, ou
+        # adhésion legacy) : on ne renvoie plus 404 (« n'existe pas »). On
+        # construit une fiche MINIMALE à partir des données du membre lui-même.
         return Response(
-            {"detail": "Aucune fiche d'adhésion liée à ce membre."},
-            status=status.HTTP_404_NOT_FOUND,
+            {
+                "id": None,
+                "statut": member.statut,
+                "soumis_le": member.date_adhesion,
+                "source": "membre",
+                "identity": {
+                    "nom": member.nom,
+                    "prenom": member.prenom,
+                    "email": getattr(member.user, "email", "") or "",
+                    "phone": member.phone,
+                    "whatsapp": "",
+                    "city": "",
+                    "quartier_localite": "",
+                    "statut_pro": "",
+                    "language": "fr",
+                },
+                "urgence": {"nom": "", "lien": "", "phone": ""},
+                "motivation": "",
+                "extra_payload": {},
+                "form_schema_version": None,
+                "pieces": {
+                    "cni_recto": None,
+                    "cni_verso": None,
+                    "plan_localisation": None,
+                    "photo_identite": None,
+                },
+            }
         )
 
     def _url(f):

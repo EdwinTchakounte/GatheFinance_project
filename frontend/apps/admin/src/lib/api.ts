@@ -1849,6 +1849,8 @@ export const adminApi = {
         | "frais_demande_credit"
         | "epargne"
         | "epargne_classique"
+        | "caisse_scolaire"
+        | "tontine_alimentaire"
         | "frais_reconduction"
         | "remboursement";
       montant: number | string;

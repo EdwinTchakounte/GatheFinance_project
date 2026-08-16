@@ -1224,6 +1224,10 @@ _CASH_IN_ALLOWED_TYPES = {
     Payment.Type.FRAIS_RECONDUCTION,
     Payment.Type.EPARGNE,
     Payment.Type.EPARGNE_CLASSIQUE,
+    # Collectes particulières : l'admin peut enregistrer un versement espèces
+    # (crédite la participation VALIDÉE du membre dans le cycle ouvert).
+    Payment.Type.CAISSE_SCOLAIRE,
+    Payment.Type.TONTINE_ALIMENTAIRE,
     Payment.Type.REMBOURSEMENT,
 }
 
