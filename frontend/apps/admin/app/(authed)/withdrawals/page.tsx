@@ -301,6 +301,7 @@ function Inner() {
       />
 
       <MemberRecapModal
+        key={selectedMember?.id ?? "none"}
         member={selectedMember}
         onClose={() => setSelectedMember(null)}
       />

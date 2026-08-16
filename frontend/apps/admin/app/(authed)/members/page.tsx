@@ -463,6 +463,7 @@ function Inner() {
       )}
 
       <MemberRecapModal
+        key={selected?.id ?? "none"}
         member={selected}
         onClose={() => setSelected(null)}
         onDeleted={() => {
