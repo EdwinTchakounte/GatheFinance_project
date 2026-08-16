@@ -8,9 +8,30 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// défense en profondeur, sans dépendance crypto externe.
 class PinRepository {
   PinRepository([FlutterSecureStorage? storage])
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ?? _defaultStorage();
 
   final FlutterSecureStorage _storage;
+
+  /// Stockage sécurisé configuré pour la FIABILITÉ sur Android.
+  ///
+  /// Sans ces options, `flutter_secure_storage` retombe sur le mode hérité
+  /// (clé RSA Keystore enveloppant un AES posé dans des SharedPreferences
+  /// classiques). Ce mode échoue la relecture sur de nombreux devices réels :
+  /// au démarrage `hasPin()` renvoie faux et l'app redemande la CRÉATION du
+  /// code à chaque ouverture. On force donc :
+  ///   • `encryptedSharedPreferences` → EncryptedSharedPreferences (Jetpack
+  ///     Security) : clé maître + données gérées ensemble, persistance fiable ;
+  ///   • `resetOnError` → un déchiffrement impossible réinitialise le magasin
+  ///     au lieu de lever en boucle (ex. clé Keystore invalidée / migration).
+  static FlutterSecureStorage _defaultStorage() => const FlutterSecureStorage(
+        aOptions: AndroidOptions(
+          encryptedSharedPreferences: true,
+          resetOnError: true,
+        ),
+        iOptions: IOSOptions(
+          accessibility: KeychainAccessibility.first_unlock,
+        ),
+      );
 
   static const _key = 'gathe_pin_v1';
   static const _bioKey = 'gathe_biometric_v1';
@@ -31,8 +52,14 @@ class PinRepository {
   }
 
   Future<bool> hasPin() async {
-    final v = await _storage.read(key: _key);
-    return v != null && v.isNotEmpty;
+    try {
+      final v = await _storage.read(key: _key);
+      return v != null && v.isNotEmpty;
+    } catch (_) {
+      // Lecture illisible (migration/clé invalidée) : on ne bloque pas — le
+      // parcours de (re)création prendra le relais proprement.
+      return false;
+    }
   }
 
   Future<void> setPin(String pin) async {
@@ -40,9 +67,13 @@ class PinRepository {
   }
 
   Future<bool> verify(String pin) async {
-    final stored = await _storage.read(key: _key);
-    if (stored == null) return false;
-    return stored == _obfuscate(pin);
+    try {
+      final stored = await _storage.read(key: _key);
+      if (stored == null) return false;
+      return stored == _obfuscate(pin);
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> clear() async {

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ (API 31) : règles d'extraction des données.
+  App finance → on EXCLUT tout de la sauvegarde cloud et du transfert
+  device-to-device. Combiné à android:allowBackup="false", cela empêche la
+  restauration de SharedPreferences chiffrées sans la clé Keystore associée
+  (cause du bug « recréer le code secret à chaque ouverture »).
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>
