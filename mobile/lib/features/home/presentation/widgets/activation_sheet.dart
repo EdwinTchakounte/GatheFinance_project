@@ -392,7 +392,12 @@ class _FeeRow extends StatelessWidget {
               children: [
                 Expanded(
                   child: PaButton(
-                    label: busy ? '…' : 'Payer',
+                    // Ligne en cours de règlement → « Paiement… ». Les AUTRES
+                    // lignes (grisées le temps de ce paiement) → « En attente »,
+                    // texte distinct pour lever l'ambiguïté sur celle cliquée.
+                    label: busy
+                        ? 'Paiement…'
+                        : (anyBusy ? 'En attente' : 'Payer'),
                     icon: Icons.smartphone_rounded,
                     height: 44,
                     onPressed: anyBusy ? null : onMobileMoney,
@@ -402,7 +407,9 @@ class _FeeRow extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: PaButton(
-                      label: 'Depuis le compte',
+                      label: busy
+                          ? 'Traitement…'
+                          : (anyBusy ? 'En attente' : 'Depuis le compte'),
                       variant: PaButtonVariant.outline,
                       height: 44,
                       onPressed: anyBusy ? null : onFromAccount,
