@@ -1086,8 +1086,9 @@ function BeneficiairesSection({
           Bénéficiaires (0)
         </h3>
         <p className="rounded-md border border-dashed border-line-200 px-4 py-6 text-center text-sm text-ink-500">
-          Aucune souscription validée pour le moment. Les bénéficiaires apparaissent
-          ici dès qu&apos;une demande passe en statut « approuvée ».
+          Aucun bénéficiaire pour le moment. Ils apparaissent ici dès qu&apos;une
+          demande de crédit campagne est validée (en cours d&apos;instruction ou
+          décaissée).
         </p>
       </section>
     );

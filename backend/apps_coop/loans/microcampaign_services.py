@@ -76,9 +76,57 @@ def is_campaign_open(campaign: MicrocreditCampaign, *, today=None) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _rejected_campaign_lr_statuses() -> list[str]:
+    """Statuts terminaux NÉGATIFS d'une LoanRequest campagne (place libérée)."""
+    from .models import LoanRequest
+
+    return [
+        LoanRequest.Statut.REJETEE_CAMPAGNE,
+        LoanRequest.Statut.REJETEE,
+        LoanRequest.Statut.REJETEE_AVALISTE,
+    ]
+
+
+def validated_beneficiary_member_ids(campaign: MicrocreditCampaign) -> set[int]:
+    """Membres bénéficiaires AFFICHÉS.
+
+    = demandeurs d'un crédit campagne **validé** (a franchi la validation
+    campagne) et non rejeté : en cours (frais / instruction / approbation) OU
+    décaissé. Exclut les demandes encore ``EN_VALIDATION_CAMPAGNE`` (elles
+    vivent dans la file « à valider », pas encore bénéficiaires) — cohérent avec
+    « le bénéficiaire est déjà validé ».
+    """
+    from .models import LoanRequest
+
+    return set(
+        LoanRequest.objects.filter(microcampaign=campaign)
+        .exclude(statut=LoanRequest.Statut.EN_VALIDATION_CAMPAGNE)
+        .exclude(statut__in=_rejected_campaign_lr_statuses())
+        .values_list("member_id", flat=True)
+        .distinct()
+    )
+
+
+def reserved_slot_member_ids(campaign: MicrocreditCampaign) -> set[int]:
+    """Membres occupant un « slot » de quota.
+
+    = toute demande campagne NON rejetée (y compris ``EN_VALIDATION_CAMPAGNE``)
+    → réserve une place dès le dépôt, libérée si la demande est rejetée. Aligne
+    le quota sur « décaissés + en cours ».
+    """
+    from .models import LoanRequest
+
+    return set(
+        LoanRequest.objects.filter(microcampaign=campaign)
+        .exclude(statut__in=_rejected_campaign_lr_statuses())
+        .values_list("member_id", flat=True)
+        .distinct()
+    )
+
+
 def _beneficiaires_count(campaign: MicrocreditCampaign) -> int:
-    """Nombre de bénéficiaires déjà rattachés (Members TEMPORAIRE)."""
-    return campaign.beneficiaires.count()
+    """Compteur AFFICHÉ = bénéficiaires validés (liste du même nom)."""
+    return len(validated_beneficiary_member_ids(campaign))
 
 
 def validate_amount_against_campaign(
@@ -111,7 +159,9 @@ def validate_amount_against_campaign(
         )
 
     if campaign.plafond_beneficiaires is not None:
-        used = _beneficiaires_count(campaign)
+        # Quota = places réservées (demandes non rejetées, y compris en cours de
+        # validation) pour éviter de dépasser le plafond une fois tout décaissé.
+        used = len(reserved_slot_member_ids(campaign))
         if used >= campaign.plafond_beneficiaires:
             raise ValueError(
                 f"Quota bénéficiaires atteint pour campagne #{campaign.id} "

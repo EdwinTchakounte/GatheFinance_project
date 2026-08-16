@@ -29,7 +29,7 @@ from apps_coop.audit.services import record as record_audit
 from apps_coop.members.naming import full_name
 from apps_coop.members.permissions import IsComite, IsStaff
 
-from .microcampaign_services import close_campaign
+from .microcampaign_services import _beneficiaires_count, close_campaign
 from .models import LoanRequest, MicrocreditCampaign
 
 logger = logging.getLogger(__name__)
@@ -170,7 +170,9 @@ def _row(
         "is_open": is_open,
         "closed_at": c.closed_at.isoformat() if c.closed_at else None,
         "close_reason": c.close_reason or "",
-        "beneficiaires_count": nb_loans if nb_loans is not None else c.beneficiaires.count(),
+        "beneficiaires_count": (
+            nb_loans if nb_loans is not None else _beneficiaires_count(c)
+        ),
         "targeted_count": c.targeted_members.count(),
         "flyer_url": _flyer_url(c, request),
         "created_at": c.created_at.isoformat(),
@@ -209,8 +211,26 @@ def admin_campaigns(request):
 
 
 def _list_campaigns(request):
+    # Compteur bénéficiaires = demandes campagne VALIDÉES et non rejetées
+    # (mêmes règles que le détail / `validated_beneficiary_member_ids`), distinct
+    # par membre. Remplace l'ancien `Count("beneficiaires")` (member.microcampaign)
+    # qui matérialisait trop tôt et ratait les membres existants.
+    from django.db.models import Q
+
+    from .models import LoanRequest
+
+    _non_benef = [
+        LoanRequest.Statut.EN_VALIDATION_CAMPAGNE,
+        LoanRequest.Statut.REJETEE_CAMPAGNE,
+        LoanRequest.Statut.REJETEE,
+        LoanRequest.Statut.REJETEE_AVALISTE,
+    ]
     qs = MicrocreditCampaign.objects.annotate(
-        nb_loans=Count("beneficiaires", distinct=True)
+        nb_loans=Count(
+            "loan_requests__member",
+            filter=~Q(loan_requests__statut__in=_non_benef),
+            distinct=True,
+        )
     ).order_by("-date_debut", "-id")
 
     # Soft-delete : exclu par defaut, sauf si l'admin demande explicitement
@@ -405,12 +425,23 @@ def admin_campaign_detail(request, pk: int):
         for lr in pending
     ]
 
-    # Bénéficiaires — membres TEMPORAIRE/ADHERENT créés via la campagne,
-    # enrichis avec leur crédit issu de la campagne (souscription + état du
-    # remboursement) pour un vrai suivi côté admin.
+    # Bénéficiaires — membres dont le crédit campagne est VALIDÉ (post-validation
+    # campagne) et non rejeté : en cours ou décaissé. On les enrichit de leur
+    # crédit (souscription + état du remboursement) pour un vrai suivi admin.
+    # NB : basé sur la LoanRequest campagne (pas sur ``member.microcampaign``,
+    # qui matérialisait le membre trop tôt — dès l'acceptation, avant validation
+    # — et jamais pour un membre existant postulant via campagne).
+    from apps_coop.members.models import Member
+
+    from .microcampaign_services import validated_beneficiary_member_ids
     from .models import Loan
 
-    beneficiaires = c.beneficiaires.select_related("user").order_by("date_adhesion")
+    _benef_ids = validated_beneficiary_member_ids(c)
+    beneficiaires = (
+        Member.objects.filter(id__in=_benef_ids)
+        .select_related("user")
+        .order_by("date_adhesion")
+    )
     benef_rows = []
     for m in beneficiaires:
         # Loan créé via une LoanRequest de cette campagne. On prend le plus

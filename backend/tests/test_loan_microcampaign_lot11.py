@@ -19,7 +19,9 @@ from apps_coop.loans.microcampaign_services import (
     close_expired_campaigns,
     get_active_campaigns,
     is_campaign_open,
+    reserved_slot_member_ids,
     validate_amount_against_campaign,
+    validated_beneficiary_member_ids,
 )
 from apps_coop.loans.models import LoanRequest, MicrocreditCampaign
 from apps_coop.members.models import Member
@@ -185,13 +187,50 @@ class TestValidateAmount:
 
     def test_quota_beneficiaires_raises(self):
         c = _make_campaign(plafond_beneficiaires=1)
-        # Pose un bénéficiaire pour saturer le quota.
-        MemberFactory(
-            statut=Member.Statut.TEMPORAIRE,
+        # Le quota compte les demandes campagne NON rejetées : une demande en
+        # cours occupe déjà l'unique place → la suivante est refusée.
+        member = MemberFactory(statut=Member.Statut.TEMPORAIRE)
+        LoanRequest.objects.create(
+            member=member,
+            montant_demande=Decimal("10000"),
+            duree_mois=3,
+            motif="test quota",
             microcampaign=c,
+            statut=LoanRequest.Statut.EN_INSTRUCTION,
         )
         with pytest.raises(ValueError, match="[Qq]uota"):
             validate_amount_against_campaign(c, Decimal("10000"))
+
+    def test_beneficiary_definition_matches_validation(self):
+        """Bénéficiaire = demande campagne VALIDÉE (non rejetée) ; le quota
+        réserve dès le dépôt (y compris en validation), libère au rejet."""
+        c = _make_campaign(plafond_beneficiaires=5)
+
+        def _lr(statut):
+            m = MemberFactory(statut=Member.Statut.TEMPORAIRE)
+            LoanRequest.objects.create(
+                member=m,
+                montant_demande=Decimal("10000"),
+                duree_mois=3,
+                motif="x",
+                microcampaign=c,
+                statut=statut,
+            )
+            return m
+
+        m_valide = _lr(LoanRequest.Statut.EN_INSTRUCTION)     # validé, en cours
+        m_attente = _lr(LoanRequest.Statut.EN_VALIDATION_CAMPAGNE)  # pas encore validé
+        m_rejete = _lr(LoanRequest.Statut.REJETEE_CAMPAGNE)   # rejeté (libère)
+
+        benef = validated_beneficiary_member_ids(c)
+        assert m_valide.id in benef
+        assert m_attente.id not in benef  # « en principe déjà validé »
+        assert m_rejete.id not in benef
+
+        reserved = reserved_slot_member_ids(c)
+        assert m_valide.id in reserved
+        assert m_attente.id in reserved  # réserve une place dès le dépôt
+        assert m_rejete.id not in reserved  # place libérée au rejet
 
     def test_quota_not_reached_ok(self):
         c = _make_campaign(plafond_beneficiaires=5)
