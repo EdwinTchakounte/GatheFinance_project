@@ -28,14 +28,21 @@ class SpecialCollection {
         statut: j['statut'] as String? ?? 'en_attente',
         statutDisplay: j['statut_display'] as String? ?? '',
         isActive: j['is_active'] as bool? ?? false,
-        solde: (j['solde'] as num?) ?? num.tryParse('${j['solde']}') ?? 0,
+        // DRF sérialise les DecimalField en STRING ("0.00") : un cast `as num?`
+        // planterait (« String is not a subtype of type num? »). On parse.
+        solde: _asNum(j['solde']) ?? 0,
         objectif: j['objectif'] as String? ?? '',
-        montantCible: j['montant_cible'] == null
-            ? null
-            : (j['montant_cible'] as num?) ??
-                num.tryParse('${j['montant_cible']}'),
+        montantCible: _asNum(j['montant_cible']),
         motifRejet: j['motif_rejet'] as String? ?? '',
       );
+}
+
+/// Convertit une valeur JSON (num OU String OU null) en `num?` sans jamais
+/// lever — DRF renvoie les montants décimaux sous forme de chaîne.
+num? _asNum(dynamic v) {
+  if (v == null) return null;
+  if (v is num) return v;
+  return num.tryParse(v.toString());
 }
 
 /// Un « slot » par type : l'état du cycle ouvert (le cas échéant) + ma

@@ -1,45 +1,30 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Stockage sécurisé du code PIN (déverrouillage app + révélation solde).
+/// Stockage du code PIN (déverrouillage app + révélation solde).
 ///
-/// Le PIN est persisté via `flutter_secure_storage`, qui chiffre la valeur au
-/// repos (Android Keystore / iOS Keychain). On applique en plus un obfuscage
-/// déterministe simple (rotation + sel) pour ne pas écrire le PIN en clair —
-/// défense en profondeur, sans dépendance crypto externe.
+/// IMPORTANT — choix de persistance : on utilise `shared_preferences` et NON
+/// `flutter_secure_storage`. Sur beaucoup de devices Android réels, le stockage
+/// sécurisé (Keystore / EncryptedSharedPreferences) échoue la relecture au
+/// démarrage à froid (clé non prête, erreur de déchiffrement transitoire), et
+/// `resetOnError` efface alors le PIN → l'app redemande la CRÉATION du code à
+/// CHAQUE ouverture. `shared_preferences` persiste de façon fiable.
+///
+/// Le PIN n'est jamais écrit en clair : on stocke un hash déterministe salé
+/// (`_obfuscate`). Ce code protège l'accès à l'UI locale ; la vraie sécurité du
+/// compte reste la session serveur (cookie httpOnly). Pour un PIN à 4 chiffres,
+/// un hash local reste intrinsèquement brute-forçable hors-ligne — c'est
+/// inhérent et acceptable pour ce niveau (app non bancaire, device du membre).
 class PinRepository {
-  PinRepository([FlutterSecureStorage? storage])
-      : _storage = storage ?? _defaultStorage();
-
-  final FlutterSecureStorage _storage;
-
-  /// Stockage sécurisé configuré pour la FIABILITÉ sur Android.
-  ///
-  /// Sans ces options, `flutter_secure_storage` retombe sur le mode hérité
-  /// (clé RSA Keystore enveloppant un AES posé dans des SharedPreferences
-  /// classiques). Ce mode échoue la relecture sur de nombreux devices réels :
-  /// au démarrage `hasPin()` renvoie faux et l'app redemande la CRÉATION du
-  /// code à chaque ouverture. On force donc :
-  ///   • `encryptedSharedPreferences` → EncryptedSharedPreferences (Jetpack
-  ///     Security) : clé maître + données gérées ensemble, persistance fiable ;
-  ///   • `resetOnError` → un déchiffrement impossible réinitialise le magasin
-  ///     au lieu de lever en boucle (ex. clé Keystore invalidée / migration).
-  static FlutterSecureStorage _defaultStorage() => const FlutterSecureStorage(
-        aOptions: AndroidOptions(
-          encryptedSharedPreferences: true,
-          resetOnError: true,
-        ),
-        iOptions: IOSOptions(
-          accessibility: KeychainAccessibility.first_unlock,
-        ),
-      );
+  PinRepository();
 
   static const _key = 'gathe_pin_v1';
   static const _bioKey = 'gathe_biometric_v1';
   static const _salt = 'GF-2026';
 
-  /// Obfuscage déterministe : sel + somme rotative des codes. Pas une crypto
-  /// forte, mais combiné au chiffrement Keystore c'est suffisant pour un PIN
-  /// d'app non-bancaire. Remplaçable par un vrai hash si on ajoute `crypto`.
+  Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
+
+  /// Hash déterministe (sel + somme rotative) — non réversible, sans dépendance
+  /// crypto externe. Remplaçable par un vrai SHA-256 si `crypto` est ajouté.
   String _obfuscate(String pin) {
     final input = '$_salt:$pin';
     var acc = 7;
@@ -53,22 +38,20 @@ class PinRepository {
 
   Future<bool> hasPin() async {
     try {
-      final v = await _storage.read(key: _key);
+      final v = (await _prefs).getString(_key);
       return v != null && v.isNotEmpty;
     } catch (_) {
-      // Lecture illisible (migration/clé invalidée) : on ne bloque pas — le
-      // parcours de (re)création prendra le relais proprement.
       return false;
     }
   }
 
   Future<void> setPin(String pin) async {
-    await _storage.write(key: _key, value: _obfuscate(pin));
+    await (await _prefs).setString(_key, _obfuscate(pin));
   }
 
   Future<bool> verify(String pin) async {
     try {
-      final stored = await _storage.read(key: _key);
+      final stored = (await _prefs).getString(_key);
       if (stored == null) return false;
       return stored == _obfuscate(pin);
     } catch (_) {
@@ -77,18 +60,19 @@ class PinRepository {
   }
 
   Future<void> clear() async {
-    await _storage.delete(key: _key);
-    await _storage.delete(key: _bioKey);
+    final p = await _prefs;
+    await p.remove(_key);
+    await p.remove(_bioKey);
   }
 
   // ── Préférence biométrie ──────────────────────────────────────────────────
 
   /// L'utilisateur a-t-il activé le déverrouillage par empreinte ?
   Future<bool> biometricEnabled() async {
-    return (await _storage.read(key: _bioKey)) == '1';
+    return (await _prefs).getString(_bioKey) == '1';
   }
 
   Future<void> setBiometricEnabled(bool enabled) async {
-    await _storage.write(key: _bioKey, value: enabled ? '1' : '0');
+    await (await _prefs).setString(_bioKey, enabled ? '1' : '0');
   }
 }
