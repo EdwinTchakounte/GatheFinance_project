@@ -25,6 +25,7 @@ export function MemberRecapModal({
   member,
   onClose,
   onDeleted,
+  onRestored,
 }: {
   member: Member | null;
   onClose: () => void;
@@ -32,6 +33,8 @@ export function MemberRecapModal({
    *  affiche le bouton « Supprimer le membre » + confirmation. Appelé après une
    *  suppression réussie (l'appelant rafraîchit la liste et ferme la modale). */
   onDeleted?: (member: Member) => void;
+  /** Appelé après une restauration réussie d'un membre radié. */
+  onRestored?: (member: Member) => void;
 }) {
   const [showAdh, setShowAdh] = useState(false);
   const [adh, setAdh] = useState<MemberAdhesion | null>(null);
@@ -39,6 +42,20 @@ export function MemberRecapModal({
   const [adhErr, setAdhErr] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteErr, setDeleteErr] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+
+  async function handleRestore() {
+    if (!member) return;
+    setRestoring(true);
+    try {
+      await adminApi.members.restore(member.id);
+      onRestored?.(member);
+    } catch (e) {
+      setDeleteErr((e as ApiError).detail ?? "Restauration impossible.");
+    } finally {
+      setRestoring(false);
+    }
+  }
 
   async function toggleAdhesion() {
     if (showAdh) {
@@ -191,20 +208,36 @@ export function MemberRecapModal({
           ) : null
         ) : null}
 
-        {/* Zone dangereuse — suppression définitive (page Membres uniquement). */}
+        {/* Zone d'action — suppression (radiation) OU restauration si radié. */}
         {onDeleted ? (
           <div className="border-t border-line-200 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setDeleteErr(null);
-                setConfirmDelete(true);
-              }}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-terra-300 bg-terra-50/50 px-3.5 py-2.5 text-sm font-semibold text-terra-700 transition-colors hover:border-terra-500 hover:bg-terra-50"
-            >
-              <Trash2 className="size-4" aria-hidden="true" />
-              Supprimer le membre
-            </button>
+            {member.statut === "radie" ? (
+              <button
+                type="button"
+                disabled={restoring}
+                onClick={handleRestore}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-emerald/40 bg-emerald/10 px-3.5 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/20 disabled:opacity-50"
+              >
+                {restoring ? "Restauration…" : "Restaurer le membre"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteErr(null);
+                  setConfirmDelete(true);
+                }}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-terra-300 bg-terra-50/50 px-3.5 py-2.5 text-sm font-semibold text-terra-700 transition-colors hover:border-terra-500 hover:bg-terra-50"
+              >
+                <Trash2 className="size-4" aria-hidden="true" />
+                Supprimer le membre
+              </button>
+            )}
+            {deleteErr && member.statut === "radie" ? (
+              <p className="mt-2 rounded-md bg-terra-50 px-3 py-2 text-sm text-terra-700">
+                {deleteErr}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -218,17 +251,17 @@ export function MemberRecapModal({
           setDeleteErr(null);
         }}
         onConfirm={handleDelete}
-        title="Supprimer définitivement ce membre ?"
+        title="Supprimer (radier) ce membre ?"
         tone="danger"
-        confirmLabel="Supprimer définitivement"
+        confirmLabel="Supprimer le membre"
         message={
           <div className="space-y-2">
             <p>
-              Cette action est <strong>irréversible</strong>. Le compte, l&apos;épargne
-              (collecte, classique, placement), les crédits, les paiements et tout
-              l&apos;historique de{" "}
-              <strong>{fullName(member.prenom, member.nom)}</strong> seront
-              supprimés définitivement.
+              <strong>{fullName(member.prenom, member.nom)}</strong> sera{" "}
+              <strong>radié</strong> : son compte est désactivé (il ne pourra plus
+              se connecter) et il disparaît des listes. Ses données sont{" "}
+              <strong>conservées</strong> et l&apos;action reste réversible
+              (restauration possible via le filtre « Radiés »).
             </p>
             {deleteErr ? (
               <p className="rounded-md bg-terra-50 px-3 py-2 text-sm text-terra-700">

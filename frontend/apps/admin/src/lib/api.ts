@@ -745,6 +745,9 @@ export type RateConfig = {
 };
 
 export type FeeOperations = { versement: boolean; retrait: boolean; transfert: boolean };
+// Types de paiement ENTRANT frappés par le frais (admin-configurable) : map
+// type → bool. Clés = valeurs Payment.Type (epargne, frais_carnet, …).
+export type FeePayinTypes = Record<string, boolean>;
 // Taux métier stockés en AppSetting (commission collecte, intérêt prêteur),
 // surfacés sur la page Coûts. Édités via l'API appSettings (clé → valeur).
 export type BusinessRate = { key: string; libelle: string; valeur: string };
@@ -752,6 +755,7 @@ export type CostsConfig = {
   fees: FeeConfig[];
   rates: RateConfig[];
   transaction_fee_operations?: FeeOperations;
+  transaction_fee_payin_types?: FeePayinTypes;
   business_rates?: BusinessRate[];
 };
 
@@ -1632,9 +1636,15 @@ export const adminApi = {
     // Suppression DÉFINITIVE d'un membre + cascade (IsAdmin). 409 si engagé
     // sur le crédit d'un tiers (prêteur/avaliste actif). Motif optionnel tracé.
     remove: (memberId: number, motif?: string) =>
-      request<{ deleted: boolean; member: string; numero_membre: string }>(
+      request<{ deleted: boolean; soft_deleted: boolean; statut: string; numero_membre: string }>(
         `/admin/members/${memberId}/delete/`,
         { method: "DELETE", body: JSON.stringify(motif ? { motif } : {}) },
+      ),
+    // Restaure un membre radié (annule la « suppression ») : réactive + suspendu.
+    restore: (memberId: number) =>
+      request<{ restored: boolean; statut: string }>(
+        `/admin/members/${memberId}/restore/`,
+        { method: "POST" },
       ),
     // M1 — Création d'un membre depuis le dashboard (IsAdmin). Le membre reçoit
     // un mail de définition de mot de passe et chargera ses pièces à ce moment.
@@ -2225,6 +2235,12 @@ export const adminApi = {
       request<{ transaction_fee_operations: FeeOperations }>(
         "/payments/admin/transaction-fee-operations/",
         { method: "PATCH", body: JSON.stringify(ops) },
+      ),
+    // Types de paiement ENTRANT frappés par le frais (épargne, carnet, adhésion, …).
+    updateTransactionFeePayinTypes: (types: FeePayinTypes) =>
+      request<{ transaction_fee_payin_types: FeePayinTypes }>(
+        "/payments/admin/transaction-fee-payin-types/",
+        { method: "PATCH", body: JSON.stringify(types) },
       ),
   },
 

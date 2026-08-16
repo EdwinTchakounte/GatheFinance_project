@@ -299,6 +299,22 @@ def create_member_by_admin(*, nom: str, prenom: str, email: str, phone: str = ""
         member=member,
         defaults={"solde": 0, "date_ouverture": date.today(), "taux_interet_applique": 0},
     )
+    # Fiche d'adhésion : même créé manuellement, le membre doit avoir une fiche
+    # consultable côté admin (« Voir plus » dans la modale détail). On matérialise
+    # une MembershipRequest APPROUVÉE liée, renseignée des infos saisies — sinon
+    # `member.adhesion_request` est absent et l'endpoint renvoie 404.
+    if not MembershipRequest.objects.filter(member=member).exists():
+        MembershipRequest.objects.create(
+            member=member,
+            nom=nom,
+            prenom=prenom,
+            email=email,
+            phone=(phone or "").strip(),
+            statut=MembershipRequest.Statut.APPROUVEE,
+            instruit_par=actor,
+            date_decision=timezone.now(),
+            extra_payload={"cree_manuellement": True},
+        )
     record_audit(
         action="member.created_by_admin",
         entite_type="Member",
@@ -308,6 +324,53 @@ def create_member_by_admin(*, nom: str, prenom: str, email: str, phone: str = ""
     )
     transaction.on_commit(lambda: _send_welcome_email(member, email))
     return member
+
+
+def soft_delete_member(member: "Member", *, actor=None, motif: str = "") -> dict:
+    """« Suppression » d'un membre = radiation (soft-delete), NON destructive.
+
+    Passe le membre en ``RADIE`` et **désactive son compte auth**
+    (``user.is_active = False``) → il ne peut plus se connecter. Les données sont
+    conservées (auditables, restaurables). Les listes admin masquent par défaut
+    les membres radiés et leurs contenus liés.
+    """
+    member.statut = Member.Statut.RADIE
+    member.save(update_fields=["statut", "updated_at"])
+    user = getattr(member, "user", None)
+    if user is not None and user.is_active:
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+    record_audit(
+        action="member.soft_deleted",
+        entite_type="Member",
+        entite_id=member.id,
+        user=actor,
+        details={"numero_membre": member.numero_membre, "motif": motif},
+    )
+    return {
+        "soft_deleted": True,
+        "statut": member.statut,
+        "numero_membre": member.numero_membre,
+    }
+
+
+def restore_member(member: "Member", *, actor=None) -> dict:
+    """Annule une radiation : réactive le compte et repasse le membre en
+    ``SUSPENDU`` (il devra repayer/réactiver son cycle pour redevenir actif)."""
+    member.statut = Member.Statut.SUSPENDU
+    member.save(update_fields=["statut", "updated_at"])
+    user = getattr(member, "user", None)
+    if user is not None and not user.is_active:
+        user.is_active = True
+        user.save(update_fields=["is_active"])
+    record_audit(
+        action="member.restored",
+        entite_type="Member",
+        entite_id=member.id,
+        user=actor,
+        details={"numero_membre": member.numero_membre},
+    )
+    return {"restored": True, "statut": member.statut}
 
 
 def attach_member_pieces(member: "Member", *, files: dict) -> int:

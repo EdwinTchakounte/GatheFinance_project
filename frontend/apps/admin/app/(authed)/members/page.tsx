@@ -470,6 +470,10 @@ function Inner() {
           setSelected(null);
           reload();
         }}
+        onRestored={() => {
+          setSelected(null);
+          reload();
+        }}
       />
 
       <MemberCreateModal

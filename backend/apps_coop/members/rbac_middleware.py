@@ -58,6 +58,8 @@ PREFIX_RULES: list[tuple[str, str]] = [
     ("payments/admin/config/", "costs"),
     ("payments/admin/fees/", "costs"),
     ("payments/admin/rates/", "costs"),
+    ("payments/admin/transaction-fee-operations/", "costs"),
+    ("payments/admin/transaction-fee-payin-types/", "costs"),
     ("payments/admin/", "payments"),
     # Collectes particulières (caisse scolaire, tontine alimentaire)
     ("special-collections/admin/", "special-collections"),

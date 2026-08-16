@@ -447,25 +447,16 @@ def init_payment(request):
             )
 
     # Frais de transaction (%) prélevés EN PLUS du montant, UNIQUEMENT sur un
-    # VERSEMENT (dépôt d'épargne / collecte) et seulement si l'admin a inscrit
-    # « versement » dans le périmètre (payments.transaction_fee.operations). Le
-    # membre paie `montant + frais` via Tara ; les hooks créditent `montant`.
-    # Jamais de frais sur les frais fixes (adhésion…) ni sur un remboursement.
-    from .fee_policy import OP_VERSEMENT, transaction_fee_for
+    # PAIEMENT ENTRANT (le membre paie via Mobile Money) : le frais de
+    # transaction (%) s'applique aux types INSCRITS par l'admin dans
+    # `payments.transaction_fee.payin_types` (aucun hardcode ; défaut = tout ce
+    # que le membre paie sauf le remboursement). Le membre paie `montant + frais`
+    # via Tara — les hooks ne créditent/imputent que `montant`. Le cash-in manuel
+    # n'y passe pas → jamais de frais en agence.
+    from .fee_policy import transaction_fee_for_payin
 
     _base_montant = data["montant"]
-    _is_versement = data["type"] in (
-        Payment.Type.EPARGNE,
-        Payment.Type.EPARGNE_CLASSIQUE,
-        # Les collectes particulières sont aussi des versements → mêmes frais %.
-        Payment.Type.CAISSE_SCOLAIRE,
-        Payment.Type.TONTINE_ALIMENTAIRE,
-    )
-    _frais = (
-        transaction_fee_for(_base_montant, OP_VERSEMENT)
-        if _is_versement
-        else Decimal("0")
-    )
+    _frais = transaction_fee_for_payin(_base_montant, data["type"])
 
     payment = Payment.objects.create(
         member=request.user.member,
@@ -841,9 +832,15 @@ def admin_config(request):
         for r in RateParam.objects.all()
     ]
     # Périmètre du frais de transaction : quelles opérations sont frappées.
-    from .fee_policy import ALL_OPERATIONS, fee_operations
+    from .fee_policy import (
+        ALL_OPERATIONS,
+        ALL_PAYIN_TYPES,
+        fee_operations,
+        payin_fee_types,
+    )
 
     _ops = fee_operations()
+    _payin = payin_fee_types()
 
     # Taux métier stockés en AppSetting (hors RateParam) — surfacés ici pour que
     # l'admin retrouve TOUS les taux au même endroit (« rubrique des taux »).
@@ -868,6 +865,9 @@ def admin_config(request):
             "fees": fees,
             "rates": rates,
             "transaction_fee_operations": {op: (op in _ops) for op in ALL_OPERATIONS},
+            "transaction_fee_payin_types": {
+                t: (t in _payin) for t in ALL_PAYIN_TYPES
+            },
             "business_rates": business_rates,
         }
     )
@@ -1017,6 +1017,44 @@ def admin_update_transaction_fee_operations(request):
     )
 
 
+@extend_schema(
+    tags=["payments"],
+    summary="Types de paiement entrant frappés par le frais (admin)",
+    description=(
+        "PATCH staff : définit quels paiements ENTRANTS supportent le frais de "
+        "transaction (épargne, carnet, adhésion, inscription, frais crédit, "
+        "reconduction, collectes, remboursement) via l'AppSetting "
+        "`payments.transaction_fee.payin_types`. Body : `{<type>: bool, …}`. "
+        "Tracé (`config.transaction_fee_payin_types_updated`)."
+    ),
+)
+@api_view(["PATCH"])
+@permission_classes([IsStaff])
+def admin_update_transaction_fee_payin_types(request):
+    from apps_coop.audit.models import AppSetting
+
+    from .fee_policy import ALL_PAYIN_TYPES, PAYIN_TYPES_SETTING_KEY
+
+    payload = request.data or {}
+    enabled = [t for t in ALL_PAYIN_TYPES if bool(payload.get(t))]
+    value = ",".join(enabled)
+    AppSetting.objects.update_or_create(
+        cle=PAYIN_TYPES_SETTING_KEY, defaults={"valeur": value}
+    )
+    record_audit(
+        action="config.transaction_fee_payin_types_updated",
+        entite_type="AppSetting",
+        entite_id=0,
+        user=request.user,
+        details={"payin_types": value},
+        ip=client_ip(request),
+        user_agent=request.META.get("HTTP_USER_AGENT", ""),
+    )
+    return Response(
+        {"transaction_fee_payin_types": {t: (t in enabled) for t in ALL_PAYIN_TYPES}}
+    )
+
+
 # ---------------------------------------------------------------------------
 # 4. POST /api/v1/payments/dev/<pk>/confirm/  — DEV ONLY (simulate webhook)
 # ---------------------------------------------------------------------------
@@ -1107,7 +1145,14 @@ _ADMIN_PAYMENTS_PAGE_SIZE = 200
 @api_view(["GET"])
 @permission_classes([IsStaff])
 def admin_list_payments(request):
-    qs = Payment.objects.select_related("member").order_by("-date_versement")
+    from apps_coop.members.models import Member
+
+    # Les membres radiés (« supprimés ») et leurs paiements sont masqués.
+    qs = (
+        Payment.objects.select_related("member")
+        .exclude(member__statut=Member.Statut.RADIE)
+        .order_by("-date_versement")
+    )
     statut = request.query_params.get("statut")
     if statut:
         qs = qs.filter(statut=statut)

@@ -9,6 +9,7 @@ import {
   type BusinessRate,
   type CostsConfig,
   type FeeConfig,
+  type FeePayinTypes,
   type RateConfig,
 } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -124,6 +125,7 @@ export default function CostsPage() {
           </section>
         </div>
         <TransactionFeeOperations initial={config.transaction_fee_operations} />
+        <TransactionFeePayinTypes initial={config.transaction_fee_payin_types} />
         </>
       ) : null}
     </div>
@@ -463,4 +465,99 @@ function SaveButton({
 /** "10.0000" → "10", "1.5000" → "1.5" (affichage de pourcentage propre). */
 function trimZeros(s: string): string {
   return s.includes(".") ? s.replace(/\.?0+$/, "") : s;
+}
+
+
+/** Types de paiement ENTRANT frappés par le frais (%) — admin-configurable. */
+function TransactionFeePayinTypes({
+  initial,
+}: {
+  initial?: FeePayinTypes;
+}) {
+  // Ordre + libellés d'affichage (les clés correspondent aux Payment.Type).
+  const LABELS: { key: string; label: string; hint: string }[] = [
+    { key: "epargne", label: "Épargne (collecte journalière)", hint: "Dépôt de cotisation" },
+    { key: "epargne_classique", label: "Épargne classique", hint: "Dépôt libre / placement" },
+    { key: "caisse_scolaire", label: "Caisse scolaire", hint: "Versement collecte particulière" },
+    { key: "tontine_alimentaire", label: "Tontine alimentaire", hint: "Versement collecte particulière" },
+    { key: "frais_carnet", label: "Carnet", hint: "Achat / renouvellement de carnet" },
+    { key: "frais_adhesion", label: "Adhésion", hint: "Frais d'adhésion" },
+    { key: "frais_inscription", label: "Inscription", hint: "Frais d'inscription" },
+    { key: "frais_demande_credit", label: "Étude de crédit", hint: "Frais de demande de crédit" },
+    { key: "frais_reconduction", label: "Reconduction", hint: "Frais de reconduction crédit" },
+    { key: "remboursement", label: "Remboursement de crédit", hint: "Remboursement (désactivé par défaut)" },
+  ];
+
+  const base: FeePayinTypes = {};
+  for (const o of LABELS) base[o.key] = initial?.[o.key] ?? false;
+  const [types, setTypes] = useState<FeePayinTypes>(base);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [rowError, setRowError] = useState<string | null>(null);
+  const dirty = LABELS.some((o) => types[o.key] !== base[o.key]);
+
+  async function save() {
+    setSaving(true);
+    setRowError(null);
+    setSaved(false);
+    try {
+      await adminApi.costs.updateTransactionFeePayinTypes(types);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setRowError((err as ApiError).detail ?? "Enregistrement impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="mt-8 max-w-2xl rounded-xl border border-line-100 bg-paper p-5 shadow-xs">
+      <h2 className="font-display text-xs font-semibold uppercase tracking-wider text-ink-500">
+        Frais de transaction — paiements entrants concernés
+      </h2>
+      <p className="mt-1 text-sm text-ink-600">
+        Coche chaque <strong>paiement que le membre effectue</strong> (via Mobile Money) sur
+        lequel le frais (%) s’ajoute. Ex. carnet à 1&nbsp;000 avec 2&nbsp;% → le membre paie
+        <strong> 1&nbsp;020</strong>. Nécessite que « Versement » soit coché ci-dessus et un
+        taux &gt; 0. La saisie manuelle en agence n’est jamais frappée.
+      </p>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {LABELS.map((o) => (
+          <label
+            key={o.key}
+            className="flex cursor-pointer items-start gap-3 rounded-lg border border-line-100 px-3 py-2 hover:bg-line-50"
+          >
+            <input
+              type="checkbox"
+              checked={types[o.key]}
+              onChange={(e) => setTypes({ ...types, [o.key]: e.target.checked })}
+              className="mt-0.5 size-4 accent-blue-700"
+            />
+            <span>
+              <span className="text-sm font-medium text-ink-900">{o.label}</span>
+              <span className="block text-xs text-ink-500">{o.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {rowError ? <p className="mt-2 text-xs text-terra-700">{rowError}</p> : null}
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={save}
+          disabled={!dirty || saving}
+          className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+          Enregistrer
+        </button>
+        {saved ? (
+          <span className="inline-flex items-center gap-1 text-sm text-emerald-700">
+            <Check className="size-4" /> Enregistré
+          </span>
+        ) : null}
+      </div>
+    </section>
+  );
 }

@@ -271,3 +271,26 @@ def test_default_transaction_fee_is_3pct_on_versement(
     assert payment.frais_transaction == Decimal("30")  # 1000 × 0.03
     active_member.savings_account.refresh_from_db()
     assert active_member.savings_account.solde == solde_initial + Decimal("1000")
+
+
+def test_carnet_payin_gets_transaction_fee_at_init(member_client, active_member):
+    """Le frais s'applique aussi au paiement de carnet (payin) : 1000 → +3%.
+
+    Tara facture montant + frais (1030) ; le membre paie 1030 pour un carnet
+    à 1000. Vérifie le périmètre « paiements entrants » configurable côté admin.
+    """
+    from apps_coop.payments.models import FeeType
+
+    FeeType.objects.update_or_create(
+        code=FeeType.Code.CARNET,
+        defaults={"libelle": "Frais de carnet", "montant": Decimal("1000"), "actif": True},
+    )
+    res = member_client.post(
+        "/api/v1/payments/init/",
+        data={"type": "frais_carnet", "phone": "+237699112233", "network": "MTN"},
+        format="json",
+    )
+    assert res.status_code == 201
+    payment = Payment.objects.get(pk=res.json()["payment"]["id"])
+    assert payment.montant == Decimal("1000")  # barème autoritaire
+    assert payment.frais_transaction == Decimal("30")  # 3 % défaut, s'applique au carnet

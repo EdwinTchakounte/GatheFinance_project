@@ -18,9 +18,11 @@ from apps_coop.payments.fee_policy import (
     OP_RETRAIT,
     OP_TRANSFERT,
     OP_VERSEMENT,
+    PAYIN_TYPES_SETTING_KEY,
     SETTING_KEY,
     fee_applies_to,
     transaction_fee_for,
+    transaction_fee_for_payin,
 )
 from apps_coop.payments.models import RateParam
 
@@ -36,6 +38,12 @@ def _set_rate(valeur: str):
 
 def _set_scope(csv: str):
     AppSetting.objects.update_or_create(cle=SETTING_KEY, defaults={"valeur": csv})
+
+
+def _set_payin_types(csv: str):
+    AppSetting.objects.update_or_create(
+        cle=PAYIN_TYPES_SETTING_KEY, defaults={"valeur": csv}
+    )
 
 
 def test_default_is_3pct_on_versement_only():
@@ -81,3 +89,43 @@ def test_none_amount_never_raises():
     _set_rate("0.02")
     _set_scope("versement,retrait,transfert")
     assert transaction_fee_for(None, OP_VERSEMENT) == Decimal("0")
+
+
+# ── Frais sur paiements ENTRANTS (payin) — périmètre par TYPE, admin-configurable ──
+def test_payin_fee_applies_to_carnet_by_default():
+    """Défaut : le carnet (et tout paiement entrant sauf remboursement) est frappé."""
+    _set_rate("0.02")  # 2 %
+    # versement dans le périmètre par défaut ; payin_types par défaut inclut carnet.
+    assert transaction_fee_for_payin(Decimal("1000"), "frais_carnet") == Decimal("20")
+    assert transaction_fee_for_payin(Decimal("1000"), "frais_adhesion") == Decimal("20")
+    assert transaction_fee_for_payin(Decimal("1000"), "epargne") == Decimal("20")
+
+
+def test_payin_remboursement_excluded_by_default():
+    _set_rate("0.02")
+    assert transaction_fee_for_payin(Decimal("1000"), "remboursement") == Decimal("0")
+
+
+def test_payin_types_are_admin_configurable():
+    """L'admin restreint la liste → seuls les types listés sont frappés."""
+    _set_rate("0.02")
+    _set_payin_types("epargne")  # carnet retiré
+    assert transaction_fee_for_payin(Decimal("1000"), "frais_carnet") == Decimal("0")
+    assert transaction_fee_for_payin(Decimal("1000"), "epargne") == Decimal("20")
+    # ... et l'admin peut inclure le remboursement.
+    _set_payin_types("epargne,remboursement")
+    assert transaction_fee_for_payin(Decimal("1000"), "remboursement") == Decimal("20")
+
+
+def test_payin_master_switch_versement_off():
+    """Si l'opération « versement » est désactivée, aucun payin n'est frappé."""
+    _set_rate("0.02")
+    _set_scope("retrait")  # versement HORS périmètre
+    assert transaction_fee_for_payin(Decimal("1000"), "frais_carnet") == Decimal("0")
+    assert transaction_fee_for_payin(Decimal("1000"), "epargne") == Decimal("0")
+
+
+def test_payin_no_rate_means_zero():
+    # Sans relever le taux au-delà du défaut, le calcul reste cohérent (défaut 3 %).
+    _set_rate("0")
+    assert transaction_fee_for_payin(Decimal("1000"), "frais_carnet") == Decimal("0")

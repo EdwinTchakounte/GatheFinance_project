@@ -763,7 +763,12 @@ def admin_delete_loan_request(request, pk: int):
 @api_view(["GET"])
 @permission_classes([IsStaff])
 def admin_list_loan_requests(request):
-    qs = LoanRequest.objects.order_by("-date_soumission")
+    from apps_coop.members.models import Member
+
+    # Masque les demandes des membres radiés (« supprimés »).
+    qs = LoanRequest.objects.exclude(member__statut=Member.Statut.RADIE).order_by(
+        "-date_soumission"
+    )
     statut = request.query_params.get("statut")
     if statut == LoanRequest.Statut.REJETEE:
         # L'onglet « Rejetées » doit rassembler TOUTES les fins de non-recevoir,
@@ -1307,9 +1312,12 @@ def admin_credit_exposure(request):
 @api_view(["GET"])
 @permission_classes([IsStaff])
 def admin_list_loans(request):
+    from apps_coop.members.models import Member
+
     qs = (
         Loan.objects.select_related("member", "member__user", "loan_request")
         .prefetch_related("installments")
+        .exclude(member__statut=Member.Statut.RADIE)
         .order_by("-date_decaissement")
     )
     statut = request.query_params.get("statut")

@@ -485,9 +485,21 @@ def admin_list_withdrawals(request):
     from .models import WithdrawalRequest
     from .serializers import WithdrawalRequestReadSerializer
 
-    qs = WithdrawalRequest.objects.select_related(
-        "account", "account__member", "classic_account", "classic_account__member"
-    ).order_by("-date_demande")
+    from django.db.models import Q
+
+    from apps_coop.members.models import Member
+
+    qs = (
+        WithdrawalRequest.objects.select_related(
+            "account", "account__member", "classic_account", "classic_account__member"
+        )
+        # Masque les retraits des membres radiés (« supprimés »).
+        .exclude(
+            Q(account__member__statut=Member.Statut.RADIE)
+            | Q(classic_account__member__statut=Member.Statut.RADIE)
+        )
+        .order_by("-date_demande")
+    )
     statut = request.query_params.get("statut")
     if statut:
         qs = qs.filter(statut=statut)

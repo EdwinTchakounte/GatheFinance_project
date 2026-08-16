@@ -48,6 +48,25 @@ def test_admin_create_member(admin_user, django_capture_on_commit_callbacks):
     assert PasswordSetupToken.objects.filter(user=m.user).exists()
 
 
+def test_admin_created_member_has_adhesion_sheet(admin_user):
+    """Ajout manuel → la fiche d'adhésion doit être disponible (plus de 404)."""
+    c = _admin_client(admin_user)
+    r = c.post(
+        CREATE_URL,
+        {"nom": "NGONO", "prenom": "Paul", "email": "paul@ex.cm", "phone": "677"},
+        format="json",
+    )
+    assert r.status_code == 201, r.content
+    mid = r.json()["id"]
+    res = c.get(f"/api/v1/admin/members/{mid}/adhesion/")
+    assert res.status_code == 200, res.content
+    body = res.json()
+    assert body["identity"]["nom"] == "NGONO"
+    assert body["identity"]["prenom"] == "Paul"
+    assert body["identity"]["email"] == "paul@ex.cm"
+    assert body["statut"] == "approuvee"
+
+
 def test_admin_create_requires_admin(staff_user):
     c = APIClient()
     c.force_authenticate(user=staff_user)  # non-admin

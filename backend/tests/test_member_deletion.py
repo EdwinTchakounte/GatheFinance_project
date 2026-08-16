@@ -52,23 +52,52 @@ def test_cascade_removes_member_user_savings_and_audits(admin_user):
     ).exists()
 
 
-def test_endpoint_requires_admin(staff_user, admin_user):
+def test_endpoint_requires_admin_and_soft_deletes(staff_user, admin_user):
+    """L'endpoint « suppression » = radiation (soft-delete), non destructive."""
     member = MemberFactory()
     url = _delete_url(member.id)
 
-    # Staff non-admin → 403, le membre survit.
+    # Staff non-admin → 403, le membre reste actif.
     r = _api(staff_user).delete(url, {"motif": "x"}, format="json")
     assert r.status_code == 403
     assert Member.objects.filter(id=member.id).exists()
 
-    # Admin → 200, le membre disparaît.
+    # Admin → 200, le membre SUBSISTE mais est radié + login désactivé.
     r = _api(admin_user).delete(url, {"motif": "erreur de saisie"}, format="json")
     assert r.status_code == 200, r.content
     assert r.json()["deleted"] is True
-    assert not Member.objects.filter(id=member.id).exists()
+    assert r.json()["soft_deleted"] is True
+    member.refresh_from_db()
+    assert member.statut == Member.Statut.RADIE
+    member.user.refresh_from_db()
+    assert member.user.is_active is False  # login bloqué
 
 
-def test_blocked_when_member_is_active_avaliste(admin_user):
+def test_soft_delete_hides_from_list_and_restore(admin_user):
+    member = MemberFactory()
+    c = _api(admin_user)
+    c.delete(_delete_url(member.id), {"motif": "doublon"}, format="json")
+
+    # Masqué de la liste par défaut, visible via ?statut=radie.
+    default_ids = [m["id"] for m in c.get("/api/v1/admin/members/").json()["results"]]
+    assert member.id not in default_ids
+    radie_ids = [
+        m["id"] for m in c.get("/api/v1/admin/members/?statut=radie").json()["results"]
+    ]
+    assert member.id in radie_ids
+
+    # Restauration : réactive + repasse en suspendu.
+    rr = c.post(f"/api/v1/admin/members/{member.id}/restore/")
+    assert rr.status_code == 200
+    member.refresh_from_db()
+    assert member.statut == Member.Statut.SUSPENDU
+    member.user.refresh_from_db()
+    assert member.user.is_active is True
+
+
+def test_soft_delete_allowed_even_when_active_avaliste(admin_user):
+    """La radiation ne détruit rien → plus de blocage 409 (les engagements
+    tiers sont préservés)."""
     from apps_coop.loans.models import AvalisteConsent, LoanRequest
 
     borrower = MemberFactory()
@@ -82,11 +111,11 @@ def test_blocked_when_member_is_active_avaliste(admin_user):
     AvalisteConsent.objects.create(
         loan_request=lr, avaliste=guarantor, couverture_ratio=Decimal("1")
     )
-
-    # Le helper signale l'engagement tiers…
     assert third_party_engagements(guarantor)
 
-    # …et l'endpoint refuse la suppression (409), le membre survit.
     r = _api(admin_user).delete(_delete_url(guarantor.id), {}, format="json")
-    assert r.status_code == 409, r.content
-    assert Member.objects.filter(id=guarantor.id).exists()
+    assert r.status_code == 200, r.content
+    guarantor.refresh_from_db()
+    assert guarantor.statut == Member.Statut.RADIE
+    # L'engagement (consentement avaliste) est conservé.
+    assert AvalisteConsent.objects.filter(avaliste=guarantor).exists()

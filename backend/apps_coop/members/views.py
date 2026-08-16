@@ -16,7 +16,6 @@ from apps_coop.audit.services import client_ip, record as record_audit
 from apps_coop.portal_urls import portal_url as _portal_url
 
 from . import services
-from .deletion_services import MemberDeletionError, delete_member_cascade
 from .models import BRCDocument, Member, MembershipRequest
 from .permissions import IsActiveMember, IsAdmin, IsMember, IsStaff
 from .serializers import (
@@ -397,19 +396,16 @@ def admin_confirm_member_reinscription(request, pk: int):
 
 @extend_schema(
     tags=["members"],
-    summary="🔒 Admin — SUPPRESSION définitive d'un membre (cascade)",
+    summary="🔒 Admin — « Suppression » (radiation / soft-delete) d'un membre",
     description=(
-        "Supprime DÉFINITIVEMENT un `Member` et toutes ses données (compte "
-        "auth, épargne, crédits & demandes, paiements, carnets, documents, "
-        "notifications, support) — IRRÉVERSIBLE. Motif optionnel dans le body "
-        "(`{ \"motif\": \"…\" }`), tracé (fichier + AuditLog). "
-        "Renvoie **409** si le membre est engagé sur le crédit d'un tiers "
-        "(prêteur/avaliste actif). Permission : `IsAdmin`."
+        "La suppression est NON destructive : le membre passe en `RADIE` et son "
+        "compte est désactivé (il ne peut plus se connecter). Les données sont "
+        "conservées et le membre est masqué des listes par défaut (restaurable). "
+        "Motif optionnel (`{ \"motif\": \"…\" }`), tracé. Permission : `IsAdmin`."
     ),
     responses={
-        200: OpenApiResponse(description="`{ deleted: true, … recap }`"),
+        200: OpenApiResponse(description="`{ deleted: true, soft_deleted: true, … }`"),
         404: OpenApiResponse(description="Membre introuvable."),
-        409: OpenApiResponse(description="Engagement tiers : suppression bloquée."),
     },
 )
 @api_view(["DELETE"])
@@ -419,11 +415,21 @@ def admin_delete_member(request, pk: int):
     motif = ""
     if isinstance(request.data, dict):
         motif = (request.data.get("motif") or "").strip()
-    try:
-        recap = delete_member_cascade(member, actor=request.user, motif=motif)
-    except MemberDeletionError as exc:
-        return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+    recap = services.soft_delete_member(member, actor=request.user, motif=motif)
     return Response({"deleted": True, **recap}, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["members"],
+    summary="🔒 Admin — Restaurer un membre radié (annule la suppression)",
+    responses={200: OpenApiResponse(description="`{ restored: true, statut }`")},
+)
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def admin_restore_member(request, pk: int):
+    member = get_object_or_404(Member, pk=pk)
+    recap = services.restore_member(member, actor=request.user)
+    return Response(recap, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
@@ -474,6 +480,9 @@ def admin_list_members(request):
     statut = request.query_params.get("statut")
     if statut:
         qs = qs.filter(statut=statut)
+    else:
+        # « Supprimés » = radiés : masqués par défaut (visibles via ?statut=radie).
+        qs = qs.exclude(statut=Member.Statut.RADIE)
     q = (request.query_params.get("q") or "").strip()
     if q:
         qs = qs.filter(
