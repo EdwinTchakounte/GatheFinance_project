@@ -19,6 +19,22 @@ import type { ExportColumn } from "@/lib/export";
  * On le pose sur tous les tableaux de listing pour un rendu cohérent et des
  * filtres homogènes (retraits, paiements, reconductions, carnets, BRC…).
  */
+/**
+ * Extrait la valeur numérique d'une cellule formatée (« 5 000 FCFA », « 1 234,50 »,
+ * « — », « 12 % »…). Retire les séparateurs de milliers (espaces, y compris
+ * insécables), convertit la virgule décimale en point, puis supprime tout symbole
+ * résiduel (devise, %, tiret cadratin). Renvoie 0 si la cellule ne contient aucun
+ * nombre — évite les totaux/filtres « NaN ».
+ */
+function parseNumericCell(raw: string): number {
+  const cleaned = raw
+    .replace(/\s/g, "")
+    .replace(",", ".")
+    .replace(/[^\d.-]/g, "");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export type DataColumn<T> = {
   key: string;
   label: string;
@@ -89,7 +105,7 @@ export function DataTable<T>({
         if (col.numeric) {
           const min = Number(raw.replace(/\s/g, "").replace(",", "."));
           if (!Number.isFinite(min)) return true;
-          return Number(col.text(row).replace(/\s/g, "").replace(",", ".")) >= min;
+          return parseNumericCell(col.text(row)) >= min;
         }
         return col.text(row).toLowerCase().includes(raw.trim().toLowerCase());
       }),
@@ -214,8 +230,7 @@ export function DataTable<T>({
                   {shownCols.map((c, i) => {
                     if (c.numeric) {
                       const total = filtered.reduce(
-                        (s, row) =>
-                          s + Number(c.text(row).replace(/\s/g, "").replace(",", ".")),
+                        (s, row) => s + parseNumericCell(c.text(row)),
                         0,
                       );
                       return (
