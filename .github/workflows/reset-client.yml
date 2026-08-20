@@ -1,0 +1,113 @@
+# Manuel (workflow_dispatch) — PURGE des DONNÉES MÉTIER sur le serveur CLIENT
+# (membres, crédits, campagnes, collectes, épargne, transactions, support,
+# social, notifications, journal d'audit).
+#
+# CONSERVE toute la config (AppSettings, frais, taux, form schemas, rôles,
+# templates email, event catalog, CooperativeAsset, pages Wagtail) et les
+# comptes admin/staff/superuser. Cf. scripts/reset_business_data.py.
+#
+# ⚠️ DESTRUCTIF & IRRÉVERSIBLE. Sécurités :
+#   - dry-run par DÉFAUT (compte seulement, ne supprime rien)
+#   - EXECUTE exige de taper exactement  PURGE-PROD  dans le champ 'confirm'
+#   - backup complet automatique AVANT toute suppression (sauf skip explicite)
+#   - la purge tourne dans UNE transaction (rollback total à la moindre erreur)
+
+name: "RESET données client (DANGER)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry-run = compte seulement | EXECUTE = supprime réellement"
+        type: choice
+        options:
+          - dry-run
+          - EXECUTE
+        default: dry-run
+      confirm:
+        description: "Pour EXECUTE uniquement : tape exactement  PURGE-PROD"
+        type: string
+        default: ""
+      skip_backup:
+        description: "Sauter le backup complet ? (déconseillé)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  reset:
+    name: Purge données métier via SSH (serveur client)
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Garde-fou — confirmation obligatoire pour EXECUTE
+        if: ${{ inputs.mode == 'EXECUTE' && inputs.confirm != 'PURGE-PROD' }}
+        run: |
+          echo "::error::mode=EXECUTE mais confirmation invalide."
+          echo "Pour supprimer réellement, relance en tapant  PURGE-PROD  dans le champ 'confirm'."
+          exit 1
+
+      - name: Checkout (récupère scripts/reset_business_data.py)
+        uses: actions/checkout@v4
+
+      - name: Copier le script de purge sur le serveur
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.CLIENT_VPS_HOST }}
+          username: ${{ secrets.CLIENT_VPS_USER }}
+          key: ${{ secrets.CLIENT_VPS_SSH_PRIVATE_KEY }}
+          source: "scripts/reset_business_data.py"
+          target: "/tmp/gathe-reset/"
+          strip_components: 1
+
+      - name: Backup complet + (dry-run | purge) via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.CLIENT_VPS_HOST }}
+          username: ${{ secrets.CLIENT_VPS_USER }}
+          key: ${{ secrets.CLIENT_VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 20m
+          script: |
+            set -euo pipefail
+
+            DEPLOY_PATH="${{ secrets.CLIENT_VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.client.yml --env-file .env.prod"
+            SCRIPT="/tmp/gathe-reset/reset_business_data.py"
+
+            cd "$DEPLOY_PATH/infra"
+
+            test -f "$SCRIPT" || { echo "::error::script de purge introuvable ($SCRIPT)"; exit 1; }
+
+            # 1) BACKUP COMPLET DE LA BASE (dumpdata -> media persistant, gzip)
+            if [ "${{ inputs.skip_backup }}" != "true" ]; then
+              STAMP=$(date +%Y%m%d_%H%M%S)
+              OUT="/app/media/coop/backups/full_${STAMP}.json.gz"
+              echo ">>> Backup complet -> ${OUT}"
+              $COMPOSE exec -T backend sh -c "mkdir -p /app/media/coop/backups && python manage.py dumpdata --natural-foreign --natural-primary --exclude contenttypes --exclude auth.permission --exclude sessions.session --exclude admin.logentry | gzip > '${OUT}'"
+              echo ">>> Taille du backup :"
+              $COMPOSE exec -T backend sh -c "ls -lh '${OUT}'"
+              # refuse de continuer si le backup est vide/absent
+              $COMPOSE exec -T backend sh -c "test -s '${OUT}'" || { echo "::error::backup vide, on arrête"; exit 1; }
+            else
+              echo ">>> ⚠️ Backup IGNORÉ (skip_backup=true)"
+            fi
+
+            # 2) Injecter le script dans le conteneur backend
+            $COMPOSE cp "$SCRIPT" backend:/tmp/reset_business_data.py
+
+            # 3) Exécuter
+            if [ "${{ inputs.mode }}" = "EXECUTE" ]; then
+              echo ">>> ===== PURGE RÉELLE (GATHE_WIPE_CONFIRM=YES) ====="
+              $COMPOSE exec -T -e GATHE_WIPE_CONFIRM=YES backend sh -c 'python manage.py shell < /tmp/reset_business_data.py'
+              echo ">>> Purge des sessions (reconnexion propre)"
+              $COMPOSE exec -T backend python manage.py clearsessions || true
+            else
+              echo ">>> ===== DRY-RUN (aucune suppression) ====="
+              $COMPOSE exec -T backend sh -c 'python manage.py shell < /tmp/reset_business_data.py'
+            fi
+
+            echo ">>> Done."
