@@ -21,6 +21,7 @@ import os
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 
 from apps_coop.social.models import ContentComment, ContentReaction
 from apps_coop.support.models import SupportMessage, SupportThread
@@ -130,10 +131,32 @@ if not CONFIRM:
     print("\n*** DRY-RUN — RIEN N'A ÉTÉ SUPPRIMÉ ***")
     print("Pour exécuter : relance avec  GATHE_WIPE_CONFIRM=YES  devant la commande.")
 else:
+    # Suppression résiliente : on retente en plusieurs passes les modèles encore
+    # protégés par une FK PROTECT (ex. Loan.loan_request). Chaque delete tourne
+    # dans un SAVEPOINT (atomic imbriqué) : un ProtectedError annule ce seul
+    # savepoint sans casser la transaction externe (indispensable sous Postgres).
     with transaction.atomic():
-        for m in ORDER:
-            n, _ = m.objects.all().delete()
-            print(f"  supprimé {m.__name__:34} {n:>8}")
+        remaining = list(ORDER)
+        for pass_no in range(1, 12):
+            still = []
+            progressed = False
+            for m in remaining:
+                try:
+                    with transaction.atomic():  # savepoint
+                        n, _ = m.objects.all().delete()
+                    if n:
+                        progressed = True
+                        print(f"  supprimé {m.__name__:34} {n:>8}")
+                except ProtectedError:
+                    still.append(m)  # dépend d'un modèle encore présent → passe suivante
+            remaining = still
+            if not remaining:
+                break
+            if not progressed:
+                raise RuntimeError(
+                    f"Blocage après passe {pass_no} — non supprimables : "
+                    f"{[x.__name__ for x in remaining]}"
+                )
         n, _ = purge_users.delete()
         print(f"  supprimé {'User (membres)':34} {n:>8}")
     print("\n" + "=" * 60)

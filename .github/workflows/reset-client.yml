@@ -86,8 +86,11 @@ jobs:
             if [ "${{ inputs.skip_backup }}" != "true" ]; then
               STAMP=$(date +%Y%m%d_%H%M%S)
               OUT="/app/media/coop/backups/full_${STAMP}.json.gz"
-              echo ">>> Backup complet -> ${OUT}"
-              $COMPOSE exec -T backend sh -c "mkdir -p /app/media/coop/backups && python manage.py dumpdata --natural-foreign --natural-primary --exclude contenttypes --exclude auth.permission --exclude sessions.session --exclude admin.logentry | gzip > '${OUT}'"
+              APPS="auth.User members loans payments savings special_collections social support coop_notifications audit coop_forms"
+              echo ">>> Backup métier -> ${OUT}"
+              # Dump vers un fichier temporaire d'abord : si dumpdata échoue, le && casse
+              # et l'étape échoue (pas de backup partiel silencieux comme avec un pipe).
+              $COMPOSE exec -T backend sh -c "mkdir -p /app/media/coop/backups && python manage.py dumpdata --natural-foreign --natural-primary ${APPS} > /tmp/gathe_backup.json && gzip -c /tmp/gathe_backup.json > '${OUT}' && rm -f /tmp/gathe_backup.json"
               echo ">>> Taille du backup :"
               $COMPOSE exec -T backend sh -c "ls -lh '${OUT}'"
               # refuse de continuer si le backup est vide/absent
