@@ -2,7 +2,7 @@
 
 - Non destructif, idempotent (rejouable sans doublon).
 - Compte MEMBRE uniquement (is_staff=False, is_superuser=False) — aucun accès admin.
-- Statut ACTIF (login possible) + un peu d'épargne pour que l'app ne soit pas vide.
+- Statut ACTIF (login possible), solde d'épargne à ZÉRO (n'affecte pas la comptabilité).
 
 Identifiants (surchargeables par variables d'env) :
     GATHE_DEMO_EMAIL     (défaut: demo@gathe-finance.com)
@@ -21,7 +21,6 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import transaction
-from django.utils import timezone
 
 from apps_coop.members.models import Member
 from apps_coop.savings.models import SavingsAccount, SavingsTransaction
@@ -74,20 +73,10 @@ with transaction.atomic():
             "taux_interet_applique": Decimal("0.0350"),
         },
     )
-    # Quelques dépôts pour que le testeur voie une app peuplée (si vide).
-    if not SavingsTransaction.objects.filter(account=account).exists():
-        solde = Decimal("0")
-        base = timezone.now() - timedelta(days=35)
-        for i, montant in enumerate([15000, 10000, 20000, 5000, 15000], start=1):
-            solde += Decimal(montant)
-            SavingsTransaction.objects.create(
-                account=account,
-                type_op=SavingsTransaction.TypeOp.DEPOT,
-                montant=Decimal(montant),
-                solde_apres=solde,
-                date=base + timedelta(days=i * 5),
-            )
-        account.solde = solde
+    # Solde à ZÉRO — le compte démo ne doit peser sur AUCUN agrégat comptable.
+    SavingsTransaction.objects.filter(account=account).delete()
+    if account.solde != Decimal("0"):
+        account.solde = Decimal("0")
         account.save(update_fields=["solde"])
 
 print("=" * 56)
