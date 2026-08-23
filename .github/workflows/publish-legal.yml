@@ -1,0 +1,56 @@
+# Manuel (workflow_dispatch) — publie le contenu réel de la POLITIQUE DE
+# CONFIDENTIALITÉ dans le CMS Wagtail du serveur CLIENT (corrige le placeholder
+# « contenu en cours de finalisation »). Cf. scripts/publish_privacy_policy.py.
+#
+# Non destructif, idempotent (ne touche qu'à la LegalPage politique-confidentialite).
+
+name: "Publier politique de confidentialité (client)"
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publier la politique via SSH (serveur client)
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout (récupère scripts/publish_privacy_policy.py)
+        uses: actions/checkout@v4
+
+      - name: Copier le script sur le serveur
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.CLIENT_VPS_HOST }}
+          username: ${{ secrets.CLIENT_VPS_USER }}
+          key: ${{ secrets.CLIENT_VPS_SSH_PRIVATE_KEY }}
+          source: "scripts/publish_privacy_policy.py"
+          target: "/tmp/gathe-legal/"
+          strip_components: 1
+
+      - name: Publier la politique de confidentialité
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.CLIENT_VPS_HOST }}
+          username: ${{ secrets.CLIENT_VPS_USER }}
+          key: ${{ secrets.CLIENT_VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+
+            DEPLOY_PATH="${{ secrets.CLIENT_VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.client.yml --env-file .env.prod"
+            SCRIPT="/tmp/gathe-legal/publish_privacy_policy.py"
+
+            cd "$DEPLOY_PATH/infra"
+            test -f "$SCRIPT" || { echo "::error::script introuvable ($SCRIPT)"; exit 1; }
+
+            $COMPOSE cp "$SCRIPT" backend:/tmp/publish_privacy_policy.py
+            $COMPOSE exec -T backend sh -c 'python manage.py shell < /tmp/publish_privacy_policy.py'
+
+            echo ">>> Done."
