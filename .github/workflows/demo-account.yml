@@ -1,0 +1,68 @@
+# Manuel (workflow_dispatch) — crée UN compte MEMBRE de démonstration sur le
+# serveur CLIENT pour la revue Google Play (app derrière login → compte requis).
+#
+# Non destructif, idempotent. Compte membre uniquement (aucun accès admin).
+# Cf. scripts/create_demo_member.py.
+
+name: "Compte démo Play Store (client)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Email du compte démo (identifiant de connexion)"
+        type: string
+        default: "demo@gathe-finance.com"
+      password:
+        description: "Mot de passe du compte démo (à communiquer à Google)"
+        type: string
+        default: "GatheDemo2026!"
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    name: Créer le compte démo via SSH (serveur client)
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout (récupère scripts/create_demo_member.py)
+        uses: actions/checkout@v4
+
+      - name: Copier le script sur le serveur
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.CLIENT_VPS_HOST }}
+          username: ${{ secrets.CLIENT_VPS_USER }}
+          key: ${{ secrets.CLIENT_VPS_SSH_PRIVATE_KEY }}
+          source: "scripts/create_demo_member.py"
+          target: "/tmp/gathe-demo/"
+          strip_components: 1
+
+      - name: Créer le compte démo
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.CLIENT_VPS_HOST }}
+          username: ${{ secrets.CLIENT_VPS_USER }}
+          key: ${{ secrets.CLIENT_VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+
+            DEPLOY_PATH="${{ secrets.CLIENT_VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.client.yml --env-file .env.prod"
+            SCRIPT="/tmp/gathe-demo/create_demo_member.py"
+
+            cd "$DEPLOY_PATH/infra"
+            test -f "$SCRIPT" || { echo "::error::script introuvable ($SCRIPT)"; exit 1; }
+
+            $COMPOSE cp "$SCRIPT" backend:/tmp/create_demo_member.py
+            $COMPOSE exec -T \
+              -e GATHE_DEMO_EMAIL='${{ inputs.email }}' \
+              -e GATHE_DEMO_PASSWORD='${{ inputs.password }}' \
+              backend sh -c 'python manage.py shell < /tmp/create_demo_member.py'
+
+            echo ">>> Done."
