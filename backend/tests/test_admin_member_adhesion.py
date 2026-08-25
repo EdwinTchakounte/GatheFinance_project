@@ -6,9 +6,10 @@ Article 2 + champs dynamiques FormSchema `extra_payload` + pièces).
 from __future__ import annotations
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
-from apps_coop.members.models import MembershipRequest
+from apps_coop.members.models import Document, MembershipRequest
 from tests.factories import MemberFactory
 
 pytestmark = pytest.mark.django_db
@@ -70,6 +71,55 @@ class TestMemberAdhesion:
         assert r.status_code == 200
         assert r.data["identity"]["nom"] == "SANSREQ"
         assert r.data["source"] == "membre"
+
+    def _make_doc(self, member, field_id):
+        return Document.objects.create(
+            member=member,
+            type_doc=Document.TypeDoc.AUTRE,
+            entite_liee_type="Member",
+            entite_liee_id=member.id,
+            fichier=SimpleUploadedFile(f"{field_id}.png", b"x", content_type="image/png"),
+            schema_field_id=field_id,
+        )
+
+    def test_pieces_fallback_sur_documents_membre_cree_manuellement(self, tmp_path, settings):
+        """Membre créé manuellement : sa demande liée a des champs pièces VIDES,
+        mais les pièces chargées à la définition du mot de passe (Document) doivent
+        remonter dans la fiche « Voir plus »."""
+        settings.MEDIA_ROOT = str(tmp_path)
+        staff = _staff()
+        member = MemberFactory()
+        MembershipRequest.objects.create(
+            member=member,
+            nom="Manu",
+            prenom="Elle",
+            email="manu@t.local",
+            phone="699",
+            statut=MembershipRequest.Statut.APPROUVEE,
+            extra_payload={"cree_manuellement": True},
+        )
+        self._make_doc(member, "cni")
+        self._make_doc(member, "photo")
+        self._make_doc(member, "plan")
+
+        r = _api(staff.user).get(f"/api/v1/admin/members/{member.id}/adhesion/")
+        assert r.status_code == 200
+        assert r.data["pieces"]["cni_recto"], "CNI (Document) doit remonter"
+        assert r.data["pieces"]["photo_identite"], "photo (Document) doit remonter"
+        assert r.data["pieces"]["plan_localisation"], "plan (Document) doit remonter"
+
+    def test_pieces_fallback_sur_documents_sans_demande_liee(self, tmp_path, settings):
+        """Branche fiche minimale (pas de MembershipRequest) : les Document doivent
+        aussi remonter."""
+        settings.MEDIA_ROOT = str(tmp_path)
+        staff = _staff()
+        member = MemberFactory(nom="SANSREQ")
+        self._make_doc(member, "cni")
+
+        r = _api(staff.user).get(f"/api/v1/admin/members/{member.id}/adhesion/")
+        assert r.status_code == 200
+        assert r.data["source"] == "membre"
+        assert r.data["pieces"]["cni_recto"], "CNI (Document) doit remonter"
 
     def test_non_staff_refuse(self):
         member = MemberFactory()

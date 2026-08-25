@@ -1204,10 +1204,30 @@ def admin_member_adhesion(request, pk: int):
     moment de la soumission de sa demande (colonnes Article 2 + champs
     dynamiques FormSchema `extra_payload` + pièces téléversées).
 
-    404 si le membre n'a pas de demande liée (adhésion legacy / créé
-    manuellement).
+    Sans demande liée (adhésion legacy / créé manuellement) → fiche MINIMALE
+    à partir des données du membre (jamais 404). Les pièces chargées à la
+    définition du mot de passe (rangées en `Document`) sont récupérées en
+    secours quand les champs fichiers de la demande sont vides.
     """
+    from .models import Document
+
     member = get_object_or_404(Member, pk=pk)
+
+    def _doc_url(*field_ids):
+        """URL du Document du membre correspondant au 1er schema_field_id trouvé."""
+        for fid in field_ids:
+            doc = (
+                Document.objects.filter(member=member, schema_field_id=fid)
+                .order_by("-created_at")
+                .first()
+            )
+            if doc is not None:
+                try:
+                    return doc.fichier.url
+                except Exception:  # noqa: BLE001 - storage absent en dev
+                    return None
+        return None
+
     req = getattr(member, "adhesion_request", None)
     if req is None:
         # Membre sans demande liée (créé manuellement AVANT le correctif, ou
@@ -1235,10 +1255,10 @@ def admin_member_adhesion(request, pk: int):
                 "extra_payload": {},
                 "form_schema_version": None,
                 "pieces": {
-                    "cni_recto": None,
-                    "cni_verso": None,
-                    "plan_localisation": None,
-                    "photo_identite": None,
+                    "cni_recto": _doc_url("cni", "cni_recto"),
+                    "cni_verso": _doc_url("cni_verso"),
+                    "plan_localisation": _doc_url("plan", "plan_localisation"),
+                    "photo_identite": _doc_url("photo", "photo_identite"),
                 },
             }
         )
@@ -1254,6 +1274,15 @@ def admin_member_adhesion(request, pk: int):
             return f.url
         except Exception:  # noqa: BLE001 - storage absent en dev
             return None
+
+    # Membre créé manuellement : ses pièces (CNI/photo/plan) ont été chargées à la
+    # DÉFINITION DU MOT DE PASSE et rangées dans des `Document` (attach_member_pieces),
+    # PAS dans les champs fichiers de la MembershipRequest (restés vides). On retombe
+    # donc sur ces Document quand le champ de la demande est vide, pour que la fiche
+    # « Voir plus » affiche bien les pièces. Rétro-compatible (répare l'existant).
+    def _piece(req_file, *field_ids):
+        """URL du champ de la demande, sinon du Document de secours (schema_field_id)."""
+        return _url(req_file) or _doc_url(*field_ids)
 
     return Response(
         {
@@ -1281,10 +1310,10 @@ def admin_member_adhesion(request, pk: int):
             "extra_payload": req.extra_payload or {},
             "form_schema_version": req.form_schema_version,
             "pieces": {
-                "cni_recto": _url(req.cni_recto),
-                "cni_verso": _url(req.cni_verso),
-                "plan_localisation": _url(req.plan_localisation),
-                "photo_identite": _url(req.photo_identite),
+                "cni_recto": _piece(req.cni_recto, "cni", "cni_recto"),
+                "cni_verso": _piece(req.cni_verso, "cni_verso"),
+                "plan_localisation": _piece(req.plan_localisation, "plan", "plan_localisation"),
+                "photo_identite": _piece(req.photo_identite, "photo", "photo_identite"),
             },
         }
     )
