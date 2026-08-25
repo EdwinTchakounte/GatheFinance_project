@@ -1255,7 +1255,7 @@ def admin_member_adhesion(request, pk: int):
                 "extra_payload": {},
                 "form_schema_version": None,
                 "pieces": {
-                    "cni_recto": _doc_url("cni", "cni_recto"),
+                    "cni_recto": _doc_url("cni_recto", "cni"),
                     "cni_verso": _doc_url("cni_verso"),
                     "plan_localisation": _doc_url("plan", "plan_localisation"),
                     "photo_identite": _doc_url("photo", "photo_identite"),
@@ -1310,7 +1310,7 @@ def admin_member_adhesion(request, pk: int):
             "extra_payload": req.extra_payload or {},
             "form_schema_version": req.form_schema_version,
             "pieces": {
-                "cni_recto": _piece(req.cni_recto, "cni", "cni_recto"),
+                "cni_recto": _piece(req.cni_recto, "cni_recto", "cni"),
                 "cni_verso": _piece(req.cni_verso, "cni_verso"),
                 "plan_localisation": _piece(req.plan_localisation, "plan", "plan_localisation"),
                 "photo_identite": _piece(req.photo_identite, "photo", "photo_identite"),

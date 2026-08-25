@@ -645,7 +645,7 @@ export const portalApi = {
     }),
   // PWD Option B . Verifie un token de definition de mot de passe initial.
   // `pieces_required` = true pour un membre créé par l'admin (M1) : il doit
-  // charger ses pièces (CNI, photo, plan) en même temps que le mot de passe.
+  // charger ses pièces (CNI recto/verso, photo, plan) avec le mot de passe.
   verifyPasswordSetup: (token: string) =>
     request<{ email_mask: string; expires_at: string; pieces_required?: boolean }>(
       `/auth/setup-password/verify/?token=${encodeURIComponent(token)}`,
@@ -655,11 +655,14 @@ export const portalApi = {
   confirmPasswordSetup: (payload: {
     token: string;
     password: string;
-    cni?: File;
+    cni_recto?: File;
+    cni_verso?: File;
     photo?: File;
     plan?: File;
   }) => {
-    const hasFiles = Boolean(payload.cni || payload.photo || payload.plan);
+    const hasFiles = Boolean(
+      payload.cni_recto || payload.cni_verso || payload.photo || payload.plan,
+    );
     if (!hasFiles) {
       return request<{ detail: string; email: string }>("/auth/setup-password/confirm/", {
         method: "POST",
@@ -669,7 +672,8 @@ export const portalApi = {
     const fd = new FormData();
     fd.append("token", payload.token);
     fd.append("password", payload.password);
-    if (payload.cni) fd.append("cni", payload.cni);
+    if (payload.cni_recto) fd.append("cni_recto", payload.cni_recto);
+    if (payload.cni_verso) fd.append("cni_verso", payload.cni_verso);
     if (payload.photo) fd.append("photo", payload.photo);
     if (payload.plan) fd.append("plan", payload.plan);
     return request<{ detail: string; email: string }>("/auth/setup-password/confirm/", {

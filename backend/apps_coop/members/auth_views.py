@@ -611,8 +611,15 @@ def confirm_password_setup(request):
     pieces_required = bool(member and member.pieces_a_fournir)
     piece_files: dict = {}
     if pieces_required:
-        piece_files = {k: request.FILES.get(k) for k in ("cni", "photo", "plan")}
-        libelles = {"cni": "CNI", "photo": "photo d'identité", "plan": "plan de localisation"}
+        piece_files = {
+            k: request.FILES.get(k) for k in ("cni_recto", "cni_verso", "photo", "plan")
+        }
+        libelles = {
+            "cni_recto": "CNI recto",
+            "cni_verso": "CNI verso",
+            "photo": "photo d'identité",
+            "plan": "plan de localisation",
+        }
         missing = [libelles[k] for k, v in piece_files.items() if v is None]
         if missing:
             return Response(

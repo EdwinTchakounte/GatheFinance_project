@@ -374,8 +374,10 @@ def restore_member(member: "Member", *, actor=None) -> dict:
 
 
 def attach_member_pieces(member: "Member", *, files: dict) -> int:
-    """M1 — Range les pièces (CNI, photo, plan) chargées par le membre à la
-    définition du mot de passe dans des ``Document`` rattachés au membre.
+    """M1 — Range les pièces (CNI recto/verso, photo, plan) chargées par le membre
+    à la définition du mot de passe dans des ``Document`` rattachés au membre, ET
+    les recopie dans les champs fichiers de sa ``MembershipRequest`` (source lue
+    par la fiche d'adhésion admin « Voir plus »).
 
     ``files`` : mapping schema_field_id → UploadedFile (les valeurs None sont
     ignorées). Retourne le nombre de pièces enregistrées et retire le flag
@@ -384,15 +386,26 @@ def attach_member_pieces(member: "Member", *, files: dict) -> int:
     from .models import Document
 
     type_map = {
-        "cni": Document.TypeDoc.PIECE_IDENTITE,
+        "cni_recto": Document.TypeDoc.PIECE_IDENTITE,
+        "cni_verso": Document.TypeDoc.PIECE_IDENTITE,
         "photo": Document.TypeDoc.AUTRE,
         "plan": Document.TypeDoc.AUTRE,
     }
+    # schema_field_id → champ fichier correspondant sur MembershipRequest.
+    req_field_map = {
+        "cni_recto": "cni_recto",
+        "cni_verso": "cni_verso",
+        "photo": "photo_identite",
+        "plan": "plan_localisation",
+    }
+    req = getattr(member, "adhesion_request", None)
+    req_updates: list[str] = []
+
     count = 0
     for field_id, f in (files or {}).items():
         if f is None:
             continue
-        Document.objects.create(
+        doc = Document.objects.create(
             member=member,
             type_doc=type_map.get(field_id, Document.TypeDoc.AUTRE),
             entite_liee_type="Member",
@@ -403,6 +416,15 @@ def attach_member_pieces(member: "Member", *, files: dict) -> int:
             schema_field_id=field_id,
         )
         count += 1
+        # Pointe le champ de la demande sur le MÊME blob (pas de ré-upload : on
+        # réutilise le nom stocké du Document → aucun souci de flux consommé).
+        req_attr = req_field_map.get(field_id)
+        if req is not None and req_attr:
+            setattr(req, req_attr, doc.fichier.name)
+            req_updates.append(req_attr)
+
+    if req is not None and req_updates:
+        req.save(update_fields=req_updates)
     if count and member.pieces_a_fournir:
         member.pieces_a_fournir = False
         member.save(update_fields=["pieces_a_fournir", "updated_at"])

@@ -21,9 +21,11 @@ function SetupPasswordInner() {
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // M1 — Membre créé par l'admin : il charge ses pièces ici (CNI, photo, plan).
+  // M1 — Membre créé par l'admin : il charge ses pièces ici
+  // (CNI recto + verso, photo, plan).
   const [piecesRequired, setPiecesRequired] = useState(false);
-  const [cni, setCni] = useState<File | null>(null);
+  const [cniRecto, setCniRecto] = useState<File | null>(null);
+  const [cniVerso, setCniVerso] = useState<File | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
   const [plan, setPlan] = useState<File | null>(null);
 
@@ -68,15 +70,24 @@ function SetupPasswordInner() {
       setError("Les deux mots de passe ne correspondent pas.");
       return;
     }
-    if (piecesRequired && (!cni || !photo || !plan)) {
-      setError("Merci de joindre les 3 pièces : CNI, photo d'identité et plan de localisation.");
+    if (piecesRequired && (!cniRecto || !cniVerso || !photo || !plan)) {
+      setError(
+        "Merci de joindre les 4 pièces : CNI recto, CNI verso, photo d'identité et plan de localisation.",
+      );
       return;
     }
     setSubmitting(true);
     try {
       await portalApi.confirmPasswordSetup(
         piecesRequired
-          ? { token, password, cni: cni!, photo: photo!, plan: plan! }
+          ? {
+              token,
+              password,
+              cni_recto: cniRecto!,
+              cni_verso: cniVerso!,
+              photo: photo!,
+              plan: plan!,
+            }
           : { token, password },
       );
       setPhase("done");
@@ -217,7 +228,8 @@ function SetupPasswordInner() {
                   </p>
                   {(
                     [
-                      { key: "cni", label: "Pièce d'identité (CNI)", value: cni, set: setCni },
+                      { key: "cni_recto", label: "CNI — recto", value: cniRecto, set: setCniRecto },
+                      { key: "cni_verso", label: "CNI — verso", value: cniVerso, set: setCniVerso },
                       { key: "photo", label: "Photo d'identité", value: photo, set: setPhoto },
                       { key: "plan", label: "Plan de localisation", value: plan, set: setPlan },
                     ] as const

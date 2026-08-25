@@ -115,18 +115,37 @@ def test_setup_flow_requires_and_stores_pieces(admin_user):
     assert r400.status_code == 400
     assert "manquantes" in r400.json()["detail"].lower()
 
-    # confirm avec pièces → 200 + Documents + flag retiré
+    # confirm avec 3 pièces sur 4 (verso manquant) → 400
+    r400b = anon.post(CONFIRM_URL, {
+        "token": tok, "password": "MotDePasse123",
+        "cni_recto": _img("recto.jpg"), "photo": _img("photo.jpg"), "plan": _img("plan.jpg"),
+    }, format="multipart")
+    assert r400b.status_code == 400
+    assert "cni verso" in r400b.json()["detail"].lower()
+
+    # confirm avec les 4 pièces → 200 + Documents + flag retiré
     r200 = anon.post(CONFIRM_URL, {
         "token": tok, "password": "MotDePasse123",
-        "cni": _img("cni.jpg"), "photo": _img("photo.jpg"), "plan": _img("plan.jpg"),
+        "cni_recto": _img("recto.jpg"), "cni_verso": _img("verso.jpg"),
+        "photo": _img("photo.jpg"), "plan": _img("plan.jpg"),
     }, format="multipart")
     assert r200.status_code == 200, r200.content
     m.refresh_from_db()
     assert m.pieces_a_fournir is False
     docs = Document.objects.filter(member=m)
-    assert docs.count() == 3
-    assert docs.filter(type_doc=Document.TypeDoc.PIECE_IDENTITE, schema_field_id="cni").exists()
+    assert docs.count() == 4
+    assert docs.filter(type_doc=Document.TypeDoc.PIECE_IDENTITE, schema_field_id="cni_recto").exists()
+    assert docs.filter(type_doc=Document.TypeDoc.PIECE_IDENTITE, schema_field_id="cni_verso").exists()
+    # Recopie dans la demande liée (source lue par la fiche admin).
+    req = m.adhesion_request
+    assert req.cni_recto and req.cni_verso and req.photo_identite and req.plan_localisation
     assert m.user.check_password("MotDePasse123")
+
+    # La fiche admin « Voir plus » remonte bien les 4 pièces.
+    res = c.get(f"/api/v1/admin/members/{m.id}/adhesion/")
+    pieces = res.json()["pieces"]
+    assert pieces["cni_recto"] and pieces["cni_verso"]
+    assert pieces["photo_identite"] and pieces["plan_localisation"]
 
 
 def test_normal_setup_member_needs_no_pieces(admin_user):
