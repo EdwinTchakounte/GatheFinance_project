@@ -417,3 +417,90 @@ def transfer_from_classic(
         },
     )
     return row
+
+
+def decaisser_participation(
+    *, member, cycle_id, montant, destination="epargne", note="", by=None
+) -> SpecialCollectionTransaction:
+    """Décaissement d'un participant caisse/tontine : DÉBITE son solde et sort
+    réellement l'argent.
+
+    ``destination`` :
+      * ``"epargne"`` → crédite l'épargne classique LIBRE du membre (retirable) ;
+      * ``"cash"``    → remise en espèces à l'agence (aucun autre crédit).
+
+    Autorisé même sur un cycle clos (restitution). Refuse un montant > solde.
+    L'écriture RETRAIT est rattachée au carnet du type (caisse / tontine).
+    """
+    montant = Decimal(montant)
+    if montant <= 0:
+        raise SpecialCollectionError("Le montant doit être strictement positif.")
+    if destination not in ("epargne", "cash"):
+        raise SpecialCollectionError("Destination inconnue (epargne / cash).")
+
+    with db_transaction.atomic():
+        cycle = SpecialCollectionCycle.objects.filter(pk=cycle_id).first()
+        if cycle is None:
+            raise SpecialCollectionError("Collecte introuvable.")
+        membership = (
+            SpecialCollectionMembership.objects.select_for_update()
+            .filter(member=member, cycle=cycle)
+            .first()
+        )
+        if membership is None:
+            raise SpecialCollectionError(
+                "Ce membre ne participe pas à cette collecte."
+            )
+        solde = Decimal(membership.solde)
+        if montant > solde:
+            raise SpecialCollectionError(
+                f"Montant supérieur au solde de la collecte ({int(solde)} XAF)."
+            )
+
+        nouveau_solde = solde - montant
+        membership.solde = nouveau_solde
+        membership.save(update_fields=["solde", "updated_at"])
+
+        libelle = (
+            "Décaissement vers épargne"
+            if destination == "epargne"
+            else "Décaissement espèces (agence)"
+        )
+        if note:
+            libelle += f" — {note.strip()[:80]}"
+        row = SpecialCollectionTransaction.objects.create(
+            membership=membership,
+            payment=None,
+            booklet_order=member_carnet_for(member, membership.type),
+            type_op=SpecialCollectionTransaction.TypeOp.RETRAIT,
+            montant=montant,
+            solde_apres=nouveau_solde,
+            date=timezone.now(),
+            libelle=libelle,
+        )
+
+        if destination == "epargne":
+            # Crédite l'épargne classique du membre (réutilise l'helper des
+            # tontines de groupe : écriture DEPOT rattachée au carnet).
+            from apps_coop.special_collections.group_services import (
+                _credit_member_classic,
+            )
+
+            _credit_member_classic(
+                member, montant, libelle=f"Décaissement {cycle.nom}"
+            )
+
+        record_audit(
+            action="special_collection.decaissement",
+            entite_type="SpecialCollectionTransaction",
+            entite_id=row.id,
+            user=by,
+            details={
+                "member_id": member.id,
+                "cycle_id": cycle.id,
+                "montant": str(montant),
+                "destination": destination,
+                "solde_apres": str(nouveau_solde),
+            },
+        )
+    return row

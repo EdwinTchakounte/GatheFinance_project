@@ -67,6 +67,11 @@ urlpatterns = [
         views.admin_reject,
         name="special-collections-admin-reject",
     ),
+    path(
+        "admin/<int:pk>/decaisser/",
+        views.admin_decaisser,
+        name="special-collections-admin-decaisser",
+    ),
     # Admin — tontines de GROUPE
     path("admin/groups/", group_views.admin_groups, name="group-tontines-admin"),
     path(

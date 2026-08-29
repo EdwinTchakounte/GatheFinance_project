@@ -44,6 +44,7 @@ from .services import (
     SpecialCollectionError,
     close_cycle,
     current_open_cycle,
+    decaisser_participation,
     member_carnet_for,
     open_cycle,
     open_cycles,
@@ -208,6 +209,34 @@ def admin_reject(request, pk: int):
     ser.is_valid(raise_exception=True)
     membership = get_object_or_404(SpecialCollectionMembership, pk=pk)
     reject_participation(membership, motif=ser.validated_data.get("motif", ""), by=request.user)
+    return Response(SpecialCollectionAdminSerializer(membership).data)
+
+
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_decaisser(request, pk: int):
+    """Décaissement d'une participation : débite le solde et sort l'argent
+    (vers l'épargne classique du membre OU en espèces agence)."""
+    from decimal import Decimal, InvalidOperation
+
+    membership = get_object_or_404(SpecialCollectionMembership, pk=pk)
+    try:
+        montant = Decimal(str(request.data.get("montant") or "0"))
+    except (InvalidOperation, TypeError):
+        return Response({"detail": "Montant invalide."}, status=status.HTTP_400_BAD_REQUEST)
+    destination = str(request.data.get("destination") or "epargne")
+    try:
+        decaisser_participation(
+            member=membership.member,
+            cycle_id=membership.cycle_id,
+            montant=montant,
+            destination=destination,
+            note=str(request.data.get("note") or ""),
+            by=request.user,
+        )
+    except SpecialCollectionError as e:
+        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    membership.refresh_from_db()
     return Response(SpecialCollectionAdminSerializer(membership).data)
 
 

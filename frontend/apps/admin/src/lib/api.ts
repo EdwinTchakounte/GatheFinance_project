@@ -1916,6 +1916,16 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify({ motif }),
       }),
+    // Décaissement d'une participation : débite le solde et sort l'argent —
+    // vers l'épargne classique du membre OU en espèces à l'agence.
+    decaisser: (
+      id: number,
+      body: { montant: number; destination: "epargne" | "cash"; note?: string },
+    ) =>
+      request<SpecialCollectionRow>(
+        `/special-collections/admin/${id}/decaisser/`,
+        { method: "POST", body: JSON.stringify(body) },
+      ),
     // Collectes (PLUSIEURS ouvertes par type possibles ; clôture individuelle
     // = gel + archivage). L'admin fixe titre + plancher/versement + infos.
     cycles: {

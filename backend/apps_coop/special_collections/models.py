@@ -196,6 +196,9 @@ class SpecialCollectionTransaction(TimestampedModel):
         # Versement saisi en agence (cash-in admin) ou reprise d'historique
         # antidatée — pas de Payment Mobile Money associé.
         MANUEL = "manuel", "Versement manuel (agence / reprise)"
+        # Décaissement : sortie d'argent du solde du participant — vers son
+        # épargne classique OU en espèces à l'agence.
+        RETRAIT = "retrait", "Retrait / décaissement"
 
     membership = models.ForeignKey(
         SpecialCollectionMembership,

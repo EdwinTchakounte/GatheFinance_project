@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  Banknote,
   CalendarPlus,
   CheckCircle2,
   Coins,
@@ -60,6 +61,12 @@ export default function SpecialCollectionsPage() {
   const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
   const [rejectTarget, setRejectTarget] = useState<SpecialCollectionRow | null>(null);
+  // Décaissement d'une participation (débite le solde, sort l'argent).
+  const [decaisserTarget, setDecaisserTarget] =
+    useState<SpecialCollectionRow | null>(null);
+  const [decMontant, setDecMontant] = useState("");
+  const [decDest, setDecDest] = useState<"epargne" | "cash">("epargne");
+  const [decNote, setDecNote] = useState("");
   const [detail, setDetail] = useState<
     (SpecialCollectionRow & { transactions: SpecialCollectionTx[] }) | null
   >(null);
@@ -107,6 +114,35 @@ export default function SpecialCollectionsPage() {
       await reload();
     } catch (err) {
       setMessage({ tone: "err", text: (err as ApiError).detail ?? "Rejet impossible." });
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function onDecaisser() {
+    if (!decaisserTarget) return;
+    const montant = Number(decMontant);
+    if (!Number.isFinite(montant) || montant <= 0) {
+      setMessage({ tone: "err", text: "Montant à décaisser invalide." });
+      return;
+    }
+    setActingId(decaisserTarget.id);
+    try {
+      await adminApi.specialCollections.decaisser(decaisserTarget.id, {
+        montant,
+        destination: decDest,
+        note: decNote.trim() || undefined,
+      });
+      setMessage({
+        tone: "ok",
+        text:
+          `Décaissement de ${montant.toLocaleString("fr-FR")} XAF ` +
+          (decDest === "epargne" ? "vers l'épargne du membre." : "en espèces (agence)."),
+      });
+      setDecaisserTarget(null);
+      await reload();
+    } catch (err) {
+      setMessage({ tone: "err", text: (err as ApiError).detail ?? "Décaissement impossible." });
     } finally {
       setActingId(null);
     }
@@ -225,6 +261,20 @@ export default function SpecialCollectionsPage() {
               </button>
             </>
           ) : null}
+          {r.statut === "valide" && Number(r.solde || 0) > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setDecaisserTarget(r);
+                setDecMontant(String(Math.round(Number(r.solde || 0))));
+                setDecDest("epargne");
+                setDecNote("");
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-blue-50/60 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+            >
+              <Banknote className="size-3.5" /> Décaisser
+            </button>
+          ) : null}
         </div>
       ),
     },
@@ -334,6 +384,89 @@ export default function SpecialCollectionsPage() {
           multiline: true,
         }}
       />
+
+      {/* Décaissement d'une participation */}
+      {decaisserTarget ? (
+        <Modal
+          open
+          onClose={() => setDecaisserTarget(null)}
+          title="Décaisser une participation"
+          description={`${decaisserTarget.member_prenom} ${decaisserTarget.member_nom} · ${decaisserTarget.type_display} · solde ${fmtXAF(decaisserTarget.solde)}`}
+          footer={
+            <>
+              <button
+                type="button"
+                className="rounded-md border border-line-300 px-3 py-2 text-sm text-ink-700 hover:bg-line-100"
+                onClick={() => setDecaisserTarget(null)}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50"
+                disabled={actingId === decaisserTarget.id}
+                onClick={onDecaisser}
+              >
+                Décaisser
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-600">
+                Montant à décaisser (XAF)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={Math.round(Number(decaisserTarget.solde || 0))}
+                value={decMontant}
+                onChange={(e) => setDecMontant(e.target.value)}
+                className="w-full rounded-md border border-line-300 px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-[11px] text-ink-400">
+                Max : {fmtXAF(decaisserTarget.solde)} (le solde de la collecte).
+              </p>
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-ink-600">Destination</p>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { v: "epargne", l: "Vers l'épargne", d: "Crédite l'épargne classique (retirable)" },
+                  { v: "cash", l: "Espèces (agence)", d: "Remise directe au membre" },
+                ] as const).map((o) => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    onClick={() => setDecDest(o.v)}
+                    className={
+                      "rounded-md border p-2.5 text-left text-xs transition-colors " +
+                      (decDest === o.v
+                        ? "border-blue-500 bg-blue-50/50"
+                        : "border-line-200 hover:border-blue-300")
+                    }
+                  >
+                    <span className="block font-semibold text-ink-900">{o.l}</span>
+                    <span className="block text-[11px] text-ink-500">{o.d}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-600">
+                Note (optionnel)
+              </label>
+              <input
+                value={decNote}
+                onChange={(e) => setDecNote(e.target.value)}
+                placeholder="Ex. paiement scolarité T1"
+                className="w-full rounded-md border border-line-300 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+        </Modal>
+      ) : null}
 
       {/* Détail + transactions */}
       {detail ? (
