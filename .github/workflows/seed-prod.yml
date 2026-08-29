@@ -12,6 +12,10 @@ name: Seed prod (templates email + event catalog)
 on:
   workflow_dispatch:
     inputs:
+      force_recreate_backend:
+        description: "Force-recreate backend+qcluster (récupère la nouvelle image quand le deploy n'a pas recréé) ?"
+        type: boolean
+        default: false
       seed_email_templates:
         description: "Rejouer seed_email_templates --force ?"
         type: boolean
@@ -63,6 +67,16 @@ jobs:
             COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml --env-file .env.prod"
 
             cd "$DEPLOY_PATH/infra"
+
+            if [ "${{ inputs.force_recreate_backend }}" = "true" ]; then
+              echo ">>> Force-recreate backend + qcluster (récupère la nouvelle image ; l'entrypoint rejoue migrate)"
+              $COMPOSE pull backend qcluster || echo "  (pull KO — on continue sur le cache)"
+              $COMPOSE up -d --force-recreate --no-deps backend qcluster
+              echo "  attente démarrage (migrate)..."
+              sleep 12
+            else
+              echo ">>> force_recreate_backend skipped"
+            fi
 
             if [ "${{ inputs.seed_email_templates }}" = "true" ]; then
               echo ">>> seed_email_templates --force"
