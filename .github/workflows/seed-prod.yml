@@ -92,16 +92,12 @@ jobs:
             if [ "${{ inputs.force_recreate_backend }}" = "true" ]; then
               TAG="${{ inputs.recreate_tag }}"
               echo ">>> Force-recreate backend + qcluster ÉPINGLÉ sur $TAG (entrypoint rejoue migrate)"
-              # Persiste le tag dans .env.prod pour éviter tout retour à une image périmée.
-              if grep -q '^GATHE_IMAGE_TAG=' .env.prod; then
-                sed -i "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$TAG/" .env.prod
-              else
-                echo "GATHE_IMAGE_TAG=$TAG" >> .env.prod
-              fi
               GATHE_IMAGE_TAG="$TAG" $COMPOSE pull backend qcluster
               GATHE_IMAGE_TAG="$TAG" $COMPOSE up -d --force-recreate --no-deps backend qcluster
               echo "  attente démarrage (migrate)..."
               sleep 15
+              echo ">>> image backend après recreate :"
+              $COMPOSE ps backend | tail -1 || true
             else
               echo ">>> force_recreate_backend skipped"
             fi
