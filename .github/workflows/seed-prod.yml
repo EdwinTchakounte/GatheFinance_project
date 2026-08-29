@@ -20,6 +20,10 @@ on:
         description: "Force-recreate backend+qcluster (récupère la nouvelle image quand le deploy n'a pas recréé) ?"
         type: boolean
         default: false
+      recreate_tag:
+        description: "Tag d'image à épingler pour le force-recreate (ex. sha-438c157)"
+        type: string
+        default: "sha-438c157"
       seed_email_templates:
         description: "Rejouer seed_email_templates --force ?"
         type: boolean
@@ -86,11 +90,18 @@ jobs:
             fi
 
             if [ "${{ inputs.force_recreate_backend }}" = "true" ]; then
-              echo ">>> Force-recreate backend + qcluster (récupère la nouvelle image ; l'entrypoint rejoue migrate)"
-              $COMPOSE pull backend qcluster || echo "  (pull KO — on continue sur le cache)"
-              $COMPOSE up -d --force-recreate --no-deps backend qcluster
+              TAG="${{ inputs.recreate_tag }}"
+              echo ">>> Force-recreate backend + qcluster ÉPINGLÉ sur $TAG (entrypoint rejoue migrate)"
+              # Persiste le tag dans .env.prod pour éviter tout retour à une image périmée.
+              if grep -q '^GATHE_IMAGE_TAG=' .env.prod; then
+                sed -i "s/^GATHE_IMAGE_TAG=.*/GATHE_IMAGE_TAG=$TAG/" .env.prod
+              else
+                echo "GATHE_IMAGE_TAG=$TAG" >> .env.prod
+              fi
+              GATHE_IMAGE_TAG="$TAG" $COMPOSE pull backend qcluster
+              GATHE_IMAGE_TAG="$TAG" $COMPOSE up -d --force-recreate --no-deps backend qcluster
               echo "  attente démarrage (migrate)..."
-              sleep 12
+              sleep 15
             else
               echo ">>> force_recreate_backend skipped"
             fi
