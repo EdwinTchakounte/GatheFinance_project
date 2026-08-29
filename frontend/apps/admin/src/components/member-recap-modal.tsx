@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, FileDown, Trash2 } from "lucide-react";
+import { ChevronDown, FileDown, Pencil, Trash2 } from "lucide-react";
 
 import { ConfirmModal } from "@/components/confirm-modal";
 import {
@@ -12,6 +12,7 @@ import { Modal } from "@/components/modal";
 import {
   adminApi,
   type ApiError,
+  type BookletSummary,
   type Member,
   type MemberAdhesion,
 } from "@/lib/api";
@@ -26,6 +27,7 @@ export function MemberRecapModal({
   onClose,
   onDeleted,
   onRestored,
+  onEdit,
 }: {
   member: Member | null;
   onClose: () => void;
@@ -35,6 +37,8 @@ export function MemberRecapModal({
   onDeleted?: (member: Member) => void;
   /** Appelé après une restauration réussie d'un membre radié. */
   onRestored?: (member: Member) => void;
+  /** Fourni là où l'édition est autorisée : affiche le bouton « Éditer ». */
+  onEdit?: (member: Member) => void;
 }) {
   const [showAdh, setShowAdh] = useState(false);
   const [adh, setAdh] = useState<MemberAdhesion | null>(null);
@@ -43,6 +47,27 @@ export function MemberRecapModal({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteErr, setDeleteErr] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
+  // États par carnet (vue groupée) — chargés à la demande.
+  const [showCarnets, setShowCarnets] = useState(false);
+  const [carnets, setCarnets] = useState<BookletSummary[] | null>(null);
+  const [carnetsLoading, setCarnetsLoading] = useState(false);
+
+  async function toggleCarnets() {
+    if (!member) return;
+    const next = !showCarnets;
+    setShowCarnets(next);
+    if (next && carnets === null) {
+      setCarnetsLoading(true);
+      try {
+        const res = await adminApi.members.bookletSummaries(member.id);
+        setCarnets(res.results);
+      } catch {
+        setCarnets([]);
+      } finally {
+        setCarnetsLoading(false);
+      }
+    }
+  }
 
   async function handleRestore() {
     if (!member) return;
@@ -183,6 +208,70 @@ export function MemberRecapModal({
           Télécharger le relevé PDF
         </a>
 
+        {/* Voir plus — états par carnet (vue groupée) */}
+        <button
+          type="button"
+          onClick={toggleCarnets}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-line-300 bg-white px-3.5 py-2.5 text-sm font-medium text-ink-800 transition-colors hover:border-blue-400 hover:text-blue-700"
+        >
+          {showCarnets ? "Masquer les carnets" : "Voir les carnets (états)"}
+        </button>
+        {showCarnets ? (
+          carnetsLoading ? (
+            <p className="text-sm text-ink-500">Chargement…</p>
+          ) : carnets && carnets.length > 0 ? (
+            <div className="space-y-1.5">
+              {carnets.map((s) => {
+                const net = Number(s.solde_net);
+                return (
+                  <div
+                    key={s.booklet_order}
+                    className="rounded-md border border-line-200 bg-paper-soft/40 px-3.5 py-2.5"
+                  >
+                    <div className="flex items-baseline justify-between">
+                      <p className="text-sm font-medium text-ink-900">
+                        Carnet {s.annee ?? ""}{" "}
+                        <span className="font-mono text-xs text-ink-400">
+                          #{s.booklet_order}
+                        </span>
+                      </p>
+                      <span className="text-[11px] text-ink-500">
+                        {s.count} écriture{s.count > 1 ? "s" : ""} (collecte{" "}
+                        {s.collecte_count} / classique {s.classique_count})
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-baseline justify-between">
+                      <p className="text-[11px] text-ink-500">
+                        <span className="text-emerald">
+                          +{Number(s.total_credit).toLocaleString("fr-FR")}
+                        </span>{" "}
+                        crédits ·{" "}
+                        <span className="text-terra-700">
+                          −{Number(s.total_debit).toLocaleString("fr-FR")}
+                        </span>{" "}
+                        débits
+                      </p>
+                      <span
+                        className={
+                          "font-mono text-sm font-semibold tabular-nums " +
+                          (net >= 0 ? "text-emerald" : "text-terra-700")
+                        }
+                      >
+                        {net >= 0 ? "+" : "−"}
+                        {Math.abs(net).toLocaleString("fr-FR")} FCFA
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-500">
+              Aucune écriture rattachée à un carnet.
+            </p>
+          )
+        ) : null}
+
         {/* Voir plus — fiche d'adhésion (infos renseignées à la soumission) */}
         <button
           type="button"
@@ -206,6 +295,20 @@ export function MemberRecapModal({
           ) : adh ? (
             <AdhesionDetails adh={adh} />
           ) : null
+        ) : null}
+
+        {/* Édition du membre (identité + contact + pièces). */}
+        {onEdit && member.statut !== "radie" ? (
+          <div className="border-t border-line-200 pt-4">
+            <button
+              type="button"
+              onClick={() => onEdit(member)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-3.5 py-2.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+            >
+              <Pencil className="size-4" aria-hidden="true" />
+              Éditer le membre
+            </button>
+          </div>
         ) : null}
 
         {/* Zone d'action — suppression (radiation) OU restauration si radié. */}

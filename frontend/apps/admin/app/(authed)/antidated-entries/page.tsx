@@ -6,8 +6,21 @@ import { CalendarClock, Check } from "lucide-react";
 import { ModalField, modalInputClass } from "@/components/modal";
 import { PageHeader } from "@/components/page-header";
 import { buttonClasses } from "@gathe/ui";
-import { adminApi, type ApiError, type Member } from "@/lib/api";
+import {
+  adminApi,
+  type ApiError,
+  type Member,
+  type SpecialCollectionCycleRow,
+} from "@/lib/api";
 import { fullName } from "@/lib/name";
+
+type AntidatedProduct = "collecte" | "classique" | "tontine" | "caisse_scolaire";
+
+// Produit antidaté → type de collecte particulière (pour charger les cycles).
+const PRODUCT_TO_COLLECTION: Partial<Record<AntidatedProduct, string>> = {
+  tontine: "tontine_alimentaire",
+  caisse_scolaire: "caisse_scolaire",
+};
 
 
 export default function AntidatedEntriesPage() {
@@ -286,13 +299,37 @@ function EntryForm({
   member: Member;
   onDone: (msg: string) => void;
 }) {
-  const [product, setProduct] = useState<"collecte" | "classique">("collecte");
+  const [product, setProduct] = useState<AntidatedProduct>("collecte");
   const [sens, setSens] = useState<"depot" | "retrait">("depot");
   const [montant, setMontant] = useState("");
   const [date, setDate] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Collectes particulières : collecte ciblée (obligatoire pour tontine/caisse).
+  const [cycles, setCycles] = useState<SpecialCollectionCycleRow[]>([]);
+  const [cycleId, setCycleId] = useState("");
+  const collectionType = PRODUCT_TO_COLLECTION[product];
+  const isSpecial = collectionType != null;
+
+  useEffect(() => {
+    if (!isSpecial || !collectionType) {
+      setCycles([]);
+      return;
+    }
+    let cancelled = false;
+    adminApi.specialCollections.cycles
+      .list(collectionType)
+      .then((rows) => {
+        if (!cancelled) setCycles(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setCycles([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isSpecial, collectionType]);
 
   async function submit() {
     setError(null);
@@ -305,6 +342,10 @@ function EntryForm({
       setError("Indique la date de l'écriture.");
       return;
     }
+    if (isSpecial && !cycleId) {
+      setError("Choisis la collecte concernée.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await adminApi.antidated.recordEntry({
@@ -313,6 +354,7 @@ function EntryForm({
         sens,
         montant: montantNum,
         date,
+        cycle_id: isSpecial ? Number(cycleId) : undefined,
         note: note.trim() || undefined,
       });
       onDone(
@@ -335,8 +377,9 @@ function EntryForm({
         Saisir une écriture
       </h2>
       <p className="mt-1 text-xs text-ink-500">
-        Un versement ou un retrait à sa vraie date. Un retrait ne peut pas
-        rendre le solde négatif : ressaisis les dépôts avant les retraits.
+        Un versement ou un retrait à sa vraie date. Reprise d'historique : un
+        retrait peut être saisi même s'il dépasse le solde du moment (le solde
+        peut passer négatif, l'ordre réel des écritures est respecté).
       </p>
 
       {error ? (
@@ -349,13 +392,16 @@ function EntryForm({
         <ModalField label="Produit">
           <select
             value={product}
-            onChange={(e) =>
-              setProduct(e.target.value as "collecte" | "classique")
-            }
+            onChange={(e) => {
+              setProduct(e.target.value as AntidatedProduct);
+              setCycleId("");
+            }}
             className={modalInputClass}
           >
             <option value="collecte">Collecte journalière</option>
             <option value="classique">Épargne classique</option>
+            <option value="tontine">Tontine</option>
+            <option value="caisse_scolaire">Caisse scolaire</option>
           </select>
         </ModalField>
         <ModalField label="Sens">
@@ -387,6 +433,29 @@ function EntryForm({
             className={modalInputClass}
           />
         </ModalField>
+        {isSpecial ? (
+          <ModalField label="Collecte concernée">
+            {cycles.length === 0 ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50/60 p-2 text-xs text-amber-700">
+                Aucune collecte de ce type. Crée-la d'abord.
+              </p>
+            ) : (
+              <select
+                value={cycleId}
+                onChange={(e) => setCycleId(e.target.value)}
+                className={modalInputClass}
+              >
+                <option value="">— Choisir —</option>
+                {cycles.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nom}
+                    {c.is_open ? "" : " (close)"}
+                  </option>
+                ))}
+              </select>
+            )}
+          </ModalField>
+        ) : null}
       </div>
       <ModalField label="Note (optionnel)">
         <input

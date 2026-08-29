@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { adminApi, type ApiError, type BookletOrderAdmin } from "@/lib/api";
@@ -13,6 +14,14 @@ const STATUT_TONE: Record<string, string> = {
   payee: "bg-blue-50 text-blue-700 ring-blue-200",
   en_impression: "bg-amber-50 text-amber-700 ring-amber-200",
   delivree: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+};
+
+// Carnet PAR TYPE : l'agence doit imprimer/délivrer le bon carnet (collecte,
+// tontine ou caisse). Chaque type a sa pastille pour un repérage immédiat.
+const TYPE_TONE: Record<string, string> = {
+  collecte: "bg-blue-50 text-blue-700 ring-blue-200",
+  tontine: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  caisse_scolaire: "bg-violet-50 text-violet-700 ring-violet-200",
 };
 
 
@@ -85,23 +94,72 @@ export default function BookletOrdersPage() {
       ),
     },
     {
+      key: "type",
+      label: "Type de carnet",
+      text: (r) => r.type_display,
+      render: (r) => (
+        <span
+          className={
+            "inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset " +
+            (TYPE_TONE[r.type] ?? "bg-ink-50 text-ink-700 ring-line-200")
+          }
+        >
+          {r.type_display}
+        </span>
+      ),
+    },
+    {
       key: "phone",
       label: "Téléphone",
+      defaultVisible: false,
       text: (r) => r.member_phone || "",
       render: (r) => <span className="text-ink-700">{r.member_phone || ""}</span>,
     },
     {
       key: "paiement",
       label: "Paiement",
-      text: (r) => String(r.payment_montant),
-      render: (r) => (
-        <span className="text-ink-700">
-          #{r.payment_id}
-          <span className="ml-2 text-xs text-ink-500">
-            {Number(r.payment_montant).toLocaleString("fr-FR")} XAF
-          </span>
-        </span>
-      ),
+      text: (r) => {
+        const frais = Number(r.payment_frais);
+        const total = Number(r.payment_montant) + frais;
+        return frais > 0
+          ? `#${r.payment_id} ${total} (dont ${frais} frais)`
+          : `#${r.payment_id} ${r.payment_montant}`;
+      },
+      render: (r) => {
+        const montant = Number(r.payment_montant);
+        const frais = Number(r.payment_frais);
+        return (
+          <div className="leading-tight">
+            {/* Lien direct vers le paiement (filtre /payments sur son id). */}
+            <Link
+              href={`/payments?q=${r.payment_id}`}
+              className="font-medium text-blue-700 hover:underline"
+              title="Voir ce paiement"
+            >
+              Paiement #{r.payment_id}
+            </Link>
+            <div className="text-xs text-ink-600">
+              {montant.toLocaleString("fr-FR")} XAF
+              {frais > 0 ? (
+                <>
+                  {" "}
+                  <span className="text-amber-700">
+                    + {frais.toLocaleString("fr-FR")} frais
+                  </span>{" "}
+                  <span className="text-ink-500">
+                    = {(montant + frais).toLocaleString("fr-FR")} XAF payés
+                  </span>
+                </>
+              ) : null}
+            </div>
+            {r.payment_source_display ? (
+              <div className="text-[11px] text-ink-400">
+                {r.payment_source_display}
+              </div>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       key: "date",

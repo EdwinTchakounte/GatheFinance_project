@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { ExportMenu } from "@/components/export-menu";
 import { MemberRecapModal } from "@/components/member-recap-modal";
 import { MemberCreateModal } from "@/components/member-create-modal";
+import { MemberEditModal } from "@/components/member-edit-modal";
 import { Pagination } from "@/components/pagination";
 import type { ExportColumn } from "@/lib/export";
 import { fullName } from "@/lib/name";
@@ -26,6 +27,16 @@ type StatutFilter = "" | "actif" | "suspendu" | "radie";
 function fmtXAF(v?: string): string {
   const n = Number(v ?? 0);
   return Number.isFinite(n) ? n.toLocaleString("fr-FR") : "0";
+}
+
+// Reparse un nombre AU FORMAT fr-FR ("133 333,33") en number : on retire les
+// espaces (séparateurs de milliers, y.c. l'espace insécable) et on convertit la
+// virgule décimale en point. Sans le remplacement de la virgule, un montant
+// fractionnaire (ex. un crédit à 133 333,33) donnait Number()→NaN et cassait le
+// total de colonne (« Total : NaN »).
+function parseFRNumber(s: string): number {
+  const n = Number(s.replace(/\s/g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
 }
 
 function fmtDate(iso: string): string {
@@ -206,6 +217,7 @@ function Inner() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Member | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<Member | null>(null);
 
   // Colonnes visibles + filtres par colonne (appliqués à la page courante).
   const [visible, setVisible] = useState<Set<string>>(
@@ -252,7 +264,7 @@ function Inner() {
         if (col.numeric) {
           const min = Number(raw.replace(/\s/g, "").replace(",", "."));
           if (!Number.isFinite(min)) return true;
-          return Number(col.text(m).replace(/\s/g, "")) >= min;
+          return parseFRNumber(col.text(m)) >= min;
         }
         return col.text(m).toLowerCase().includes(raw.trim().toLowerCase());
       }),
@@ -440,7 +452,7 @@ function Inner() {
                   {shownCols.map((c, i) => {
                     if (c.numeric) {
                       const total = filtered.reduce(
-                        (s, m) => s + Number(c.text(m).replace(/\s/g, "")),
+                        (s, m) => s + parseFRNumber(c.text(m)),
                         0,
                       );
                       return (
@@ -474,6 +486,17 @@ function Inner() {
           setSelected(null);
           reload();
         }}
+        onEdit={(m) => {
+          setSelected(null);
+          setEditing(m);
+        }}
+      />
+
+      <MemberEditModal
+        member={editing}
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        onSaved={() => reload()}
       />
 
       <MemberCreateModal

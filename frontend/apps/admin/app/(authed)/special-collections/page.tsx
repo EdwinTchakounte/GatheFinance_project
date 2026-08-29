@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarPlus, CheckCircle2, Coins, Eye, Lock, XCircle } from "lucide-react";
+import {
+  CalendarPlus,
+  CheckCircle2,
+  Coins,
+  Eye,
+  GraduationCap,
+  Lock,
+  Users,
+  XCircle,
+} from "lucide-react";
 
 import { buttonClasses, SkeletonList } from "@gathe/ui";
 
@@ -21,13 +30,13 @@ import {
 
 const COLLECTION_TYPES: Array<{ key: SpecialCollectionType; label: string }> = [
   { key: "caisse_scolaire", label: "Caisse scolaire" },
-  { key: "tontine_alimentaire", label: "Tontine alimentaire" },
+  { key: "tontine_alimentaire", label: "Tontine" },
 ];
 
 const TYPE_TABS: Array<{ key: SpecialCollectionType | "all"; label: string }> = [
   { key: "all", label: "Toutes" },
   { key: "caisse_scolaire", label: "Caisse scolaire" },
-  { key: "tontine_alimentaire", label: "Tontine alimentaire" },
+  { key: "tontine_alimentaire", label: "Tontine" },
 ];
 
 const STATUT_TABS: Array<{ key: string; label: string }> = [
@@ -226,7 +235,7 @@ export default function SpecialCollectionsPage() {
       <PageHeader
         eyebrow="Épargne & versements"
         title="Collectes particulières"
-        description="Caisse scolaire et tontine alimentaire : validez les demandes de participation et suivez le solde de chaque membre participant."
+        description="Caisse scolaire et tontine : validez les demandes de participation et suivez le solde de chaque membre participant."
       />
 
       {message ? (
@@ -242,7 +251,7 @@ export default function SpecialCollectionsPage() {
         </div>
       ) : null}
 
-      {/* Cycles — 1 ouvert par type ; ouvrir un nouveau clôt le précédent */}
+      {/* Collectes — plusieurs ouvertes par type possibles ; clôture individuelle */}
       <CyclesPanel onMessage={setMessage} onChanged={reload} />
 
       {/* Filtres */}
@@ -385,7 +394,7 @@ export default function SpecialCollectionsPage() {
                       <div>
                         <p className="font-medium text-ink-800">{t.type_op_display}</p>
                         <p className="text-xs text-ink-500">
-                          {new Date(t.created_at).toLocaleString("fr-FR", {
+                          {new Date(t.date_effective ?? t.created_at).toLocaleString("fr-FR", {
                             day: "2-digit",
                             month: "short",
                             hour: "2-digit",
@@ -421,6 +430,46 @@ export default function SpecialCollectionsPage() {
 
 
 // ── Panneau Cycles ────────────────────────────────────────────────────────────
+// Pastille de type — icône teintée douce (bleu = caisse, vert = tontine).
+function CycleTypeBadge({ type }: { type: SpecialCollectionType }) {
+  const isCaisse = type === "caisse_scolaire";
+  return (
+    <span
+      className={
+        "flex size-9 shrink-0 items-center justify-center rounded-xl " +
+        (isCaisse ? "bg-blue-50 text-blue-600" : "bg-emerald/10 text-emerald")
+      }
+      title={isCaisse ? "Caisse scolaire" : "Tontine"}
+    >
+      {isCaisse ? (
+        <GraduationCap className="size-[18px]" />
+      ) : (
+        <Users className="size-[18px]" />
+      )}
+    </span>
+  );
+}
+
+// Indicateur d'état discret (point + libellé).
+function StatusDot({ open }: { open: boolean }) {
+  return (
+    <span className="hidden w-[76px] items-center gap-1.5 md:inline-flex">
+      <span
+        className={
+          "size-1.5 rounded-full " + (open ? "bg-emerald" : "bg-line-300")
+        }
+      />
+      <span
+        className={
+          "text-[11.5px] " + (open ? "text-ink-600" : "text-ink-400")
+        }
+      >
+        {open ? "Ouverte" : "Clôturée"}
+      </span>
+    </span>
+  );
+}
+
 function CyclesPanel({
   onMessage,
   onChanged,
@@ -432,6 +481,8 @@ function CyclesPanel({
   const [loading, setLoading] = useState(true);
   const [openFor, setOpenFor] = useState<SpecialCollectionType | null>(null);
   const [nom, setNom] = useState("");
+  const [description, setDescription] = useState("");
+  const [montantMin, setMontantMin] = useState("");
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
   const [busy, setBusy] = useState(false);
@@ -456,6 +507,8 @@ function CyclesPanel({
   function openCycle(type: SpecialCollectionType) {
     setOpenFor(type);
     setNom("");
+    setDescription("");
+    setMontantMin("");
     setDateDebut("");
     setDateFin("");
   }
@@ -467,10 +520,12 @@ function CyclesPanel({
       await adminApi.specialCollections.cycles.open({
         type: openFor,
         nom: nom.trim(),
+        description: description.trim() || undefined,
+        montant_minimal: montantMin ? Number(montantMin) : undefined,
         date_debut: dateDebut || undefined,
         date_fin: dateFin || undefined,
       });
-      onMessage({ tone: "ok", text: `Cycle « ${nom.trim()} » ouvert. Le précédent est clôturé.` });
+      onMessage({ tone: "ok", text: `Collecte « ${nom.trim()} » ouverte.` });
       setOpenFor(null);
       await reload();
       onChanged();
@@ -496,78 +551,94 @@ function CyclesPanel({
     }
   }
 
+  // Listing plat : ouvertes d'abord, puis archivées ; chaque famille garde son
+  // ordre le plus récent (l'API renvoie déjà -date_debut).
+  const ordered = [...cycles].sort((a, b) => {
+    if (a.is_open !== b.is_open) return a.is_open ? -1 : 1;
+    return 0;
+  });
+
   return (
-    <section className="rounded-lg border border-line-200 bg-paper-soft/30 p-4">
-      <h2 className="mb-3 text-sm font-semibold text-ink-900">Cycles</h2>
-      {loading ? (
-        <SkeletonList count={2} />
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {COLLECTION_TYPES.map((t) => {
-            const list = cycles.filter((c) => c.type === t.key);
-            const open = list.find((c) => c.is_open) ?? null;
-            return (
-              <div key={t.key} className="rounded-md border border-line-200 bg-white p-3.5">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-ink-900">{t.label}</p>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => openCycle(t.key)}
-                    className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                  >
-                    <CalendarPlus className="size-3.5" /> Nouveau cycle
-                  </button>
-                </div>
-                {open ? (
-                  <div className="mt-2 flex items-center justify-between rounded-md bg-emerald/10 px-3 py-2">
-                    <div>
-                      <p className="text-sm font-medium text-ink-900">{open.nom}</p>
-                      <p className="text-xs text-ink-500">
-                        Ouvert · {open.participants ?? 0} participant(s)
-                      </p>
-                      <p className="mt-0.5 text-sm font-semibold text-emerald">
-                        Total collecté : {fmtXAF(open.total_collecte ?? 0)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setCloseTarget(open)}
-                      className="inline-flex items-center gap-1 rounded-md border border-line-300 px-2.5 py-1.5 text-xs font-medium text-ink-700 hover:border-terra-400 hover:text-terra-700 disabled:opacity-50"
-                    >
-                      <Lock className="size-3.5" /> Clôturer
-                    </button>
-                  </div>
-                ) : (
-                  <p className="mt-2 rounded-md bg-cream px-3 py-2 text-xs text-ink-500">
-                    Aucun cycle ouvert — ouvres-en un pour permettre les demandes.
-                  </p>
-                )}
-                {list.filter((c) => !c.is_open).length > 0 ? (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
-                      Cycles clos (archivés)
-                    </p>
-                    {list
-                      .filter((c) => !c.is_open)
-                      .map((c) => (
-                        <div
-                          key={c.id}
-                          className="flex items-center justify-between text-xs text-ink-600"
-                        >
-                          <span>{c.nom}</span>
-                          <span className="tabular-nums">
-                            {c.participants ?? 0} · {fmtXAF(c.total_collecte ?? 0)}
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
+    <section className="rounded-xl border border-line-200 bg-paper">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-200 px-5 py-3.5">
+        <div>
+          <h2 className="text-sm font-semibold text-ink-900">Collectes</h2>
+          <p className="text-xs text-ink-500">
+            Caisses scolaires &amp; tontines — plusieurs par type, clôture individuelle.
+          </p>
         </div>
+        <div className="flex items-center gap-2">
+          {COLLECTION_TYPES.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              disabled={busy}
+              onClick={() => openCycle(t.key)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-line-200 bg-paper px-3 py-1.5 text-xs font-medium text-ink-700 transition-colors hover:border-blue-400 hover:text-blue-700 disabled:opacity-50"
+            >
+              <CalendarPlus className="size-3.5" /> {t.label}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {loading ? (
+        <div className="p-4">
+          <SkeletonList count={3} />
+        </div>
+      ) : ordered.length === 0 ? (
+        <p className="px-5 py-8 text-center text-sm text-ink-400">
+          Aucune collecte pour le moment — ouvres-en une pour permettre les demandes.
+        </p>
+      ) : (
+        <ul className="divide-y divide-line-100">
+          {ordered.map((c) => (
+            <li
+              key={c.id}
+              className="group flex items-center gap-4 px-5 py-2.5 transition-colors hover:bg-paper-soft/50"
+            >
+              <CycleTypeBadge type={c.type} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13.5px] font-medium text-ink-900">
+                  {c.nom}
+                </p>
+                <p className="truncate text-[11.5px] text-ink-400">
+                  {c.participants ?? 0} participant{(c.participants ?? 0) > 1 ? "s" : ""}
+                  {Number(c.montant_minimal ?? 0) > 0
+                    ? ` · min ${fmtXAF(c.montant_minimal ?? 0)}`
+                    : ""}
+                </p>
+              </div>
+              <div className="hidden text-right sm:block">
+                <p className="text-[10px] uppercase tracking-wide text-ink-400">
+                  Collecté
+                </p>
+                <p
+                  className={
+                    "text-[13.5px] font-semibold tabular-nums " +
+                    (c.is_open ? "text-ink-900" : "text-ink-400")
+                  }
+                >
+                  {fmtXAF(c.total_collecte ?? 0)}
+                </p>
+              </div>
+              <StatusDot open={c.is_open} />
+              {c.is_open ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setCloseTarget(c)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-line-200 px-2.5 py-1.5 text-[11.5px] font-medium text-ink-500 opacity-0 transition-all hover:border-terra-300 hover:text-terra-600 group-hover:opacity-100 disabled:opacity-50"
+                  title="Clôturer (gèle + archive ce cycle)"
+                >
+                  <Lock className="size-3.5" /> Clôturer
+                </button>
+              ) : (
+                <span className="w-[92px]" />
+              )}
+            </li>
+          ))}
+        </ul>
       )}
 
       {/* Modale ouverture de cycle */}
@@ -575,20 +646,46 @@ function CyclesPanel({
         <Modal
           open
           onClose={() => setOpenFor(null)}
-          title="Ouvrir un nouveau cycle"
+          title="Ouvrir une nouvelle collecte"
           description={COLLECTION_TYPES.find((t) => t.key === openFor)?.label}
         >
           <div className="space-y-3">
             <p className="rounded-md bg-cream px-3 py-2 text-xs text-ink-600">
-              Ouvrir un nouveau cycle clôture automatiquement le cycle en cours
-              (gelé + archivé). Les membres devront refaire une demande.
+              Plusieurs collectes du même type peuvent coexister. Fixe le titre, le
+              montant minimal par versement et les informations. Les membres
+              choisiront cette collecte pour y participer.
             </p>
             <label className="block text-sm">
-              <span className="mb-1 block text-xs font-semibold text-ink-600">Nom du cycle</span>
+              <span className="mb-1 block text-xs font-semibold text-ink-600">Titre de la collecte</span>
               <input
                 value={nom}
                 onChange={(e) => setNom(e.target.value)}
-                placeholder="Ex. Caisse scolaire 2026-2027"
+                placeholder="Ex. Tontine des fêtes 2026"
+                className="w-full rounded-md border border-line-300 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-xs font-semibold text-ink-600">
+                Montant minimal par versement (FCFA)
+              </span>
+              <input
+                type="number"
+                min={0}
+                value={montantMin}
+                onChange={(e) => setMontantMin(e.target.value)}
+                placeholder="0 = pas de plancher"
+                className="w-full rounded-md border border-line-300 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-xs font-semibold text-ink-600">
+                Informations (facultatif)
+              </span>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Règles, dates clés, modalités…"
                 className="w-full rounded-md border border-line-300 px-3 py-2 text-sm"
               />
             </label>
@@ -618,7 +715,7 @@ function CyclesPanel({
               onClick={submitOpen}
               className={buttonClasses({ variant: "primary", fullWidth: true })}
             >
-              {busy ? "Ouverture…" : "Ouvrir le cycle"}
+              {busy ? "Ouverture…" : "Ouvrir la collecte"}
             </button>
           </div>
         </Modal>
@@ -628,14 +725,14 @@ function CyclesPanel({
         open={closeTarget !== null}
         onClose={() => setCloseTarget(null)}
         onConfirm={() => (closeTarget ? doClose(closeTarget) : undefined)}
-        title="Clôturer ce cycle ?"
+        title="Clôturer cette collecte ?"
         tone="danger"
         confirmLabel="Clôturer (geler)"
         message={
           <p>
-            Le cycle <strong>{closeTarget?.nom}</strong> sera gelé et archivé : les
-            soldes sont figés, plus aucun versement possible. Aucun mouvement
-            d’argent automatique.
+            La collecte <strong>{closeTarget?.nom}</strong> sera gelée et archivée :
+            les soldes sont figés, plus aucun versement possible. Aucun mouvement
+            d’argent automatique. Les autres collectes du même type restent ouvertes.
           </p>
         }
       />
