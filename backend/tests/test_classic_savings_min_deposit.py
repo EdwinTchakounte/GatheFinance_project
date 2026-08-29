@@ -53,7 +53,11 @@ class TestClassicSavingsMinFloor:
         resp = _post(member_client, "500")
         assert resp.status_code == 400, resp.content
         assert "1000" in resp.content.decode()
-        assert not Payment.objects.exists()
+        # Aucun Payment de dépôt créé (le membre porte déjà un Payment
+        # frais_carnet issu de son activation — on ne compte que le dépôt).
+        assert not Payment.objects.filter(
+            type=Payment.Type.EPARGNE_CLASSIQUE
+        ).exists()
 
     def test_exactly_1000_accepted(self, active_member, member_client):
         cfg = ClassicSavingsConfig.get_solo()

@@ -58,7 +58,7 @@ class TestPaymentInitPersistsNbJours:
         )
         # 201 attendu (création du Payment + Tara mock).
         assert resp.status_code in (200, 201), resp.content
-        payment = Payment.objects.get(member=active_member)
+        payment = Payment.objects.get(member=active_member, type=Payment.Type.EPARGNE)
         assert payment.nb_jours_couverts == 1
 
     def test_multi_day_value_persisted(self, active_member, member_client):
@@ -75,7 +75,7 @@ class TestPaymentInitPersistsNbJours:
             format="json",
         )
         assert resp.status_code in (200, 201), resp.content
-        payment = Payment.objects.get(member=active_member)
+        payment = Payment.objects.get(member=active_member, type=Payment.Type.EPARGNE)
         assert payment.nb_jours_couverts == 5
 
 
@@ -187,7 +187,7 @@ class TestModeBValidation:
             format="json",
         )
         assert resp.status_code in (200, 201), resp.content
-        payment = Payment.objects.get(member=active_member)
+        payment = Payment.objects.get(member=active_member, type=Payment.Type.EPARGNE)
         assert payment.montant == Decimal("10000")
         assert payment.nb_jours_couverts == 5
 
