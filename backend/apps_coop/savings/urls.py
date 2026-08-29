@@ -39,6 +39,13 @@ urlpatterns = [
         name="classic-transactions",
     ),
     path("classic/config/", views.classic_savings_config, name="classic-config"),
+    # États par carnet (vue « Mes carnets » groupée) — membre + admin.
+    path("booklets/summary/", views.booklet_summaries_me, name="booklets-summary-me"),
+    path(
+        "admin/members/<int:pk>/booklets/summary/",
+        views.admin_member_booklet_summaries,
+        name="admin-member-booklets-summary",
+    ),
     # Relevé PDF des écritures du carnet (membre courant).
     path("me/ledger/", views.my_booklet_ledger_pdf, name="my-booklet-ledger"),
     # Collecte — choix de fin de mois (cash vs bascule épargne).

@@ -39,7 +39,7 @@ from apps_coop.audit.services import (
     get_str_setting,
     record as record_audit,
 )
-from apps_coop.members.models import Member
+from apps_coop.members.models import BookletOrder, Member
 
 
 logger = logging.getLogger(__name__)
@@ -165,6 +165,7 @@ def _seize_from_collecte(
         montant=montant,
         solde_apres=nouveau,
         date=timezone.now(),
+        booklet_order=BookletOrder.latest_for(account.member),
     )
     account.solde = nouveau
     account.save(update_fields=["solde", "updated_at"])
@@ -212,6 +213,7 @@ def _seize_from_classique(
         montant=montant,
         solde_apres=nouveau,
         date=timezone.now(),
+        booklet_order=BookletOrder.latest_for(account.member),
     )
     account.solde = nouveau
     account.save(update_fields=["solde", "updated_at"])

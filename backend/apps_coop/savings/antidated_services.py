@@ -47,8 +47,17 @@ logger = logging.getLogger(__name__)
 
 PRODUCT_COLLECTE = "collecte"
 PRODUCT_CLASSIQUE = "classique"
+PRODUCT_TONTINE = "tontine"
+PRODUCT_CAISSE = "caisse_scolaire"
 SENS_DEPOT = "depot"
 SENS_RETRAIT = "retrait"
+
+# Produits « collecte particulière » antidatables → type de collecte + type de
+# carnet requis pour l'imputation.
+_SPECIAL_PRODUCTS = {
+    PRODUCT_TONTINE: "tontine_alimentaire",
+    PRODUCT_CAISSE: "caisse_scolaire",
+}
 
 
 class AntidatedEntryError(ValueError):
@@ -180,23 +189,32 @@ def record_antidated_entry(
     montant: Decimal,
     date_op,
     booklet_order: BookletOrder | None = None,
+    cycle_id=None,
     note: str = "",
     recorded_by=None,
 ) -> AntidatedResult:
     """Enregistre UNE écriture antidatée. Voir le docstring du module.
 
     Args:
-        product : ``"collecte"`` ou ``"classique"``.
+        product : ``"collecte"``, ``"classique"``, ``"tontine"`` ou
+                  ``"caisse_scolaire"``.
         sens    : ``"depot"`` ou ``"retrait"``.
         montant : > 0.
         date_op : date/datetime dans le passé (pas dans le futur).
-        booklet_order : carnet explicite ; sinon résolu à la date de l'écriture.
+        booklet_order : carnet explicite ; sinon résolu à la date de l'écriture
+                        (typé selon le produit).
+        cycle_id : OBLIGATOIRE pour tontine/caisse — la collecte visée.
 
-    Lève ``AntidatedEntryError`` sur toute incohérence. Un retrait ne peut pas
-    rendre le solde négatif (garde-fou anti-typo) : ressaisir les dépôts avant
-    les retraits.
+    Lève ``AntidatedEntryError`` sur toute incohérence. Un retrait antidaté PEUT
+    rendre le solde négatif : c'est une reprise d'historique papier, on saisit
+    les écritures dans l'ordre réel (un retrait peut précéder les dépôts qui le
+    couvrent, ou reconstituer un découvert historique). Le contrôle de solde ne
+    s'applique QUE sur les retraits en direct (``request_withdrawal``).
     """
-    if product not in (PRODUCT_COLLECTE, PRODUCT_CLASSIQUE):
+    _all_products = (
+        PRODUCT_COLLECTE, PRODUCT_CLASSIQUE, PRODUCT_TONTINE, PRODUCT_CAISSE,
+    )
+    if product not in _all_products:
         raise AntidatedEntryError(f"Produit inconnu : {product!r}.")
     if sens not in (SENS_DEPOT, SENS_RETRAIT):
         raise AntidatedEntryError(f"Sens inconnu : {sens!r}.")
@@ -213,6 +231,20 @@ def record_antidated_entry(
     if op_day > today:
         raise AntidatedEntryError(
             "Une écriture antidatée ne peut pas être dans le futur."
+        )
+
+    # Collectes particulières : chemin dédié (solde par participation/cycle).
+    if product in _SPECIAL_PRODUCTS:
+        return _record_antidated_special(
+            member=member,
+            product=product,
+            sens=sens,
+            montant=montant,
+            date_dt=date_dt,
+            op_day=op_day,
+            cycle_id=cycle_id,
+            note=note,
+            recorded_by=recorded_by,
         )
 
     if booklet_order is not None and booklet_order.member_id != member.id:
@@ -232,13 +264,10 @@ def record_antidated_entry(
             member=member, defaults={"date_ouverture": op_day}
         )
         account = SavingsAccount.objects.select_for_update().get(member=member)
+        # Reprise d'historique : le solde peut passer négatif (retrait saisi
+        # avant ses dépôts, ou découvert historique reconstitué). Pas de
+        # garde-fou ici — cf. docstring.
         nouveau_solde = Decimal(account.solde) + signed
-        if nouveau_solde < 0:
-            raise AntidatedEntryError(
-                f"Ce retrait rendrait le solde collecte négatif "
-                f"({account.solde} XAF disponibles). Ressaisis les dépôts avant "
-                f"les retraits."
-            )
         account.solde = nouveau_solde
         account.save(update_fields=["solde", "updated_at"])
         row = SavingsTransaction.objects.create(
@@ -262,13 +291,8 @@ def record_antidated_entry(
         account = (
             ClassicSavingsAccount.objects.select_for_update().get(member=member)
         )
+        # Reprise d'historique : solde négatif toléré (cf. docstring).
         nouveau_solde = Decimal(account.solde) + signed
-        if nouveau_solde < 0:
-            raise AntidatedEntryError(
-                f"Ce retrait rendrait le solde classique négatif "
-                f"({account.solde} XAF disponibles). Ressaisis les dépôts avant "
-                f"les retraits."
-            )
         account.solde = nouveau_solde
         account.save(update_fields=["solde", "updated_at"])
         row = ClassicSavingsTransaction.objects.create(
@@ -297,6 +321,95 @@ def record_antidated_entry(
             "sens": sens,
             "montant": str(montant),
             "date": op_day.isoformat(),
+            "solde_apres": str(nouveau_solde),
+            "booklet_order_id": booklet.id if booklet else None,
+            "note": note.strip()[:500],
+        },
+    )
+
+    return AntidatedResult(
+        transaction_id=row.id,
+        product=product,
+        sens=sens,
+        montant=montant,
+        date=date_dt,
+        solde_apres=nouveau_solde,
+        booklet_order_id=booklet.id if booklet else None,
+    )
+
+
+def _record_antidated_special(
+    *, member, product, sens, montant, date_dt, op_day, cycle_id, note, recorded_by
+) -> AntidatedResult:
+    """Écriture antidatée sur une collecte particulière (tontine / caisse).
+
+    Cible la participation VALIDÉE du membre dans la collecte ``cycle_id`` et
+    mute son solde (négatif toléré, reprise d'historique). Impute au carnet
+    typé du membre à la date de l'écriture.
+    """
+    from apps_coop.special_collections.models import (
+        SpecialCollectionCycle,
+        SpecialCollectionMembership,
+        SpecialCollectionTransaction,
+    )
+
+    collection_type = _SPECIAL_PRODUCTS[product]
+    if not cycle_id:
+        raise AntidatedEntryError(
+            "La collecte cible (cycle_id) est obligatoire pour une écriture "
+            "tontine / caisse scolaire."
+        )
+    cycle = SpecialCollectionCycle.objects.filter(
+        pk=cycle_id, type=collection_type
+    ).first()
+    if cycle is None:
+        raise AntidatedEntryError("Collecte introuvable.")
+
+    membership = (
+        SpecialCollectionMembership.objects.select_for_update()
+        .filter(member=member, cycle=cycle)
+        .first()
+    )
+    if membership is None:
+        raise AntidatedEntryError(
+            "Ce membre ne participe pas à cette collecte."
+        )
+
+    # Carnet typé du membre actif à la date de l'écriture (imputation, toléré null).
+    carnet_type = {
+        PRODUCT_TONTINE: BookletOrder.Type.TONTINE,
+        PRODUCT_CAISSE: BookletOrder.Type.CAISSE_SCOLAIRE,
+    }[product]
+    booklet = BookletOrder.for_member_at(member, op_day, carnet_type)
+
+    signed = montant if sens == SENS_DEPOT else -montant
+    nouveau_solde = Decimal(membership.solde) + signed
+    membership.solde = nouveau_solde
+    membership.save(update_fields=["solde", "updated_at"])
+
+    row = SpecialCollectionTransaction.objects.create(
+        membership=membership,
+        payment=None,
+        booklet_order=booklet,
+        type_op=SpecialCollectionTransaction.TypeOp.MANUEL,
+        montant=montant,
+        solde_apres=nouveau_solde,
+        date=date_dt,
+        libelle="Reprise historique" + (f" — {note.strip()[:80]}" if note else ""),
+    )
+
+    record_audit(
+        action="savings.antidated_entry",
+        entite_type="SpecialCollectionTransaction",
+        entite_id=row.id,
+        user=recorded_by,
+        details={
+            "member_id": member.id,
+            "product": product,
+            "sens": sens,
+            "montant": str(montant),
+            "date": op_day.isoformat(),
+            "cycle_id": cycle.id,
             "solde_apres": str(nouveau_solde),
             "booklet_order_id": booklet.id if booklet else None,
             "note": note.strip()[:500],

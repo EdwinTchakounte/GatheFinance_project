@@ -22,6 +22,8 @@ class SpecialCollectionCycleSerializer(serializers.ModelSerializer):
             "type",
             "type_display",
             "nom",
+            "description",
+            "montant_minimal",
             "date_debut",
             "date_fin",
             "statut",
@@ -34,6 +36,11 @@ class SpecialCollectionCycleSerializer(serializers.ModelSerializer):
 
 class SpecialCollectionTransactionSerializer(serializers.ModelSerializer):
     type_op_display = serializers.CharField(source="get_type_op_display", read_only=True)
+    # Date effective (antidatable) ; retombe sur created_at si non posée.
+    date_effective = serializers.DateTimeField(read_only=True)
+    booklet_order = serializers.IntegerField(
+        source="booklet_order_id", read_only=True
+    )
 
     class Meta:
         model = SpecialCollectionTransaction
@@ -44,6 +51,8 @@ class SpecialCollectionTransactionSerializer(serializers.ModelSerializer):
             "montant",
             "solde_apres",
             "libelle",
+            "date_effective",
+            "booklet_order",
             "created_at",
         ]
 
@@ -101,6 +110,9 @@ class ParticipationRequestSerializer(serializers.Serializer):
     """Formulaire de demande (minimal, extensible via extra)."""
 
     type = serializers.ChoiceField(choices=SpecialCollectionMembership.Type.choices)
+    # Collecte ouverte précise visée (plusieurs possibles par type). Facultatif
+    # par compat (une seule ouverte → déduite).
+    cycle_id = serializers.IntegerField(required=False, allow_null=True)
     objectif = serializers.CharField(max_length=2000)
     montant_cible = serializers.DecimalField(
         max_digits=14, decimal_places=2, required=False, allow_null=True
@@ -110,6 +122,7 @@ class ParticipationRequestSerializer(serializers.Serializer):
 
 class TransferSerializer(serializers.Serializer):
     type = serializers.ChoiceField(choices=SpecialCollectionMembership.Type.choices)
+    cycle_id = serializers.IntegerField(required=False, allow_null=True)
     montant = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=1)
 
 
@@ -118,9 +131,15 @@ class RejectSerializer(serializers.Serializer):
 
 
 class OpenCycleSerializer(serializers.Serializer):
-    """Ouverture d'un cycle par l'admin."""
+    """Ouverture d'une collecte par l'admin (titre + plancher + infos)."""
 
     type = serializers.ChoiceField(choices=SpecialCollectionMembership.Type.choices)
     nom = serializers.CharField(max_length=120)
+    description = serializers.CharField(
+        max_length=4000, required=False, allow_blank=True, default=""
+    )
+    montant_minimal = serializers.DecimalField(
+        max_digits=14, decimal_places=2, required=False, allow_null=True, min_value=0
+    )
     date_debut = serializers.DateField(required=False, allow_null=True)
     date_fin = serializers.DateField(required=False, allow_null=True)

@@ -439,10 +439,25 @@ class BookletOrder(TimestampedModel):
         EN_IMPRESSION = "en_impression", "En impression"
         DELIVREE = "delivree", "Délivrée"
 
+    class Type(models.TextChoices):
+        # Un carnet DISTINCT par type. Le carnet « collecte » couvre l'épargne
+        # (collecte journalière + épargne classique partagent le même carnet) ;
+        # tontine et caisse scolaire ont chacun leur propre carnet.
+        COLLECTE = "collecte", "Épargne / collecte journalière"
+        TONTINE = "tontine", "Tontine"
+        CAISSE_SCOLAIRE = "caisse_scolaire", "Caisse scolaire"
+
     member = models.ForeignKey(
         Member,
         on_delete=models.PROTECT,
         related_name="booklet_orders",
+    )
+    type = models.CharField(
+        max_length=20,
+        choices=Type.choices,
+        default=Type.COLLECTE,
+        db_index=True,
+        help_text="Type de carnet (un carnet distinct par type).",
     )
     payment = models.OneToOneField(
         "payments.Payment",
@@ -479,17 +494,23 @@ class BookletOrder(TimestampedModel):
         return f"Carnet {self.member.numero_membre} · {self.statut}"
 
     @classmethod
-    def latest_for(cls, member) -> "BookletOrder | None":
-        """Carnet le plus récent du membre (par date de commande).
+    def latest_for(cls, member, type=Type.COLLECTE) -> "BookletOrder | None":
+        """Carnet le plus récent du membre, POUR UN TYPE donné (par date de
+        commande).
 
-        L7 : toute nouvelle écriture d'épargne s'y rattache. Retourne ``None``
-        si le membre n'a encore jamais commandé de carnet (l'écriture reste
-        alors non rattachée — c'est toléré).
+        L7 : toute nouvelle écriture s'impute au carnet le plus récent de son
+        type (une écriture tontine → carnet tontine, jamais le carnet collecte).
+        Retourne ``None`` si le membre n'a encore jamais commandé de carnet de
+        ce type (l'écriture reste alors non rattachée — c'est toléré).
         """
-        return cls.objects.filter(member=member).order_by("-created_at", "-id").first()
+        return (
+            cls.objects.filter(member=member, type=type)
+            .order_by("-created_at", "-id")
+            .first()
+        )
 
     @classmethod
-    def for_member_at(cls, member, at_date) -> "BookletOrder | None":
+    def for_member_at(cls, member, at_date, type=Type.COLLECTE) -> "BookletOrder | None":
         """Carnet **actif à une date passée** (écritures antidatées).
 
         ``latest_for`` rattache toujours au carnet le PLUS RÉCENT — faux pour
@@ -517,15 +538,19 @@ class BookletOrder(TimestampedModel):
                 cutoff = _tz.make_aware(cutoff, _tz.get_current_timezone())
 
         active = (
-            cls.objects.filter(member=member, created_at__lte=cutoff)
+            cls.objects.filter(member=member, type=type, created_at__lte=cutoff)
             .order_by("-created_at", "-id")
             .first()
         )
         if active is not None:
             return active
-        # Date antérieure à tout carnet connu → le plus ancien (le papier
-        # existait déjà). None si le membre n'a jamais eu de carnet.
-        return cls.objects.filter(member=member).order_by("created_at", "id").first()
+        # Date antérieure à tout carnet connu de ce type → le plus ancien (le
+        # papier existait déjà). None si le membre n'a aucun carnet de ce type.
+        return (
+            cls.objects.filter(member=member, type=type)
+            .order_by("created_at", "id")
+            .first()
+        )
 
 
 class BRCDocument(TimestampedModel):

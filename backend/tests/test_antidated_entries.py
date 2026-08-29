@@ -66,6 +66,60 @@ def _staff():
 
 
 # ---------------------------------------------------------------------------
+# Service — collectes particulières (tontine / caisse scolaire)
+# ---------------------------------------------------------------------------
+
+
+class TestSpecialCollections:
+    def _setup(self, product_type="tontine_alimentaire"):
+        from apps_coop.special_collections.models import (
+            SpecialCollectionMembership,
+        )
+        from apps_coop.special_collections.services import open_cycle
+
+        m = MemberFactory()
+        cycle = open_cycle(type=product_type, nom="Reprise")
+        membership = SpecialCollectionMembership.objects.create(
+            member=m, cycle=cycle, type=product_type,
+            statut=SpecialCollectionMembership.Statut.VALIDE, objectif="x",
+        )
+        return m, cycle, membership
+
+    def test_depot_antidate_tontine_credite(self):
+        from apps_coop.special_collections.models import (
+            SpecialCollectionTransaction,
+        )
+
+        m, cycle, membership = self._setup("tontine_alimentaire")
+        res = record_antidated_entry(
+            member=m, product="tontine", sens="depot",
+            montant=Decimal("7000"), date_op=MARS, cycle_id=cycle.id,
+        )
+        assert res.solde_apres == Decimal("7000")
+        membership.refresh_from_db()
+        assert membership.solde == Decimal("7000")
+        row = SpecialCollectionTransaction.objects.get(pk=res.transaction_id)
+        assert row.type_op == SpecialCollectionTransaction.TypeOp.MANUEL
+        assert row.date is not None  # date effective posée
+
+    def test_cycle_id_obligatoire(self):
+        m, _cycle, _membership = self._setup("caisse_scolaire")
+        with pytest.raises(AntidatedEntryError, match="cycle_id|collecte"):
+            record_antidated_entry(
+                member=m, product="caisse_scolaire", sens="depot",
+                montant=Decimal("1000"), date_op=MARS,
+            )
+
+    def test_retrait_antidate_special_peut_etre_negatif(self):
+        m, cycle, membership = self._setup("tontine_alimentaire")
+        res = record_antidated_entry(
+            member=m, product="tontine", sens="retrait",
+            montant=Decimal("3000"), date_op=MARS, cycle_id=cycle.id,
+        )
+        assert res.solde_apres == Decimal("-3000")
+
+
+# ---------------------------------------------------------------------------
 # Service — collecte
 # ---------------------------------------------------------------------------
 
@@ -135,18 +189,21 @@ class TestCollecte:
         assert SavingsAccount.objects.get(member=m).solde == Decimal("13000")
         assert SavingsTransaction.objects.filter(account__member=m).count() == 4
 
-    def test_retrait_ne_rend_pas_le_solde_negatif(self):
+    def test_retrait_antidate_peut_rendre_solde_negatif(self):
+        """Reprise d'historique : un retrait antidaté supérieur au solde du
+        moment est accepté et le solde passe négatif (retrait 5000 sur 1000)."""
         m = MemberFactory()
         record_antidated_entry(
             member=m, product="collecte", sens="depot",
             montant=Decimal("1000"), date_op=MARS,
         )
-        with pytest.raises(AntidatedEntryError, match="négatif"):
-            record_antidated_entry(
-                member=m, product="collecte", sens="retrait",
-                montant=Decimal("5000"), date_op=AVRIL,
-            )
-        assert SavingsAccount.objects.get(member=m).solde == Decimal("1000")
+        res = record_antidated_entry(
+            member=m, product="collecte", sens="retrait",
+            montant=Decimal("5000"), date_op=AVRIL,
+        )
+        assert res.solde_apres == Decimal("-4000")
+        assert SavingsAccount.objects.get(member=m).solde == Decimal("-4000")
+        assert SavingsTransaction.objects.filter(account__member=m).count() == 2
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +337,9 @@ class TestCarnetAntidate:
     def test_ne_cree_pas_de_second_carnet_via_le_hook(self):
         """Le hook _hook_carnet_fees créerait un 2e carnet à partir du Payment
         frais_carnet. On le contourne : exactement 1 carnet."""
-        m = MemberFactory()
+        # Membre sans carnet d'activation pour isoler le carnet antidaté (la
+        # ``MemberFactory`` en donne un par défaut).
+        m = MemberFactory(with_carnet=False)
         create_antidated_booklet(member=m, date_op=MARS)
         assert BookletOrder.objects.filter(member=m).count() == 1
 
@@ -350,7 +409,9 @@ class TestEndpoint:
         assert r.json()["solde_apres"] == "10000.00"
         assert SavingsAccount.objects.get(member=m).solde == Decimal("10000")
 
-    def test_endpoint_409_si_solde_negatif(self):
+    def test_endpoint_accepte_retrait_solde_negatif(self):
+        """Reprise d'historique : le retrait antidaté qui dépasse le solde est
+        accepté (le solde peut passer négatif), plus de 409."""
         staff = _staff()
         m = MemberFactory()
         r = self._api(staff).post(
@@ -361,7 +422,9 @@ class TestEndpoint:
             },
             format="json",
         )
-        assert r.status_code == 409, r.content
+        assert r.status_code == 201, r.content
+        assert r.json()["solde_apres"] == "-5000.00"
+        assert SavingsAccount.objects.get(member=m).solde == Decimal("-5000")
 
     def test_endpoint_refuse_non_staff(self):
         membre = MemberFactory()

@@ -137,6 +137,11 @@ class TestFixedFeeCashInAmountLocked:
 
     def test_wrong_carnet_amount_rejected(self, active_member, admin_user):
         self._seed_carnet_fee("1000")
+        # Le membre porte déjà un carnet d'activation → on vérifie qu'AUCUN
+        # nouveau Payment carnet n'est créé par la requête refusée (delta 0).
+        before = Payment.objects.filter(
+            member=active_member, type=Payment.Type.FRAIS_CARNET
+        ).count()
         r = _api(admin_user).post(
             self.URL,
             {"member_id": active_member.id, "type": "frais_carnet",
@@ -145,9 +150,9 @@ class TestFixedFeeCashInAmountLocked:
         )
         assert r.status_code == 400, r.content
         assert "fixe" in r.json()["detail"].lower()
-        assert not Payment.objects.filter(
+        assert Payment.objects.filter(
             member=active_member, type=Payment.Type.FRAIS_CARNET
-        ).exists()
+        ).count() == before
 
     def test_correct_carnet_amount_accepted(self, active_member, admin_user):
         self._seed_carnet_fee("1000")

@@ -884,10 +884,28 @@ def _hook_carnet_fees(payment: Payment, raw: dict) -> None:
          -> Cree BookletOrder. Pas de renouvellement.
 
     Idempotent dans les 3 cas.
+
+    Carnets typés (2026-08) : le type du carnet créé est déduit du type de
+    paiement (``frais_carnet`` → collecte, ``frais_carnet_tontine`` → tontine,
+    ``frais_carnet_caisse`` → caisse scolaire). Le renouvellement annuel et
+    l'activation du membre ne concernent QUE le carnet collecte (les carnets
+    tontine/caisse sont de simples prérequis de versement à leur collecte).
     """
     from apps_coop.members.models import BookletOrder
 
-    is_renewal = _is_carnet_renewal(payment, raw)
+    _CARNET_TYPE_BY_PAYMENT = {
+        Payment.Type.FRAIS_CARNET: BookletOrder.Type.COLLECTE,
+        Payment.Type.FRAIS_CARNET_TONTINE: BookletOrder.Type.TONTINE,
+        Payment.Type.FRAIS_CARNET_CAISSE: BookletOrder.Type.CAISSE_SCOLAIRE,
+    }
+    carnet_type = _CARNET_TYPE_BY_PAYMENT.get(
+        payment.type, BookletOrder.Type.COLLECTE
+    )
+    is_collecte_carnet = carnet_type == BookletOrder.Type.COLLECTE
+
+    # Renouvellement/activation : uniquement pour le carnet collecte (l'un des
+    # 3 frais d'activation). Un carnet tontine/caisse n'active rien.
+    is_renewal = is_collecte_carnet and _is_carnet_renewal(payment, raw)
 
     # L7 (réforme 2026) — Découplage carnet ↔ renouvellement : la ré-inscription
     # annuelle est appliquée si applicable, MAIS un nouveau carnet est TOUJOURS
@@ -900,6 +918,7 @@ def _hook_carnet_fees(payment: Payment, raw: dict) -> None:
         payment=payment,
         defaults={
             "member": payment.member,
+            "type": carnet_type,
             "statut": BookletOrder.Statut.PAYEE,
             "annee": timezone.localdate().year,
         },
@@ -912,6 +931,7 @@ def _hook_carnet_fees(payment: Payment, raw: dict) -> None:
             "member_id": payment.member_id,
             "payment_id": payment.id,
             "montant": str(payment.montant),
+            "type": carnet_type,
             "created": created,
         },
     )
@@ -932,14 +952,15 @@ def _hook_carnet_fees(payment: Payment, raw: dict) -> None:
     # CH-2 — tentative d'activation : si c'est le 3e frais qui complète
     # le triplet (adhésion + inscription + carnet), le Member passe à ACTIF.
     # Idempotent : si déjà actif (4e+ paiement), no-op. Inutile en
-    # renouvellement (le membre a déjà été actif au moins une fois).
-    if not is_renewal:
+    # renouvellement (le membre a déjà été actif au moins une fois). Réservé au
+    # carnet COLLECTE : un carnet tontine/caisse n'entre pas dans le triplet.
+    if is_collecte_carnet and not is_renewal:
         _activate_member_if_fees_settled(payment.member, trigger_payment=payment)
 
-    # Bénéficiaire campagne : le carnet obligatoire vient d'être créé. Si sa
-    # demande de crédit attendait UNIQUEMENT le carnet (frais d'étude déjà
-    # réglés), on ouvre maintenant l'instruction.
-    if created:
+    # Bénéficiaire campagne : le carnet (collecte) obligatoire vient d'être créé.
+    # Si sa demande de crédit attendait UNIQUEMENT le carnet (frais d'étude déjà
+    # réglés), on ouvre maintenant l'instruction. Sans objet pour tontine/caisse.
+    if created and is_collecte_carnet:
         try:
             from apps_coop.loans.models import LoanRequest
             from apps_coop.loans.study_fee_services import (
@@ -1202,6 +1223,13 @@ def _hook_renewal_interest(payment: Payment, meta: dict) -> None:
     hook_renewal_interest(payment, meta)
 
 
+def _hook_group_tontine_cotisation(payment: Payment, _raw: dict) -> None:
+    """Cotisation validée sur une tontine de groupe → crédite la cagnotte."""
+    from apps_coop.special_collections.group_services import credit_cotisation
+
+    credit_cotisation(payment)
+
+
 def _hook_special_collection_deposit(payment: Payment, _raw: dict) -> None:
     """Versement validé sur une collecte particulière → crédite le solde membre.
 
@@ -1222,6 +1250,7 @@ _BUSINESS_HOOKS: dict[str, Callable[[Payment, dict], None]] = {
     Payment.Type.EPARGNE_CLASSIQUE: _hook_classic_savings_deposit,
     Payment.Type.CAISSE_SCOLAIRE: _hook_special_collection_deposit,
     Payment.Type.TONTINE_ALIMENTAIRE: _hook_special_collection_deposit,
+    Payment.Type.TONTINE_GROUPE: _hook_group_tontine_cotisation,
     Payment.Type.FRAIS_DEMANDE_CREDIT: _hook_loan_request_fees,
     Payment.Type.REMBOURSEMENT: _hook_loan_repayment,
     # FRAIS_RECONDUCTION : pas un « frais » — ce sont les INTÉRÊTS que le
@@ -1230,5 +1259,8 @@ _BUSINESS_HOOKS: dict[str, Callable[[Payment, dict], None]] = {
     # débloque l'approbation par le comité.
     Payment.Type.FRAIS_RECONDUCTION: _hook_renewal_interest,
     Payment.Type.FRAIS_CARNET: _hook_carnet_fees,
+    # Carnets typés — même hook, le type de carnet est déduit du type de paiement.
+    Payment.Type.FRAIS_CARNET_TONTINE: _hook_carnet_fees,
+    Payment.Type.FRAIS_CARNET_CAISSE: _hook_carnet_fees,
     Payment.Type.DECAISSEMENT: _hook_decaissement,
 }

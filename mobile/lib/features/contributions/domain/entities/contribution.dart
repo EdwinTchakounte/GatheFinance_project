@@ -20,13 +20,21 @@ class Contribution {
     required this.montant,
     required this.statut,
     required this.date,
+    this.frais = 0,
     this.reference,
   });
 
   final int id;
   final ContributionType type;
   final num montant;
+  // Frais de transaction (%) prélevés EN PLUS du montant lorsque le versement
+  // passe par Tara (Mobile Money). 0 en agence / déduction épargne. Parité
+  // avec le portail, qui affiche déjà « montant + frais = total payé ».
+  final num frais;
   final ContributionStatus statut;
   final DateTime date;
   final String? reference;
+
+  /// Total réellement débité au membre (ce qu'il a payé via Tara).
+  num get totalPaye => montant + frais;
 }

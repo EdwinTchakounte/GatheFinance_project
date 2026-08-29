@@ -30,6 +30,10 @@ REGULATION_FEES: dict[str, tuple[str, Decimal]] = {
 DISCRETIONARY_FEES: dict[str, tuple[str, Decimal]] = {
     FeeType.Code.DEMANDE_CREDIT: ("Frais de demande de crédit", Decimal("0")),
     FeeType.Code.RECONDUCTION:   ("Frais de reconduction",      Decimal("0")),
+    # Carnets des collectes particulières (un carnet distinct par type). Défaut
+    # aligné sur le carnet collecte (1 000) ; l'admin ajuste dans la page Coûts.
+    FeeType.Code.CARNET_TONTINE: ("Frais de carnet tontine",         Decimal("1000")),
+    FeeType.Code.CARNET_CAISSE:  ("Frais de carnet caisse scolaire", Decimal("1000")),
 }
 
 

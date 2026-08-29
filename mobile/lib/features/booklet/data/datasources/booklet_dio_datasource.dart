@@ -77,6 +77,7 @@ BookletOrder _parseOrder(Map<String, dynamic> json) {
   return BookletOrder(
     id: (json['id'] as num).toInt(),
     statut: _status((json['statut'] as String?) ?? 'payee'),
+    typeDisplay: (json['type_display'] as String?) ?? '',
     dateCommande: _date(json['created_at']),
     montant: 0, // non exposé par le serializer (à ajouter si besoin)
     dateImpression: json['date_impression'] != null

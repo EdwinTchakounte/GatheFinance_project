@@ -8,6 +8,7 @@ import { Container } from "@gathe/ui";
 import {
   portalApi,
   type ApiError,
+  type BookletSummary,
   type SavingsTransaction,
 } from "@/lib/api";
 
@@ -79,6 +80,18 @@ export default function SavingsHistoryPage() {
   const [product, setProduct] = useState<Product>("collecte");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Vue PAR CARNET : chaque écriture porte son carnet. « Mes carnets » montre
+  // l'état de chaque carnet (nb, crédits, débits, net) ; un tap filtre ses
+  // écritures. Les écritures d'épargne s'imputent au carnet collecte.
+  const [summaries, setSummaries] = useState<BookletSummary[]>([]);
+  const [carnetId, setCarnetId] = useState<number | "">("");
+
+  useEffect(() => {
+    portalApi
+      .bookletSummaries()
+      .then((res) => setSummaries(res.results))
+      .catch(() => setSummaries([]));
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -91,6 +104,7 @@ export default function SavingsHistoryPage() {
       const res = await fetcher({
         page,
         type_op: filter || undefined,
+        booklet_order: carnetId || undefined,
       });
       setItems(res.results);
       setCount(res.count);
@@ -106,7 +120,7 @@ export default function SavingsHistoryPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, filter, product]);
+  }, [page, filter, product, carnetId]);
 
   return (
     <Container>
@@ -158,6 +172,67 @@ export default function SavingsHistoryPage() {
         </div>
       </header>
 
+      {summaries.length > 0 ? (
+        <section className="mt-8">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-ink-500">
+            Mes carnets
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {summaries.map((s) => {
+              const active = carnetId === s.booklet_order;
+              const net = Number(s.solde_net);
+              return (
+                <button
+                  key={s.booklet_order}
+                  type="button"
+                  onClick={() => {
+                    setCarnetId(active ? "" : s.booklet_order);
+                    setPage(1);
+                  }}
+                  className={
+                    "rounded-lg border p-3.5 text-left transition-colors " +
+                    (active
+                      ? "border-blue-500 bg-blue-50/50"
+                      : "border-line-200 bg-paper hover:border-blue-400")
+                  }
+                >
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-sm font-semibold text-ink-900">
+                      Carnet {s.annee ?? ""}{" "}
+                      <span className="font-mono text-xs text-ink-400">
+                        #{s.booklet_order}
+                      </span>
+                    </p>
+                    <span className="text-[10px] text-ink-500">
+                      {s.count} écriture{s.count > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <p
+                    className={
+                      "mt-1.5 font-mono text-lg font-semibold " +
+                      (net >= 0 ? "text-emerald-700" : "text-rose-700")
+                    }
+                  >
+                    {net >= 0 ? "+" : "−"}
+                    {fmtAmount(String(Math.abs(net)))} XAF
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-ink-500">
+                    <span className="text-emerald-700">
+                      +{fmtAmount(s.total_credit)}
+                    </span>{" "}
+                    crédits ·{" "}
+                    <span className="text-rose-700">
+                      −{fmtAmount(s.total_debit)}
+                    </span>{" "}
+                    débits
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       <section className="mt-8">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1 rounded-md border border-line-200 bg-paper p-1">
@@ -185,10 +260,30 @@ export default function SavingsHistoryPage() {
               </button>
             ))}
           </div>
-          <p className="text-xs text-ink-500">
-            <span className="font-mono text-ink-900">{count}</span> opération
-            {count > 1 ? "s" : ""}
-          </p>
+          <div className="flex items-center gap-3">
+            {summaries.length > 0 ? (
+              <select
+                value={carnetId}
+                onChange={(e) => {
+                  setCarnetId(e.target.value ? Number(e.target.value) : "");
+                  setPage(1);
+                }}
+                className="rounded-md border border-line-200 bg-paper px-2.5 py-1.5 text-xs text-ink-700 focus:border-blue-700 focus:outline-none"
+                title="Filtrer par carnet"
+              >
+                <option value="">Tous les carnets</option>
+                {summaries.map((s) => (
+                  <option key={s.booklet_order} value={s.booklet_order}>
+                    Carnet {s.annee ?? ""} #{s.booklet_order}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <p className="text-xs text-ink-500">
+              <span className="font-mono text-ink-900">{count}</span> opération
+              {count > 1 ? "s" : ""}
+            </p>
+          </div>
         </div>
 
         {error ? (

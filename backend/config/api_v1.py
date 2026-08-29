@@ -30,6 +30,7 @@ urlpatterns = [
     path("support/", include("apps_coop.support.urls")),
     # Collectes particulières (caisse scolaire, tontine alimentaire).
     path("special-collections/", include("apps_coop.special_collections.urls")),
+    path("structures/", include("apps_coop.structures.urls")),
     # Admin CMS — édition rapide des articles vitrine (image de couverture).
     path("cms/", include("apps_cms.cms.api_urls")),
 ]

@@ -141,6 +141,8 @@ def init_payment(request):
         Payment.Type.FRAIS_ADHESION: FeeType.Code.ADHESION,
         Payment.Type.FRAIS_INSCRIPTION: FeeType.Code.INSCRIPTION,
         Payment.Type.FRAIS_CARNET: FeeType.Code.CARNET,
+        Payment.Type.FRAIS_CARNET_TONTINE: FeeType.Code.CARNET_TONTINE,
+        Payment.Type.FRAIS_CARNET_CAISSE: FeeType.Code.CARNET_CAISSE,
         Payment.Type.FRAIS_RECONDUCTION: FeeType.Code.RECONDUCTION,
     }
     _auth_code = _AUTHORITATIVE_FEE_CODE.get(data["type"])
@@ -288,6 +290,20 @@ def init_payment(request):
     nb_jours = data.get("nb_jours_couverts", 1) or 1
     # TODO: REMOVE_FOR_PROD — bypass montant pour tester STK Push réel.
     _test_any_amount = getattr(settings, "PAYMENTS_TEST_ALLOW_ANY_AMOUNT", False)
+    if data["type"] in (Payment.Type.EPARGNE, Payment.Type.EPARGNE_CLASSIQUE):
+        # Prérequis carnet collecte (« une écriture ne se fait que dans un
+        # carnet ») — partagé collecte + épargne classique.
+        from .deposit_validation import (
+            DepositValidationError,
+            ensure_savings_carnet,
+        )
+
+        try:
+            ensure_savings_carnet(request.user.member)
+        except DepositValidationError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST,
+            )
     if data["type"] == Payment.Type.EPARGNE:
         # Règles collecte factorisées (partagées avec le cash-in admin).
         from .deposit_validation import (
@@ -343,29 +359,93 @@ def init_payment(request):
         Payment.Type.CAISSE_SCOLAIRE,
         Payment.Type.TONTINE_ALIMENTAIRE,
     )
+    special_cycle = None
     if data["type"] in _SPECIAL_TYPES:
         from apps_coop.special_collections.models import SpecialCollectionMembership
-        from apps_coop.special_collections.services import current_open_cycle
-
-        cycle = current_open_cycle(data["type"])
-        membership = (
-            SpecialCollectionMembership.objects.filter(
-                member=request.user.member, cycle=cycle
-            ).first()
-            if cycle is not None
-            else None
+        from apps_coop.special_collections.services import (
+            SpecialCollectionError,
+            _ensure_carnet_and_floor,
+            _resolve_open_cycle,
         )
+
+        # Collecte précise visée (plusieurs collectes du même type possibles).
+        try:
+            special_cycle = _resolve_open_cycle(
+                type=data["type"], cycle_id=data.get("cycle_id")
+            )
+        except SpecialCollectionError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        membership = SpecialCollectionMembership.objects.filter(
+            member=request.user.member, cycle=special_cycle
+        ).first()
         if membership is None or not membership.is_active:
             return Response(
                 {
                     "detail": (
-                        "Ta participation au cycle en cours de cette collecte "
-                        "doit d'abord être validée par la coopérative avant tout "
-                        "versement."
+                        "Ta participation à cette collecte doit d'abord être "
+                        "validée par la coopérative avant tout versement."
                     )
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
+        # Prérequis carnet (par type) + plancher par versement de la collecte.
+        try:
+            _ensure_carnet_and_floor(
+                request.user.member, special_cycle, membership, data["montant"]
+            )
+        except SpecialCollectionError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+    # Cotisation tontine de GROUPE : le membre doit faire partie du roster de la
+    # réunion ciblée (group_id) et celle-ci être ouverte.
+    group_tontine = None
+    group_loan = None
+    if data["type"] == Payment.Type.TONTINE_GROUPE:
+        from apps_coop.special_collections.group_services import role_of
+        from apps_coop.special_collections.models import GroupTontine
+
+        group_tontine = GroupTontine.objects.filter(
+            pk=data.get("group_id")
+        ).first()
+        if group_tontine is None:
+            return Response(
+                {"detail": "Réunion introuvable."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if not group_tontine.is_open:
+            return Response(
+                {"detail": "Cette réunion est clôturée."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if role_of(group_tontine, request.user.member) is None:
+            return Response(
+                {"detail": "Tu ne fais pas partie de cette réunion."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        # Remboursement d'un prêt : le versement MoMo cible le prêt du membre.
+        if data.get("group_loan_id"):
+            from apps_coop.special_collections.models import GroupTontineLoan
+
+            group_loan = GroupTontineLoan.objects.filter(
+                pk=data.get("group_loan_id"),
+                group=group_tontine,
+                member=request.user.member,
+            ).first()
+            if group_loan is None:
+                return Response(
+                    {"detail": "Prêt introuvable pour ce membre dans cette réunion."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if group_loan.statut == GroupTontineLoan.Statut.SOLDE:
+                return Response(
+                    {"detail": "Ce prêt est déjà soldé."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
     # CH-3 — placement valable uniquement sur EPARGNE_CLASSIQUE.
     is_placement = bool(data.get("is_placement", False)) and (
@@ -422,6 +502,8 @@ def init_payment(request):
                 loan_id=data.get("loan_id"),
                 loan_installment_id=data.get("loan_installment_id"),
                 nb_jours_couverts=nb_jours,
+                special_cycle=special_cycle,
+                group_tontine=group_tontine,
             )
             .order_by("-created_at")
             .first()
@@ -471,6 +553,9 @@ def init_payment(request):
         loan_installment_id=data.get("loan_installment_id"),
         nb_jours_couverts=nb_jours,
         is_placement=is_placement,
+        special_cycle=special_cycle,
+        group_tontine=group_tontine,
+        group_loan=group_loan,
     )
 
     try:
@@ -1165,12 +1250,18 @@ def admin_list_payments(request):
     q = (request.query_params.get("q") or "").strip()
     if q:
         from django.db.models import Q
-        qs = qs.filter(
+        cond = (
             Q(member__numero_membre__icontains=q)
             | Q(member__nom__icontains=q)
             | Q(member__prenom__icontains=q)
             | Q(reference_externe__icontains=q)
         )
+        # `q` purement numérique → cible aussi l'id exact du paiement, pour
+        # permettre un lien direct « voir ce paiement » (ex. depuis une
+        # commande de carnet : /payments?q=<payment_id>).
+        if q.isdigit():
+            cond |= Q(id=int(q))
+        qs = qs.filter(cond)
 
     from apps_coop.common import parse_pagination
 
@@ -1192,6 +1283,131 @@ def admin_list_payments(request):
         results.append(data)
     return Response(
         {"count": count, "limit": limit, "offset": offset, "results": results}
+    )
+
+
+def _parse_stats_date(raw):
+    """`YYYY-MM-DD` -> ``date`` ou ``None`` (silencieux si invalide)."""
+    from datetime import datetime
+
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+@extend_schema(
+    tags=["payments"],
+    summary="🔒 Staff — totaux globaux des paiements (état global filtrable)",
+    description=(
+        "Agrégats GLOBAUX sur TOUS les paiements (pas la page courante), pour le "
+        "bandeau de synthèse du dashboard.\n\n"
+        "Filtres période : `?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD` (sur "
+        "`date_versement`). Filtres additionnels optionnels : `?type=`, `?member=`, "
+        "`?q=`.\n\n"
+        "Retour : totaux par statut (validé / en attente / rejeté) avec montant, "
+        "frais et total payé ; ventilation par type (validés) ; période appliquée."
+    ),
+    responses={200: OpenApiResponse(description="Agrégats de paiements")},
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_payments_stats(request):
+    """État global des versements : totaux essentiels, filtrables par période.
+
+    Alimente le bandeau de synthèse en haut de la page Paiements. Contrairement à
+    ``admin_list_payments`` (paginé, vue courante), on agrège ici l'ENSEMBLE des
+    paiements correspondant aux filtres — d'où un endpoint dédié.
+    """
+    from django.db.models import Count, DecimalField, Q, Sum
+    from django.db.models.functions import Coalesce
+
+    from apps_coop.members.models import Member
+
+    qs = Payment.objects.exclude(member__statut=Member.Statut.RADIE)
+
+    date_from = _parse_stats_date(request.query_params.get("date_from"))
+    date_to = _parse_stats_date(request.query_params.get("date_to"))
+    if date_from:
+        qs = qs.filter(date_versement__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(date_versement__date__lte=date_to)
+
+    type_filter = request.query_params.get("type")
+    if type_filter:
+        qs = qs.filter(type=type_filter)
+    member_id = request.query_params.get("member")
+    if member_id:
+        qs = qs.filter(member_id=member_id)
+    q = (request.query_params.get("q") or "").strip()
+    if q:
+        qs = qs.filter(
+            Q(member__numero_membre__icontains=q)
+            | Q(member__nom__icontains=q)
+            | Q(member__prenom__icontains=q)
+            | Q(reference_externe__icontains=q)
+        )
+
+    money = DecimalField(max_digits=14, decimal_places=2)
+
+    def _bucket(statut):
+        agg = qs.filter(statut=statut).aggregate(
+            count=Count("id"),
+            montant=Coalesce(Sum("montant"), 0, output_field=money),
+            frais=Coalesce(Sum("frais_transaction"), 0, output_field=money),
+        )
+        montant = agg["montant"]
+        frais = agg["frais"]
+        return {
+            "count": agg["count"],
+            "montant": str(montant),
+            "frais": str(frais),
+            "total_paye": str(montant + frais),
+        }
+
+    valides = _bucket(Payment.Statut.VALIDE)
+    en_attente = _bucket(Payment.Statut.EN_ATTENTE)
+    rejetes = _bucket(Payment.Statut.REJETE)
+
+    # Ventilation par type sur les VALIDÉS (l'argent réellement encaissé).
+    type_labels = dict(Payment.Type.choices)
+    par_type = []
+    rows = (
+        qs.filter(statut=Payment.Statut.VALIDE)
+        .values("type")
+        .annotate(
+            count=Count("id"),
+            montant=Coalesce(Sum("montant"), 0, output_field=money),
+            frais=Coalesce(Sum("frais_transaction"), 0, output_field=money),
+        )
+        .order_by("-montant")
+    )
+    for r in rows:
+        par_type.append(
+            {
+                "type": r["type"],
+                "type_display": type_labels.get(r["type"], r["type"]),
+                "count": r["count"],
+                "montant": str(r["montant"]),
+                "frais": str(r["frais"]),
+            }
+        )
+
+    return Response(
+        {
+            "period": {
+                "from": date_from.isoformat() if date_from else None,
+                "to": date_to.isoformat() if date_to else None,
+            },
+            "count": qs.count(),
+            "valides": valides,
+            "en_attente": en_attente,
+            "rejetes": rejetes,
+            "par_type": par_type,
+        }
     )
 
 
@@ -1220,6 +1436,9 @@ _CASH_IN_ALLOWED_TYPES = {
     Payment.Type.FRAIS_ADHESION,
     Payment.Type.FRAIS_INSCRIPTION,
     Payment.Type.FRAIS_CARNET,
+    # Vente en agence des carnets dédiés tontine / caisse (parité MoMo).
+    Payment.Type.FRAIS_CARNET_TONTINE,
+    Payment.Type.FRAIS_CARNET_CAISSE,
     Payment.Type.FRAIS_DEMANDE_CREDIT,
     Payment.Type.FRAIS_RECONDUCTION,
     Payment.Type.EPARGNE,
@@ -1295,6 +1514,8 @@ def admin_cash_in_payment(request):
     # la barrière serveur). Même logique que `init_payment` pour les frais.
     _FIXED_FEE_CODE = {
         Payment.Type.FRAIS_CARNET: FeeType.Code.CARNET,
+        Payment.Type.FRAIS_CARNET_TONTINE: FeeType.Code.CARNET_TONTINE,
+        Payment.Type.FRAIS_CARNET_CAISSE: FeeType.Code.CARNET_CAISSE,
         Payment.Type.FRAIS_ADHESION: FeeType.Code.ADHESION,
         Payment.Type.FRAIS_INSCRIPTION: FeeType.Code.INSCRIPTION,
         # FRAIS_RECONDUCTION volontairement absent : ce ne sont pas des frais
@@ -1354,6 +1575,7 @@ def admin_cash_in_payment(request):
     loan = None
     nb_jours_couverts = 1
     is_placement = False
+    special_cycle = None
     if payment_type == Payment.Type.REMBOURSEMENT:
         from apps_coop.loans.models import Loan
         try:
@@ -1414,14 +1636,17 @@ def admin_cash_in_payment(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         # R1 — le cash-in agence applique désormais les MÊMES règles montant que
-        # le canal membre (pas de 50 FCFA + minimum/jour + plafond multi-jours).
+        # le canal membre (pas de 50 FCFA + minimum/jour + plafond multi-jours),
+        # ET le prérequis carnet collecte (une écriture ne se fait qu'en carnet).
         from .deposit_validation import (
             DepositValidationError,
+            ensure_savings_carnet,
             validate_collecte_deposit,
         )
 
         _test_any = getattr(settings, "PAYMENTS_TEST_ALLOW_ANY_AMOUNT", False)
         try:
+            ensure_savings_carnet(member)
             validate_collecte_deposit(
                 montant=montant,
                 nb_jours=nb_jours_couverts,
@@ -1438,12 +1663,14 @@ def admin_cash_in_payment(request):
         # serait marquée « placement » sans tranche → argent non gelé).
         from .deposit_validation import (
             DepositValidationError,
+            ensure_savings_carnet,
             validate_classique_deposit,
             validate_placement_window,
         )
 
         _test_any = getattr(settings, "PAYMENTS_TEST_ALLOW_ANY_AMOUNT", False)
         try:
+            ensure_savings_carnet(member)
             validate_classique_deposit(montant=montant, allow_any_amount=_test_any)
             if is_placement:
                 validate_placement_window(member)
@@ -1476,6 +1703,43 @@ def admin_cash_in_payment(request):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+    elif payment_type in (
+        Payment.Type.CAISSE_SCOLAIRE,
+        Payment.Type.TONTINE_ALIMENTAIRE,
+    ):
+        # Versement manuel (agence) d'une collecte particulière : cible une
+        # collecte précise, exige participation validée + carnet du type +
+        # plancher par versement — même barrière que le canal Mobile Money.
+        from apps_coop.special_collections.models import (
+            SpecialCollectionMembership,
+        )
+        from apps_coop.special_collections.services import (
+            SpecialCollectionError,
+            _ensure_carnet_and_floor,
+            _resolve_open_cycle,
+        )
+
+        try:
+            special_cycle = _resolve_open_cycle(
+                type=payment_type, cycle_id=data.get("cycle_id")
+            )
+            membership = SpecialCollectionMembership.objects.filter(
+                member=member, cycle=special_cycle
+            ).first()
+            if membership is None or not membership.is_active:
+                return Response(
+                    {
+                        "detail": (
+                            "Participation non validée dans cette collecte."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            _ensure_carnet_and_floor(member, special_cycle, membership, montant)
+        except SpecialCollectionError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST
+            )
 
     reference_externe = (data.get("reference_externe") or "").strip()[:64]
     note = (data.get("note") or "").strip()[:500]
@@ -1500,6 +1764,7 @@ def admin_cash_in_payment(request):
             reference_externe=reference_externe,
             nb_jours_couverts=nb_jours_couverts,
             is_placement=is_placement,
+            special_cycle=special_cycle,
         )
         # Execution du hook business . meme code que webhook Tara.
         from .services import _BUSINESS_HOOKS
@@ -1549,6 +1814,41 @@ def admin_cash_in_payment(request):
         PaymentReadSerializer(payment).data,
         status=status.HTTP_201_CREATED,
     )
+
+
+@extend_schema(
+    tags=["payments"],
+    summary="🔒 Admin — débit manuel (agence) sur un compte membre",
+    description=(
+        "Débit direct immédiat, symétrique du cash-in. Mode retrait simple "
+        "(compte collecte/classique + motif) OU prélèvement d'un frais du barème "
+        "(fee_code) réglé depuis l'épargne classique."
+    ),
+    responses={200: OpenApiResponse(description="Débit effectué")},
+)
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def admin_manual_debit(request):
+    from django.shortcuts import get_object_or_404
+
+    from apps_coop.members.models import Member
+
+    from .manual_debit_services import ManualDebitError, manual_debit
+
+    member = get_object_or_404(Member, pk=request.data.get("member_id"))
+    try:
+        result = manual_debit(
+            member=member,
+            compte=request.data.get("compte") or "classique",
+            montant=request.data.get("montant"),
+            motif=request.data.get("motif") or "",
+            fee_code=request.data.get("fee_code") or None,
+            is_renewal=bool(request.data.get("is_renewal", False)),
+            actor=request.user,
+        )
+    except ManualDebitError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(result)
 
 
 @extend_schema(

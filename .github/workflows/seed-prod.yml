@@ -32,6 +32,10 @@ on:
         description: "Fixer le frais de transaction à 3% sur le versement seul (ÉCRASE la valeur actuelle) ?"
         type: boolean
         default: false
+      backfill_ecriture_carnets:
+        description: "Rattacher les écritures historiques à leur carnet (backfill_ecriture_carnets --commit, non destructif, une seule fois) ?"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -93,6 +97,15 @@ jobs:
               $COMPOSE exec -T backend python manage.py set_transaction_fee --rate 0.03 --operations versement
             else
               echo ">>> set_transaction_fee skipped"
+            fi
+
+            if [ "${{ inputs.backfill_ecriture_carnets }}" = "true" ]; then
+              echo ">>> backfill_ecriture_carnets (dry-run)"
+              $COMPOSE exec -T backend python manage.py backfill_ecriture_carnets
+              echo ">>> backfill_ecriture_carnets --commit"
+              $COMPOSE exec -T backend python manage.py backfill_ecriture_carnets --commit
+            else
+              echo ">>> backfill_ecriture_carnets skipped"
             fi
 
             echo ">>> Done."

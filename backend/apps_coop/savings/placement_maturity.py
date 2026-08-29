@@ -22,6 +22,8 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db import transaction
 from django.utils import timezone
 
+from apps_coop.members.models import BookletOrder
+
 _TWO_DP = Decimal("0.01")
 DEFAULT_MATURITY_MMDD = "01-01"
 # Taux MENSUEL par défaut du placement (tunable). 0.01 = 1 %/mois.
@@ -119,6 +121,7 @@ def process_placement_maturity(today: date | None = None) -> dict:
                     montant=interest,
                     solde_apres=nouveau_solde,
                     date=timezone.now(),
+                    booklet_order=BookletOrder.latest_for(member),
                 )
                 account.solde = nouveau_solde
                 account.save(update_fields=["solde", "updated_at"])

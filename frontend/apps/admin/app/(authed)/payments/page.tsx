@@ -2,14 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SkeletonList } from "@gathe/ui";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Minus } from "lucide-react";
 
 import { CashInModal } from "@/components/cash-in-modal";
+import { ManualDebitModal } from "@/components/manual-debit-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { Pagination } from "@/components/pagination";
-import { adminApi, type ApiError, type PaymentRow } from "@/lib/api";
+import {
+  adminApi,
+  type ApiError,
+  type PaymentRow,
+  type PaymentStats,
+} from "@/lib/api";
 import { fullName } from "@/lib/name";
 import { StatusPill } from "@/components/status-pill";
 
@@ -38,7 +44,15 @@ export default function PaymentsPage() {
 function Inner() {
   const [statut, setStatut] = useState<StatutFilter>("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("");
-  const [q, setQ] = useState("");
+  // Deep-link « voir ce paiement » : ?q=<id> dans l'URL (ex. « Paiement #52 »
+  // depuis une commande de carnet) initialise la recherche DÈS le 1er rendu,
+  // pour que tous les chargements (y compris le double-invoke StrictMode en dev)
+  // partent du bon `q` — sinon un chargement « tout » écrase le filtré.
+  const [q, setQ] = useState(() =>
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("q") ?? ""
+      : "",
+  );
   const [items, setItems] = useState<PaymentRow[]>([]);
   const [count, setCount] = useState(0);
   const [limit, setLimit] = useState(25);
@@ -47,18 +61,44 @@ function Inner() {
   const [error, setError] = useState<string | null>(null);
   // B1 . Cash-in modal admin (saisie versement agence).
   const [cashInOpen, setCashInOpen] = useState(false);
+  const [debitOpen, setDebitOpen] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   // Invalidation : cible de la modale de confirmation (remplace window.prompt).
   const [invalidateTarget, setInvalidateTarget] = useState<PaymentRow | null>(null);
 
-  async function reload() {
+  // État global (totaux essentiels) — agrégats sur TOUS les paiements, filtrables
+  // par période. Indépendant de la pagination de la table.
+  const [stats, setStats] = useState<PaymentStats | null>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  // `reload`/`loadStats` acceptent un override de `q` : au tout premier montage
+  // on applique un éventuel deep-link `?q=<id>` (ex. « voir ce paiement » depuis
+  // une commande de carnet) en UN SEUL fetch — sinon un chargement « tout » et
+  // le chargement filtré se courent après et le mauvais gagne.
+  async function loadStats(qOverride?: string) {
+    try {
+      const res = await adminApi.payments.stats({
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+        type: typeFilter || undefined,
+        q: (qOverride ?? q).trim() || undefined,
+      });
+      setStats(res);
+    } catch {
+      // Le bandeau est secondaire : on n'interrompt pas la page en cas d'échec.
+      setStats(null);
+    }
+  }
+
+  async function reload(qOverride?: string) {
     setLoading(true);
     setError(null);
     try {
       const res = await adminApi.payments.list({
         statut: statut || undefined,
         type: typeFilter || undefined,
-        q: q.trim() || undefined,
+        q: (qOverride ?? q).trim() || undefined,
         limit,
         offset,
       });
@@ -77,11 +117,25 @@ function Inner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statut, typeFilter, limit, offset]);
 
+  // Bandeau « état global » : recharge sur changement de période ou de type.
+  useEffect(() => {
+    loadStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo, typeFilter]);
+
   const totalValide = useMemo(
     () =>
       items
         .filter((p) => p.statut === "valide")
         .reduce((acc, p) => acc + Number(p.montant || 0), 0),
+    [items],
+  );
+
+  const totalFrais = useMemo(
+    () =>
+      items
+        .filter((p) => p.statut === "valide")
+        .reduce((acc, p) => acc + Number(p.frais_transaction || 0), 0),
     [items],
   );
 
@@ -153,6 +207,48 @@ function Inner() {
       ),
     },
     {
+      // Frais de transaction facturés EN PLUS du montant (3% MoMo, 0 en agence).
+      key: "frais",
+      label: "Frais",
+      numeric: true,
+      align: "right",
+      text: (p) => p.frais_transaction ?? "0",
+      render: (p) => {
+        const frais = Number(p.frais_transaction || 0);
+        return frais > 0 ? (
+          <span className="font-mono text-sm text-amber-700">
+            +{frais.toLocaleString("fr-FR")}
+            <span className="ml-1 text-xs text-amber-600/70">XAF</span>
+          </span>
+        ) : (
+          <span className="text-xs text-ink-400"></span>
+        );
+      },
+    },
+    {
+      // Total réellement débité au membre = montant initié + frais.
+      key: "total",
+      label: "Total payé",
+      numeric: true,
+      align: "right",
+      text: (p) => String(Number(p.montant || 0) + Number(p.frais_transaction || 0)),
+      render: (p) => {
+        const total = Number(p.montant || 0) + Number(p.frais_transaction || 0);
+        const frais = Number(p.frais_transaction || 0);
+        return (
+          <span className="font-mono text-sm font-semibold text-ink-900">
+            {total.toLocaleString("fr-FR")}
+            <span className="ml-1 text-xs text-ink-500">XAF</span>
+            {frais > 0 ? (
+              <span className="ml-1 block text-[10px] font-normal text-ink-400">
+                {Number(p.montant).toLocaleString("fr-FR")} + {frais.toLocaleString("fr-FR")}
+              </span>
+            ) : null}
+          </span>
+        );
+      },
+    },
+    {
       key: "source",
       label: "Canal",
       defaultVisible: false,
@@ -196,6 +292,7 @@ function Inner() {
       setFlash("Paiement invalidé — effet contre-passé.");
       setInvalidateTarget(null);
       await reload();
+      loadStats();
     } catch (err) {
       setError((err as ApiError).detail ?? "Invalidation impossible.");
       setInvalidateTarget(null);
@@ -217,6 +314,15 @@ function Inner() {
               {totalValide.toLocaleString("fr-FR")}
             </span>
             <span>XAF validés (vue actuelle)</span>
+            {totalFrais > 0 ? (
+              <>
+                <span className="text-ink-400">·</span>
+                <span className="font-mono text-amber-700 font-medium">
+                  +{totalFrais.toLocaleString("fr-FR")}
+                </span>
+                <span>XAF de frais</span>
+              </>
+            ) : null}
             <button
               type="button"
               onClick={() => setCashInOpen(true)}
@@ -226,9 +332,128 @@ function Inner() {
               <Plus className="size-3.5" />
               Saisir versement agence
             </button>
+            <button
+              type="button"
+              onClick={() => setDebitOpen(true)}
+              title="Débiter un compte membre (retrait agence) ou prélever un frais depuis l'épargne"
+              className="inline-flex items-center gap-1.5 rounded-md border border-terra-300 px-3 py-2 text-xs font-medium text-terra-700 hover:bg-terra-50"
+            >
+              <Minus className="size-3.5" />
+              Débit / prélèvement
+            </button>
           </div>
         }
       />
+
+      {/* État global — totaux essentiels sur TOUS les paiements, filtrables par
+          période (indépendant de la pagination de la table ci-dessous). */}
+      <section className="rounded-lg border border-line-200 bg-paper p-4">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-ink-900">État global</h2>
+            <p className="text-xs text-ink-500">
+              {stats?.period.from || stats?.period.to
+                ? `Période : ${stats?.period.from ?? "…"} → ${stats?.period.to ?? "…"}`
+                : "Sur l'ensemble de l'historique (aucune période sélectionnée)."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col text-[11px] font-medium text-ink-500">
+              Du
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="mt-0.5 rounded-md border border-line-200 bg-paper px-2 py-1.5 text-sm text-ink-900 focus:border-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-700"
+              />
+            </label>
+            <label className="flex flex-col text-[11px] font-medium text-ink-500">
+              Au
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="mt-0.5 rounded-md border border-line-200 bg-paper px-2 py-1.5 text-sm text-ink-900 focus:border-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-700"
+              />
+            </label>
+            <div className="flex gap-1">
+              <PeriodPreset
+                label="Aujourd'hui"
+                onClick={() => {
+                  const t = todayISO();
+                  setDateFrom(t);
+                  setDateTo(t);
+                }}
+              />
+              <PeriodPreset
+                label="Ce mois"
+                onClick={() => {
+                  const now = new Date();
+                  setDateFrom(
+                    isoDate(new Date(now.getFullYear(), now.getMonth(), 1)),
+                  );
+                  setDateTo(todayISO());
+                }}
+              />
+              <PeriodPreset
+                label="Tout"
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatTile
+            label="Encaissé (validés)"
+            value={stats ? Number(stats.valides.montant) : 0}
+            count={stats?.valides.count ?? 0}
+            tone="emerald"
+          />
+          <StatTile
+            label="Frais encaissés"
+            value={stats ? Number(stats.valides.frais) : 0}
+            count={stats?.valides.count ?? 0}
+            tone="amber"
+          />
+          <StatTile
+            label="En attente"
+            value={stats ? Number(stats.en_attente.montant) : 0}
+            count={stats?.en_attente.count ?? 0}
+            tone="ink"
+          />
+          <StatTile
+            label="Rejetés"
+            value={stats ? Number(stats.rejetes.montant) : 0}
+            count={stats?.rejetes.count ?? 0}
+            tone="terra"
+          />
+        </div>
+
+        {stats && stats.par_type.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-line-200 pt-4">
+            {stats.par_type.map((t) => (
+              <div
+                key={t.type}
+                className="rounded-md border border-line-200 bg-paper-soft/40 px-3 py-2"
+              >
+                <p className="text-[11px] font-medium text-ink-500">
+                  {t.type_display}
+                </p>
+                <p className="font-mono text-sm font-semibold text-ink-900">
+                  {Number(t.montant).toLocaleString("fr-FR")}
+                  <span className="ml-1 text-[10px] font-normal text-ink-400">
+                    XAF · {t.count}
+                  </span>
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
 
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
         <FilterPills
@@ -273,6 +498,7 @@ function Inner() {
             e.preventDefault();
             setOffset(0);
             reload();
+            loadStats();
           }}
           className="flex min-w-[240px] flex-1 items-center gap-2"
         >
@@ -361,6 +587,18 @@ function Inner() {
           setFlash(msg);
           setTimeout(() => setFlash(null), 4500);
           reload();
+          loadStats();
+        }}
+      />
+
+      <ManualDebitModal
+        open={debitOpen}
+        onClose={() => setDebitOpen(false)}
+        onSuccess={(msg) => {
+          setFlash(msg);
+          setTimeout(() => setFlash(null), 4500);
+          reload();
+          loadStats();
         }}
       />
 
@@ -370,9 +608,9 @@ function Inner() {
         open={invalidateTarget !== null}
         onClose={() => setInvalidateTarget(null)}
         onConfirm={confirmInvalidate}
-        title="Invalider ce paiement ?"
+        title="Invalider / annuler ce paiement ?"
         tone="danger"
-        confirmLabel="Invalider"
+        confirmLabel="Annuler le paiement"
         message={
           invalidateTarget ? (
             <>
@@ -380,9 +618,10 @@ function Inner() {
               <strong>
                 {Number(invalidateTarget.montant).toLocaleString("fr-FR")} XAF
               </strong>{" "}
-              ({invalidateTarget.type_display}) sera marqué rejeté et son effet
-              (épargne / remboursement / décaissement) <strong>contre-passé</strong>.
-              Action tracée et irréversible.
+              ({invalidateTarget.type_display}) sera marqué rejeté et son effet{" "}
+              <strong>contre-passé</strong> — épargne collecte/classique,
+              remboursement crédit, collecte particulière ou cagnotte de tontine
+              de groupe (le compte concerné est ramené du montant). Action tracée.
             </>
           ) : null
         }
@@ -396,6 +635,68 @@ function Inner() {
   );
 }
 
+
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
+}
+
+function todayISO(): string {
+  return isoDate(new Date());
+}
+
+const STAT_TONES: Record<string, string> = {
+  emerald: "text-emerald",
+  amber: "text-amber-700",
+  terra: "text-terra-700",
+  ink: "text-ink-900",
+};
+
+function StatTile({
+  label,
+  value,
+  count,
+  tone,
+}: {
+  label: string;
+  value: number;
+  count: number;
+  tone: "emerald" | "amber" | "terra" | "ink";
+}) {
+  return (
+    <div className="rounded-md border border-line-200 bg-paper-soft/40 px-3 py-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-ink-500">
+        {label}
+      </p>
+      <p className={`mt-1 font-mono text-lg font-semibold ${STAT_TONES[tone]}`}>
+        {value.toLocaleString("fr-FR")}
+        <span className="ml-1 text-[10px] font-normal text-ink-400">XAF</span>
+      </p>
+      <p className="text-[11px] text-ink-400">
+        {count} paiement{count > 1 ? "s" : ""}
+      </p>
+    </div>
+  );
+}
+
+function PeriodPreset({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-md border border-line-200 bg-paper px-2 py-1.5 text-[11px] font-medium text-ink-600 hover:border-blue-700 hover:text-blue-700"
+    >
+      {label}
+    </button>
+  );
+}
 
 function FilterPills<T extends string>({
   label,

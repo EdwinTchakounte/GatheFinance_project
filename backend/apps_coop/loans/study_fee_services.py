@@ -25,6 +25,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps_coop.audit.services import record as record_audit
+from apps_coop.members.models import BookletOrder
 
 from .models import LoanRequest
 
@@ -115,6 +116,7 @@ def pay_study_fee_from_savings(loan_request: LoanRequest) -> "object":
         montant=montant,
         solde_apres=account.solde,
         date=now,
+        booklet_order=BookletOrder.latest_for(account.member),
     )
 
     record_audit(

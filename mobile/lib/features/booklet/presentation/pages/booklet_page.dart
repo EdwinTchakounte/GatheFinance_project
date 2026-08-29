@@ -286,6 +286,19 @@ class _PendingOrderCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+                    // Type de carnet (collecte / tontine / caisse) — carnet par
+                    // type. Affiché seulement si le backend le renvoie.
+                    if (order.typeDisplay.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        order.typeDisplay,
+                        style: const TextStyle(
+                          color: PaColors.teal,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -527,6 +540,17 @@ class _ActiveBookletCard extends StatelessWidget {
                         height: 1.35,
                       ),
                     ),
+                    if (order.typeDisplay.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        order.typeDisplay,
+                        style: const TextStyle(
+                          color: PaColors.teal,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

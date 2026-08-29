@@ -78,10 +78,12 @@ def test_on_idempotent_si_relance(member_client, active_member, init_payload):
     r2 = member_client.post("/api/v1/payments/init/", data=init_payload, format="json")
     assert r1.status_code == 201
     assert r2.status_code == 201
+    # Le membre porte déjà un Payment frais_carnet (activation) → on ne compte
+    # que les dépôts validés par les deux init.
     assert (
-        Payment.objects.filter(
-            member=active_member, statut=Payment.Statut.VALIDE
-        ).count()
+        Payment.objects.filter(member=active_member, statut=Payment.Statut.VALIDE)
+        .exclude(type=Payment.Type.FRAIS_CARNET)
+        .count()
         == 2
     )
 

@@ -8,6 +8,7 @@ import {
   type ApiError,
   type LoanRequest,
   type Member,
+  type SpecialCollectionCycleRow,
 } from "@/lib/api";
 import { fullName } from "@/lib/name";
 
@@ -16,6 +17,8 @@ type CashInType =
   | "frais_adhesion"
   | "frais_inscription"
   | "frais_carnet"
+  | "frais_carnet_tontine"
+  | "frais_carnet_caisse"
   | "frais_demande_credit"
   | "epargne"
   | "epargne_classique"
@@ -28,7 +31,9 @@ type CashInType =
 const TYPE_OPTIONS: { value: CashInType; label: string }[] = [
   { value: "frais_adhesion", label: "Frais d'adhésion (10 000)" },
   { value: "frais_inscription", label: "Frais d'inscription (2 000)" },
-  { value: "frais_carnet", label: "Frais de carnet (1 000)" },
+  { value: "frais_carnet", label: "Frais de carnet collecte (1 000)" },
+  { value: "frais_carnet_tontine", label: "Frais de carnet tontine" },
+  { value: "frais_carnet_caisse", label: "Frais de carnet caisse scolaire" },
   { value: "frais_demande_credit", label: "Frais demande de crédit (CH-7)" },
   { value: "epargne", label: "Collecte journalière" },
   { value: "epargne_classique", label: "Épargne classique (libre / placement)" },
@@ -38,6 +43,9 @@ const TYPE_OPTIONS: { value: CashInType; label: string }[] = [
   { value: "remboursement", label: "Remboursement de crédit" },
 ];
 
+// Types « collecte particulière » (versement manuel ciblant une collecte).
+const SPECIAL_TYPES: CashInType[] = ["caisse_scolaire", "tontine_alimentaire"];
+
 
 // Frais FIXES : le montant est arrêté dans le catalogue (FeeType), l'admin ne
 // doit PAS pouvoir valider un montant différent. On mappe le type de versement
@@ -46,6 +54,8 @@ const FIXED_FEE_CODE: Partial<Record<CashInType, string>> = {
   frais_adhesion: "ADHESION",
   frais_inscription: "INSCRIPTION",
   frais_carnet: "CARNET",
+  frais_carnet_tontine: "CARNET_TONTINE",
+  frais_carnet_caisse: "CARNET_CAISSE",
   frais_demande_credit: "DEMANDE_CREDIT",
 };
 
@@ -99,6 +109,10 @@ export function CashInModal({
   const [isPlacement, setIsPlacement] = useState(false);
   // D6 . Flag renouvellement annuel pour frais_carnet.
   const [isRenewal, setIsRenewal] = useState(false);
+  // Collectes particulières : choix de la collecte ouverte ciblée.
+  const [openCycles, setOpenCycles] = useState<SpecialCollectionCycleRow[]>([]);
+  const [cycleId, setCycleId] = useState("");
+  const isSpecial = SPECIAL_TYPES.includes(paymentType);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -138,6 +152,8 @@ export function CashInModal({
     setNbJours("1");
     setIsPlacement(false);
     setIsRenewal(false);
+    setOpenCycles([]);
+    setCycleId("");
     setPendingRequests([]);
     setError(null);
   }
@@ -225,6 +241,31 @@ export function CashInModal({
     return () => clearTimeout(handle);
   }, [memberQuery, open, selectedMember]);
 
+  // Collectes particulières : charge les collectes OUVERTES du type choisi
+  // pour laisser l'admin cibler celle qu'il alimente.
+  useEffect(() => {
+    if (!open || !isSpecial) {
+      setOpenCycles([]);
+      return;
+    }
+    let cancelled = false;
+    adminApi.specialCollections.cycles
+      .list(paymentType)
+      .then((rows) => {
+        if (cancelled) return;
+        const opens = rows.filter((c) => c.is_open);
+        setOpenCycles(opens);
+        // Pré-sélection si une seule collecte ouverte.
+        setCycleId(opens.length === 1 && opens[0] ? String(opens[0].id) : "");
+      })
+      .catch(() => {
+        if (!cancelled) setOpenCycles([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isSpecial, paymentType]);
+
   // Frais de crédit : charge la (les) demande(s) en attente du membre pour
   // afficher/confirmer le « crédit demandé » à la sélection.
   useEffect(() => {
@@ -280,6 +321,10 @@ export function CashInModal({
       setError("Numéro de crédit requis pour un remboursement.");
       return;
     }
+    if (isSpecial && !cycleId) {
+      setError("Choisis la collecte à alimenter.");
+      return;
+    }
 
     const payload: Parameters<typeof adminApi.payments.cashIn>[0] = {
       member_id: selectedMember.id,
@@ -299,6 +344,9 @@ export function CashInModal({
     }
     if (paymentType === "frais_carnet" && isRenewal) {
       payload.is_renewal = true;
+    }
+    if (isSpecial && cycleId) {
+      payload.cycle_id = Number(cycleId);
     }
 
     setSubmitting(true);
@@ -542,6 +590,35 @@ export function CashInModal({
               placeholder="ex. 42"
               className={modalInputClass}
             />
+          </ModalField>
+        ) : null}
+
+        {isSpecial ? (
+          <ModalField
+            label="Collecte ciblée"
+            hint="Le versement crédite la participation validée du membre dans CETTE collecte (le membre doit posséder le carnet du type)."
+          >
+            {openCycles.length === 0 ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-700">
+                Aucune collecte ouverte pour ce type. Ouvre-en une d'abord.
+              </p>
+            ) : (
+              <select
+                value={cycleId}
+                onChange={(e) => setCycleId(e.target.value)}
+                className={modalInputClass}
+              >
+                <option value="">— Choisir une collecte —</option>
+                {openCycles.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nom}
+                    {Number(c.montant_minimal ?? 0) > 0
+                      ? ` (min ${Number(c.montant_minimal).toLocaleString("fr-FR")})`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            )}
           </ModalField>
         ) : null}
 

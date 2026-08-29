@@ -372,6 +372,7 @@ class BookletOrderReadSerializer(serializers.ModelSerializer):
     """Vue membre/portail d'une commande de carnet (lecture seule)."""
 
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    type_display = serializers.CharField(source="get_type_display", read_only=True)
 
     class Meta:
         from .models import BookletOrder as _BookletOrder
@@ -379,6 +380,7 @@ class BookletOrderReadSerializer(serializers.ModelSerializer):
         model = _BookletOrder
         fields = (
             "id", "statut", "statut_display",
+            "type", "type_display",
             "date_impression", "date_delivrance",
             "annee",  # L7 — plusieurs carnets/an
             "created_at",
@@ -390,6 +392,9 @@ class BookletOrderAdminSerializer(serializers.ModelSerializer):
     """Vue admin d'une commande de carnet . inclut le membre + notes agence."""
 
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    # Type de carnet (collecte / tontine / caisse) : indispensable à l'agence
+    # pour imprimer/délivrer LE BON carnet — carnet par type.
+    type_display = serializers.CharField(source="get_type_display", read_only=True)
     member_id = serializers.IntegerField(source="member.id", read_only=True)
     member_nom = serializers.SerializerMethodField()
     member_prenom = serializers.CharField(source="member.prenom", read_only=True)
@@ -399,6 +404,17 @@ class BookletOrderAdminSerializer(serializers.ModelSerializer):
     payment_montant = serializers.DecimalField(
         source="payment.montant", max_digits=14, decimal_places=2, read_only=True,
     )
+    # Frais de transaction du paiement (Tara/Mobile Money) : 0 si versé en
+    # agence (manuel) ou par déduction épargne. `payment_source` sert à afficher
+    # d'où vient le paiement (ex. Tara pour Mobile Money).
+    payment_frais = serializers.DecimalField(
+        source="payment.frais_transaction", max_digits=14, decimal_places=2,
+        read_only=True,
+    )
+    payment_source = serializers.CharField(source="payment.source", read_only=True)
+    payment_source_display = serializers.CharField(
+        source="payment.get_source_display", read_only=True,
+    )
 
     class Meta:
         from .models import BookletOrder as _BookletOrder
@@ -406,12 +422,14 @@ class BookletOrderAdminSerializer(serializers.ModelSerializer):
         model = _BookletOrder
         fields = (
             "id", "statut", "statut_display",
+            "type", "type_display",
             "date_impression", "date_delivrance",
             "notes_agence",
             "annee",  # L7 — plusieurs carnets/an
             "member_id", "member_nom", "member_prenom",
             "member_numero", "member_phone",
             "payment_id", "payment_montant",
+            "payment_frais", "payment_source", "payment_source_display",
             "created_at",
         )
         read_only_fields = tuple(f for f in fields if f != "notes_agence")

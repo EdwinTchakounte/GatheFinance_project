@@ -58,10 +58,11 @@ def test_backup_writes_jsonl_with_manifest_and_rows(settings, tmp_path):
     manifest = lines[0]
     assert manifest.get("_manifest") is True
     assert "payments.Payment" in manifest["models"]
-    # Au moins l'écriture Payment créée doit figurer dans le dump.
+    # Au moins l'écriture Payment créée doit figurer dans le dump (le membre
+    # porte aussi un Payment frais_carnet d'activation → on cherche le 1 500).
     payment_rows = [r for r in lines[1:] if r.get("model") == "payments.payment"]
     assert len(payment_rows) >= 1
-    assert payment_rows[0]["fields"]["montant"] == "1500.00"
+    assert any(r["fields"]["montant"] == "1500.00" for r in payment_rows)
 
 
 def test_backup_is_non_destructive(settings, tmp_path):

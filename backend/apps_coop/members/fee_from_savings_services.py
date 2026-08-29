@@ -17,6 +17,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps_coop.audit.services import record as record_audit
+from apps_coop.members.models import BookletOrder
 
 
 class FeePaymentError(ValueError):
@@ -129,6 +130,7 @@ def pay_membership_fee_from_savings(member, fee_code: str) -> "object":
             montant=pris,
             solde_apres=classic.solde,
             date=now,
+            booklet_order=BookletOrder.latest_for(classic.member),
         )
         reste -= pris
     if collecte is not None and reste > 0:
@@ -142,6 +144,7 @@ def pay_membership_fee_from_savings(member, fee_code: str) -> "object":
             montant=pris,
             solde_apres=collecte.solde,
             date=now,
+            booklet_order=BookletOrder.latest_for(collecte.member),
         )
         reste -= pris
 

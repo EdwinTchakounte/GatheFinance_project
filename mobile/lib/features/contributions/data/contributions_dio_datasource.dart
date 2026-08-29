@@ -47,6 +47,7 @@ class ContributionsDioDataSource implements ContributionsRemoteDataSource {
       id: (json['id'] as num).toInt(),
       type: _typeFromApi(rawType),
       montant: _num(json['montant']),
+      frais: _num(json['frais_transaction']),
       statut: _statutFromApi((json['statut'] as String?) ?? 'en_attente'),
       date: _date(json['date_versement'] ?? json['created_at']),
       reference: (json['reference_externe'] as String?) ?? '',

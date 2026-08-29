@@ -44,7 +44,10 @@ from .services import (
     SpecialCollectionError,
     close_cycle,
     current_open_cycle,
+    decaisser_participation,
+    member_carnet_for,
     open_cycle,
+    open_cycles,
     reject_participation,
     request_participation,
     transfer_from_classic,
@@ -56,27 +59,40 @@ from .services import (
 @api_view(["GET"])
 @permission_classes([IsMember])
 def my_collections(request):
-    """Pour chaque type : le cycle ouvert (le cas échéant) et ma participation
-    dans ce cycle (le cas échéant)."""
+    """Pour chaque type : la LISTE des collectes ouvertes (plusieurs possibles),
+    chacune avec ma participation, + si j'ai le carnet requis pour verser."""
     member = request.user.member
     out = []
-    for type_, _label in SpecialCollectionMembership.Type.choices:
-        cycle = current_open_cycle(type_)
-        membership = None
-        if cycle is not None:
+    for type_, label in SpecialCollectionMembership.Type.choices:
+        has_carnet = member_carnet_for(member, type_) is not None
+        cycles_out = []
+        for cycle in open_cycles(type_):
             membership = SpecialCollectionMembership.objects.filter(
                 member=member, cycle=cycle
             ).first()
+            cycles_out.append(
+                {
+                    "cycle": SpecialCollectionCycleSerializer(cycle).data,
+                    "membership": (
+                        SpecialCollectionMembershipSerializer(membership).data
+                        if membership
+                        else None
+                    ),
+                }
+            )
         out.append(
             {
                 "type": type_,
-                "type_display": dict(SpecialCollectionMembership.Type.choices)[type_],
-                "cycle": SpecialCollectionCycleSerializer(cycle).data if cycle else None,
-                "membership": (
-                    SpecialCollectionMembershipSerializer(membership).data
-                    if membership
-                    else None
-                ),
+                "type_display": label,
+                # Carnet du type acheté ? (prérequis pour verser)
+                "has_carnet": has_carnet,
+                "cycles": cycles_out,
+                # RÉTRO-COMPAT ancienne APK (lit `cycle`/`membership` au niveau
+                # du type) : on expose la collecte ouverte la plus récente. La
+                # nouvelle app utilise `cycles`. À retirer une fois l'APK à jour
+                # partout.
+                "cycle": cycles_out[0]["cycle"] if cycles_out else None,
+                "membership": cycles_out[0]["membership"] if cycles_out else None,
             }
         )
     return Response(out)
@@ -92,6 +108,7 @@ def request_collection(request):
         membership = request_participation(
             member=request.user.member,
             type=data["type"],
+            cycle_id=data.get("cycle_id"),
             objectif=data["objectif"],
             montant_cible=data.get("montant_cible"),
             form_payload=data.get("extra") or {},
@@ -107,7 +124,13 @@ def request_collection(request):
 @api_view(["GET"])
 @permission_classes([IsMember])
 def my_collection_transactions(request, type: str):
-    cycle = current_open_cycle(type)
+    """Ledger d'une collecte. ``?cycle=<id>`` cible une collecte précise ;
+    sinon la plus récente ouverte."""
+    cycle_id = request.query_params.get("cycle")
+    if cycle_id:
+        cycle = SpecialCollectionCycle.objects.filter(pk=cycle_id, type=type).first()
+    else:
+        cycle = current_open_cycle(type)
     if cycle is None:
         return Response([])
     membership = SpecialCollectionMembership.objects.filter(
@@ -129,6 +152,7 @@ def transfer(request):
         row = transfer_from_classic(
             member=request.user.member,
             type=data["type"],
+            cycle_id=data.get("cycle_id"),
             montant=data["montant"],
         )
     except SpecialCollectionError as e:
@@ -188,6 +212,34 @@ def admin_reject(request, pk: int):
     return Response(SpecialCollectionAdminSerializer(membership).data)
 
 
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_decaisser(request, pk: int):
+    """Décaissement d'une participation : débite le solde et sort l'argent
+    (vers l'épargne classique du membre OU en espèces agence)."""
+    from decimal import Decimal, InvalidOperation
+
+    membership = get_object_or_404(SpecialCollectionMembership, pk=pk)
+    try:
+        montant = Decimal(str(request.data.get("montant") or "0"))
+    except (InvalidOperation, TypeError):
+        return Response({"detail": "Montant invalide."}, status=status.HTTP_400_BAD_REQUEST)
+    destination = str(request.data.get("destination") or "epargne")
+    try:
+        decaisser_participation(
+            member=membership.member,
+            cycle_id=membership.cycle_id,
+            montant=montant,
+            destination=destination,
+            note=str(request.data.get("note") or ""),
+            by=request.user,
+        )
+    except SpecialCollectionError as e:
+        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    membership.refresh_from_db()
+    return Response(SpecialCollectionAdminSerializer(membership).data)
+
+
 # ── Admin — cycles ────────────────────────────────────────────────────────────
 @api_view(["GET", "POST"])
 @permission_classes([IsStaff])
@@ -200,6 +252,8 @@ def admin_cycles(request):
             cycle = open_cycle(
                 type=data["type"],
                 nom=data["nom"],
+                description=data.get("description", ""),
+                montant_minimal=data.get("montant_minimal"),
                 date_debut=data.get("date_debut"),
                 date_fin=data.get("date_fin"),
                 by=request.user,

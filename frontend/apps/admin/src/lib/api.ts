@@ -672,6 +672,8 @@ export type BookletOrderAdmin = {
   id: number;
   statut: "payee" | "en_impression" | "delivree";
   statut_display: string;
+  type: "collecte" | "tontine" | "caisse_scolaire";
+  type_display: string;
   date_impression: string | null;
   date_delivrance: string | null;
   notes_agence: string;
@@ -682,7 +684,24 @@ export type BookletOrderAdmin = {
   member_phone: string;
   payment_id: number;
   payment_montant: string;
+  payment_frais: string;
+  payment_source: string;
+  payment_source_display: string;
   created_at: string;
+};
+
+// État d'un carnet (agrégat des écritures rattachées) — vue « par carnet ».
+export type BookletSummary = {
+  booklet_order: number;
+  type: string;
+  type_display: string;
+  annee: number | null;
+  count: number;
+  collecte_count: number;
+  classique_count: number;
+  total_credit: string;
+  total_debit: string;
+  solde_net: string;
 };
 
 // Refonte 2026 — LOT 5 Renouvellements épargne classique.
@@ -709,6 +728,8 @@ export type RenewalRow = {
 export type PaymentRow = {
   id: number;
   montant: string;
+  // Frais de transaction (%) facturés EN PLUS du montant (3% MoMo, 0 en agence).
+  frais_transaction: string;
   type: string;
   type_display: string;
   source: string;
@@ -728,6 +749,29 @@ export type PaymentRow = {
     nom: string;
     prenom: string;
   };
+};
+
+// État global des paiements (bandeau de synthèse), filtrable par période.
+export type PaymentStatsBucket = {
+  count: number;
+  montant: string;
+  frais: string;
+  total_paye: string;
+};
+
+export type PaymentStats = {
+  period: { from: string | null; to: string | null };
+  count: number;
+  valides: PaymentStatsBucket;
+  en_attente: PaymentStatsBucket;
+  rejetes: PaymentStatsBucket;
+  par_type: Array<{
+    type: string;
+    type_display: string;
+    count: number;
+    montant: string;
+    frais: string;
+  }>;
 };
 
 export type FeeConfig = {
@@ -1341,6 +1385,8 @@ export type SpecialCollectionTx = {
   montant: string;
   solde_apres: string;
   libelle: string;
+  date_effective?: string;
+  booklet_order?: number | null;
   created_at: string;
 };
 
@@ -1372,6 +1418,8 @@ export type SpecialCollectionCycleRow = {
   type: SpecialCollectionType;
   type_display: string;
   nom: string;
+  description?: string;
+  montant_minimal?: string;
   date_debut: string;
   date_fin: string | null;
   statut: "ouvert" | "clos";
@@ -1381,6 +1429,144 @@ export type SpecialCollectionCycleRow = {
   closed_at: string | null;
   participants?: number;
   total_collecte?: string;
+};
+
+// ── Tontines de groupe (réunions) ─────────────────────────────────────────────
+export type GroupRole = "president" | "tresorier" | "membre";
+
+// Catalogue d'actions habilitables dans une réunion (rôles personnalisés).
+export type GroupRolePerms = {
+  can_manage_funds: boolean;
+  can_grant_loan: boolean;
+  can_manage_roster: boolean;
+  can_record_cotisation: boolean;
+  can_close: boolean;
+};
+
+export type GroupCustomRole = GroupRolePerms & {
+  id: number;
+  nom: string;
+};
+
+export type GroupTontineRow = {
+  id: number;
+  nom: string;
+  description: string;
+  solde: string;
+  montant_cotisation: string;
+  statut: "ouvert" | "clos";
+  statut_display: string;
+  is_open: boolean;
+  members_count: number;
+  created_at: string;
+  closed_at: string | null;
+};
+
+export type GroupTontineMemberRow = {
+  id: number;
+  member_id: number;
+  numero_membre: string;
+  nom: string;
+  prenom: string;
+  role: GroupRole;
+  role_display: string;
+  custom_role_id: number | null;
+  custom_role_nom: string;
+  permissions: GroupRolePerms;
+  actif: boolean;
+};
+
+export type GroupTontineLoanRow = {
+  id: number;
+  member_id: number;
+  numero_membre: string;
+  nom: string;
+  prenom: string;
+  montant: string;
+  solde_restant: string;
+  statut: "en_cours" | "solde";
+  statut_display: string;
+  // Avaliste INFORMATIF (membre du roster OU nom libre). Sans impact financier.
+  avaliste_id: number | null;
+  avaliste_nom: string;
+  avaliste_display: string;
+  created_at: string;
+};
+
+export type GroupTontineTx = {
+  id: number;
+  type_op: string;
+  type_op_display: string;
+  montant: string;
+  solde_apres: string;
+  libelle: string;
+  date_effective?: string;
+  member_nom?: string;
+  member_prenom?: string;
+  acted_by_name?: string;
+  created_at: string;
+};
+
+export type GroupTontineDetail = GroupTontineRow & {
+  members: GroupTontineMemberRow[];
+  loans: GroupTontineLoanRow[];
+  transactions: GroupTontineTx[];
+  custom_roles: GroupCustomRole[];
+  my_role?: GroupRole | null;
+};
+
+// ── Structures employeur & paie ───────────────────────────────────────────────
+export type StructureRow = {
+  id: number;
+  nom: string;
+  description: string;
+  solde: string;
+  statut: "active" | "cloturee";
+  statut_display: string;
+  is_active: boolean;
+  employees_count: number;
+  masse_salariale: string;
+  created_at: string;
+  closed_at: string | null;
+};
+
+export type StructureEmployeeRow = {
+  id: number;
+  member_id: number;
+  numero_membre: string;
+  nom: string;
+  prenom: string;
+  poste: string;
+  attribution: string;
+  montant_paie: string;
+  actif: boolean;
+};
+
+export type PayrollRunRow = {
+  id: number;
+  periode: string;
+  total_verse: string;
+  employes_count: number;
+  created_at: string;
+};
+
+export type StructureTx = {
+  id: number;
+  type_op: string;
+  type_op_display: string;
+  montant: string;
+  solde_apres: string;
+  libelle: string;
+  date_effective?: string;
+  member_nom?: string;
+  member_prenom?: string;
+  created_at: string;
+};
+
+export type StructureDetail = StructureRow & {
+  employees: StructureEmployeeRow[];
+  payroll_runs: PayrollRunRow[];
+  transactions: StructureTx[];
 };
 
 export const adminApi = {
@@ -1630,6 +1816,11 @@ export const adminApi = {
     // servi inline par le backend (cookies de session inclus).
     statementUrl: (memberId: number) =>
       `${API_BASE}/admin/members/${memberId}/statement/`,
+    // États par carnet d'un membre (nb, crédits, débits, net) — vue groupée.
+    bookletSummaries: (memberId: number) =>
+      request<{ results: BookletSummary[] }>(
+        `/savings/admin/members/${memberId}/booklets/summary/`,
+      ),
     // Fiche d'adhésion (infos renseignées à la soumission de la demande).
     adhesion: (memberId: number) =>
       request<MemberAdhesion>(`/admin/members/${memberId}/adhesion/`),
@@ -1653,6 +1844,13 @@ export const adminApi = {
       request<Member>(`/admin/members/create/`, {
         method: "POST",
         body: JSON.stringify(payload),
+      }),
+    // Édition d'un membre : identité + contact + pièces (multipart FormData).
+    // 409 si l'e-mail est déjà pris par un autre compte.
+    update: (id: number, form: FormData) =>
+      request<Member>(`/admin/members/${id}/update/`, {
+        method: "POST",
+        body: form,
       }),
   },
 
@@ -1718,7 +1916,18 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify({ motif }),
       }),
-    // Cycles (1 ouvert par type ; ouvrir clôt le précédent = gel + archivage)
+    // Décaissement d'une participation : débite le solde et sort l'argent —
+    // vers l'épargne classique du membre OU en espèces à l'agence.
+    decaisser: (
+      id: number,
+      body: { montant: number; destination: "epargne" | "cash"; note?: string },
+    ) =>
+      request<SpecialCollectionRow>(
+        `/special-collections/admin/${id}/decaisser/`,
+        { method: "POST", body: JSON.stringify(body) },
+      ),
+    // Collectes (PLUSIEURS ouvertes par type possibles ; clôture individuelle
+    // = gel + archivage). L'admin fixe titre + plancher/versement + infos.
     cycles: {
       list: (type?: string) =>
         request<SpecialCollectionCycleRow[]>(
@@ -1727,6 +1936,8 @@ export const adminApi = {
       open: (payload: {
         type: string;
         nom: string;
+        description?: string;
+        montant_minimal?: number;
         date_debut?: string;
         date_fin?: string;
       }) =>
@@ -1748,6 +1959,129 @@ export const adminApi = {
           { method: "POST" },
         ),
     },
+  },
+
+  // Tontines de GROUPE (réunions de quartier) : l'admin crée la réunion + le
+  // roster + les rôles ; la cagnotte et les mouvements sont pilotés par le
+  // président / trésorier côté membre.
+  groupTontines: {
+    list: () => request<GroupTontineRow[]>("/special-collections/admin/groups/"),
+    create: (payload: {
+      nom: string;
+      description?: string;
+      montant_cotisation?: number;
+      roster: Array<{ member_id: number; role: GroupRole }>;
+    }) =>
+      request<GroupTontineDetail>("/special-collections/admin/groups/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    detail: (id: number) =>
+      request<GroupTontineDetail>(`/special-collections/admin/groups/${id}/`),
+    addMember: (id: number, member_id: number, role: GroupRole) =>
+      request<GroupTontineDetail>(
+        `/special-collections/admin/groups/${id}/members/add/`,
+        { method: "POST", body: JSON.stringify({ member_id, role }) },
+      ),
+    removeMember: (id: number, member_id: number) =>
+      request<GroupTontineDetail>(
+        `/special-collections/admin/groups/${id}/members/remove/`,
+        { method: "POST", body: JSON.stringify({ member_id }) },
+      ),
+    setRole: (id: number, member_id: number, role: GroupRole) =>
+      request<GroupTontineDetail>(
+        `/special-collections/admin/groups/${id}/role/`,
+        { method: "POST", body: JSON.stringify({ member_id, role }) },
+      ),
+    close: (id: number) =>
+      request<GroupTontineRow>(
+        `/special-collections/admin/groups/${id}/close/`,
+        { method: "POST" },
+      ),
+    // Rôles personnalisés (nom libre + actions cochées).
+    createRole: (id: number, nom: string, permissions: GroupRolePerms) =>
+      request<GroupTontineDetail>(
+        `/special-collections/admin/groups/${id}/roles/`,
+        { method: "POST", body: JSON.stringify({ nom, permissions }) },
+      ),
+    updateRole: (
+      id: number,
+      roleId: number,
+      payload: { nom?: string; permissions?: GroupRolePerms },
+    ) =>
+      request<GroupTontineDetail>(
+        `/special-collections/admin/groups/${id}/roles/${roleId}/`,
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
+    deleteRole: (id: number, roleId: number) =>
+      request<GroupTontineDetail>(
+        `/special-collections/admin/groups/${id}/roles/${roleId}/`,
+        { method: "DELETE" },
+      ),
+    assignRole: (id: number, member_id: number, custom_role_id: number | null) =>
+      request<GroupTontineDetail>(
+        `/special-collections/admin/groups/${id}/assign-role/`,
+        { method: "POST", body: JSON.stringify({ member_id, custom_role_id }) },
+      ),
+  },
+
+  // Structures employeur & paie des employés (back-office uniquement).
+  structures: {
+    list: () => request<StructureRow[]>("/structures/admin/structures/"),
+    create: (payload: { nom: string; description?: string }) =>
+      request<StructureDetail>("/structures/admin/structures/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    detail: (id: number) =>
+      request<StructureDetail>(`/structures/admin/structures/${id}/`),
+    close: (id: number) =>
+      request<StructureDetail>(`/structures/admin/structures/${id}/close/`, { method: "POST" }),
+    fund: (id: number, montant: number) =>
+      request<StructureDetail>(`/structures/admin/structures/${id}/fund/`, {
+        method: "POST",
+        body: JSON.stringify({ montant }),
+      }),
+    withdraw: (id: number, montant: number) =>
+      request<StructureDetail>(`/structures/admin/structures/${id}/withdraw/`, {
+        method: "POST",
+        body: JSON.stringify({ montant }),
+      }),
+    addEmployee: (
+      id: number,
+      payload: { member_id: number; poste?: string; attribution?: string; montant_paie?: number },
+    ) =>
+      request<StructureDetail>(`/structures/admin/structures/${id}/employees/add/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    updateEmployee: (
+      id: number,
+      empId: number,
+      payload: { poste?: string; attribution?: string; montant_paie?: number },
+    ) =>
+      request<StructureDetail>(
+        `/structures/admin/structures/${id}/employees/${empId}/update/`,
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
+    removeEmployee: (id: number, empId: number) =>
+      request<StructureDetail>(
+        `/structures/admin/structures/${id}/employees/${empId}/remove/`,
+        { method: "POST" },
+      ),
+    payEmployee: (id: number, empId: number, montant?: number) =>
+      request<StructureDetail>(
+        `/structures/admin/structures/${id}/employees/${empId}/pay/`,
+        { method: "POST", body: JSON.stringify(montant != null ? { montant } : {}) },
+      ),
+    runPayroll: (id: number, periode: string) =>
+      request<StructureDetail>(`/structures/admin/structures/${id}/run-payroll/`, {
+        method: "POST",
+        body: JSON.stringify({ periode }),
+      }),
+    // PDF « État de paie du mois » d'un lot (ouvert dans un onglet).
+    payrollPdfUrl: (id: number, runId: number) =>
+      `${API_BASE}/structures/admin/structures/${id}/payroll/${runId}/pdf/`,
   },
 
   // Reconductions de crédit (Art.10/11) — le membre demande sur mobile/portail
@@ -1838,6 +2172,26 @@ export const adminApi = {
           offset: params.offset ? String(params.offset) : undefined,
         })}`,
       ),
+    // État global (totaux essentiels) — filtrable par période. Agrège TOUS les
+    // paiements correspondants (pas la page courante).
+    stats: (
+      params: {
+        date_from?: string;
+        date_to?: string;
+        type?: string;
+        member?: number;
+        q?: string;
+      } = {},
+    ) =>
+      request<PaymentStats>(
+        `/payments/admin/stats/${qs({
+          date_from: params.date_from,
+          date_to: params.date_to,
+          type: params.type,
+          member: params.member != null ? String(params.member) : undefined,
+          q: params.q,
+        })}`,
+      ),
     // B1 . Saisie versement agence (cash-in) par admin.
     // Cree Payment(source=MANUEL, statut=VALIDE) + execute hook business.
     cashIn: (payload: {
@@ -1846,6 +2200,8 @@ export const adminApi = {
         | "frais_adhesion"
         | "frais_inscription"
         | "frais_carnet"
+        | "frais_carnet_tontine"
+        | "frais_carnet_caisse"
         | "frais_demande_credit"
         | "epargne"
         | "epargne_classique"
@@ -1861,11 +2217,27 @@ export const adminApi = {
       is_placement?: boolean;
       // D6 . Flag renouvellement annuel pour frais_carnet.
       is_renewal?: boolean;
+      // Collecte précise visée (versement manuel tontine/caisse).
+      cycle_id?: number;
     }) =>
       request<PaymentRow>("/payments/admin/cash-in/", {
         method: "POST",
         body: JSON.stringify(payload),
       }),
+    // Débit manuel agence : retrait simple (compte+motif) OU prélèvement d'un
+    // frais du barème (fee_code) réglé depuis l'épargne classique.
+    manualDebit: (payload: {
+      member_id: number;
+      compte?: "collecte" | "classique";
+      montant?: number;
+      motif?: string;
+      fee_code?: string;
+      is_renewal?: boolean;
+    }) =>
+      request<{ montant: string; solde_apres: string }>(
+        "/payments/admin/manual-debit/",
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
     // Invalidation d'un paiement validé (contre-passation ledger).
     invalidate: (id: number, motif?: string) =>
       request<PaymentRow>(`/payments/admin/${id}/invalidate/`, {
@@ -1952,15 +2324,17 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify(payload),
       }),
-    // Écriture (dépôt/retrait) à sa vraie date, sur collecte ou classique.
-    // 409 si un retrait rendrait le solde négatif.
+    // Écriture (dépôt/retrait) à sa vraie date, sur collecte, classique, tontine
+    // ou caisse scolaire. Reprise d'historique : un retrait peut rendre le solde
+    // négatif (accepté). Pour tontine/caisse, `cycle_id` (collecte) est requis.
     recordEntry: (payload: {
       member_id: number;
-      product: "collecte" | "classique";
+      product: "collecte" | "classique" | "tontine" | "caisse_scolaire";
       sens: "depot" | "retrait";
       montant: number | string;
       date: string;
       booklet_order_id?: number;
+      cycle_id?: number;
       note?: string;
     }) =>
       request<{

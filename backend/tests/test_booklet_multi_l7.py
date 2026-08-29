@@ -20,9 +20,19 @@ from apps_coop.savings.models import (
     ClassicSavingsTransaction,
     SavingsTransaction,
 )
+from tests.factories import MemberFactory
 
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def active_member(db):
+    """Membre actif SANS carnet — ce module pilote lui-même les carnets
+    (comptage / ordonnancement / imputation), il doit donc partir d'une ardoise
+    vierge. (Surcharge la fixture partagée qui, elle, donne un carnet collecte.)
+    """
+    return MemberFactory(with_carnet=False)
 
 
 def _pay(member, *, type_, montant="1000", raw=None, ref="X"):
@@ -93,7 +103,11 @@ class TestEcritureImputation:
         assert tx.booklet_order_id == o1.id
 
     def test_deposit_without_carnet_is_unattached(self, active_member):
-        # Aucun carnet commandé → l'écriture reste non rattachée (toléré).
+        # Couche d'IMPUTATION (hook) : sans carnet, l'écriture reste non
+        # rattachée (toléré). La GARDE « pas de versement sans carnet » vit en
+        # amont (API init/cash-in) — cf. ``ensure_savings_carnet`` ; ici on teste
+        # uniquement que le hook ne casse pas si une écriture arrive sans carnet
+        # (``active_member`` est ici sans carnet — cf. surcharge de fixture).
         _pay(active_member, type_=Payment.Type.EPARGNE, montant="5000", ref="D0")
         tx = SavingsTransaction.objects.filter(
             account__member=active_member, type_op=SavingsTransaction.TypeOp.DEPOT

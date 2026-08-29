@@ -16,6 +16,15 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps_coop.payments.models import Payment
+from tests.factories import MemberFactory
+
+
+@pytest.fixture
+def active_member(db):
+    """Membre actif SANS carnet — ce module vérifie que l'endpoint /me/ renvoie
+    EXACTEMENT l'ensemble de paiements fabriqué par le test ; on part donc d'une
+    ardoise vierge (la fixture partagée ajoute un Payment frais_carnet)."""
+    return MemberFactory(with_carnet=False)
 
 
 @pytest.fixture
@@ -95,7 +104,7 @@ def test_payments_me_isolation(member_client, member_payments, db):
     """Un autre membre ne doit voir AUCUN paiement de ce membre."""
     from tests.factories import MemberFactory
 
-    other = MemberFactory()
+    other = MemberFactory(with_carnet=False)
     Payment.objects.create(
         member=other,
         montant=Decimal("500.00"),

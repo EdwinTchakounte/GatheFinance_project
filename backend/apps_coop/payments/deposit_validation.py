@@ -72,6 +72,27 @@ def validate_classique_deposit(*, montant, allow_any_amount: bool = False) -> No
         raise DepositValidationError(f"Dépôt maximum : {int(cfg.depot_max)} XAF.")
 
 
+def ensure_savings_carnet(member) -> None:
+    """Épargne / collecte journalière : le membre doit posséder un carnet
+    ``collecte`` avant tout versement.
+
+    Décision 2026-08 (cohérence rapports/audit) : « une écriture ne se fait que
+    dans un carnet ». Le blocage était déjà en place pour tontine/caisse (chacun
+    son carnet) ; on l'étend ici à la collecte/épargne classique, qui partagent
+    le carnet ``collecte`` (acquis normalement aux frais d'activation). Un membre
+    sans carnet collecte (ex. créé manuellement) doit d'abord s'en voir vendre
+    un — l'agence peut le faire au comptant (``FRAIS_CARNET``).
+    """
+    from apps_coop.members.models import BookletOrder
+
+    if BookletOrder.latest_for(member, BookletOrder.Type.COLLECTE) is None:
+        raise DepositValidationError(
+            "Aucun carnet collecte : le membre doit d'abord posséder un carnet "
+            "avant tout versement (épargne / collecte). Vends-lui un carnet, "
+            "puis réessaie."
+        )
+
+
 def validate_placement_window(member) -> None:
     """Placement : ouvert seulement pendant les N premiers mois d'ancienneté.
 

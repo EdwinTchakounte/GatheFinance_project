@@ -20,8 +20,11 @@ urlpatterns = [
     path("dev/<int:pk>/confirm/", views.dev_confirm_payment, name="dev-confirm"),
     # Admin (staff-only)
     path("admin/", views.admin_list_payments, name="admin-list"),
+    # Bandeau de synthèse : totaux globaux filtrables par période.
+    path("admin/stats/", views.admin_payments_stats, name="admin-stats"),
     # B1 . Saisie versement agence (cash-in) par admin.
     path("admin/cash-in/", views.admin_cash_in_payment, name="admin-cash-in"),
+    path("admin/manual-debit/", views.admin_manual_debit, name="admin-manual-debit"),
     path(
         "admin/<int:pk>/invalidate/",
         views.admin_invalidate_payment,

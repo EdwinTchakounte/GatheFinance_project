@@ -31,6 +31,20 @@ class _TxPagination(PageNumberPagination):
     max_page_size = 100
 
 
+def _apply_booklet_filter(qs, request):
+    """Filtre l'historique d'écritures PAR CARNET : ``?booklet_order=<id>``
+    (un carnet précis) et/ou ``?booklet_annee=<AAAA>`` (tous les carnets d'une
+    année). Sans paramètre, renvoie tout. Maintenant que chaque écriture porte
+    son carnet, ce filtre donne « toutes les écritures d'un carnet donné »."""
+    booklet_id = (request.query_params.get("booklet_order") or "").strip()
+    if booklet_id.isdigit():
+        qs = qs.filter(booklet_order_id=int(booklet_id))
+    annee = (request.query_params.get("booklet_annee") or "").strip()
+    if annee.isdigit():
+        qs = qs.filter(booklet_order__annee=int(annee))
+    return qs
+
+
 @extend_schema(
     tags=["savings"],
     summary="Compte d'épargne du membre connecté",
@@ -84,7 +98,7 @@ class SavingsTransactionListView(generics.ListAPIView):
         type_op = self.request.query_params.get("type_op")
         if type_op:
             qs = qs.filter(type_op=type_op)
-        return qs
+        return _apply_booklet_filter(qs, self.request)
 
 
 @extend_schema(
@@ -235,7 +249,43 @@ class ClassicSavingsTransactionListView(generics.ListAPIView):
         type_op = self.request.query_params.get("type_op")
         if type_op:
             qs = qs.filter(type_op=type_op)
-        return qs
+        return _apply_booklet_filter(qs, self.request)
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="États par carnet du membre connecté",
+    description=(
+        "Pour chaque carnet ayant des écritures : nb d'écritures, total "
+        "crédité, total débité et net du carnet (crédits − débits). Sert la "
+        "vue « Mes carnets » (groupée par carnet). Épargne collecte + classique."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsMember])
+def booklet_summaries_me(request):
+    from .booklet_summary import member_booklet_summaries
+
+    return Response({"results": member_booklet_summaries(request.user.member)})
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="🔒 Admin — états par carnet d'un membre",
+    description="Même agrégation que la vue membre, pour un membre donné (staff).",
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_member_booklet_summaries(request, pk: int):
+    from apps_coop.members.models import Member
+
+    from .booklet_summary import member_booklet_summaries
+
+    try:
+        member = Member.objects.get(pk=pk)
+    except Member.DoesNotExist:
+        return Response({"detail": "Membre introuvable."}, status=status.HTTP_404_NOT_FOUND)
+    return Response({"results": member_booklet_summaries(member)})
 
 
 @extend_schema(
@@ -914,18 +964,16 @@ def admin_record_antidated_entry(request):
             montant=montant,
             date_op=date_op,
             booklet_order=booklet,
+            cycle_id=data.get("cycle_id"),
             note=str(data.get("note") or ""),
             recorded_by=request.user,
         )
     except AntidatedEntryError as exc:
-        # Distinction : incohérence de saisie (solde négatif) = 409, le reste
-        # = 400. On garde le message lisible dans les deux cas.
-        code = (
-            status.HTTP_409_CONFLICT
-            if "négatif" in str(exc)
-            else status.HTTP_400_BAD_REQUEST
+        # Toute incohérence de saisie = 400. (Le solde négatif n'est plus une
+        # erreur : reprise d'historique, cf. record_antidated_entry.)
+        return Response(
+            {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST
         )
-        return Response({"detail": str(exc)}, status=code)
 
     return Response(
         {
