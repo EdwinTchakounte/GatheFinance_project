@@ -12,6 +12,10 @@ name: Seed prod (templates email + event catalog)
 on:
   workflow_dispatch:
     inputs:
+      full_pg_dump:
+        description: "Dump COMPLET de la base (pg_dump → /backups/gathe-JOUR.sql.gz, inclut comptes/logins) AVANT tout ?"
+        type: boolean
+        default: false
       force_recreate_backend:
         description: "Force-recreate backend+qcluster (récupère la nouvelle image quand le deploy n'a pas recréé) ?"
         type: boolean
@@ -67,6 +71,15 @@ jobs:
             COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml --env-file .env.prod"
 
             cd "$DEPLOY_PATH/infra"
+
+            if [ "${{ inputs.full_pg_dump }}" = "true" ]; then
+              echo ">>> Dump COMPLET de la base (pg_dump, inclut comptes/logins) AVANT toute modif"
+              $COMPOSE exec -T backup /usr/local/bin/backup.sh
+              echo ">>> Dumps présents :"
+              $COMPOSE exec -T backup sh -c 'ls -lh /backups | tail -10'
+            else
+              echo ">>> full_pg_dump skipped"
+            fi
 
             if [ "${{ inputs.force_recreate_backend }}" = "true" ]; then
               echo ">>> Force-recreate backend + qcluster (récupère la nouvelle image ; l'entrypoint rejoue migrate)"
