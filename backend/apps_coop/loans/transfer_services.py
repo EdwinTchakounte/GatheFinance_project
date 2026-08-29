@@ -18,6 +18,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps_coop.audit.services import record as record_audit
+from apps_coop.members.models import BookletOrder
 
 from .models import Loan
 
@@ -156,6 +157,7 @@ def repay_loan_from_savings(loan: Loan, montant: Decimal) -> "object":
             montant=pris,
             solde_apres=classic.solde,
             date=now,
+            booklet_order=BookletOrder.latest_for(classic.member),
         )
         reste -= pris
         pris_classique = pris
@@ -172,6 +174,7 @@ def repay_loan_from_savings(loan: Loan, montant: Decimal) -> "object":
             montant=pris,
             solde_apres=collecte.solde,
             date=now,
+            booklet_order=BookletOrder.latest_for(collecte.member),
         )
         reste -= pris
         pris_collecte = pris
@@ -283,6 +286,7 @@ def repay_loan_from_frozen(loan: Loan, montant: Decimal | None = None) -> "objec
         montant=a_transferer,
         solde_apres=classic.solde,
         date=now,
+        booklet_order=BookletOrder.latest_for(classic.member),
     )
 
     # 2) Consomme les tranches de placement gelées à due concurrence (le reste

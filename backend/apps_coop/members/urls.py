@@ -72,6 +72,12 @@ urlpatterns = [
     path("admin/members/", views.admin_list_members, name="admin-members-list"),
     # M1 — Création d'un membre depuis le dashboard (IsAdmin, mail mot de passe + pièces).
     path("admin/members/create/", views.admin_create_member, name="admin-member-create"),
+    # Édition d'un membre (identité + contact + pièces) — IsAdmin, multipart.
+    path(
+        "admin/members/<int:pk>/update/",
+        views.admin_update_member,
+        name="admin-member-update",
+    ),
     # « Suppression » = radiation (soft-delete) : statut RADIE + login bloqué.
     path(
         "admin/members/<int:pk>/delete/",

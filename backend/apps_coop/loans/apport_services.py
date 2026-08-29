@@ -27,6 +27,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps_coop.audit.services import record as record_audit
+from apps_coop.members.models import BookletOrder
 from apps_coop.portal_urls import portal_url
 
 
@@ -102,6 +103,7 @@ def restitute_tranche_by_apport(tranche_id: int, *, admin_user=None) -> dict:
             montant=interest,
             solde_apres=nouveau_solde,
             date=now,
+            booklet_order=BookletOrder.latest_for(account.member),
         )
         account.solde = nouveau_solde
         account.save(update_fields=["solde", "updated_at"])
@@ -123,6 +125,7 @@ def restitute_tranche_by_apport(tranche_id: int, *, admin_user=None) -> dict:
         montant=_q(Decimal(tranche.montant)),
         solde_apres=_q(Decimal(account.solde)),
         date=now,
+        booklet_order=BookletOrder.latest_for(account.member),
     )
 
     # 3) La coop reprend le risque → exclut ce prêteur des intérêts futurs.

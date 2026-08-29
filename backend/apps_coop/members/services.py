@@ -326,6 +326,76 @@ def create_member_by_admin(*, nom: str, prenom: str, email: str, phone: str = ""
     return member
 
 
+def update_member_by_admin(
+    member: "Member",
+    *,
+    nom=None,
+    prenom=None,
+    phone=None,
+    email=None,
+    files=None,
+    actor=None,
+) -> "Member":
+    """Édition d'un membre depuis le dashboard admin (identité + contact +
+    pièces). Chaque champ est optionnel : seuls les fournis sont modifiés.
+
+    ``email`` met à jour le compte auth lié (email + username) avec la même
+    garde d'unicité que la création. ``files`` (dict schema_field_id → fichier)
+    remplace/ajoute les pièces via ``attach_member_pieces``.
+    """
+    changed: list[str] = []
+    if nom is not None and nom.strip() and nom.strip() != member.nom:
+        member.nom = nom.strip()
+        changed.append("nom")
+    if prenom is not None and prenom.strip() != member.prenom:
+        member.prenom = prenom.strip()
+        changed.append("prenom")
+    if phone is not None and phone.strip() != member.phone:
+        member.phone = phone.strip()
+        changed.append("phone")
+    if changed:
+        member.save(update_fields=[*changed, "updated_at"])
+
+    user = getattr(member, "user", None)
+    email_changed = False
+    if email is not None and user is not None:
+        new_email = email.strip().lower()
+        if new_email and new_email != (user.email or "").lower():
+            User = get_user_model()
+            clash = (
+                User.objects.filter(email__iexact=new_email)
+                .exclude(pk=user.pk)
+                .first()
+            )
+            if clash is not None:
+                raise MemberAlreadyExists(
+                    f"Un compte existe déjà avec l'e-mail {new_email}."
+                )
+            user.email = new_email
+            user.username = new_email
+            user.save(update_fields=["email", "username"])
+            email_changed = True
+
+    pieces_added = 0
+    if files:
+        clean = {k: f for k, f in files.items() if f is not None}
+        if clean:
+            pieces_added = attach_member_pieces(member, files=clean)
+
+    record_audit(
+        action="member.updated_by_admin",
+        entite_type="Member",
+        entite_id=member.id,
+        user=actor,
+        details={
+            "champs": changed + (["email"] if email_changed else []),
+            "pieces_ajoutees": pieces_added,
+        },
+    )
+    member.refresh_from_db()
+    return member
+
+
 def soft_delete_member(member: "Member", *, actor=None, motif: str = "") -> dict:
     """« Suppression » d'un membre = radiation (soft-delete), NON destructive.
 

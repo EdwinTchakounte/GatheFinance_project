@@ -4,7 +4,9 @@ Regroupe : gestion des cycles (ouvrir / clôturer / cycle courant), demande de
 participation (rattachée au cycle ouvert), décision admin, crédit d'un versement
 Mobile Money (hook paiement) et transfert depuis l'épargne classique.
 
-Principes : 1 seul cycle ouvert par type ; re-demande à chaque cycle ; clôture =
+Principes : PLUSIEURS collectes ouvertes par type possibles ; chaque
+participation/versement vise un cycle PRÉCIS ; verser exige d'avoir acheté le
+carnet du type (tontine/caisse) et un montant ≥ plancher du cycle ; clôture =
 gel + archivage (aucun mouvement d'argent automatique). Les mutations de solde
 passent par ``select_for_update`` et écrivent un ledger append-only.
 """
@@ -16,6 +18,7 @@ from django.db import transaction as db_transaction
 from django.utils import timezone
 
 from apps_coop.audit.services import record as record_audit
+from apps_coop.members.models import BookletOrder
 
 from .models import (
     SpecialCollectionCycle,
@@ -25,52 +28,107 @@ from .models import (
 
 
 class SpecialCollectionError(Exception):
-    """Erreur métier (pas de cycle ouvert, participation existante, solde…)."""
+    """Erreur métier (cycle clos, participation existante, carnet manquant…)."""
+
+
+# Type de collecte → type de carnet requis pour y verser (carnet par type).
+CARNET_TYPE_FOR_COLLECTION = {
+    SpecialCollectionMembership.Type.TONTINE_ALIMENTAIRE: "tontine",
+    SpecialCollectionMembership.Type.CAISSE_SCOLAIRE: "caisse_scolaire",
+}
+
+
+def member_carnet_for(member, collection_type: str):
+    """Carnet (BookletOrder) du membre pour ce type de collecte, ou ``None``.
+
+    Verser dans une tontine/caisse exige d'avoir d'abord acheté le carnet du
+    type correspondant (décision 2026-08 : un carnet par type).
+    """
+    from apps_coop.members.models import BookletOrder
+
+    carnet_type = CARNET_TYPE_FOR_COLLECTION.get(collection_type)
+    if carnet_type is None:
+        return None
+    return BookletOrder.latest_for(member, carnet_type)
+
+
+def _ensure_carnet_and_floor(member, cycle, membership, montant) -> None:
+    """Barrière commune aux versements/transferts d'une collecte :
+
+    1. le membre doit posséder le carnet du type (tontine/caisse) ;
+    2. le montant doit être ≥ plancher par versement de la collecte.
+    Lève ``SpecialCollectionError`` sinon.
+    """
+    if member_carnet_for(member, membership.type) is None:
+        raise SpecialCollectionError(
+            "Tu dois d'abord acheter le carnet de cette collecte avant de "
+            "pouvoir verser."
+        )
+    plancher = Decimal(cycle.montant_minimal or 0)
+    if plancher > 0 and Decimal(montant) < plancher:
+        raise SpecialCollectionError(
+            f"Le versement minimal pour cette collecte est de {int(plancher)} "
+            f"FCFA."
+        )
 
 
 # ── Cycles ────────────────────────────────────────────────────────────────────
-def current_open_cycle(type: str) -> SpecialCollectionCycle | None:
-    """Le cycle actuellement ouvert pour ``type``, ou ``None``."""
+def open_cycles(type: str):
+    """Toutes les collectes OUVERTES pour ``type`` (plusieurs possibles)."""
     return SpecialCollectionCycle.objects.filter(
         type=type, statut=SpecialCollectionCycle.Statut.OUVERT
-    ).first()
+    ).order_by("-date_debut", "-id")
+
+
+def current_open_cycle(type: str) -> SpecialCollectionCycle | None:
+    """La collecte ouverte la plus récente pour ``type`` (compat), ou ``None``.
+
+    Conservé pour les appelants legacy. Avec plusieurs collectes ouvertes,
+    préférer un ``cycle_id`` explicite (cf. ``open_cycles``).
+    """
+    return open_cycles(type).first()
 
 
 def open_cycle(
-    *, type: str, nom: str, date_debut=None, date_fin=None, by=None
+    *,
+    type: str,
+    nom: str,
+    date_debut=None,
+    date_fin=None,
+    montant_minimal=None,
+    description: str = "",
+    by=None,
 ) -> SpecialCollectionCycle:
-    """Ouvre un nouveau cycle pour ``type`` (clôt automatiquement le précédent).
+    """Ouvre une nouvelle collecte pour ``type``.
 
-    Le cycle précédent est **gelé + archivé** (statut ``clos``) : ses soldes ne
-    bougent plus. Les participants devront re-demander pour le nouveau cycle.
+    2026-08 : n'clôt PLUS le cycle précédent — plusieurs collectes du même type
+    peuvent coexister ouvertes. L'admin fixe le titre (``nom``), le plancher par
+    versement (``montant_minimal``) et une description libre.
     """
     if type not in SpecialCollectionMembership.Type.values:
         raise SpecialCollectionError("Type de collecte inconnu.")
 
-    with db_transaction.atomic():
-        prev = (
-            SpecialCollectionCycle.objects.select_for_update()
-            .filter(type=type, statut=SpecialCollectionCycle.Statut.OUVERT)
-            .first()
-        )
-        if prev is not None:
-            _close(prev, by=by)
-
-        cycle = SpecialCollectionCycle.objects.create(
-            type=type,
-            nom=nom.strip(),
-            date_debut=date_debut or timezone.now().date(),
-            date_fin=date_fin,
-            statut=SpecialCollectionCycle.Statut.OUVERT,
-            created_by=by,
-        )
+    cycle = SpecialCollectionCycle.objects.create(
+        type=type,
+        nom=nom.strip(),
+        description=(description or "").strip(),
+        montant_minimal=montant_minimal or Decimal("0"),
+        date_debut=date_debut or timezone.now().date(),
+        date_fin=date_fin,
+        statut=SpecialCollectionCycle.Statut.OUVERT,
+        created_by=by,
+    )
 
     record_audit(
         action="special_collection.cycle_opened",
         entite_type="SpecialCollectionCycle",
         entite_id=cycle.id,
         user=by,
-        details={"type": type, "nom": cycle.nom, "closed_previous": bool(prev)},
+        details={
+            "type": type,
+            "nom": cycle.nom,
+            "montant_minimal": str(cycle.montant_minimal),
+        },
     )
     return cycle
 
@@ -97,25 +155,47 @@ def _close(cycle: SpecialCollectionCycle, *, by=None) -> None:
     cycle.save(update_fields=["statut", "closed_at", "closed_by", "updated_at"])
 
 
-# ── Demande de participation (dans le cycle ouvert) ──────────────────────────
-def request_participation(
-    *, member, type: str, objectif: str, montant_cible=None, form_payload=None
-) -> SpecialCollectionMembership:
-    """Crée (ou ré-arme) une demande de participation pour le CYCLE OUVERT.
+# ── Demande de participation (dans une collecte ouverte précise) ─────────────
+def _resolve_open_cycle(*, type: str, cycle_id=None) -> SpecialCollectionCycle:
+    """Résout la collecte ouverte ciblée.
 
-    Lève s'il n'y a pas de cycle ouvert pour ce type. Refuse une seconde demande
-    tant qu'une participation existe déjà (en attente / validée) pour ce cycle ;
-    une participation *rejetée* dans ce cycle peut être re-soumise.
+    Avec plusieurs collectes ouvertes par type, ``cycle_id`` est attendu. Par
+    compat, s'il est omis on prend la plus récente ouverte (utile quand une
+    seule existe). Lève si rien d'ouvert / cycle clos / mauvais type.
     """
     if type not in SpecialCollectionMembership.Type.values:
         raise SpecialCollectionError("Type de collecte inconnu.")
 
+    if cycle_id is not None:
+        cycle = SpecialCollectionCycle.objects.filter(pk=cycle_id, type=type).first()
+        if cycle is None:
+            raise SpecialCollectionError("Collecte introuvable.")
+        if not cycle.is_open:
+            raise SpecialCollectionError("Cette collecte est clôturée.")
+        return cycle
+
     cycle = current_open_cycle(type)
     if cycle is None:
         raise SpecialCollectionError(
-            "Aucun cycle ouvert pour cette collecte. Reviens quand la "
-            "coopérative aura lancé un nouveau cycle."
+            "Aucune collecte ouverte pour ce type. Reviens quand la "
+            "coopérative en aura lancé une."
         )
+    return cycle
+
+
+def request_participation(
+    *, member, type: str, objectif: str, montant_cible=None, form_payload=None,
+    cycle_id=None,
+) -> SpecialCollectionMembership:
+    """Crée (ou ré-arme) une demande de participation pour une collecte ouverte
+    précise (``cycle_id``).
+
+    Refuse une seconde demande tant qu'une participation existe déjà (en attente
+    / validée) pour cette collecte ; une participation *rejetée* peut être
+    re-soumise. Un membre peut participer à PLUSIEURS collectes du même type
+    (une participation par collecte).
+    """
+    cycle = _resolve_open_cycle(type=type, cycle_id=cycle_id)
 
     existing = SpecialCollectionMembership.objects.filter(
         member=member, cycle=cycle
@@ -196,11 +276,8 @@ def reject_participation(membership: SpecialCollectionMembership, *, motif: str,
     return membership
 
 
-def _active_membership_for(member, type: str):
-    """Participation VALIDÉE du membre dans le cycle OUVERT de ``type``."""
-    cycle = current_open_cycle(type)
-    if cycle is None:
-        return None
+def _membership_in_cycle(member, cycle):
+    """Participation du membre dans une collecte précise (verrouillée)."""
     return (
         SpecialCollectionMembership.objects.select_for_update()
         .filter(member=member, cycle=cycle)
@@ -210,29 +287,49 @@ def _active_membership_for(member, type: str):
 
 # ── Crédit d'un versement (appelé par le hook paiement) ───────────────────────
 def credit_versement(payment) -> SpecialCollectionTransaction:
-    """Crédite la collecte du membre (cycle ouvert) suite à un versement validé.
+    """Crédite la collecte ciblée par le paiement (``payment.special_cycle``).
 
-    Doit tourner dans la transaction du webhook/cash-in. Lève si pas de
-    participation validée dans le cycle ouvert (défense en profondeur ;
-    `payments/init` le garantit déjà).
+    Doit tourner dans la transaction du webhook/cash-in. Défense en profondeur
+    (`payments/init` garantit déjà participation validée + carnet + plancher) :
+    lève si la participation n'est pas active dans la collecte visée.
     """
-    membership = _active_membership_for(payment.member, payment.type)
+    cycle = payment.special_cycle
+    if cycle is None:
+        # Rétro-compat : un paiement caisse/tontine initié AVANT l'ajout de
+        # `special_cycle` (déployé pendant qu'il était en attente) n'a pas de
+        # cycle cible → on retombe sur le cycle ouvert courant du type plutôt
+        # que de bloquer le webhook (sinon versement débité mais jamais crédité).
+        cycle = current_open_cycle(payment.type)
+    if cycle is None:
+        raise SpecialCollectionError(
+            "Aucune collecte ouverte pour imputer ce versement."
+        )
+    membership = _membership_in_cycle(payment.member, cycle)
     if membership is None or not membership.is_active:
         raise SpecialCollectionError(
-            "Aucune participation validée dans le cycle ouvert de cette collecte."
+            "Aucune participation validée dans cette collecte."
         )
 
     nouveau_solde = Decimal(membership.solde) + Decimal(payment.montant)
     membership.solde = nouveau_solde
     membership.save(update_fields=["solde", "updated_at"])
 
+    # Provenance : un cash-in agence (source manuel) est étiqueté « manuel »,
+    # un versement entrant Mobile Money « versement ».
+    is_manual = payment.source == payment.Source.MANUEL
     row = SpecialCollectionTransaction.objects.create(
         membership=membership,
         payment=payment,
-        type_op=SpecialCollectionTransaction.TypeOp.VERSEMENT,
+        booklet_order=member_carnet_for(payment.member, membership.type),
+        type_op=(
+            SpecialCollectionTransaction.TypeOp.MANUEL
+            if is_manual
+            else SpecialCollectionTransaction.TypeOp.VERSEMENT
+        ),
         montant=payment.montant,
         solde_apres=nouveau_solde,
-        libelle="Versement Mobile Money",
+        date=payment.date_versement,
+        libelle="Versement agence" if is_manual else "Versement Mobile Money",
     )
     record_audit(
         action="special_collection.deposit",
@@ -250,9 +347,12 @@ def credit_versement(payment) -> SpecialCollectionTransaction:
 
 
 # ── Transfert interne depuis l'épargne classique disponible ───────────────────
-def transfer_from_classic(*, member, type: str, montant) -> SpecialCollectionTransaction:
-    """Transfère ``montant`` de l'épargne classique LIBRE vers la collecte
-    (cycle ouvert). Atomique : débite l'épargne classique, crédite la collecte.
+def transfer_from_classic(
+    *, member, type: str, montant, cycle_id=None
+) -> SpecialCollectionTransaction:
+    """Transfère ``montant`` de l'épargne classique LIBRE vers une collecte
+    ouverte précise (``cycle_id``). Atomique : débite l'épargne classique,
+    crédite la collecte. Exige carnet du type + montant ≥ plancher de la collecte.
     """
     from apps_coop.savings.models import ClassicSavingsAccount, ClassicSavingsTransaction
 
@@ -261,11 +361,13 @@ def transfer_from_classic(*, member, type: str, montant) -> SpecialCollectionTra
         raise SpecialCollectionError("Montant invalide.")
 
     with db_transaction.atomic():
-        membership = _active_membership_for(member, type)
+        cycle = _resolve_open_cycle(type=type, cycle_id=cycle_id)
+        membership = _membership_in_cycle(member, cycle)
         if membership is None or not membership.is_active:
             raise SpecialCollectionError(
-                "Participation non validée dans le cycle ouvert de cette collecte."
+                "Participation non validée dans cette collecte."
             )
+        _ensure_carnet_and_floor(member, cycle, membership, montant)
 
         account = (
             ClassicSavingsAccount.objects.select_for_update()
@@ -286,6 +388,7 @@ def transfer_from_classic(*, member, type: str, montant) -> SpecialCollectionTra
             montant=montant,
             solde_apres=account.solde,
             date=timezone.now(),
+            booklet_order=BookletOrder.latest_for(member),
         )
 
         nouveau_solde = Decimal(membership.solde) + montant
@@ -293,9 +396,11 @@ def transfer_from_classic(*, member, type: str, montant) -> SpecialCollectionTra
         membership.save(update_fields=["solde", "updated_at"])
         row = SpecialCollectionTransaction.objects.create(
             membership=membership,
+            booklet_order=member_carnet_for(member, membership.type),
             type_op=SpecialCollectionTransaction.TypeOp.TRANSFERT,
             montant=montant,
             solde_apres=nouveau_solde,
+            date=timezone.now(),
             libelle="Transfert depuis épargne classique",
         )
 

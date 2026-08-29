@@ -57,6 +57,8 @@ def _reverse_collecte_tx(tx) -> None:
         montant=montant,
         solde_apres=account.solde,
         date=timezone.now(),
+        # Contre-passation : même carnet que l'écriture d'origine.
+        booklet_order=tx.booklet_order,
     )
 
 
@@ -105,6 +107,67 @@ def _reverse_classic_tx(tx) -> None:
         montant=montant,
         solde_apres=account.solde,
         date=timezone.now(),
+        # Contre-passation : même carnet que l'écriture d'origine.
+        booklet_order=tx.booklet_order,
+    )
+
+
+def _reverse_special_collection_tx(tx) -> None:
+    """Annule un versement de collecte particulière : débite le solde de la
+    participation du montant crédité, et écrit une ligne d'annulation tracée."""
+    from apps_coop.special_collections.models import (
+        SpecialCollectionMembership,
+        SpecialCollectionTransaction,
+    )
+
+    membership = (
+        SpecialCollectionMembership.objects.select_for_update()
+        .get(pk=tx.membership_id)
+    )
+    montant = Decimal(tx.montant)
+    membership.solde = max(Decimal(membership.solde) - montant, Decimal("0"))
+    membership.save(update_fields=["solde", "updated_at"])
+    SpecialCollectionTransaction.objects.create(
+        membership=membership,
+        payment=tx.payment,
+        type_op=SpecialCollectionTransaction.TypeOp.MANUEL,
+        montant=montant,
+        solde_apres=membership.solde,
+        date=timezone.now(),
+        libelle="Annulation (invalidation paiement)",
+        # Contre-passation : même carnet que l'écriture d'origine.
+        booklet_order=tx.booklet_order,
+    )
+
+
+def _reverse_group_tontine_tx(tx) -> None:
+    """Annule une écriture de tontine de groupe : débite la cagnotte, et — si
+    c'était un remboursement de prêt — restaure le solde restant du prêt."""
+    from apps_coop.special_collections.models import (
+        GroupTontine,
+        GroupTontineLoan,
+        GroupTontineTransaction,
+    )
+
+    grp = GroupTontine.objects.select_for_update().get(pk=tx.group_id)
+    montant = Decimal(tx.montant)
+    # Cotisation & remboursement = entrées dans la cagnotte → on les débite.
+    grp.solde = max(Decimal(grp.solde) - montant, Decimal("0"))
+    grp.save(update_fields=["solde", "updated_at"])
+    if tx.loan_id and tx.type_op == GroupTontineTransaction.TypeOp.REMBOURSEMENT_PRET:
+        loan = GroupTontineLoan.objects.select_for_update().get(pk=tx.loan_id)
+        loan.solde_restant = Decimal(loan.solde_restant) + montant
+        loan.statut = GroupTontineLoan.Statut.EN_COURS
+        loan.save(update_fields=["solde_restant", "statut", "updated_at"])
+    GroupTontineTransaction.objects.create(
+        group=grp,
+        member=tx.member,
+        payment=tx.payment,
+        type_op=GroupTontineTransaction.TypeOp.AJUSTEMENT,
+        montant=montant,
+        solde_apres=grp.solde,
+        date=timezone.now(),
+        libelle="Annulation (invalidation paiement)",
     )
 
 
@@ -185,6 +248,8 @@ def invalidate_payment(payment: Payment, *, actor, motif: str = "") -> Payment:
         "collecte_tx": payment.savings_transactions.count(),
         "classic_tx": payment.classic_savings_transactions.count(),
         "repayments": payment.loan_repayments.count(),
+        "special_collection_tx": payment.special_collection_transactions.count(),
+        "group_tontine_tx": payment.group_tontine_transactions.count(),
     }
 
     for tx in payment.savings_transactions.select_related("account").all():
@@ -195,6 +260,11 @@ def invalidate_payment(payment: Payment, *, actor, motif: str = "") -> Payment:
         "installment", "installment__loan"
     ).all():
         _reverse_repayment(rep)
+    # Nouveaux comptes (2026-08) : collectes particulières + tontines de groupe.
+    for tx in payment.special_collection_transactions.all():
+        _reverse_special_collection_tx(tx)
+    for tx in payment.group_tontine_transactions.all():
+        _reverse_group_tontine_tx(tx)
 
     payment.statut = Payment.Statut.REJETE
     payment.save(update_fields=["statut", "updated_at"])

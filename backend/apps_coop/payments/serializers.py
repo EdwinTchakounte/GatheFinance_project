@@ -19,9 +19,14 @@ _ALLOWED_INIT_TYPES = {
     # Intérêts de reconduction versés au comptant (taux réduit).
     Payment.Type.FRAIS_RECONDUCTION,
     Payment.Type.FRAIS_CARNET,
+    # Achat des carnets dédiés aux collectes particulières (payants).
+    Payment.Type.FRAIS_CARNET_TONTINE,
+    Payment.Type.FRAIS_CARNET_CAISSE,
     # Collectes particulières (gated sur participation validée côté vue).
     Payment.Type.CAISSE_SCOLAIRE,
     Payment.Type.TONTINE_ALIMENTAIRE,
+    # Cotisation dans une tontine de groupe (gated sur roster côté vue).
+    Payment.Type.TONTINE_GROUPE,
 }
 
 _ALLOWED_NETWORKS = {"MTN", "ORANGE", "WAVE", "AIRTEL"}
@@ -50,6 +55,14 @@ class PaymentInitSerializer(serializers.Serializer):
     # Optional links — only meaningful for remboursement / fees tied to a loan
     loan_id = serializers.IntegerField(required=False, allow_null=True)
     loan_installment_id = serializers.IntegerField(required=False, allow_null=True)
+    # Collectes particulières : collecte (tontine/caisse) précise visée. Requis
+    # pour type in {caisse_scolaire, tontine_alimentaire} quand plusieurs sont
+    # ouvertes ; sinon déduite (une seule ouverte).
+    cycle_id = serializers.IntegerField(required=False, allow_null=True)
+    # Tontine de groupe visée par une cotisation (type=tontine_groupe).
+    group_id = serializers.IntegerField(required=False, allow_null=True)
+    # Prêt de tontine de groupe remboursé par ce versement (type=tontine_groupe).
+    group_loan_id = serializers.IntegerField(required=False, allow_null=True)
     # LOT 6 (refonte 2026) — multi-jours pré-payé sur la collecte journalière.
     # Montant LIBRE : ≥ collecte.min_per_day par jour ET multiple de
     # collecte.amount_step (50 par défaut). N = 1 : versement d'1 jour.

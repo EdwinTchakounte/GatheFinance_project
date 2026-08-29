@@ -348,6 +348,40 @@ def admin_create_member(request):
 
 @extend_schema(
     tags=["members"],
+    summary="🔒 Admin — éditer un membre (identité + contact + pièces)",
+    description=(
+        "Met à jour nom/prénom/téléphone/email et, en multipart, remplace/ajoute "
+        "les pièces (cni_recto, cni_verso, photo, plan). Permission : `IsAdmin`."
+    ),
+    responses={200: MemberReadSerializer, 409: OpenApiResponse(description="Email déjà pris")},
+)
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def admin_update_member(request, pk: int):
+    member = get_object_or_404(Member, pk=pk)
+    files = {
+        k: request.FILES.get(k)
+        for k in ("cni_recto", "cni_verso", "photo", "plan")
+    }
+    try:
+        member = services.update_member_by_admin(
+            member,
+            nom=request.data.get("nom"),
+            prenom=request.data.get("prenom"),
+            phone=request.data.get("phone"),
+            email=request.data.get("email"),
+            files=files,
+            actor=request.user,
+        )
+    except services.MemberAlreadyExists as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(MemberReadSerializer(member).data)
+
+
+@extend_schema(
+    tags=["members"],
     summary="🔒 Admin — rejeter une demande d'adhésion",
     description="Pose `statut=rejetee` + `motif_rejet`. Permission : `IsAdmin`.",
     request=MembershipRejectSerializer,
@@ -474,9 +508,16 @@ def admin_list_members(request):
     from datetime import timedelta
 
     from django.db.models import Q
+    from django.db.models.functions import Lower
     from django.utils import timezone
 
-    qs = Member.objects.select_related("user").order_by("-date_adhesion")
+    # Affichage des membres par ordre ALPHABÉTIQUE (nom puis prénom),
+    # INSENSIBLE À LA CASSE : la collation Postgres trie sinon les MAJUSCULES
+    # avant les minuscules (« MEMBRE » avant « Mballa »). ``Lower`` donne un
+    # ordre humainement alphabétique quelle que soit la casse de saisie.
+    qs = Member.objects.select_related("user").order_by(
+        Lower("nom"), Lower("prenom"), "id"
+    )
     statut = request.query_params.get("statut")
     if statut:
         qs = qs.filter(statut=statut)

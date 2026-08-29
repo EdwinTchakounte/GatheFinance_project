@@ -24,7 +24,10 @@ class FeeType(TimestampedModel):
         ADHESION = "ADHESION", "Frais d'adhésion"
         DEMANDE_CREDIT = "DEMANDE_CREDIT", "Frais de demande de crédit"
         RECONDUCTION = "RECONDUCTION", "Frais de reconduction"
-        CARNET = "CARNET", "Frais de carnet"
+        CARNET = "CARNET", "Frais de carnet (collecte / épargne)"
+        # Carnets distincts pour les collectes particulières (un carnet par type).
+        CARNET_TONTINE = "CARNET_TONTINE", "Frais de carnet tontine"
+        CARNET_CAISSE = "CARNET_CAISSE", "Frais de carnet caisse scolaire"
 
     code = models.CharField(max_length=24, choices=Code.choices, unique=True)
     libelle = models.CharField(max_length=120)
@@ -94,12 +97,18 @@ class Payment(TimestampedModel):
         EPARGNE_CLASSIQUE = "epargne_classique", "Épargne classique"
         # Collectes particulières (individuelles, gated sur validation admin).
         CAISSE_SCOLAIRE = "caisse_scolaire", "Caisse scolaire"
-        TONTINE_ALIMENTAIRE = "tontine_alimentaire", "Tontine alimentaire"
+        TONTINE_ALIMENTAIRE = "tontine_alimentaire", "Tontine"
+        # Cotisation dans une tontine de GROUPE (réunion) → crédite la cagnotte.
+        TONTINE_GROUPE = "tontine_groupe", "Cotisation tontine de groupe"
         FRAIS_INSCRIPTION = "frais_inscription", "Frais d'inscription"
         FRAIS_ADHESION = "frais_adhesion", "Frais d'adhésion"
         FRAIS_DEMANDE_CREDIT = "frais_demande_credit", "Frais de demande de crédit"
         FRAIS_RECONDUCTION = "frais_reconduction", "Frais de reconduction"
         FRAIS_CARNET = "frais_carnet", "Frais de carnet"
+        # Achat des carnets dédiés aux collectes particulières (payants,
+        # frais configurables ; un carnet distinct par type de collecte).
+        FRAIS_CARNET_TONTINE = "frais_carnet_tontine", "Frais de carnet tontine"
+        FRAIS_CARNET_CAISSE = "frais_carnet_caisse", "Frais de carnet caisse scolaire"
         REMBOURSEMENT = "remboursement", "Remboursement"
         DECAISSEMENT = "decaissement", "Décaissement"
 
@@ -140,6 +149,35 @@ class Payment(TimestampedModel):
         null=True,
         blank=True,
         related_name="related_payments",
+    )
+
+    # Collectes particulières : cycle (tontine/caisse) précis visé par ce
+    # versement. Plusieurs collectes du même type pouvant être ouvertes, le
+    # type seul ne suffit plus — le hook crédite CE cycle. Null pour tout autre
+    # type de paiement.
+    special_cycle = models.ForeignKey(
+        "special_collections.SpecialCollectionCycle",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="payments",
+    )
+    # Tontine de groupe (réunion) visée par une cotisation Mobile Money.
+    group_tontine = models.ForeignKey(
+        "special_collections.GroupTontine",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="payments",
+    )
+    # Prêt de tontine de groupe remboursé par ce versement (si renseigné, le
+    # versement rembourse le prêt au lieu d'alimenter la cagnotte comme cotisation).
+    group_loan = models.ForeignKey(
+        "special_collections.GroupTontineLoan",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="payments",
     )
 
     validated_by = models.ForeignKey(

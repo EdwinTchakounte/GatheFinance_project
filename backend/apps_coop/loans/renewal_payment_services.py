@@ -27,6 +27,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps_coop.audit.services import record as record_audit
+from apps_coop.members.models import BookletOrder
 
 from .models import LoanRenewal
 
@@ -152,6 +153,7 @@ def pay_renewal_interest_from_savings(renewal: LoanRenewal) -> "object":
         montant=montant,
         solde_apres=account.solde,
         date=now,
+        booklet_order=BookletOrder.latest_for(account.member),
     )
 
     record_audit(

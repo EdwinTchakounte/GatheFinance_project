@@ -28,6 +28,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps_coop.audit.services import record as record_audit
+from apps_coop.members.models import BookletOrder
 
 from .cutoff import MIN_BALANCE_FOR_INTEREST
 
@@ -152,6 +153,7 @@ def crediter_interets_mensuels(
                     montant=interets,
                     solde_apres=nouveau_solde,
                     date=now,
+                    booklet_order=BookletOrder.latest_for(locked.member),
                 )
 
                 record_audit(
@@ -335,6 +337,7 @@ def collecte_fin_de_mois() -> dict:
                     montant=commission,
                     solde_apres=restituable,
                     date=now,
+                    booklet_order=BookletOrder.latest_for(locked.member),
                 )
                 total_commission += commission
 
@@ -366,6 +369,7 @@ def collecte_fin_de_mois() -> dict:
                         montant=restituable,
                         solde_apres=Decimal("0"),
                         date=now,
+                        booklet_order=BookletOrder.latest_for(locked.member),
                     )
                     ClassicSavingsTransaction.objects.create(
                         account=classic_account,
@@ -376,6 +380,7 @@ def collecte_fin_de_mois() -> dict:
                         montant=restituable,
                         solde_apres=nouveau_solde_classic,
                         date=now,
+                        booklet_order=BookletOrder.latest_for(classic_account.member),
                     )
                     classic_account.solde = nouveau_solde_classic
                     classic_account.save(update_fields=["solde", "updated_at"])
@@ -397,6 +402,7 @@ def collecte_fin_de_mois() -> dict:
                         montant=restituable,
                         solde_apres=Decimal("0"),
                         date=now,
+                        booklet_order=BookletOrder.latest_for(locked.member),
                     )
                     locked.solde = Decimal("0")
                     locked.save(update_fields=["solde", "updated_at"])
@@ -585,6 +591,7 @@ def epargne_anniversary_processing() -> dict:
                             montant=ancien_solde,
                             solde_apres=Decimal("0"),
                             date=now,
+                            booklet_order=BookletOrder.latest_for(locked.member),
                         )
                         locked.solde = Decimal("0")
                         transitions["restitues"] += 1

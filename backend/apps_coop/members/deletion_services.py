@@ -129,26 +129,30 @@ def delete_member_cascade(member: Member, *, actor, motif: str = "") -> dict:
         "motif": (motif or "").strip(),
     }
 
-    # 1. Paiements (PROTECT sur `member` ET sur `loan`) — à supprimer en premier.
+    # 1. Carnets + justificatifs BRC (PROTECT) — AVANT les paiements :
+    #    ``BookletOrder.payment`` est un OneToOne PROTECT vers le Payment
+    #    frais_carnet ; il faut donc supprimer le carnet d'abord, sinon la
+    #    suppression du Payment (étape 2) lève ``ProtectedError``. Comme tout
+    #    membre activé détient un carnet, cet ordre est indispensable.
+    BRCDocument.objects.filter(member=member).delete()
+    BookletOrder.objects.filter(member=member).delete()
+
+    # 2. Paiements (PROTECT sur `member` ET sur `loan`).
     Payment.objects.filter(member=member).delete()
     Payment.objects.filter(loan__member=member).delete()
 
-    # 2. Crédits + dépendances descendantes (installments, funding, contentieux).
+    # 3. Crédits + dépendances descendantes (installments, funding, contentieux).
     for loan in Loan.objects.filter(member=member):
         JudicialEscalation.objects.filter(loan=loan).delete()
         LoanInstallment.objects.filter(loan=loan).delete()
         LoanFundingRequest.objects.filter(loan=loan).delete()
         loan.delete()
 
-    # 3. Demandes + consentements avaliste / prêteur PROPRES au membre.
+    # 4. Demandes + consentements avaliste / prêteur PROPRES au membre.
     AvalisteConsent.objects.filter(avaliste=member).delete()
     AvalisteConsent.objects.filter(loan_request__member=member).delete()
     LenderConsentRequest.objects.filter(lender=member).delete()
     LoanRequest.objects.filter(member=member).delete()
-
-    # 4. Carnets + justificatifs BRC (PROTECT).
-    BRCDocument.objects.filter(member=member).delete()
-    BookletOrder.objects.filter(member=member).delete()
 
     # 5. Épargne : tranches/consentement prêteur (PROTECT) puis comptes.
     LenderTranche.objects.filter(member=member).delete()

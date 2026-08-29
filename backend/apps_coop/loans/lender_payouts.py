@@ -32,6 +32,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps_coop.audit.services import get_str_setting, record as record_audit
+from apps_coop.members.models import BookletOrder
 from apps_coop.portal_urls import portal_url
 from apps_coop.savings.models import (
     ClassicSavingsAccount,
@@ -249,6 +250,7 @@ def _credit_lender(
         montant=montant,
         solde_apres=nouveau_solde,
         date=when,
+        booklet_order=BookletOrder.latest_for(account.member),
     )
 
     payout = LenderInterestPayout.objects.create(
@@ -493,6 +495,7 @@ def _credit_lender_at_source(
         montant=montant,
         solde_apres=nouveau_solde,
         date=when,
+        booklet_order=BookletOrder.latest_for(account.member),
     )
 
     payout = LenderInterestPayout.objects.create(

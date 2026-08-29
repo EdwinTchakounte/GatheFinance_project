@@ -21,6 +21,7 @@ from apps_coop.audit.services import (
     record as record_audit,
 )
 
+from apps_coop.members.models import BookletOrder
 from apps_coop.portal_urls import portal_url
 
 from .models import (
@@ -774,6 +775,10 @@ def apply_withdrawal_debit(wr: WithdrawalRequest, *, now=None) -> Decimal:
             montant=total,
             solde_apres=nouveau_solde,
             date=now,
+            # Rattacher l'écriture de retrait au carnet du membre (comme le
+            # dépôt) : dans le carnet papier, dépôts ET retraits vivent dans le
+            # même carnet. Sans ça, le retrait n'apparaissait sur aucun carnet.
+            booklet_order=BookletOrder.latest_for(cacc.member),
         )
         wr.classic_transaction = ctx
         wr.save(update_fields=["classic_transaction", "updated_at"])
@@ -795,6 +800,9 @@ def apply_withdrawal_debit(wr: WithdrawalRequest, *, now=None) -> Decimal:
             montant=total,
             solde_apres=nouveau_solde,
             date=now,
+            # Cf. ci-dessus : le retrait s'impute au carnet du membre, comme le
+            # dépôt (même carnet papier pour les deux sens).
+            booklet_order=BookletOrder.latest_for(account.member),
         )
         wr.transaction = tx
         wr.save(update_fields=["transaction", "updated_at"])
@@ -959,6 +967,7 @@ def renew_classic_savings_account(
         montant=renewal_fee,
         solde_apres=locked.solde,
         date=now,
+        booklet_order=BookletOrder.latest_for(locked.member),
     )
 
     previous_cycle = locked.cycle_courant
