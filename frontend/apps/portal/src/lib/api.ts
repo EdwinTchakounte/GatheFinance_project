@@ -224,6 +224,22 @@ export type SavingsTransaction = {
   montant: string;
   solde_apres: string;
   date: string;
+  booklet_order?: number | null;
+  booklet_annee?: number | null;
+};
+
+// État d'un carnet (agrégat des écritures qui lui sont rattachées).
+export type BookletSummary = {
+  booklet_order: number;
+  type: string;
+  type_display: string;
+  annee: number | null;
+  count: number;
+  collecte_count: number;
+  classique_count: number;
+  total_credit: string;
+  total_debit: string;
+  solde_net: string;
 };
 
 export type SavingsSnapshot = {
@@ -318,6 +334,8 @@ export type PortalCommentsPage = {
 export type PaymentRead = {
   id: number;
   montant: string;
+  // Frais de transaction (%) payés EN PLUS du montant (le débit réel = somme).
+  frais_transaction: string;
   type: string;
   type_display: string;
   source: string;
@@ -495,8 +513,10 @@ export type PaymentInitInput = {
     | "frais_inscription"
     | "frais_demande_credit"
     | "frais_reconduction"
-    | "frais_carnet";
-  montant: number;
+    | "frais_carnet"
+    | "frais_carnet_tontine"
+    | "frais_carnet_caisse";
+  montant?: number;
   phone: string;
   network: "MTN" | "ORANGE" | "WAVE" | "AIRTEL";
   loan_id?: number | null;
@@ -506,6 +526,8 @@ export type PaymentInitInput = {
   // LOT 6 (refonte 2026) — multi-jours pré-payé sur la collecte journalière
   // (type "epargne" uniquement). Le backend valide nb × collecte.min_per_day.
   nb_jours_couverts?: number;
+  // Collectes particulières : collecte (tontine/caisse) précise visée.
+  cycle_id?: number;
 };
 
 export type PaymentInitResponse = {
@@ -532,16 +554,26 @@ export type SpecialCollectionMembershipRead = {
 export type SpecialCollectionCycleRead = {
   id: number;
   nom: string;
+  description?: string;
+  montant_minimal?: string;
   is_open: boolean;
   date_debut: string;
   date_fin: string | null;
 };
 
+// Une collecte ouverte + ma participation dedans.
+export type SpecialCollectionOpen = {
+  cycle: SpecialCollectionCycleRead;
+  membership: SpecialCollectionMembershipRead | null;
+};
+
 export type SpecialCollectionSlot = {
   type: SpecialCollectionType;
   type_display: string;
-  cycle: SpecialCollectionCycleRead | null;
-  membership: SpecialCollectionMembershipRead | null;
+  // Carnet du type acheté ? (prérequis pour verser)
+  has_carnet: boolean;
+  // Plusieurs collectes ouvertes possibles par type.
+  cycles: SpecialCollectionOpen[];
 };
 
 // Refonte 2026 — Retrait avec choix MOMO/présentiel
@@ -719,10 +751,17 @@ export const portalApi = {
       lead_days: number;
       grace_days: number;
     }>("/members/me/renewal-status/"),
-  savingsTransactions: (params: { page?: number; type_op?: "depot" | "retrait" | "interet" } = {}) => {
+  savingsTransactions: (
+    params: {
+      page?: number;
+      type_op?: "depot" | "retrait" | "interet";
+      booklet_order?: number;
+    } = {},
+  ) => {
     const sp = new URLSearchParams();
     if (params.page) sp.set("page", String(params.page));
     if (params.type_op) sp.set("type_op", params.type_op);
+    if (params.booklet_order) sp.set("booklet_order", String(params.booklet_order));
     const qs = sp.toString();
     return request<{
       count: number;
@@ -731,11 +770,21 @@ export const portalApi = {
       results: SavingsTransaction[];
     }>(`/savings/transactions/${qs ? `?${qs}` : ""}`);
   },
+  // États par carnet (vue « Mes carnets » groupée) — collecte + classique.
+  bookletSummaries: () =>
+    request<{ results: BookletSummary[] }>("/savings/booklets/summary/"),
   // Historique paginé de l'épargne classique (dissocié de la collecte).
-  classicSavingsTransactions: (params: { page?: number; type_op?: "depot" | "retrait" | "interet" } = {}) => {
+  classicSavingsTransactions: (
+    params: {
+      page?: number;
+      type_op?: "depot" | "retrait" | "interet";
+      booklet_order?: number;
+    } = {},
+  ) => {
     const sp = new URLSearchParams();
     if (params.page) sp.set("page", String(params.page));
     if (params.type_op) sp.set("type_op", params.type_op);
+    if (params.booklet_order) sp.set("booklet_order", String(params.booklet_order));
     const qs = sp.toString();
     return request<{
       count: number;
@@ -999,11 +1048,12 @@ export const portalApi = {
       ),
   },
   specialCollections: {
-    /** Par type : cycle ouvert (le cas échéant) + ma participation. */
+    /** Par type : has_carnet + liste des collectes ouvertes avec ma participation. */
     mine: () => request<SpecialCollectionSlot[]>("/special-collections/"),
-    /** Demande de participation au cycle ouvert. */
+    /** Demande de participation à une collecte ouverte précise. */
     request: (payload: {
       type: SpecialCollectionType;
+      cycle_id?: number;
       objectif: string;
       montant_cible?: number | null;
     }) =>
@@ -1012,7 +1062,11 @@ export const portalApi = {
         body: JSON.stringify(payload),
       }),
     /** Transfert interne depuis l'épargne classique disponible. */
-    transfer: (payload: { type: SpecialCollectionType; montant: number }) =>
+    transfer: (payload: {
+      type: SpecialCollectionType;
+      cycle_id?: number;
+      montant: number;
+    }) =>
       request<{ id: number; solde_apres: string }>(
         "/special-collections/transfer/",
         { method: "POST", body: JSON.stringify(payload) },
@@ -1075,7 +1129,7 @@ export const portalApi = {
   // Carnet : liste des commandes du membre (statut : payee / en_impression / delivree).
   booklet: {
     me: () =>
-      request<{ results: { id: number; statut: string; created_at: string; date_impression?: string; date_delivrance?: string }[] }>(
+      request<{ results: { id: number; statut: string; type?: string; type_display?: string; annee?: number; created_at: string; date_impression?: string; date_delivrance?: string }[] }>(
         "/booklet/me/",
       ),
   },

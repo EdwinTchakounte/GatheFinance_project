@@ -10,6 +10,9 @@ import { portalApi, type ApiError } from "@/lib/api";
 type BookletOrder = {
   id: number;
   statut: string;
+  // Type de carnet (collecte / tontine / caisse) — carnet par type.
+  type?: string;
+  type_display?: string;
   created_at: string;
   date_impression?: string;
   date_delivrance?: string;
@@ -130,7 +133,9 @@ export default function CarnetPage() {
                       <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
                         <div>
                           <p className="text-sm font-medium text-ink-900">
-                            Commande #{o.id}
+                            {o.type_display
+                              ? `Carnet ${o.type_display}`
+                              : `Commande #${o.id}`}
                           </p>
                           <p className="text-xs text-ink-500">
                             Créée le {new Date(o.created_at).toLocaleDateString("fr-CM", { day: "2-digit", month: "long", year: "numeric" })}

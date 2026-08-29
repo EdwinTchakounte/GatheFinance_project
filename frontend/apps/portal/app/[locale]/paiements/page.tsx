@@ -10,9 +10,9 @@ import { Container, EmptyState, SkeletonList } from "@gathe/ui";
 import { portalApi, type ApiError, type PaymentRead } from "@/lib/api";
 
 
-function fmtAmount(value: string): string {
+function fmtAmount(value: string | number): string {
   const n = Number(value);
-  if (!Number.isFinite(n)) return value;
+  if (!Number.isFinite(n)) return String(value);
   return n.toLocaleString("fr-FR");
 }
 
@@ -127,9 +127,20 @@ export default function ReceiptsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="text-sm font-semibold text-ink-900">
-                      {fmtAmount(p.montant)} XAF
-                    </span>
+                    <div className="text-right">
+                      <span className="text-sm font-semibold text-ink-900">
+                        {fmtAmount(
+                          Number(p.montant) + Number(p.frais_transaction || 0),
+                        )}{" "}
+                        XAF
+                      </span>
+                      {Number(p.frais_transaction || 0) > 0 ? (
+                        <p className="text-[11px] text-ink-500">
+                          {fmtAmount(p.montant)} + {fmtAmount(p.frais_transaction)}{" "}
+                          de frais
+                        </p>
+                      ) : null}
+                    </div>
                     <a
                       href={portalApi.payments.receiptUrl(p.id)}
                       target="_blank"
