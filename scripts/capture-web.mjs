@@ -48,14 +48,25 @@ const PORTAL_PAGES = [
 
 const ADMIN_PAGES = [
   { slug: "01-dashboard", path: "/dashboard" },
+  { slug: "pipeline-adhesion", path: "/adhesions" },
   { slug: "02-membership-requests", path: "/membership-requests" },
+  { slug: "07-members", path: "/members" },
+  { slug: "booklet-orders", path: "/booklet-orders" },
   { slug: "03-loan-requests", path: "/loan-requests" },
   { slug: "04-loans", path: "/loans" },
+  { slug: "loan-renewals", path: "/loan-renewals" },
+  { slug: "lender-tranches", path: "/lender-tranches" },
+  { slug: "avaliste", path: "/avaliste" },
   { slug: "05-payments", path: "/payments" },
   { slug: "06-withdrawals", path: "/withdrawals" },
-  { slug: "07-members", path: "/members" },
   { slug: "08-brc", path: "/brc" },
   { slug: "09-renewals", path: "/renewals" },
+  { slug: "antidated-entries", path: "/antidated-entries" },
+  { slug: "collecte-preferences", path: "/collecte-preferences" },
+  // Collectes particulières (caisse/tontine) + tontines de groupe — nouveautés.
+  { slug: "special-collections", path: "/special-collections" },
+  { slug: "group-tontines", path: "/group-tontines" },
+  { slug: "structures", path: "/structures" },
   { slug: "10-campaigns", path: "/campaigns" },
   { slug: "11-escalations", path: "/escalations" },
   { slug: "12-costs", path: "/costs" },
@@ -63,6 +74,13 @@ const ADMIN_PAGES = [
   { slug: "14-cron-schedules", path: "/cron-schedules" },
   { slug: "15-cooperative-asset", path: "/cooperative-asset" },
   { slug: "16-announcements", path: "/announcements" },
+  { slug: "blog", path: "/blog" },
+  { slug: "comments", path: "/comments" },
+  { slug: "forms", path: "/forms" },
+  { slug: "support", path: "/support" },
+  { slug: "audit", path: "/audit" },
+  { slug: "access", path: "/access" },
+  { slug: "supervision", path: "/supervision" },
 ];
 
 
