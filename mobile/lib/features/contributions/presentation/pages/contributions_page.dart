@@ -254,6 +254,18 @@ class _TimelineRow extends StatelessWidget {
                         ),
                       ],
                     ),
+                    // Frais de transaction Tara (Mobile Money) : affichés EN PLUS
+                    // du montant, comme sur le portail. Rien si versé en agence
+                    // (frais = 0).
+                    if (contribution.frais > 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '+ ${XAFFormatter.format(contribution.frais)} de frais'
+                        ' = ${XAFFormatter.format(contribution.totalPaye)} payés',
+                        style: PaText.body(
+                          size: 12, color: PaColors.warning,),
+                      ),
+                    ],
                     if (contribution.reference != null) ...[
                       const SizedBox(height: 6),
                       Row(

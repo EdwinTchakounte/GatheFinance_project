@@ -11,6 +11,7 @@ class BookletOrder {
     required this.statut,
     required this.dateCommande,
     required this.montant,
+    this.typeDisplay = '',
     this.dateImpression,
     this.dateDelivrance,
     this.notesAgence = '',
@@ -20,6 +21,9 @@ class BookletOrder {
   final BookletStatus statut;
   final DateTime dateCommande;
   final num montant;
+  // Type de carnet (collecte / tontine / caisse), libellé prêt à afficher —
+  // carnet par type. Vide si non renvoyé par le backend.
+  final String typeDisplay;
   final DateTime? dateImpression;
   final DateTime? dateDelivrance;
   final String notesAgence;

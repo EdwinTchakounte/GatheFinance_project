@@ -104,11 +104,11 @@ class _SavingsHistoryPageState extends ConsumerState<SavingsHistoryPage> {
               setState(() => _period = p);
             },
           ),
-          // Filtre « par carnet » — visible seulement si le membre a au moins
-          // un carnet rattaché à ses écritures.
+          // « Mes carnets » — état par carnet (nb, crédits, débits, net) ET
+          // filtre : un tap isole les écritures du carnet. Grouped view.
           if (carnets.isNotEmpty)
-            _BookletFilters(
-              carnets: carnets,
+            _BookletStateCards(
+              states: _bookletStates(entries),
               value: _bookletId,
               onChanged: (id) {
                 HapticFeedback.selectionClick();
@@ -180,6 +180,53 @@ List<({int id, String label})> _carnetOptions(List<_Entry> entries) {
           }
           return 'Carnet $y';
         }(),
+      ),
+  ];
+}
+
+/// État par carnet (grouped view) : pour chaque carnet des écritures, le nombre
+/// d'écritures, le total crédité/débité et le net (crédits − débits). Calculé
+/// côté client à partir des écritures déjà chargées (qui portent bookletId +
+/// isDebit), donc pas d'appel réseau supplémentaire.
+typedef _BookletState = ({
+  int id,
+  int? annee,
+  int count,
+  num credit,
+  num debit,
+  num net,
+});
+
+List<_BookletState> _bookletStates(List<_Entry> entries) {
+  final credit = <int, num>{};
+  final debit = <int, num>{};
+  final count = <int, int>{};
+  final annee = <int, int?>{};
+  for (final e in entries) {
+    final id = e.tx.bookletId;
+    if (id == null) continue;
+    annee[id] = e.tx.bookletAnnee;
+    count[id] = (count[id] ?? 0) + 1;
+    if (e.tx.isDebit) {
+      debit[id] = (debit[id] ?? 0) + e.tx.montant;
+    } else {
+      credit[id] = (credit[id] ?? 0) + e.tx.montant;
+    }
+  }
+  final ids = count.keys.toList()
+    ..sort((a, b) {
+      final c = (annee[b] ?? 0).compareTo(annee[a] ?? 0);
+      return c != 0 ? c : b.compareTo(a);
+    });
+  return [
+    for (final id in ids)
+      (
+        id: id,
+        annee: annee[id],
+        count: count[id] ?? 0,
+        credit: credit[id] ?? 0,
+        debit: debit[id] ?? 0,
+        net: (credit[id] ?? 0) - (debit[id] ?? 0),
       ),
   ];
 }
@@ -256,41 +303,114 @@ class _PeriodFilters extends StatelessWidget {
 }
 
 
-class _BookletFilters extends StatelessWidget {
-  const _BookletFilters({
-    required this.carnets,
+class _BookletStateCards extends StatelessWidget {
+  const _BookletStateCards({
+    required this.states,
     required this.value,
     required this.onChanged,
   });
 
-  final List<({int id, String label})> carnets;
+  final List<_BookletState> states;
   final int? value;
   final ValueChanged<int?> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 46,
+      height: 92,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-        itemCount: carnets.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemCount: states.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, i) {
           if (i == 0) {
-            return _FilterChip(
-              label: 'Tous les carnets',
-              selected: value == null,
+            final selected = value == null;
+            return _CardShell(
+              selected: selected,
               onTap: () => onChanged(null),
+              child: Center(
+                child: Text(
+                  'Tous\nles carnets',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? PaColors.teal : PaColors.inkPrimary,
+                  ),
+                ),
+              ),
             );
           }
-          final c = carnets[i - 1];
-          return _FilterChip(
-            label: c.label,
-            selected: value == c.id,
-            onTap: () => onChanged(c.id),
+          final s = states[i - 1];
+          final selected = value == s.id;
+          final net = s.net;
+          return _CardShell(
+            selected: selected,
+            onTap: () => onChanged(selected ? null : s.id),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  s.annee != null ? 'Carnet ${s.annee}' : 'Carnet n°${s.id}',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: PaColors.inkPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${net >= 0 ? '+' : '−'}${XAFFormatter.format(net.abs())}',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: net >= 0 ? PaColors.success : PaColors.danger,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  '${s.count} écriture${s.count > 1 ? 's' : ''}',
+                  style: const TextStyle(
+                    fontSize: 11, color: PaColors.inkMuted,),
+                ),
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _CardShell extends StatelessWidget {
+  const _CardShell({
+    required this.selected,
+    required this.onTap,
+    required this.child,
+  });
+
+  final bool selected;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 150,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? PaColors.tealSurface : PaColors.paper,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? PaColors.teal : PaColors.line,
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: child,
       ),
     );
   }

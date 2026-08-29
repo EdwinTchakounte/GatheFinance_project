@@ -29,11 +29,14 @@ final contributionsProvider = AsyncNotifierProvider.autoDispose<
     ContributionsNotifier, List<Contribution>>(ContributionsNotifier.new);
 
 /// Total des cotisations *validées* . pour la page « Mes états ».
+/// Le libellé est « Total versé à la coopérative » → on somme ce que le membre
+/// a RÉELLEMENT payé (montant + frais de transaction Tara), pas seulement le
+/// montant net crédité.
 final totalContributionsValideesProvider = Provider.autoDispose<num>((ref) {
   final list = ref.watch(contributionsProvider).valueOrNull ?? [];
   num n = 0;
   for (final c in list) {
-    if (c.statut == ContributionStatus.valide) n += c.montant;
+    if (c.statut == ContributionStatus.valide) n += c.totalPaye;
   }
   return n;
 });

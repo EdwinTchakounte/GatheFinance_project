@@ -10,6 +10,8 @@ import '../../features/auth/presentation/pages/setup_password_page.dart';
 import '../../features/auth/presentation/state/auth_notifier.dart';
 import '../../features/avaliste/presentation/pages/avaliste_mandats_page.dart';
 import '../../features/booklet/presentation/pages/booklet_page.dart';
+import '../../features/special_collections/collectes_hub_page.dart';
+import '../../features/special_collections/group_tontine_page.dart';
 import '../../features/special_collections/special_collection_page.dart';
 import '../../features/contributions/presentation/pages/contributions_page.dart';
 import '../../features/credit/presentation/pages/credit_page.dart';
@@ -79,7 +81,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       // Sécurité : pas sur les écrans d'auth si déjà connecté
-      if (member != null && (location == '/login' || location == '/onboarding')) {
+      if (member != null &&
+          (location == '/login' || location == '/onboarding')) {
         if (!hasPin) return '/pin/setup';
         if (locked) return '/pin/lock';
         return '/home';
@@ -189,8 +192,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             _paSlideFadePage(state, const BookletPage()),
       ),
 
+      // Hub consolidé « Tontines & caisses » (une entrée, tout listé).
+      GoRoute(
+        path: '/collectes',
+        name: 'collectes-hub',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) =>
+            _paSlideFadePage(state, const CollectesHubPage()),
+      ),
+
       // Collectes particulières (caisse scolaire / tontine alimentaire) —
-      // vue par type, poussée depuis la section d'accueil.
+      // vue par type, poussée depuis le hub.
       GoRoute(
         path: '/special-collections/:type',
         name: 'special-collection',
@@ -198,6 +210,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _paSlideFadePage(
           state,
           SpecialCollectionPage(type: state.pathParameters['type'] ?? ''),
+        ),
+      ),
+
+      // Détail d'une réunion (tontine de groupe).
+      GoRoute(
+        path: '/group-tontines/:id',
+        name: 'group-tontine',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) => _paSlideFadePage(
+          state,
+          GroupTontinePage(
+            id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+          ),
         ),
       ),
 
@@ -336,40 +361,47 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state, navigationShell) =>
             MainShell(navigationShell: navigationShell),
         branches: [
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/home',
-              name: 'home',
-              builder: (context, state) => const HomePage(),
-            ),
-          ],),
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/credit',
-              name: 'credit',
-              builder: (context, state) => const CreditPage(),
-            ),
-          ],),
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/annonces',
-              name: 'annonces',
-              builder: (context, state) => const AnnoncesPage(),
-            ),
-          ],),
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/profile',
-              name: 'profile',
-              builder: (context, state) => const ProfilePage(),
-            ),
-          ],),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/home',
+                name: 'home',
+                builder: (context, state) => const HomePage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/credit',
+                name: 'credit',
+                builder: (context, state) => const CreditPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/annonces',
+                name: 'annonces',
+                builder: (context, state) => const AnnoncesPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                name: 'profile',
+                builder: (context, state) => const ProfilePage(),
+              ),
+            ],
+          ),
         ],
       ),
     ],
   );
 });
-
 
 /// Page transition Paysika — slide léger depuis la droite + fade-in.
 ///
@@ -404,7 +436,6 @@ CustomTransitionPage<void> _paSlideFadePage(
     },
   );
 }
-
 
 /// Bridge entre les providers Riverpod et `go_router.refreshListenable`.
 class _RouterRefresher extends ChangeNotifier {
