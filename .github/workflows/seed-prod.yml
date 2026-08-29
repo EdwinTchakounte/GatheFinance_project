@@ -68,9 +68,13 @@ jobs:
             set -euo pipefail
 
             DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
-            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml --env-file .env.prod"
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.client.yml --env-file .env.prod"
 
             cd "$DEPLOY_PATH/infra"
+
+            echo ">>> DIAG backend (image + commande backfill présente ?)"
+            $COMPOSE ps backend | tail -2 || true
+            $COMPOSE exec -T backend sh -c "python manage.py help 2>/dev/null | grep -i backfill_ecriture_carnets || echo '  (commande backfill ABSENTE = ancien code)'" || true
 
             if [ "${{ inputs.full_pg_dump }}" = "true" ]; then
               echo ">>> Dump COMPLET de la base (pg_dump, inclut comptes/logins) AVANT toute modif"
