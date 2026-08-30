@@ -230,6 +230,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # APK Android auto-hebergee : on la baked DANS l'image du site (servie en
+      # statique a /downloads/Gathe-Finance.apk, Content-Length natif -> vraie
+      # progression). Elle vit comme ASSET de release (hors depot git : ni le
+      # repo ni l'historique ne gonflent), recuperee ici juste avant le build.
+      # Le Dockerfile fait `COPY . .` -> le fichier atterrit dans l'image.
+      - name: Fetch APK into site public/ (site image only)
+        if: matrix.image == 'site'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p frontend/apps/site/public/downloads
+          gh release download "${APK_RELEASE_TAG:-mobile-v1.1.0}" \
+            --repo "${{ github.repository }}" \
+            --pattern 'Gathe-Finance.apk' \
+            --output frontend/apps/site/public/downloads/Gathe-Finance.apk \
+            --clobber
+          ls -lh frontend/apps/site/public/downloads/Gathe-Finance.apk
+
       # Domaines figés au build (NEXT_PUBLIC_*) : main → domaines CLIENT,
       # staging/autre → nos domaines horus-lab. Repli sur horus-lab si les
       # variables de dépôt ne sont pas encore définies (rien ne casse avant
