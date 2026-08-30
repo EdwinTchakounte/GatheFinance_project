@@ -104,7 +104,7 @@ jobs:
           host: ${{ secrets.CLIENT_VPS_HOST }}
           username: ${{ secrets.CLIENT_VPS_USER }}
           key: ${{ secrets.CLIENT_VPS_SSH_PRIVATE_KEY }}
-          source: "infra/docker-compose.prod.yml,infra/docker-compose.nginx-external.yml,infra/scripts/*"
+          source: "infra/docker-compose.prod.yml,infra/docker-compose.client.yml,infra/scripts/*"
           target: "${{ secrets.CLIENT_VPS_DEPLOY_PATH || '/opt/gathe-finance' }}/"
           overwrite: true
           strip_components: 0
@@ -124,11 +124,12 @@ jobs:
             DEPLOY_PATH="${{ secrets.CLIENT_VPS_DEPLOY_PATH || '/opt/gathe-finance' }}"
             NEW_TAG="${{ steps.tag.outputs.tag }}"
 
-            # Serveur client REEL : nginx conteneurise (reseau partage), PAS
-            # Traefik. On pilote donc le stack via nginx-external.yml (comme le
-            # stack deja en place l'a ete cree) — client.yml (Traefik) n'existe
-            # meme pas sur ce serveur. --no-deps : on ne relance ni db, ni nginx.
-            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.nginx-external.yml --env-file .env.prod"
+            # Architecture DMZ cliente : on se rattache au Traefik v3.3 existant
+            # (réseau `edge`) + Postgres/MinIO (réseau `data`). On NE lance PAS
+            # notre db/traefik/backup/beszel → --no-deps + services nommés.
+            # (NB : nginx-external.yml/backend_default = notre serveur STAGING
+            # horus-lab, PAS le client — ne pas confondre.)
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.client.yml --env-file .env.prod"
             APP_SERVICES="backend qcluster site portal admin"
 
             cd "$DEPLOY_PATH/infra"
