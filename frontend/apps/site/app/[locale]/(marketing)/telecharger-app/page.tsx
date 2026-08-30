@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { pageAlternates, SITE_URL } from "@/lib/seo";
 import { JsonLd, breadcrumbJsonLd } from "@/components/json-ld";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Download, Shield, Smartphone } from "lucide-react";
+import { Shield, Smartphone } from "lucide-react";
 
 import { Container } from "@gathe/ui";
 import { PageHeader } from "@/components/page-shell";
 import { InstitutionalDecor } from "@/components/institutional-decor";
+import { DownloadAppButton } from "@/components/download-app-button";
 import { images } from "@/lib/site-config";
 
 type Params = { params: Promise<{ locale: string }> };
@@ -19,12 +20,9 @@ const APK_DRIVE_FILE_ID = "1kJEkKbHthwVWTdF47SazLJKqbL-5T88f";
 // qr-app.png) → ouvre l'app Drive sur mobile, l'utilisateur clique Telecharger.
 const APK_SHARE_URL =
   `https://drive.google.com/file/d/${APK_DRIVE_FILE_ID}/view?usp=sharing`;
-// URL "direct download" : `confirm=t` contourne l'ecran anti-virus que Drive
-// affiche pour les gros fichiers (>25 Mo) → le clic lance directement le
-// telechargement du blob au lieu d'ouvrir une page d'avertissement.
-const APK_DOWNLOAD_URL =
-  `https://drive.google.com/uc?export=download&id=${APK_DRIVE_FILE_ID}&confirm=t`;
-const APK_VERSION = "1.0.0";
+// NB : le téléchargement direct passe désormais par le proxy Next
+// `/api/download-app` (progression réelle) — cf. DownloadAppButton.
+const APK_VERSION = "1.1.0";
 const APK_SIZE = "74,5 Mo";
 
 // QR code AUTO-HEBERGE (public/downloads/qr-app.png), genere avec la lib
@@ -88,15 +86,8 @@ export default async function DownloadAppPage({ params }: Params) {
                   </div>
                 </div>
 
-                <a
-                  href={APK_DOWNLOAD_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-emerald-800 sm:w-auto"
-                >
-                  <Download className="h-5 w-5" aria-hidden="true" />
-                  {t("downloadButton")}
-                </a>
+                {/* Téléchargement avec VRAIE progression (proxy Next → % réel). */}
+                <DownloadAppButton label={t("downloadButton")} />
 
                 <dl className="mt-6 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
                   <div>
