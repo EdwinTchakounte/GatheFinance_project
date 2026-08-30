@@ -1,7 +1,7 @@
 name: gathe_finance
 description: Espace sociétaire mobile GATHE Finance — coopérative d'épargne et de crédit.
 publish_to: "none"
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ">=3.6.0 <4.0.0"
@@ -32,6 +32,8 @@ dependencies:
 
   # Ouverture URL externe (CH-9 — téléchargement note PDF via navigateur système).
   url_launcher: ^6.3.1
+  # Lecture de la version installée (gate de mise à jour forcée).
+  package_info_plus: ^8.0.0
   # WebView in-app pour le checkout Tara. On NE PEUT PAS utiliser
   # url_launcher (même avec inAppBrowserView) car Android dispatche
   # automatiquement les URLs dklo.co vers l'app Dikalo si elle est

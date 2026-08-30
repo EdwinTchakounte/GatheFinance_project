@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../core/di/providers.dart';
 import '../core/network/session_expiry.dart';
+import '../features/app_update/app_update_gate.dart';
 import '../features/auth/presentation/state/auth_notifier.dart';
 import '../features/booklet/presentation/state/booklet_notifier.dart';
 import '../features/loans/presentation/state/loans_notifier.dart';
@@ -159,10 +160,14 @@ class _GatheAppState extends ConsumerState<GatheApp>
       // denses (hero, montants, sheets). La densité « moins grotesque » vient
       // des tokens de design réduits + visualDensity.compact, pas d'un
       // rapetissement imposé.
-      builder: (context, child) => MediaQuery.withClampedTextScaling(
-        minScaleFactor: 0.9,
-        maxScaleFactor: 1.15,
-        child: child!,
+      // Gate de mise à jour forcée : si la version installée est < minimum requis
+      // (serveur), l'app est remplacée par l'écran « Mettre à jour » (bloquant).
+      builder: (context, child) => UpdateGate(
+        child: MediaQuery.withClampedTextScaling(
+          minScaleFactor: 0.9,
+          maxScaleFactor: 1.15,
+          child: child!,
+        ),
       ),
       locale: locale,
       supportedLocales: AppL10n.supportedLocales,
