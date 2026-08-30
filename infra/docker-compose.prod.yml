@@ -184,16 +184,11 @@ services:
       NEXT_PUBLIC_PORTAL_URL: https://${PORTAL_DOMAIN}
     depends_on: [backend]
     networks: [internal, web]
-    # APK Android auto-hebergee (Drive refuse de servir un binaire > 25 Mo par
-    # programme -> 502). On monte UNIQUEMENT le fichier APK (pas tout le dossier)
-    # pour preserver qr-app.png / INSTALL.md deja presents dans l'image. Le
-    # fichier hote ${GATHE_APK_DIR}/Gathe-Finance.apk DOIT exister AVANT le
-    # deploiement (sinon Docker cree un dossier a sa place). Depot :
-    #   scp mobile/Gathe-Finance.apk <vps>:/srv/gathe-finance/apk/Gathe-Finance.apk
-    # Servi en statique -> Content-Length natif -> vraie progression client
-    # (cf. download-app-button.tsx).
-    volumes:
-      - ${GATHE_APK_DIR:-/srv/gathe-finance/apk}/Gathe-Finance.apk:/app/public/downloads/Gathe-Finance.apk:ro
+    # APK Android auto-hebergee : baked DANS l'image du site au build CI (asset
+    # de release recupere dans public/downloads/, cf. .github/workflows/ci.yml
+    # step "Fetch APK into site public/"). Servie en statique a
+    # /downloads/Gathe-Finance.apk -> Content-Length natif -> vraie progression
+    # client (cf. download-app-button.tsx). Pas de volume ni de depot manuel.
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.gathe-site.rule=Host(`${SITE_DOMAIN}`)"
