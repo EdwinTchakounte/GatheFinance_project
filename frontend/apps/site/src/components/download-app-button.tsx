@@ -11,10 +11,11 @@ type State = "idle" | "downloading" | "done" | "error";
 
 /**
  * Téléchargement de l'APK avec VRAI indicateur de progression : on streame
- * la réponse du proxy `/api/download-app` (qui expose Content-Length), on
- * cumule les octets reçus pour afficher un pourcentage + une barre, puis on
- * enregistre le fichier. Objectif : le membre VOIT la progression et n'est pas
- * tenté de relancer le téléchargement.
+ * le fichier statique auto-hébergé `/downloads/Gathe-Finance.apk` (servi par
+ * le site, donc Content-Length natif — contrairement à Drive qui refuse de
+ * servir un binaire > 25 Mo par programme), on cumule les octets reçus pour
+ * afficher un pourcentage + une barre, puis on enregistre le fichier.
+ * Objectif : le membre VOIT la progression et n'est pas tenté de relancer.
  */
 export function DownloadAppButton({
   label,
@@ -34,7 +35,7 @@ export function DownloadAppButton({
     setLoaded(0);
     setTotal(0);
     try {
-      const res = await fetch("/api/download-app");
+      const res = await fetch("/downloads/Gathe-Finance.apk");
       if (!res.ok || !res.body) throw new Error("download failed");
       const totalBytes = Number(res.headers.get("Content-Length") ?? 0);
       setTotal(totalBytes);

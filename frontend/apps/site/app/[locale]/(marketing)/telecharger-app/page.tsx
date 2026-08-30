@@ -12,9 +12,11 @@ import { images } from "@/lib/site-config";
 
 type Params = { params: Promise<{ locale: string }> };
 
-// APK heberge sur Google Drive (74 Mo, evite de gonfler le repo et le
-// container Docker). File ID stable ; pour le rotater il suffit d'uploader
-// une nouvelle version et de coller le nouvel ID ici.
+// Le BOUTON telecharge desormais l'APK AUTO-HEBERGEE (/downloads/Gathe-Finance.apk,
+// servie via volume /srv/gathe-finance/apk -> Content-Length natif, vraie
+// progression ; Drive refusait de servir un 74 Mo par programme -> 502).
+// Le file ID Drive ci-dessous ne sert plus qu'au QR code (repli mobile :
+// scanner ouvre l'UI Drive, qui elle sait servir le gros fichier).
 const APK_DRIVE_FILE_ID = "1kJEkKbHthwVWTdF47SazLJKqbL-5T88f";
 // URL "share" (preview Drive) : encodee dans le QR code (public/downloads/
 // qr-app.png) → ouvre l'app Drive sur mobile, l'utilisateur clique Telecharger.
