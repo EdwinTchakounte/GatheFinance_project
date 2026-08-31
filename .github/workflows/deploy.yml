@@ -201,6 +201,26 @@ jobs:
           CMS_DOMAIN: ${{ vars.CLIENT_CMS_DOMAIN }}
         run: |
           set -e
+          # Les conteneurs viennent d'etre recrees : petit warm-up avant de sonder,
+          # sinon on rougit sur un cold start (Next qui compile la 1re requete, etc.).
+          echo ">>> Warm-up 20s avant smoke tests..."
+          sleep 20
+
+          # Chaque endpoint est retente jusqu'a 6x (5s d'intervalle) : un seul
+          # 2xx/3xx suffit a le valider. On n'echoue que si un service reste
+          # durablement KO, pas sur un simple redemarrage.
+          check() {
+            local url="$1"
+            for i in 1 2 3 4 5 6; do
+              code=$(curl -sLo /dev/null -w "%{http_code}" --max-time 15 "$url" || echo "000")
+              if [[ "$code" =~ ^(2|3) ]]; then
+                echo "✓ $url -> HTTP $code (essai $i)"; return 0
+              fi
+              sleep 5
+            done
+            echo "✗ $url -> HTTP $code (apres 6 essais)"; return 1
+          }
+
           FAILED=0
           for url in \
             "https://${API_DOMAIN}/healthz/" \
@@ -209,11 +229,6 @@ jobs:
             "https://${ADMIN_DOMAIN}/" \
             "https://${CMS_DOMAIN}/admin/"
           do
-            code=$(curl -sLo /dev/null -w "%{http_code}" --max-time 15 "$url" || echo "000")
-            if [[ "$code" =~ ^(2|3) ]]; then
-              echo "✓ $url -> HTTP $code"
-            else
-              echo "✗ $url -> HTTP $code"; FAILED=$((FAILED+1))
-            fi
+            check "$url" || FAILED=$((FAILED+1))
           done
-          [ "$FAILED" -gt 0 ] && { echo "!!! $FAILED endpoint(s) en échec."; exit 1; } || echo "Tous les endpoints client répondent OK."
+          [ "$FAILED" -gt 0 ] && { echo "!!! $FAILED endpoint(s) durablement en échec."; exit 1; } || echo "Tous les endpoints client répondent OK."
