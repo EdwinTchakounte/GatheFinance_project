@@ -83,6 +83,17 @@ urlpatterns = [
         views.admin_record_antidated_entry,
         name="admin-antidated-entry",
     ),
+    # Onglet « Saisies antidatées » : historique + invalidation (contre-passation).
+    path(
+        "admin/antidated-entries/",
+        views.admin_list_antidated_entries,
+        name="admin-antidated-entries",
+    ),
+    path(
+        "admin/antidated-entries/invalidate/",
+        views.admin_invalidate_antidated_entry,
+        name="admin-antidated-entries-invalidate",
+    ),
     # LOT 19 (refonte 2026) — Espace prêteur (consent + tranches + funding 24h).
     path("me/lender/", lender_me, name="lender-me"),
     path("me/lender/opt-in/", lender_opt_in, name="lender-opt-in"),

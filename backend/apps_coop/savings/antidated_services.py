@@ -282,6 +282,7 @@ def record_antidated_entry(
             solde_apres=nouveau_solde,
             date=date_dt,
             booklet_order=booklet,
+            is_antidated=True,
         )
         entite_type = "SavingsTransaction"
     else:
@@ -307,6 +308,7 @@ def record_antidated_entry(
             solde_apres=nouveau_solde,
             date=date_dt,
             booklet_order=booklet,
+            is_antidated=True,
         )
         entite_type = "ClassicSavingsTransaction"
 
@@ -387,15 +389,23 @@ def _record_antidated_special(
     membership.solde = nouveau_solde
     membership.save(update_fields=["solde", "updated_at"])
 
+    # Sens récupérable sur la ligne (pour une invalidation ultérieure fiable) :
+    # un dépôt reste MANUEL (reprise), un retrait porte le type RETRAIT.
+    special_type = (
+        SpecialCollectionTransaction.TypeOp.RETRAIT
+        if sens == SENS_RETRAIT
+        else SpecialCollectionTransaction.TypeOp.MANUEL
+    )
     row = SpecialCollectionTransaction.objects.create(
         membership=membership,
         payment=None,
         booklet_order=booklet,
-        type_op=SpecialCollectionTransaction.TypeOp.MANUEL,
+        type_op=special_type,
         montant=montant,
         solde_apres=nouveau_solde,
         date=date_dt,
         libelle="Reprise historique" + (f" — {note.strip()[:80]}" if note else ""),
+        is_antidated=True,
     )
 
     record_audit(
@@ -424,4 +434,197 @@ def _record_antidated_special(
         date=date_dt,
         solde_apres=nouveau_solde,
         booklet_order_id=booklet.id if booklet else None,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Invalidation (contre-passation) d'une écriture antidatée erronée.
+#
+# Principe (repris du pattern `payments/invalidation_services.py`) : l'écriture
+# d'origine reste en base (ledger append-only) mais est MARQUÉE invalidée
+# (`reversed_at`/`reversed_by`) ; son effet sur le solde est annulé par une
+# écriture INVERSE datée de maintenant. Contrairement à l'invalidation de
+# paiement, on NE borne PAS le solde à 0 : la saisie antidatée tolère déjà un
+# solde négatif (reprise d'historique), et l'admin a choisi « autoriser +
+# avertir ». On renvoie donc `went_negative` pour que l'UI prévienne.
+# --------------------------------------------------------------------------- #
+
+# entite_type (tel que tracé dans l'audit) → produit logique.
+_ANTIDATED_ENTITY_TYPES = {
+    "SavingsTransaction": PRODUCT_COLLECTE,
+    "ClassicSavingsTransaction": PRODUCT_CLASSIQUE,
+    "SpecialCollectionTransaction": "special",
+}
+
+
+@dataclass
+class AntidatedInvalidationResult:
+    entite_type: str
+    entite_id: int
+    reverse_tx_id: int
+    solde_apres: Decimal
+    went_negative: bool
+
+
+def _invalidate_collecte(row, actor, motif):
+    T = SavingsTransaction.TypeOp
+    # Antidaté = DEPOT ou RETRAIT uniquement ; DEPOT/INTERET = crédit.
+    was_credit = row.type_op in {T.DEPOT, T.INTERET}
+    account = SavingsAccount.objects.select_for_update().get(pk=row.account_id)
+    montant = Decimal(row.montant)
+    nouveau_solde = (
+        Decimal(account.solde) - montant if was_credit
+        else Decimal(account.solde) + montant
+    )
+    account.solde = nouveau_solde
+    account.save(update_fields=["solde", "updated_at"])
+    reverse = SavingsTransaction.objects.create(
+        account=account,
+        payment=None,
+        type_op=T.RETRAIT if was_credit else T.DEPOT,
+        montant=montant,
+        solde_apres=nouveau_solde,
+        date=timezone.now(),
+        booklet_order=row.booklet_order,
+    )
+    return reverse, nouveau_solde
+
+
+def _invalidate_classique(row, actor, motif):
+    T = ClassicSavingsTransaction.TypeOp
+    credit = {T.DEPOT, T.INTERET, T.INTERET_PLACEMENT, T.INTERET_PRETEUR, T.BASCULE_COLLECTE}
+    was_credit = row.type_op in credit
+    account = ClassicSavingsAccount.objects.select_for_update().get(pk=row.account_id)
+    montant = Decimal(row.montant)
+    nouveau_solde = (
+        Decimal(account.solde) - montant if was_credit
+        else Decimal(account.solde) + montant
+    )
+    account.solde = nouveau_solde
+    account.save(update_fields=["solde", "updated_at"])
+    reverse = ClassicSavingsTransaction.objects.create(
+        account=account,
+        payment=None,
+        type_op=T.RETRAIT if was_credit else T.DEPOT,
+        montant=montant,
+        solde_apres=nouveau_solde,
+        date=timezone.now(),
+        booklet_order=row.booklet_order,
+    )
+    return reverse, nouveau_solde
+
+
+def _invalidate_special(row, actor, motif):
+    from apps_coop.special_collections.models import (
+        SpecialCollectionMembership,
+        SpecialCollectionTransaction,
+    )
+
+    T = SpecialCollectionTransaction.TypeOp
+    # Antidaté spécial : RETRAIT = débit, tout le reste (MANUEL) = crédit (dépôt).
+    was_credit = row.type_op != T.RETRAIT
+    membership = SpecialCollectionMembership.objects.select_for_update().get(
+        pk=row.membership_id
+    )
+    montant = Decimal(row.montant)
+    nouveau_solde = (
+        Decimal(membership.solde) - montant if was_credit
+        else Decimal(membership.solde) + montant
+    )
+    membership.solde = nouveau_solde
+    membership.save(update_fields=["solde", "updated_at"])
+    reverse = SpecialCollectionTransaction.objects.create(
+        membership=membership,
+        payment=None,
+        booklet_order=row.booklet_order,
+        type_op=T.RETRAIT if was_credit else T.MANUEL,
+        montant=montant,
+        solde_apres=nouveau_solde,
+        date=timezone.now(),
+        libelle="Annulation (invalidation saisie antidatée)",
+    )
+    return reverse, nouveau_solde
+
+
+_INVALIDATORS = {
+    "SavingsTransaction": _invalidate_collecte,
+    "ClassicSavingsTransaction": _invalidate_classique,
+    "SpecialCollectionTransaction": _invalidate_special,
+}
+
+
+def _load_antidated_row(entite_type: str, entite_id: int):
+    if entite_type == "SavingsTransaction":
+        return (
+            SavingsTransaction.objects.select_for_update().filter(pk=entite_id).first()
+        )
+    if entite_type == "ClassicSavingsTransaction":
+        return (
+            ClassicSavingsTransaction.objects.select_for_update()
+            .filter(pk=entite_id)
+            .first()
+        )
+    if entite_type == "SpecialCollectionTransaction":
+        from apps_coop.special_collections.models import SpecialCollectionTransaction
+
+        return (
+            SpecialCollectionTransaction.objects.select_for_update()
+            .filter(pk=entite_id)
+            .first()
+        )
+    return None
+
+
+@transaction.atomic
+def invalidate_antidated_entry(
+    entite_type: str, entite_id: int, *, actor, motif: str = ""
+) -> AntidatedInvalidationResult:
+    """Invalide UNE écriture antidatée : contre-passe son effet sur le solde,
+    marque l'écriture d'origine invalidée et trace l'audit.
+
+    Idempotent (refuse une écriture déjà invalidée). Le solde résultant PEUT être
+    négatif (reprise d'historique) — signalé via ``went_negative``.
+    """
+    if entite_type not in _ANTIDATED_ENTITY_TYPES:
+        raise AntidatedEntryError(f"Type d'écriture inconnu : {entite_type!r}.")
+
+    row = _load_antidated_row(entite_type, entite_id)
+    if row is None:
+        raise AntidatedEntryError("Écriture introuvable.")
+    if not row.is_antidated:
+        raise AntidatedEntryError(
+            "Seule une écriture antidatée peut être invalidée ici."
+        )
+    if row.reversed_at is not None:
+        raise AntidatedEntryError("Cette écriture est déjà invalidée.")
+
+    reverse, nouveau_solde = _INVALIDATORS[entite_type](row, actor, motif)
+
+    row.reversed_at = timezone.now()
+    row.reversed_by = actor
+    row.reversal_note = (motif or "").strip()[:500]
+    row.save(
+        update_fields=["reversed_at", "reversed_by", "reversal_note", "updated_at"]
+    )
+
+    record_audit(
+        action="savings.antidated_entry_invalidated",
+        entite_type=entite_type,
+        entite_id=row.id,
+        user=actor,
+        details={
+            "montant": str(row.montant),
+            "type_op": row.type_op,
+            "motif": (motif or "").strip(),
+            "reverse_tx_id": reverse.id,
+            "solde_apres": str(nouveau_solde),
+        },
+    )
+
+    return AntidatedInvalidationResult(
+        entite_type=entite_type,
+        entite_id=row.id,
+        reverse_tx_id=reverse.id,
+        solde_apres=nouveau_solde,
+        went_negative=nouveau_solde < 0,
     )

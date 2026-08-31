@@ -20,7 +20,7 @@ from __future__ import annotations
 from django.conf import settings
 from django.db import models
 
-from apps_coop.common import TimestampedModel, ZERO, money_field
+from apps_coop.common import AntidatableLedgerMixin, TimestampedModel, ZERO, money_field
 from apps_coop.members.models import Member
 
 
@@ -187,7 +187,7 @@ class SpecialCollectionCycle(TimestampedModel):
         return self.statut == self.Statut.OUVERT
 
 
-class SpecialCollectionTransaction(TimestampedModel):
+class SpecialCollectionTransaction(AntidatableLedgerMixin, TimestampedModel):
     """Ledger append-only des mouvements d'une collecte particulière."""
 
     class TypeOp(models.TextChoices):

@@ -18,10 +18,15 @@ from rest_framework.views import APIView
 
 from apps_coop.audit.services import client_ip, record as record_audit
 from apps_coop.members.naming import full_name
-from apps_coop.members.permissions import IsActiveMember, IsMember, IsStaff
+from apps_coop.members.permissions import IsActiveMember, IsAdmin, IsMember, IsStaff
 
 from .cutoff import COLLECTION_LOCATION, DAILY_CUTOFF_HOUR
-from .models import ClassicSavingsAccount, SavingsAccount, SavingsTransaction
+from .models import (
+    ClassicSavingsAccount,
+    ClassicSavingsTransaction,
+    SavingsAccount,
+    SavingsTransaction,
+)
 from .serializers import SavingsAccountReadSerializer, SavingsTransactionReadSerializer
 
 
@@ -1013,3 +1018,174 @@ def my_booklet_ledger_pdf(request):
         f'inline; filename="gathe-ecritures-{member.numero_membre}.pdf"'
     )
     return resp
+
+
+# --------------------------------------------------------------------------- #
+# Onglet « Saisies antidatées » (admin) : historique + invalidation.
+# --------------------------------------------------------------------------- #
+
+def _antidated_row_dto(row, entite_type, product, member, sens):
+    """Normalise une écriture antidatée (3 modèles) en dict pour le dashboard."""
+    booklet = row.booklet_order
+    return {
+        "entite_type": entite_type,
+        "id": row.id,
+        "product": product,
+        "sens": sens,
+        "montant": str(row.montant),
+        "solde_apres": str(row.solde_apres),
+        "date": row.date.date().isoformat(),  # date métier (antidatée)
+        "saisi_le": row.created_at.isoformat(),  # date de saisie réelle
+        "membre": {
+            "id": member.id,
+            "numero": member.numero_membre,
+            "nom": full_name(member.prenom, member.nom),
+        },
+        "booklet": (
+            {"id": booklet.id, "annee": getattr(booklet, "annee", None),
+             "type": getattr(booklet, "type", None)}
+            if booklet else None
+        ),
+        "reversed": row.reversed_at is not None,
+        "reversed_at": row.reversed_at.isoformat() if row.reversed_at else None,
+        "reversal_note": row.reversal_note or "",
+    }
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="Admin — historique des saisies antidatées (3 produits)",
+    description=(
+        "Liste UNIQUEMENT les écritures antidatées (flag `is_antidated`), tous "
+        "produits confondus (collecte, classique, tontine/caisse), triées par "
+        "date métier décroissante. Filtres : `?member_id`, `?product` "
+        "(`collecte`|`classique`|`special`), `?include_reversed` (défaut 1). "
+        "Pagination `?limit`/`?offset`."
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_list_antidated_entries(request):
+    from apps_coop.common import parse_pagination
+    from apps_coop.special_collections.models import SpecialCollectionTransaction
+
+    qp = request.query_params
+    member_id = qp.get("member_id")
+    product = (qp.get("product") or "").strip()
+    include_reversed = (qp.get("include_reversed") or "1") not in ("0", "false", "no")
+
+    T_COL = SavingsTransaction.TypeOp
+    T_CLA = ClassicSavingsTransaction.TypeOp
+    T_SPE = SpecialCollectionTransaction.TypeOp
+
+    rows: list[dict] = []
+
+    if product in ("", "collecte"):
+        qs = (
+            SavingsTransaction.objects.filter(is_antidated=True)
+            .select_related("account__member", "booklet_order")
+        )
+        if member_id:
+            qs = qs.filter(account__member_id=member_id)
+        if not include_reversed:
+            qs = qs.filter(reversed_at__isnull=True)
+        for r in qs:
+            sens = "depot" if r.type_op in {T_COL.DEPOT, T_COL.INTERET} else "retrait"
+            rows.append(
+                _antidated_row_dto(r, "SavingsTransaction", "collecte",
+                                   r.account.member, sens)
+            )
+
+    if product in ("", "classique"):
+        credit = {T_CLA.DEPOT, T_CLA.INTERET, T_CLA.INTERET_PLACEMENT,
+                  T_CLA.INTERET_PRETEUR, T_CLA.BASCULE_COLLECTE}
+        qs = (
+            ClassicSavingsTransaction.objects.filter(is_antidated=True)
+            .select_related("account__member", "booklet_order")
+        )
+        if member_id:
+            qs = qs.filter(account__member_id=member_id)
+        if not include_reversed:
+            qs = qs.filter(reversed_at__isnull=True)
+        for r in qs:
+            sens = "depot" if r.type_op in credit else "retrait"
+            rows.append(
+                _antidated_row_dto(r, "ClassicSavingsTransaction", "classique",
+                                   r.account.member, sens)
+            )
+
+    if product in ("", "special"):
+        qs = (
+            SpecialCollectionTransaction.objects.filter(is_antidated=True)
+            .select_related("membership__member", "membership__cycle", "booklet_order")
+        )
+        if member_id:
+            qs = qs.filter(membership__member_id=member_id)
+        if not include_reversed:
+            qs = qs.filter(reversed_at__isnull=True)
+        for r in qs:
+            sens = "retrait" if r.type_op == T_SPE.RETRAIT else "depot"
+            dto = _antidated_row_dto(r, "SpecialCollectionTransaction", "special",
+                                     r.membership.member, sens)
+            dto["collection_type"] = getattr(r.membership.cycle, "type", None)
+            rows.append(dto)
+
+    # Tri global par date métier décroissante puis id (stable).
+    rows.sort(key=lambda d: (d["date"], d["id"]), reverse=True)
+    total = len(rows)
+    offset, limit = parse_pagination(request, default_limit=25, max_limit=200)
+    page = rows[offset:offset + limit]
+
+    return Response({"count": total, "results": page})
+
+
+@extend_schema(
+    tags=["savings"],
+    summary="Admin — invalider (contre-passer) une saisie antidatée",
+    description=(
+        "Annule l'effet d'une écriture antidatée erronée : contre-passe le solde "
+        "et marque l'écriture invalidée (barrée en historique). Réservé aux "
+        "admins. Le solde résultant peut être négatif (reprise d'historique) — "
+        "signalé par `went_negative`. Body : `entite_type` "
+        "(`SavingsTransaction`|`ClassicSavingsTransaction`|"
+        "`SpecialCollectionTransaction`), `entite_id`, `motif` (optionnel)."
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def admin_invalidate_antidated_entry(request):
+    from .antidated_services import (
+        AntidatedEntryError,
+        invalidate_antidated_entry,
+    )
+
+    data = request.data
+    entite_type = str(data.get("entite_type") or "")
+    entite_id = data.get("entite_id")
+    try:
+        entite_id = int(entite_id)
+    except (TypeError, ValueError):
+        return Response(
+            {"detail": "entite_id invalide."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        result = invalidate_antidated_entry(
+            entite_type,
+            entite_id,
+            actor=request.user,
+            motif=str(data.get("motif") or ""),
+        )
+    except AntidatedEntryError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(
+        {
+            "entite_type": result.entite_type,
+            "entite_id": result.entite_id,
+            "reverse_tx_id": result.reverse_tx_id,
+            "solde_apres": str(result.solde_apres),
+            "went_negative": result.went_negative,
+        },
+        status=status.HTTP_200_OK,
+    )

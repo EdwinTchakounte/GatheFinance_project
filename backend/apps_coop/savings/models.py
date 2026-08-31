@@ -4,7 +4,7 @@ from __future__ import annotations
 from django.conf import settings
 from django.db import models
 
-from apps_coop.common import TimestampedModel, ZERO, money_field
+from apps_coop.common import AntidatableLedgerMixin, TimestampedModel, ZERO, money_field
 from apps_coop.members.models import Member
 
 
@@ -86,7 +86,7 @@ class SavingsAccount(TimestampedModel):
         return f"Collecte {self.member.numero_membre} · solde={self.solde}"
 
 
-class SavingsTransaction(TimestampedModel):
+class SavingsTransaction(AntidatableLedgerMixin, TimestampedModel):
     """Append-only ledger des mouvements de COLLECTE JOURNALIÈRE.
 
     Refonte 2026 : 3 nouveaux ``TypeOp`` posés pour le cron de fin de mois
@@ -303,7 +303,7 @@ class ClassicSavingsAccount(TimestampedModel):
         return Decimal(self.solde) - self.solde_placement_actif
 
 
-class ClassicSavingsTransaction(TimestampedModel):
+class ClassicSavingsTransaction(AntidatableLedgerMixin, TimestampedModel):
     """Ledger append-only de l'épargne classique.
 
     Refonte 2026 : 2 nouveaux ``TypeOp`` pour l'anniversaire 1 an.
