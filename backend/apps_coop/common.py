@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import models
 
 
@@ -31,6 +32,40 @@ class TimestampedModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class AntidatableLedgerMixin(models.Model):
+    """Champs communs aux écritures ledger susceptibles d'être SAISIES ANTIDATÉES
+    (reprise d'historique papier) puis INVALIDÉES (contre-passation).
+
+    - ``is_antidated`` : repère FIABLE d'une écriture créée par le service de
+      saisie antidatée. ``payment=None`` ne suffit pas (un retrait normal l'est
+      aussi) : ce flag est la source de vérité de l'onglet « Saisies antidatées »
+      et le seul filtre sûr pour ne lister QUE les antidatées.
+    - ``reversed_at`` / ``reversed_by`` / ``reversal_note`` : trace d'une
+      invalidation. L'écriture d'origine reste en base (ledger append-only) mais
+      est marquée invalidée (barrée en historique) ; son effet sur le solde est
+      contre-passé par une écriture inverse. ``reversed_at`` non nul ⇒ déjà
+      invalidée (idempotence, sans dépendre de l'audit).
+    """
+
+    is_antidated = models.BooleanField(default=False, db_index=True)
+    reversed_at = models.DateTimeField(null=True, blank=True)
+    reversed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    reversal_note = models.CharField(max_length=500, blank=True, default="")
+
+    class Meta:
+        abstract = True
+
+    @property
+    def is_reversed(self) -> bool:
+        return self.reversed_at is not None
 
 
 def parse_pagination(

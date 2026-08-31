@@ -19,6 +19,27 @@ const API_BASE = resolveApiBase();
 
 export type ApiError = { status: number; detail?: string; body?: unknown };
 
+// Une ligne de l'historique des saisies antidatées (onglet dédié).
+export type AntidatedEntryRow = {
+  entite_type:
+    | "SavingsTransaction"
+    | "ClassicSavingsTransaction"
+    | "SpecialCollectionTransaction";
+  id: number;
+  product: "collecte" | "classique" | "special";
+  sens: "depot" | "retrait";
+  montant: string;
+  solde_apres: string;
+  date: string; // date métier (antidatée)
+  saisi_le: string; // date de saisie réelle (ISO)
+  membre: { id: number; numero: string; nom: string };
+  booklet: { id: number; annee: number | null; type: string | null } | null;
+  reversed: boolean;
+  reversed_at: string | null;
+  reversal_note: string;
+  collection_type?: string | null;
+};
+
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
@@ -2346,6 +2367,45 @@ export const adminApi = {
         solde_apres: string;
         booklet_order_id: number | null;
       }>("/savings/admin/antidated-entry/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    // Historique des saisies antidatées (tous produits). Filtres optionnels.
+    list: (params?: {
+      member_id?: number;
+      product?: "collecte" | "classique" | "special";
+      include_reversed?: boolean;
+      limit?: number;
+      offset?: number;
+    }) => {
+      const q = new URLSearchParams();
+      if (params?.member_id) q.set("member_id", String(params.member_id));
+      if (params?.product) q.set("product", params.product);
+      if (params?.include_reversed === false) q.set("include_reversed", "0");
+      if (params?.limit) q.set("limit", String(params.limit));
+      if (params?.offset) q.set("offset", String(params.offset));
+      const qs = q.toString();
+      return request<{ count: number; results: AntidatedEntryRow[] }>(
+        `/savings/admin/antidated-entries/${qs ? `?${qs}` : ""}`,
+      );
+    },
+    // Invalide (contre-passe) une écriture antidatée erronée. Admin uniquement.
+    // Le solde résultant peut être négatif (reprise d'historique) → went_negative.
+    invalidate: (payload: {
+      entite_type:
+        | "SavingsTransaction"
+        | "ClassicSavingsTransaction"
+        | "SpecialCollectionTransaction";
+      entite_id: number;
+      motif?: string;
+    }) =>
+      request<{
+        entite_type: string;
+        entite_id: number;
+        reverse_tx_id: number;
+        solde_apres: string;
+        went_negative: boolean;
+      }>("/savings/admin/antidated-entries/invalidate/", {
         method: "POST",
         body: JSON.stringify(payload),
       }),

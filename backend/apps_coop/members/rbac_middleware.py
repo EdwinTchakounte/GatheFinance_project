@@ -38,6 +38,8 @@ PREFIX_RULES: list[tuple[str, str]] = [
     # Saisies antidatées — AVANT le catch-all savings/admin/ (1er match gagne),
     # sinon elles tomberaient sous la ressource « renewals ».
     ("savings/admin/antidated-booklet/", "antidated-entries"),
+    # Couvre l'historique ET l'invalidation (.../antidated-entries/invalidate/).
+    ("savings/admin/antidated-entries/", "antidated-entries"),
     ("savings/admin/antidated-entry/", "antidated-entries"),
     # Renouvellements épargne (app savings : renewals + cron intérêt mensuel).
     ("savings/admin/", "renewals"),

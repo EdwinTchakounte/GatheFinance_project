@@ -455,3 +455,193 @@ def _dt(d):
     return timezone.make_aware(
         datetime.combine(d, time(12, 0)), timezone.get_current_timezone()
     )
+
+
+# ---------------------------------------------------------------------------
+# Invalidation (contre-passation) d'une écriture antidatée
+# ---------------------------------------------------------------------------
+
+
+class TestInvalidation:
+    def test_flag_is_antidated_pose_a_la_creation(self):
+        m = MemberFactory()
+        res = record_antidated_entry(
+            member=m, product="collecte", sens="depot",
+            montant=Decimal("5000"), date_op=MARS,
+        )
+        row = SavingsTransaction.objects.get(pk=res.transaction_id)
+        assert row.is_antidated is True
+        assert row.reversed_at is None
+
+    def test_invalide_collecte_restaure_le_solde(self):
+        from apps_coop.savings.antidated_services import invalidate_antidated_entry
+
+        m = MemberFactory()
+        staff = _staff()
+        res = record_antidated_entry(
+            member=m, product="collecte", sens="depot",
+            montant=Decimal("10000"), date_op=MARS,
+        )
+        assert SavingsAccount.objects.get(member=m).solde == Decimal("10000")
+
+        out = invalidate_antidated_entry(
+            "SavingsTransaction", res.transaction_id,
+            actor=staff.user, motif="Erreur de saisie",
+        )
+        # Solde revenu à 0, écriture inverse créée, origine marquée.
+        assert out.solde_apres == Decimal("0")
+        assert out.went_negative is False
+        assert SavingsAccount.objects.get(member=m).solde == Decimal("0")
+        origin = SavingsTransaction.objects.get(pk=res.transaction_id)
+        assert origin.reversed_at is not None
+        assert origin.reversed_by_id == staff.user.id
+        assert origin.reversal_note == "Erreur de saisie"
+        reverse = SavingsTransaction.objects.get(pk=out.reverse_tx_id)
+        assert reverse.type_op == SavingsTransaction.TypeOp.RETRAIT
+        assert reverse.is_antidated is False  # la contre-passation n'est pas antidatée
+
+    def test_invalide_classique_restaure_le_solde(self):
+        from apps_coop.savings.antidated_services import invalidate_antidated_entry
+
+        m = MemberFactory()
+        staff = _staff()
+        res = record_antidated_entry(
+            member=m, product="classique", sens="depot",
+            montant=Decimal("8000"), date_op=MARS,
+        )
+        assert ClassicSavingsAccount.objects.get(member=m).solde == Decimal("8000")
+        out = invalidate_antidated_entry(
+            "ClassicSavingsTransaction", res.transaction_id, actor=staff.user,
+        )
+        assert ClassicSavingsAccount.objects.get(member=m).solde == Decimal("0")
+        assert out.went_negative is False
+
+    def test_invalide_special_restaure_le_solde(self):
+        from apps_coop.savings.antidated_services import invalidate_antidated_entry
+        from apps_coop.special_collections.models import (
+            SpecialCollectionMembership,
+        )
+        from apps_coop.special_collections.services import open_cycle
+
+        m = MemberFactory()
+        staff = _staff()
+        cycle = open_cycle(type="tontine_alimentaire", nom="Reprise")
+        membership = SpecialCollectionMembership.objects.create(
+            member=m, cycle=cycle, type="tontine_alimentaire",
+            statut=SpecialCollectionMembership.Statut.VALIDE, objectif="x",
+        )
+        res = record_antidated_entry(
+            member=m, product="tontine", sens="depot",
+            montant=Decimal("7000"), date_op=MARS, cycle_id=cycle.id,
+        )
+        membership.refresh_from_db()
+        assert membership.solde == Decimal("7000")
+        out = invalidate_antidated_entry(
+            "SpecialCollectionTransaction", res.transaction_id, actor=staff.user,
+        )
+        membership.refresh_from_db()
+        assert membership.solde == Decimal("0")
+        assert out.went_negative is False
+
+    def test_invalidation_idempotente(self):
+        from apps_coop.savings.antidated_services import invalidate_antidated_entry
+
+        m = MemberFactory()
+        staff = _staff()
+        res = record_antidated_entry(
+            member=m, product="collecte", sens="depot",
+            montant=Decimal("5000"), date_op=MARS,
+        )
+        invalidate_antidated_entry(
+            "SavingsTransaction", res.transaction_id, actor=staff.user,
+        )
+        with pytest.raises(AntidatedEntryError, match="déjà invalidée"):
+            invalidate_antidated_entry(
+                "SavingsTransaction", res.transaction_id, actor=staff.user,
+            )
+
+    def test_refuse_ecriture_non_antidatee(self):
+        from apps_coop.savings.antidated_services import invalidate_antidated_entry
+
+        m = MemberFactory()
+        staff = _staff()
+        acc, _ = SavingsAccount.objects.get_or_create(
+            member=m, defaults={"solde": Decimal("1000"), "date_ouverture": MARS},
+        )
+        tx = SavingsTransaction.objects.create(
+            account=acc, payment=None,
+            type_op=SavingsTransaction.TypeOp.DEPOT,
+            montant=Decimal("1000"), solde_apres=acc.solde,
+            date=_dt(MARS),
+        )
+        with pytest.raises(AntidatedEntryError, match="antidatée"):
+            invalidate_antidated_entry(
+                "SavingsTransaction", tx.id, actor=staff.user,
+            )
+
+    def test_solde_negatif_autorise_avec_signal(self):
+        """Invalider un dépôt dont l'argent a déjà été retiré → solde négatif OK."""
+        from apps_coop.savings.antidated_services import invalidate_antidated_entry
+
+        m = MemberFactory()
+        staff = _staff()
+        # Dépôt antidaté de 10000, puis un retrait antidaté de 10000 (solde 0).
+        dep = record_antidated_entry(
+            member=m, product="collecte", sens="depot",
+            montant=Decimal("10000"), date_op=MARS,
+        )
+        record_antidated_entry(
+            member=m, product="collecte", sens="retrait",
+            montant=Decimal("10000"), date_op=AVRIL,
+        )
+        assert SavingsAccount.objects.get(member=m).solde == Decimal("0")
+        # On invalide le DÉPÔT : le solde tombe à -10000 (l'argent est parti).
+        out = invalidate_antidated_entry(
+            "SavingsTransaction", dep.transaction_id, actor=staff.user,
+        )
+        assert out.solde_apres == Decimal("-10000")
+        assert out.went_negative is True
+
+    def test_endpoint_invalide_reserve_admin(self):
+        """L'endpoint d'invalidation exige IsAdmin (superuser/groupe admin)."""
+        m = MemberFactory()
+        res = record_antidated_entry(
+            member=m, product="collecte", sens="depot",
+            montant=Decimal("5000"), date_op=MARS,
+        )
+        # Un compte staff NON admin (is_staff sans superuser) → 403.
+        staff = MemberFactory()
+        staff.user.is_staff = True
+        staff.user.save(update_fields=["is_staff"])
+        client = APIClient()
+        client.force_authenticate(user=staff.user)
+        r = client.post(
+            "/api/v1/savings/admin/antidated-entries/invalidate/",
+            {"entite_type": "SavingsTransaction", "entite_id": res.transaction_id},
+            format="json",
+        )
+        assert r.status_code == 403
+
+    def test_endpoint_liste_ne_montre_que_les_antidatees(self):
+        m = MemberFactory()
+        staff = _staff()
+        record_antidated_entry(
+            member=m, product="collecte", sens="depot",
+            montant=Decimal("5000"), date_op=MARS,
+        )
+        # Une écriture normale (non antidatée) ne doit PAS apparaître.
+        acc = SavingsAccount.objects.get(member=m)
+        SavingsTransaction.objects.create(
+            account=acc, payment=None,
+            type_op=SavingsTransaction.TypeOp.DEPOT,
+            montant=Decimal("1000"), solde_apres=acc.solde,
+            date=_dt(AVRIL),
+        )
+        client = APIClient()
+        client.force_authenticate(user=staff.user)
+        r = client.get("/api/v1/savings/admin/antidated-entries/")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["count"] == 1
+        assert body["results"][0]["product"] == "collecte"
+        assert body["results"][0]["sens"] == "depot"
