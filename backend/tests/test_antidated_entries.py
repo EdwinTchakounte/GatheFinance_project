@@ -645,3 +645,71 @@ class TestInvalidation:
         assert body["count"] == 1
         assert body["results"][0]["product"] == "collecte"
         assert body["results"][0]["sens"] == "depot"
+
+
+# ---------------------------------------------------------------------------
+# Backfill fiable par date (indépendant de l'audit) — logique de la migration 0024
+# ---------------------------------------------------------------------------
+
+
+class TestBackfillByDate:
+    """Reproduit la logique du backfill 0024 pour garantir qu'elle rattrape les
+    antidatées SANS audit et n'attrape PAS les écritures normales du jour."""
+
+    def _run_backfill(self):
+        from django.db.models import F
+        from django.db.models.functions import TruncDate
+
+        from apps_coop.special_collections.models import SpecialCollectionTransaction
+
+        for model in (
+            SavingsTransaction,
+            ClassicSavingsTransaction,
+            SpecialCollectionTransaction,
+        ):
+            ids = list(
+                model.objects.filter(payment__isnull=True, is_antidated=False)
+                .annotate(_d=TruncDate("date"), _c=TruncDate("created_at"))
+                .filter(_d__lt=F("_c"))
+                .values_list("pk", flat=True)
+            )
+            if ids:
+                model.objects.filter(pk__in=ids).update(is_antidated=True)
+
+    def test_rattrape_antidatee_sans_flag_ni_audit(self):
+        m = MemberFactory()
+        acc, _ = SavingsAccount.objects.get_or_create(
+            member=m, defaults={"solde": Decimal("0"), "date_ouverture": MARS},
+        )
+        # Simule une antidatée ancienne dont le flag n'a pas été posé et dont
+        # l'audit a été purgé : date métier passée, payment=None, is_antidated=False.
+        old = SavingsTransaction.objects.create(
+            account=acc, payment=None,
+            type_op=SavingsTransaction.TypeOp.DEPOT,
+            montant=Decimal("5000"), solde_apres=Decimal("5000"),
+            date=_dt(MARS),  # date passée ; created_at = maintenant
+        )
+        assert old.is_antidated is False
+
+        self._run_backfill()
+
+        old.refresh_from_db()
+        assert old.is_antidated is True  # rattrapée
+
+    def test_nattrape_pas_ecriture_normale_du_jour(self):
+        from django.utils import timezone
+
+        m = MemberFactory()
+        acc, _ = SavingsAccount.objects.get_or_create(
+            member=m, defaults={"solde": Decimal("0"), "date_ouverture": MARS},
+        )
+        # Retrait normal (payment=None) mais daté du JOUR → ne doit PAS être flaggé.
+        normal = SavingsTransaction.objects.create(
+            account=acc, payment=None,
+            type_op=SavingsTransaction.TypeOp.RETRAIT,
+            montant=Decimal("1000"), solde_apres=Decimal("-1000"),
+            date=timezone.now(),
+        )
+        self._run_backfill()
+        normal.refresh_from_db()
+        assert normal.is_antidated is False
