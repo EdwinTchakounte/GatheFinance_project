@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 ///
 /// Priorité de résolution de [baseUrl] :
 ///   1. `--dart-define=API_BASE_URL=...` (surcharge explicite, gagne toujours)
-///   2. En build RELEASE → `https://api.gathe-finance.horus-lab.com` (prod VPS)
+///   2. En build RELEASE → `https://api.gathe-finance.com` (prod CLIENT)
 ///   3. En build DEBUG/PROFILE → `http://10.0.2.2:8200` (émulateur Android local)
 ///
 /// Ce fallback release évite le bug "Failed host lookup" quand l'AAB est
@@ -14,7 +14,7 @@ class ApiConfig {
   ApiConfig._();
 
   static const String _envOverride = String.fromEnvironment('API_BASE_URL');
-  static const String _prodDefault = 'https://api.gathe-finance.horus-lab.com';
+  static const String _prodDefault = 'https://api.gathe-finance.com';
   static const String _devDefault = 'http://10.0.2.2:8200';
 
   /// URL absolue du backend (sans slash final).
@@ -25,7 +25,7 @@ class ApiConfig {
 
   /// URL publique de la VITRINE (sans slash final) — sert à construire les
   /// liens partagés (campagnes/actualités) vers le site public.
-  static const String _siteProd = 'https://gathe-finance.horus-lab.com';
+  static const String _siteProd = 'https://gathe-finance.com';
   static const String _siteDev = 'http://10.0.2.2:3200';
   static const String _siteOverride = String.fromEnvironment('SITE_BASE_URL');
   static String get siteBaseUrl {

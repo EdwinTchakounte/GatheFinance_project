@@ -1,7 +1,7 @@
 name: gathe_finance
 description: Espace sociétaire mobile GATHE Finance — coopérative d'épargne et de crédit.
 publish_to: "none"
-version: 1.1.0+2
+version: 1.1.0+3
 
 environment:
   sdk: ">=3.6.0 <4.0.0"

@@ -14,7 +14,7 @@ import '../../data/datasources/auth_remote_datasource.dart';
 /// Flow "Définir mon mot de passe initial" (PWD Option B).
 ///
 /// Le membre vient d'etre approuve, a recu un email avec un lien
-/// `https://gathe-finance.horus-lab.com/fr/definir-mot-de-passe?token=XXX`.
+/// `https://gathe-finance.com/fr/definir-mot-de-passe?token=XXX`.
 /// Le portail web fait deja le job. Cette page mobile est un duplicat pour les
 /// membres qui prefèrent tout faire dans l'app (ou qui n'ont pas de
 /// navigateur fiable).
