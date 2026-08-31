@@ -155,13 +155,15 @@ jobs:
             # tourner de toute façon pour propager les changements compose/.env
             # (ex. CMS_API_URL), même si de nouvelles images n'ont pu être tirées.
             echo ">>> Pulling images (retry sur coupure réseau GHCR)..."
+            # Packages GHCR PUBLICS : on retire toute credential stockée
+            # (un token PAT périmé fait renvoyer 401 par GHCR même sur une image
+            # publique -> fast-fail). Sans cred, le pull se fait en anonyme.
+            docker logout ghcr.io >/dev/null 2>&1 || true
             PULL_OK=0
             for attempt in 1 2 3 4; do
-              if $COMPOSE pull $APP_SERVICES; then
-                PULL_OK=1
-                break
-              fi
-              echo "  !! pull tentative $attempt/4 échouée (GHCR injoignable ?). Nouvel essai dans 15s..."
+              PULL_ERR=$($COMPOSE pull $APP_SERVICES 2>&1) && { PULL_OK=1; break; }
+              echo "  !! pull tentative $attempt/4 échouée. Erreur réelle :"
+              echo "$PULL_ERR" | tail -5 | sed 's/^/     /'
               sleep 15
             done
             if [ "$PULL_OK" -ne 1 ]; then
