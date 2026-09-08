@@ -31,6 +31,7 @@ from apps_coop.payments.models import FeeType, Payment
 from .models import Loan, LoanRequest
 from .serializers import (
     AdminLoanRequestReadSerializer,
+    AgencyLoanCreateSerializer,
     LoanDisburseSerializer,
     LoanReadSerializer,
     LoanRenewalDecideSerializer,
@@ -41,9 +42,11 @@ from .serializers import (
     LoanRequestSubmitSerializer,
 )
 from .services import (
+    AgencyLoanError,
     approve_loan_renewal,
     approve_loan_request,
     compute_eligibility,
+    create_agency_loan,
     disburse_loan_manual,
     disburse_loan_via_tara,
     reject_loan_renewal,
@@ -853,6 +856,72 @@ def loan_request_decide(request, pk: int):
 
     loan_request.refresh_from_db()
     return Response(LoanRequestReadSerializer(loan_request, context={"request": request}).data)
+
+
+@extend_schema(
+    tags=["loans"],
+    summary="🔒 Admin — crédit accordé directement à l'agence",
+    description=(
+        "Permission : comité crédit (ou superuser). Crée un crédit **décidé en "
+        "séance**, sans parcours de demande en ligne : la `LoanRequest` est "
+        "créée puis approuvée dans la foulée, en réutilisant exactement le "
+        "chemin d'approbation habituel (barème de durée Art. 7, figeage des "
+        "taux, échéancier, date butoire, audit, e-mail `loan.approved`).\n\n"
+        "La durée n'est pas saisissable : elle découle du montant via le "
+        "barème. Garde-fous conservés : membre `actif`, et aucun crédit déjà "
+        "en cours. L'absence de frais d'étude ou d'avaliste n'en est pas un.\n\n"
+        "Le crédit naît `actif` avec `en_attente_decaissement=true` : l'argent "
+        "sort ensuite par le décaissement habituel (manuel ou Tara)."
+    ),
+    request=AgencyLoanCreateSerializer,
+    responses={
+        201: LoanReadSerializer,
+        400: OpenApiResponse(description="Membre inéligible, montant hors barème…"),
+        404: OpenApiResponse(description="Membre introuvable"),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsComite])
+def admin_create_agency_loan(request):
+    from apps_coop.members.models import Member
+
+    serializer = AgencyLoanCreateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    try:
+        member = Member.objects.get(pk=data["member_id"])
+    except Member.DoesNotExist:
+        return Response({"detail": "Membre introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        loan = create_agency_loan(
+            member=member,
+            montant=data["montant"],
+            motif=data["motif"],
+            date_premiere_echeance=data["date_premiere_echeance"],
+            modalite_paiement=data.get("modalite_paiement") or "mensuel",
+            taux_annuel=data.get("taux_annuel"),
+            garantie_materielle=data.get("garantie_materielle", False),
+            garantie_description=data.get("garantie_description", ""),
+            garantie_valeur_estimee=data.get("garantie_valeur_estimee"),
+            montant_gele_demandeur=data.get("montant_gele_demandeur"),
+            date_comite=data.get("date_comite"),
+            privilege_accorde=data.get("privilege_accorde", False),
+            privilege_motif=data.get("privilege_motif", ""),
+            note=data.get("note", ""),
+            actor=request.user,
+        )
+    except AgencyLoanError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    except ValueError as exc:
+        # Barème de durée ou règle d'approbation : message métier, pas une 500.
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(
+        LoanReadSerializer(loan, context={"request": request}).data,
+        status=status.HTTP_201_CREATED,
+    )
 
 
 @extend_schema(

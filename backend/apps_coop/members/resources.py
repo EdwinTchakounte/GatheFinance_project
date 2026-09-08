@@ -41,6 +41,7 @@ ADMIN_RESOURCES: list[tuple[str, str]] = [
     ("blog", "Articles vitrine"),
     ("forms", "Formulaires"),
     ("audit", "Journal d'audit"),
+    ("notifications", "Notifications & échéances"),
     ("supervision", "Supervision"),
     ("comments", "Commentaires"),
     ("support", "Support membres"),

@@ -4,6 +4,7 @@ from .base import (
     ALLOWED_HOSTS,
     CORS_ALLOWED_ORIGINS,
     CSRF_TRUSTED_ORIGINS,
+    EMAIL_FALLBACK_BACKEND,
     MIDDLEWARE,
     REST_FRAMEWORK,
     STORAGES,
@@ -48,13 +49,34 @@ for _host in _PUBLIC_HOSTS:
     if _origin not in CORS_ALLOWED_ORIGINS:
         CORS_ALLOWED_ORIGINS.append(_origin)
 
-# --- Email : envoi RÉEL via l'API HTTP Brevo (django-anymail) en production --
-# base.py défaut = console (dev). En prod on bascule sur le backend Anymail-Brevo
-# qui appelle l'API transactionnelle Brevo avec ANYMAIL["BREVO_API_KEY"].
-# (Mettre EMAIL_BACKEND=...console.EmailBackend dans l'env pour un test à blanc.)
-EMAIL_BACKEND = env(
+# --- Email : Brevo (API HTTP) avec repli SMTP en production ------------------
+# Voie nominale = ce que demande l'env (Brevo par défaut). Le backend à DOUBLE
+# VOIE ne s'interpose QUE si un SMTP de secours est réellement configuré.
+#
+# ⚠️ Pourquoi la décision est prise ICI et jamais dans le docker-compose :
+# `deploy.yml` téléverse `infra/` à chaque déploiement, mais deux chemins
+# gardent l'ANCIENNE image — le repli sur les images en cache quand le pull
+# GHCR échoue, et le rollback quand le healthcheck ne passe pas. Un compose
+# qui nommerait `FailoverEmailBackend` se retrouverait alors devant une image
+# où ce module n'existe pas : ImportError à chaque envoi, donc TOUS les
+# e-mails muets — la panne de septembre reproduite par un rollback.
+# En décidant ici, le réglage voyage avec le code qui l'implémente : une
+# ancienne image porte un ancien `prod.py`, qui retombe simplement sur Brevo.
+_email_backend_demande = env(
     "EMAIL_BACKEND", default="anymail.backends.brevo.EmailBackend"
 )
+# Un test à blanc (console) ne doit pas être enveloppé : on veut voir l'e-mail
+# dans les logs, pas déclencher un repli SMTP.
+_est_test_a_blanc = any(
+    marqueur in _email_backend_demande for marqueur in ("console", "locmem", "dummy")
+)
+if EMAIL_FALLBACK_BACKEND and not _est_test_a_blanc:
+    EMAIL_PRIMARY_BACKEND = _email_backend_demande
+    EMAIL_BACKEND = "apps_coop.notifications.email_backends.FailoverEmailBackend"
+else:
+    # Aucun secours configuré : chemin direct, comportement strictement
+    # identique à celui d'avant l'ajout du repli.
+    EMAIL_BACKEND = _email_backend_demande
 
 # Serve compressed, hashed static files via WhiteNoise.
 MIDDLEWARE = [

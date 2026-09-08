@@ -8,6 +8,7 @@ import {
   type ApiError,
   type LoanRequest,
   type Member,
+  type GroupTontineRow,
   type SpecialCollectionCycleRow,
 } from "@/lib/api";
 import { fullName } from "@/lib/name";
@@ -24,6 +25,7 @@ type CashInType =
   | "epargne_classique"
   | "caisse_scolaire"
   | "tontine_alimentaire"
+  | "tontine_groupe"
   | "frais_reconduction"
   | "remboursement";
 
@@ -39,12 +41,17 @@ const TYPE_OPTIONS: { value: CashInType; label: string }[] = [
   { value: "epargne_classique", label: "Épargne classique (libre / placement)" },
   { value: "caisse_scolaire", label: "Caisse scolaire (collecte particulière)" },
   { value: "tontine_alimentaire", label: "Tontine alimentaire (collecte particulière)" },
+  { value: "tontine_groupe", label: "Cotisation tontine de groupe (réunion)" },
   { value: "frais_reconduction", label: "Intérêts de reconduction" },
   { value: "remboursement", label: "Remboursement de crédit" },
 ];
 
 // Types « collecte particulière » (versement manuel ciblant une collecte).
 const SPECIAL_TYPES: CashInType[] = ["caisse_scolaire", "tontine_alimentaire"];
+
+// Cotisation espèces encaissée en séance de tontine de GROUPE : cible une
+// réunion (et non une collecte individuelle), donc son propre sélecteur.
+const GROUP_TYPE: CashInType = "tontine_groupe";
 
 
 // Frais FIXES : le montant est arrêté dans le catalogue (FeeType), l'admin ne
@@ -113,6 +120,10 @@ export function CashInModal({
   const [openCycles, setOpenCycles] = useState<SpecialCollectionCycleRow[]>([]);
   const [cycleId, setCycleId] = useState("");
   const isSpecial = SPECIAL_TYPES.includes(paymentType);
+  // Tontines de groupe : réunions OUVERTES où encaisser la cotisation.
+  const [openGroups, setOpenGroups] = useState<GroupTontineRow[]>([]);
+  const [groupId, setGroupId] = useState("");
+  const isGroup = paymentType === GROUP_TYPE;
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +165,8 @@ export function CashInModal({
     setIsRenewal(false);
     setOpenCycles([]);
     setCycleId("");
+    setOpenGroups([]);
+    setGroupId("");
     setPendingRequests([]);
     setError(null);
   }
@@ -266,6 +279,31 @@ export function CashInModal({
     };
   }, [open, isSpecial, paymentType]);
 
+  // Tontines de groupe : charge les réunions OUVERTES. On ne propose que
+  // celles-là — le serveur refuse une cotisation sur réunion clôturée, autant
+  // ne pas l'offrir.
+  useEffect(() => {
+    if (!open || !isGroup) {
+      setOpenGroups([]);
+      return;
+    }
+    let cancelled = false;
+    adminApi.groupTontines
+      .list()
+      .then((rows) => {
+        if (cancelled) return;
+        const opens = rows.filter((g) => g.is_open);
+        setOpenGroups(opens);
+        setGroupId(opens.length === 1 && opens[0] ? String(opens[0].id) : "");
+      })
+      .catch(() => {
+        if (!cancelled) setOpenGroups([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isGroup]);
+
   // Frais de crédit : charge la (les) demande(s) en attente du membre pour
   // afficher/confirmer le « crédit demandé » à la sélection.
   useEffect(() => {
@@ -325,6 +363,10 @@ export function CashInModal({
       setError("Choisis la collecte à alimenter.");
       return;
     }
+    if (isGroup && !groupId) {
+      setError("Choisis la réunion dont tu encaisses la cotisation.");
+      return;
+    }
 
     const payload: Parameters<typeof adminApi.payments.cashIn>[0] = {
       member_id: selectedMember.id,
@@ -347,6 +389,9 @@ export function CashInModal({
     }
     if (isSpecial && cycleId) {
       payload.cycle_id = Number(cycleId);
+    }
+    if (isGroup && groupId) {
+      payload.group_id = Number(groupId);
     }
 
     setSubmitting(true);
@@ -614,6 +659,35 @@ export function CashInModal({
                     {c.nom}
                     {Number(c.montant_minimal ?? 0) > 0
                       ? ` (min ${Number(c.montant_minimal).toLocaleString("fr-FR")})`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+          </ModalField>
+        ) : null}
+
+        {isGroup ? (
+          <ModalField
+            label="Réunion ciblée"
+            hint="La cotisation crédite la cagnotte de cette réunion. Le membre doit faire partie du roster."
+          >
+            {openGroups.length === 0 ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-700">
+                Aucune réunion ouverte. Crées-en une depuis « Tontines de groupe ».
+              </p>
+            ) : (
+              <select
+                value={groupId}
+                onChange={(e) => setGroupId(e.target.value)}
+                className={modalInputClass}
+              >
+                <option value="">— Choisir une réunion —</option>
+                {openGroups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.nom}
+                    {Number(g.montant_cotisation ?? 0) > 0
+                      ? ` (cotisation ${Number(g.montant_cotisation).toLocaleString("fr-FR")})`
                       : ""}
                   </option>
                 ))}

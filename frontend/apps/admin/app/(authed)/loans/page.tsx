@@ -13,6 +13,7 @@ import {
 } from "@/components/compose-funding-modal";
 import { LoanDetailModal } from "@/components/loan-detail-modal";
 import { CashInModal } from "@/components/cash-in-modal";
+import { AgencyLoanModal } from "@/components/agency-loan-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { adminApi, type AdminLoanRow, type ApiError } from "@/lib/api";
 import { fullName } from "@/lib/name";
@@ -50,6 +51,7 @@ function Inner() {
   // Cash-in remboursement : encaisser un versement crédit en agence.
   const [cashInLoan, setCashInLoan] = useState<AdminLoanRow | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const [agencyLoanOpen, setAgencyLoanOpen] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -212,6 +214,14 @@ function Inner() {
         description="Tous les crédits décaissés ou en cours de remboursement."
         actions={
           <div className="flex items-center gap-3 text-sm text-ink-600">
+            <button
+              type="button"
+              onClick={() => setAgencyLoanOpen(true)}
+              className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+            >
+              Crédit à l&apos;agence
+            </button>
+            <span className="text-ink-400">·</span>
             <span className="font-mono text-ink-900 font-medium">{count}</span>
             <span>crédit{count > 1 ? "s" : ""}</span>
             <span className="text-ink-400">·</span>
@@ -370,6 +380,16 @@ function Inner() {
       <LoanDetailModal
         loanId={detailLoanId}
         onClose={() => setDetailLoanId(null)}
+      />
+
+      <AgencyLoanModal
+        open={agencyLoanOpen}
+        onClose={() => setAgencyLoanOpen(false)}
+        onSuccess={(msg) => {
+          setFlash(msg);
+          setTimeout(() => setFlash(null), 6000);
+          reload();
+        }}
       />
 
       <CashInModal

@@ -8,6 +8,7 @@ from django.urls import path
 from . import (
     admin_views,
     coop_documents_views,
+    deadlines_views,
     cron_admin_views,
     log_admin_views,
     supervision_views,
@@ -78,6 +79,12 @@ urlpatterns = [
         name="admin-cron-run-now",
     ),
     # Supervision (ops) — overview santé/planificateur/e-mails + liste EmailLog.
+    # Onglet « Notifications » — échéances de fin de chaque processus.
+    path(
+        "admin/deadlines/",
+        deadlines_views.admin_deadlines,
+        name="admin-deadlines",
+    ),
     path(
         "admin/supervision/",
         supervision_views.admin_supervision_overview,

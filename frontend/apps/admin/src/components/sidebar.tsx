@@ -64,7 +64,12 @@ type NavSection = {
 const NAV_SECTIONS: NavSection[] = [
   {
     title: "Pilotage",
-    items: [{ href: "/dashboard", label: "Vue d'ensemble", icon: LayoutDashboard }],
+    items: [
+      { href: "/dashboard", label: "Vue d'ensemble", icon: LayoutDashboard },
+      // Échéances de fin de chaque processus (crédits, campagnes, cycles,
+      // maturités, réinscriptions). Vue de lecture, à côté du dashboard.
+      { href: "/notifications", label: "Notifications", icon: BellRing },
+    ],
   },
   {
     title: "Adhésions & membres",

@@ -50,6 +50,7 @@ from .views import (
     admin_list_loan_requests,
     admin_list_loan_renewals,
     admin_credit_exposure,
+    admin_create_agency_loan,
     admin_list_loans,
     admin_loan_detail,
     loan_disburse,
@@ -171,6 +172,8 @@ urlpatterns = [
         admin_delete_loan_request,
         name="admin-delete-request",
     ),
+    # Crédit décidé en séance à l'agence (pas de demande en ligne).
+    path("admin/manual/", admin_create_agency_loan, name="admin-create-agency-loan"),
     path("admin/list/", admin_list_loans, name="admin-list-loans"),
     path("admin/exposure/", admin_credit_exposure, name="admin-credit-exposure"),
     # A1 . Detail credit (echeances + remboursements) pour drawer admin.

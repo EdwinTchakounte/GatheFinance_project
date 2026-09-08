@@ -58,12 +58,32 @@ x-backend-env: &backend-env
   # `.gathe-finance.com`) → login OK mais déconnexion immédiate. Doit valoir
   # `.<domaine-racine>` (point initial) dans .env.prod.
   COOKIE_DOMAIN: ${COOKIE_DOMAIN:-.gathe-finance.horus-lab.com}
-  # E-mail : API HTTP Brevo via django-anymail (pas de SMTP). prod.py sélectionne
-  # déjà le backend Anymail-Brevo ; on lui passe juste la clé API + l'expéditeur.
+  # E-mail — DEUX VOIES : (1) API HTTP Brevo via django-anymail, (2) repli sur
+  # un SMTP de secours si Brevo échoue pour ce message (quota épuisé, clé
+  # révoquée, API down). Spam probable sur la voie 2, assumé : mieux vaut en
+  # spam que jamais parti. Cf. apps_coop/notifications/email_backends.py.
   BREVO_API_KEY: ${BREVO_API_KEY:-}
   DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL}
   CONTACT_NOTIFICATION_EMAIL: ${CONTACT_NOTIFICATION_EMAIL:-contact@gathe-finance.com}
+  # ⚠️ On ne nomme JAMAIS le backend de repli ici : `deploy.yml` téléverse ce
+  # fichier à chaque déploiement, mais garde l'ANCIENNE image sur deux chemins
+  # (repli sur cache si le pull GHCR échoue, rollback si le healthcheck rate).
+  # Un compose nommant un module absent de l'image = ImportError à chaque envoi,
+  # donc tous les e-mails muets. C'est `config/settings/prod.py` — qui voyage
+  # AVEC le code — qui décide d'activer le repli, et seulement si le SMTP de
+  # secours ci-dessous est renseigné.
   EMAIL_BACKEND: ${EMAIL_BACKEND:-anymail.backends.brevo.EmailBackend}
+  # SMTP de secours. HOST vide = AUCUN repli (tout passe par Brevo, comportement
+  # historique). Renseigner dans .env.prod pour activer le filet.
+  EMAIL_FALLBACK_SMTP_HOST: ${EMAIL_FALLBACK_SMTP_HOST:-}
+  EMAIL_FALLBACK_SMTP_PORT: ${EMAIL_FALLBACK_SMTP_PORT:-587}
+  EMAIL_FALLBACK_SMTP_USER: ${EMAIL_FALLBACK_SMTP_USER:-}
+  EMAIL_FALLBACK_SMTP_PASSWORD: ${EMAIL_FALLBACK_SMTP_PASSWORD:-}
+  EMAIL_FALLBACK_SMTP_USE_TLS: ${EMAIL_FALLBACK_SMTP_USE_TLS:-true}
+  EMAIL_FALLBACK_SMTP_USE_SSL: ${EMAIL_FALLBACK_SMTP_USE_SSL:-false}
+  # Expéditeur imposé par le SMTP de secours (rejet 550 sinon sur la plupart
+  # des serveurs). Vide = on garde DEFAULT_FROM_EMAIL.
+  EMAIL_FALLBACK_FROM: ${EMAIL_FALLBACK_FROM:-}
   TARA_API_KEY: ${TARA_API_KEY:-}
   TARA_BUSINESS_ID: ${TARA_BUSINESS_ID:-}
   TARA_WEBHOOK_SECRET: ${TARA_WEBHOOK_SECRET:-}

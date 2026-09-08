@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, FileDown, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, FileDown, MailCheck, Pencil, Trash2 } from "lucide-react";
 
 import { ConfirmModal } from "@/components/confirm-modal";
 import {
@@ -40,6 +40,13 @@ export function MemberRecapModal({
   /** Fourni là où l'édition est autorisée : affiche le bouton « Éditer ». */
   onEdit?: (member: Member) => void;
 }) {
+  // Renvoi de l'e-mail de création de compte. `resendRes` porte l'issue réelle
+  // (envoyé / échec + motif) : on l'affiche telle quelle plutôt qu'un « OK »
+  // générique, pour que l'admin sache si le membre a vraiment reçu son lien.
+  const [resending, setResending] = useState(false);
+  const [resendRes, setResendRes] = useState<
+    { ok: boolean; message: string } | null
+  >(null);
   const [showAdh, setShowAdh] = useState(false);
   const [adh, setAdh] = useState<MemberAdhesion | null>(null);
   const [adhLoading, setAdhLoading] = useState(false);
@@ -79,6 +86,45 @@ export function MemberRecapModal({
       setDeleteErr((e as ApiError).detail ?? "Restauration impossible.");
     } finally {
       setRestoring(false);
+    }
+  }
+
+  async function handleResendWelcome() {
+    if (!member) return;
+    setResending(true);
+    setResendRes(null);
+    try {
+      const r = await adminApi.members.resendWelcome(member.id);
+      if (r.sent) {
+        setResendRes({
+          ok: true,
+          message:
+            `E-mail envoyé à ${r.to}. Le lien est valable 72 h.` +
+            (r.had_password
+              ? " Ce membre avait déjà un mot de passe : le lien lui permettra d'en choisir un nouveau."
+              : "") +
+            (r.transport === "fallback"
+              ? " (parti par la voie de secours — vérifier les indésirables)"
+              : ""),
+        });
+      } else {
+        // On expose le motif : c'est exactement ce qui manquait pendant la
+        // panne de septembre, où tout répondait « OK » sans rien envoyer.
+        setResendRes({
+          ok: false,
+          message:
+            r.statut === "aucune_trace"
+              ? "Aucun envoi : le modèle « member.welcome » est absent ou désactivé."
+              : `Échec de l'envoi vers ${r.to}${r.erreur ? ` — ${r.erreur}` : ""}`,
+        });
+      }
+    } catch (e) {
+      setResendRes({
+        ok: false,
+        message: (e as ApiError).detail ?? "Renvoi impossible.",
+      });
+    } finally {
+      setResending(false);
     }
   }
 
@@ -296,6 +342,37 @@ export function MemberRecapModal({
             <AdhesionDetails adh={adh} />
           ) : null
         ) : null}
+
+        {/* Renvoi de l'e-mail de création de compte (lien mot de passe).
+            Utile quand le 1er envoi a échoué : le membre reste sinon bloqué,
+            incapable de se connecter, sans que rien ne le signale. */}
+        <div className="border-t border-line-200 pt-4">
+          <button
+            type="button"
+            disabled={resending}
+            onClick={handleResendWelcome}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-line-300 bg-paper px-3.5 py-2.5 text-sm font-semibold text-ink-700 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50"
+          >
+            <MailCheck className="size-4" aria-hidden="true" />
+            {resending ? "Envoi en cours…" : "Renvoyer l'e-mail de création de compte"}
+          </button>
+          <p className="mt-1.5 text-xs text-ink-500">
+            Réémet un lien « définir mon mot de passe » valable 72 h. Les liens
+            précédents deviennent invalides.
+          </p>
+          {resendRes ? (
+            <p
+              className={`mt-2 rounded-md px-3 py-2 text-sm ${
+                resendRes.ok
+                  ? "bg-emerald/10 text-emerald"
+                  : "bg-terra-50 text-terra-700"
+              }`}
+              role="status"
+            >
+              {resendRes.message}
+            </p>
+          ) : null}
+        </div>
 
         {/* Édition du membre (identité + contact + pièces). */}
         {onEdit && member.statut !== "radie" ? (

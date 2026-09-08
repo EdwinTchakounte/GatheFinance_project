@@ -153,6 +153,10 @@ def admin_supervision_emails(request):
             "template": r.template_id,
             "statut": r.statut,
             "statut_display": r.get_statut_display(),
+            # "fallback" = parti par le SMTP de secours (Brevo avait échoué) :
+            # l'e-mail est délivré mais probablement en spam.
+            "transport": r.transport,
+            "transport_display": r.get_transport_display(),
             "erreur": r.erreur,
             "member": _member_name(r),
             "created_at": r.created_at.isoformat(),

@@ -17,7 +17,7 @@ from apps_coop.portal_urls import portal_url as _portal_url
 
 from . import services
 from .models import BRCDocument, Member, MembershipRequest
-from .permissions import IsActiveMember, IsAdmin, IsMember, IsStaff
+from .permissions import IsActiveMember, IsAdmin, IsMember, IsStaff, ResourceAccess
 from .serializers import (
     BRCDocumentAdminReadSerializer,
     BRCDocumentReadSerializer,
@@ -26,6 +26,7 @@ from .serializers import (
     MemberCreateSerializer,
     MemberReadSerializer,
     MemberReinscriptionConfirmSerializer,
+    MemberResendWelcomeSerializer,
     MembershipApproveSerializer,
     MembershipRejectSerializer,
     MembershipRequestReadSerializer,
@@ -426,6 +427,51 @@ def admin_confirm_member_reinscription(request, pk: int):
     )
     member.refresh_from_db()
     return Response(MemberReadSerializer(member).data)
+
+
+@extend_schema(
+    tags=["members"],
+    summary="🔒 Admin — renvoyer l'e-mail de création de compte",
+    description=(
+        "Renvoie au membre l'e-mail de bienvenue contenant le lien « définir "
+        "mon mot de passe » (+ attestation d'adhésion et règlement intérieur). "
+        "Un **nouveau** token de 72 h est émis : les liens précédents sont "
+        "invalidés. À utiliser quand le premier envoi a échoué (panne du "
+        "fournisseur, adresse erronée) et que le membre ne peut pas se "
+        "connecter.\n\n"
+        "`to_email` (optionnel) permet de viser une autre adresse que celle du "
+        "compte — utile si l'adresse d'origine comportait une faute de frappe. "
+        "Le résultat rapporte l'issue réelle de l'envoi (`sent`, `statut`, "
+        "`erreur`) plutôt qu'un succès de façade. Permission : `members`."
+    ),
+    request=MemberResendWelcomeSerializer,
+    responses={
+        200: OpenApiResponse(description="Renvoi effectué (voir `sent`)."),
+        400: OpenApiResponse(description="Membre sans compte ou sans adresse e-mail."),
+        404: OpenApiResponse(description="Membre introuvable."),
+    },
+)
+@api_view(["POST"])
+@permission_classes([ResourceAccess("members")])
+def admin_member_resend_welcome(request, pk: int):
+    try:
+        member = Member.objects.select_related("user").get(pk=pk)
+    except Member.DoesNotExist:
+        return Response({"detail": "Membre introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = MemberResendWelcomeSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    try:
+        result = services.resend_welcome_email(
+            member,
+            to_email=serializer.validated_data.get("to_email") or None,
+            actor=request.user,
+        )
+    except services.ResendWelcomeError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(result)
 
 
 @extend_schema(

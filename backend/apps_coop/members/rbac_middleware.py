@@ -25,6 +25,8 @@ API_PREFIX = "/api/v1/"
 # Préfixes exprimés APRÈS `/api/v1/`.
 PREFIX_RULES: list[tuple[str, str]] = [
     ("admin/access/", "access"),
+    # Onglet Notifications (échéances des processus) — vue agrégée en lecture.
+    ("audit/admin/deadlines/", "notifications"),
     ("admin/dashboard/", "dashboard"),
     # Rapport PDF « état de la coopérative » = vue d'ensemble (dashboard).
     # AVANT admin/members/ pour ne pas être capté par ce préfixe.

@@ -275,6 +275,39 @@ EMAIL_BACKEND = env(
 ANYMAIL = {
     "BREVO_API_KEY": env("BREVO_API_KEY", default=""),
 }
+
+# --- Repli SMTP quand Brevo échoue (voie de secours) ------------------------
+# Les e-mails de la coopérative sont critiques (mot de passe, activation,
+# échéance) : si Brevo tombe (quota épuisé, clé révoquée, API down), on rejoue
+# le message sur un SMTP de secours (NHR) plutôt que de le perdre. La
+# délivrabilité y est dégradée — spam probable — et c'est un compromis ASSUMÉ.
+# Mécanique : ``apps_coop.notifications.email_backends.FailoverEmailBackend``,
+# activé en posant EMAIL_BACKEND dessus (prod.py le fait par défaut).
+#
+# ⚠️ Tant que EMAIL_FALLBACK_SMTP_HOST est vide, il N'Y A PAS de repli : le
+# backend délègue tout au nominal, comportement strictement inchangé (dev/CI).
+EMAIL_PRIMARY_BACKEND = env(
+    "EMAIL_PRIMARY_BACKEND", default="anymail.backends.brevo.EmailBackend"
+)
+_EMAIL_FALLBACK_HOST = env("EMAIL_FALLBACK_SMTP_HOST", default="")
+EMAIL_FALLBACK_BACKEND = (
+    env("EMAIL_FALLBACK_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
+    if _EMAIL_FALLBACK_HOST
+    else ""
+)
+EMAIL_FALLBACK_OPTIONS = {
+    "host": _EMAIL_FALLBACK_HOST,
+    "port": env.int("EMAIL_FALLBACK_SMTP_PORT", default=587),
+    "username": env("EMAIL_FALLBACK_SMTP_USER", default=""),
+    "password": env("EMAIL_FALLBACK_SMTP_PASSWORD", default=""),
+    "use_tls": env.bool("EMAIL_FALLBACK_SMTP_USE_TLS", default=True),
+    "use_ssl": env.bool("EMAIL_FALLBACK_SMTP_USE_SSL", default=False),
+    "timeout": env.int("EMAIL_FALLBACK_SMTP_TIMEOUT", default=20),
+}
+# Expéditeur imposé par le SMTP de secours. La plupart des serveurs rejettent
+# (550) un From: qu'ils n'ont pas autorisé : si le SMTP NHR n'accepte que ses
+# propres adresses, renseigner celle-ci. Vide = on garde DEFAULT_FROM_EMAIL.
+EMAIL_FALLBACK_FROM = env("EMAIL_FALLBACK_FROM", default="")
 # --- Push notifications (bases FCM/APNs) ------------------------------------
 # Tant qu'aucune de ces valeurs n'est fournie, l'envoi push est un no-op loggé
 # (voir apps_coop/notifications/push.py). À renseigner quand FCM sera branché.

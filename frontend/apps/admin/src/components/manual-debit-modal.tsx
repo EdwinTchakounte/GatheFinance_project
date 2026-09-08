@@ -6,8 +6,12 @@ import { Modal, ModalField, modalInputClass, buttonClasses } from "./modal";
 import { adminApi, type ApiError, type Member } from "@/lib/api";
 import { fullName } from "@/lib/name";
 
+type CompteDebit = "collecte" | "classique" | "tontine" | "caisse";
+
 const FEES: Array<{ code: string; label: string }> = [
   { code: "CARNET", label: "Carnet (renouvellement)" },
+  { code: "CARNET_TONTINE", label: "Carnet tontine" },
+  { code: "CARNET_CAISSE", label: "Carnet caisse scolaire" },
   { code: "RECONDUCTION", label: "Reconduction" },
   { code: "INSCRIPTION", label: "Inscription" },
   { code: "ADHESION", label: "Adhésion" },
@@ -31,7 +35,11 @@ export function ManualDebitModal({
   const [selected, setSelected] = useState<Member | null>(null);
 
   const [mode, setMode] = useState<"retrait" | "frais">("retrait");
-  const [compte, setCompte] = useState<"collecte" | "classique">("classique");
+  const [compte, setCompte] = useState<CompteDebit>("classique");
+  // Collectes particulières : collecte visée (vide = laisser le serveur
+  // résoudre s'il n'y en a qu'une) et sortie de l'argent.
+  const [cycleId, setCycleId] = useState("");
+  const [destination, setDestination] = useState<"cash" | "epargne">("cash");
   const [montant, setMontant] = useState("");
   const [motif, setMotif] = useState("");
   const [feeCode, setFeeCode] = useState("CARNET");
@@ -40,12 +48,16 @@ export function ManualDebitModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isCollecteParticuliere = compte === "tontine" || compte === "caisse";
+
   function reset() {
     setMemberQuery("");
     setMembers([]);
     setSelected(null);
     setMode("retrait");
     setCompte("classique");
+    setCycleId("");
+    setDestination("cash");
     setMontant("");
     setMotif("");
     setFeeCode("CARNET");
@@ -98,6 +110,12 @@ export function ManualDebitModal({
               compte,
               montant: Number(montant),
               motif: motif.trim() || undefined,
+              ...(isCollecteParticuliere
+                ? {
+                    cycle_id: cycleId ? Number(cycleId) : undefined,
+                    destination,
+                  }
+                : {}),
             },
       );
       onSuccess(
@@ -187,11 +205,43 @@ export function ManualDebitModal({
         {mode === "retrait" ? (
           <>
             <ModalField label="Compte à débiter">
-              <select value={compte} onChange={(e) => setCompte(e.target.value as "collecte" | "classique")} className={modalInputClass}>
+              <select value={compte} onChange={(e) => setCompte(e.target.value as CompteDebit)} className={modalInputClass}>
                 <option value="classique">Épargne classique (part libre)</option>
                 <option value="collecte">Collecte journalière</option>
+                <option value="tontine">Tontine alimentaire (collecte particulière)</option>
+                <option value="caisse">Caisse scolaire (collecte particulière)</option>
               </select>
             </ModalField>
+            {isCollecteParticuliere ? (
+              <>
+                <ModalField
+                  label="Sortie de l'argent"
+                  hint="Espèces = remise au guichet. Épargne = bascule vers l'épargne classique du membre."
+                >
+                  <select
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value as "cash" | "epargne")}
+                    className={modalInputClass}
+                  >
+                    <option value="cash">Espèces à l'agence</option>
+                    <option value="epargne">Vers l'épargne classique</option>
+                  </select>
+                </ModalField>
+                <ModalField
+                  label="Collecte ciblée (optionnel)"
+                  hint="À renseigner uniquement si le membre a plusieurs collectes approvisionnées de ce type — le serveur refuse alors de choisir à ta place."
+                >
+                  <input
+                    type="number"
+                    min="1"
+                    value={cycleId}
+                    onChange={(e) => setCycleId(e.target.value)}
+                    placeholder="n° de collecte"
+                    className={modalInputClass}
+                  />
+                </ModalField>
+              </>
+            ) : null}
             <ModalField label="Montant (XAF)">
               <input type="number" min="1" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="0" className={modalInputClass} />
             </ModalField>
