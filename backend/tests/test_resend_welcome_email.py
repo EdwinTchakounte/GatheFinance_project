@@ -254,3 +254,86 @@ class TestEndpoint:
     def test_anonyme_interdit(self, welcome_template):
         member = MemberFactory()
         assert APIClient().post(_url(member), {}, format="json").status_code in (401, 403)
+
+
+# --- Lien expiré : quelle sortie proposer au membre ? -----------------------
+#
+# Un lien mort laissait le membre dans un cul-de-sac (« contacte l'agence »,
+# et un bouton connexion inutile puisqu'il n'a pas de mot de passe). Le portail
+# lui propose desormais « mot de passe oublie » — le code OTP fonctionne pour
+# un compte sans mot de passe.
+#
+# MAIS pas pour tout le monde : `confirm_password_setup` est le SEUL flux qui
+# collecte les pieces d'identite (CNI, photo, plan) des membres crees par
+# l'admin. Y renoncer donnerait un acces sans dossier KYC. Le 410 porte donc
+# `pieces_required`, qui pilote la sortie proposee.
+
+VERIFY_URL = "/api/v1/auth/setup-password/verify/"
+
+
+def _token_expire(member):
+    from datetime import timedelta
+
+    return PasswordSetupToken.objects.create(
+        user=member.user,
+        token=f"expire-{member.pk}",
+        expires_at=timezone.now() - timedelta(hours=1),
+    )
+
+
+class TestLienExpire:
+    def test_lien_expire_renvoie_410(self):
+        member = MemberFactory()
+        token = _token_expire(member)
+
+        res = APIClient().get(VERIFY_URL, {"token": token.token})
+
+        assert res.status_code == 410
+
+    def test_sans_pieces_dues_le_libre_service_est_autorise(self):
+        member = MemberFactory()
+        member.pieces_a_fournir = False
+        member.save(update_fields=["pieces_a_fournir"])
+        token = _token_expire(member)
+
+        res = APIClient().get(VERIFY_URL, {"token": token.token})
+
+        assert res.status_code == 410
+        assert res.json()["pieces_required"] is False
+
+    def test_avec_pieces_dues_le_libre_service_est_refuse(self):
+        """Sinon le membre obtiendrait un acces sans jamais deposer sa CNI."""
+        member = MemberFactory()
+        member.pieces_a_fournir = True
+        member.save(update_fields=["pieces_a_fournir"])
+        token = _token_expire(member)
+
+        res = APIClient().get(VERIFY_URL, {"token": token.token})
+
+        assert res.status_code == 410
+        assert res.json()["pieces_required"] is True
+
+    def test_un_token_inconnu_ne_dit_rien(self):
+        """404 sans indice : pas d'enumeration a partir d'un token invente."""
+        res = APIClient().get(VERIFY_URL, {"token": "jamais-emis"})
+
+        assert res.status_code == 404
+        assert "pieces_required" not in res.json()
+
+    def test_un_renvoi_admin_redonne_un_lien_valide(self, welcome_template):
+        """Le parcours complet : lien mort -> renvoi -> lien exploitable."""
+        member = MemberFactory()
+        member.user.email = "membre@test.local"
+        member.user.save(update_fields=["email"])
+        mort = _token_expire(member)
+        assert APIClient().get(VERIFY_URL, {"token": mort.token}).status_code == 410
+
+        resend_welcome_email(member)
+
+        neuf = (
+            PasswordSetupToken.objects.filter(user=member.user, used_at__isnull=True)
+            .latest("id")
+        )
+        assert APIClient().get(VERIFY_URL, {"token": neuf.token}).status_code == 200
+        # L'ancien reste mort : un lien remis en circulation serait une faille.
+        assert APIClient().get(VERIFY_URL, {"token": mort.token}).status_code == 410

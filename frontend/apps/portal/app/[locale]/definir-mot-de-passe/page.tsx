@@ -8,6 +8,14 @@ import { portalApi, type ApiError } from "@/lib/api";
 
 type Phase = "verifying" | "form" | "expired" | "unknown" | "done";
 
+/** Le 410 porte `pieces_required` : il pilote la sortie de secours proposee.
+ *  En cas de doute (corps absent), on suppose que des pieces sont dues — on
+ *  prefere renvoyer vers l'agence a tort que d'ouvrir un acces sans documents. */
+function readPiecesRequired(err: { body?: unknown }): boolean {
+  const b = err.body as { pieces_required?: unknown } | undefined;
+  return typeof b?.pieces_required === "boolean" ? b.pieces_required : true;
+}
+
 
 function SetupPasswordInner() {
   const router = useRouter();
@@ -15,6 +23,9 @@ function SetupPasswordInner() {
   const token = params.get("token")?.trim() ?? "";
 
   const [phase, setPhase] = useState<Phase>("verifying");
+  // Lien mort + pieces d'identite encore dues => PAS de libre-service : le
+  // flux « mot de passe oublie » ne collecte pas les documents.
+  const [piecesDues, setPiecesDues] = useState(true);
   const [emailMask, setEmailMask] = useState<string>("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -49,8 +60,10 @@ function SetupPasswordInner() {
       } catch (err) {
         if (cancelled) return;
         const apiErr = err as ApiError;
-        if (apiErr.status === 410) setPhase("expired");
-        else setPhase("unknown");
+        if (apiErr.status === 410) {
+          setPiecesDues(readPiecesRequired(apiErr));
+          setPhase("expired");
+        } else setPhase("unknown");
       }
     })();
     return () => {
@@ -94,6 +107,7 @@ function SetupPasswordInner() {
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr.status === 410) {
+        setPiecesDues(readPiecesRequired(apiErr));
         setPhase("expired");
       } else if (apiErr.status === 404) {
         setPhase("unknown");
@@ -147,7 +161,9 @@ function SetupPasswordInner() {
           {phase === "expired" ? (
             <p className="mt-2 text-sm text-ink-600">
               Ce lien n'est plus valide (expire au bout de 72h ou deja utilise).
-              Contacte l'agence pour qu'un nouveau lien te soit envoye.
+              {piecesDues
+                ? " Contacte l'agence pour qu'un nouveau lien te soit envoye."
+                : " Tu peux en demander un nouveau ci-dessous."}
             </p>
           ) : null}
           {phase === "unknown" ? (
@@ -297,10 +313,32 @@ function SetupPasswordInner() {
           ) : null}
 
           {phase === "expired" || phase === "unknown" ? (
-            <div className="text-center">
+            /* Sans cette sortie, l'ecran est un cul-de-sac : le membre n'a pas
+               encore de mot de passe, donc « Aller a la connexion » ne lui sert
+               a rien. La voie « mot de passe oublie » fonctionne pourtant pour
+               lui — elle envoie un code a son e-mail sans exiger de mot de passe
+               existant. On la lui propose donc en action principale. */
+            <div className="space-y-3 text-center">
+              {phase === "expired" && !piecesDues ? (
+                <>
+                  <a
+                    href="/mot-de-passe-oublie"
+                    className="inline-block rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800"
+                  >
+                    Recevoir un nouveau lien
+                  </a>
+                  <p className="text-xs text-ink-500">
+                    Un code te sera envoye par e-mail pour choisir ton mot de passe.
+                  </p>
+                </>
+              ) : null}
               <a
                 href="/connexion"
-                className="inline-block rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800"
+                className={
+                  phase === "expired" && !piecesDues
+                    ? "block text-sm font-medium text-blue-700 underline-offset-2 hover:underline"
+                    : "inline-block rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800"
+                }
               >
                 Aller a la connexion
               </a>
