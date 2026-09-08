@@ -532,18 +532,32 @@ def verify_password_setup_token(request):
     token = PasswordSetupToken.objects.filter(token=token_value).first()
     if token is None:
         return Response({"detail": "Lien invalide."}, status=status.HTTP_404_NOT_FOUND)
+    member = getattr(token.user, "member", None)
+    # M1 — Un membre créé par l'admin doit charger ses pièces à cette étape.
+    pieces_required = bool(member and member.pieces_a_fournir)
+
     if token.is_consumed or token.is_expired:
+        # ``pieces_required`` est renvoyé MÊME sur un lien mort : il pilote la
+        # sortie de secours proposée au membre. Sans pièces à fournir, on peut
+        # l'orienter vers « mot de passe oublié » (le code OTP fonctionne pour
+        # un compte sans mot de passe). Avec pièces dues, surtout PAS : ce flux
+        # ne collecte pas les documents, et le membre obtiendrait un accès sans
+        # jamais déposer sa CNI. Il doit alors repasser par l'agence, qui lui
+        # renvoie un vrai lien de définition.
+        # Aucune fuite : cette information est liée au token, un secret que
+        # seul son porteur détient — ce n'est pas de l'énumération de comptes.
         return Response(
-            {"detail": "Lien expiré ou déjà utilisé. Demande un nouveau lien à l'agence."},
+            {
+                "detail": "Lien expiré ou déjà utilisé.",
+                "pieces_required": pieces_required,
+            },
             status=status.HTTP_410_GONE,
         )
 
-    # M1 — Un membre créé par l'admin doit charger ses pièces à cette étape.
-    member = getattr(token.user, "member", None)
     return Response({
         "email_mask": _mask_email(token.user.email),
         "expires_at": token.expires_at.isoformat(),
-        "pieces_required": bool(member and member.pieces_a_fournir),
+        "pieces_required": pieces_required,
     })
 
 
