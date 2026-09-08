@@ -10,6 +10,7 @@ from .base import (
     STORAGES,
     env,
 )
+from .email_routing import resolve_email_backends
 
 DEBUG = False
 SECRET_KEY = env("DJANGO_SECRET_KEY")  # required in production
@@ -62,21 +63,12 @@ for _host in _PUBLIC_HOSTS:
 # e-mails muets — la panne de septembre reproduite par un rollback.
 # En décidant ici, le réglage voyage avec le code qui l'implémente : une
 # ancienne image porte un ancien `prod.py`, qui retombe simplement sur Brevo.
-_email_backend_demande = env(
-    "EMAIL_BACKEND", default="anymail.backends.brevo.EmailBackend"
+# La règle elle-même vit dans `email_routing`, sans import Django, pour rester
+# testable sans charger les réglages de prod ni leurs dépendances.
+EMAIL_BACKEND, EMAIL_PRIMARY_BACKEND = resolve_email_backends(
+    env("EMAIL_BACKEND", default="anymail.backends.brevo.EmailBackend"),
+    fallback_backend=EMAIL_FALLBACK_BACKEND,
 )
-# Un test à blanc (console) ne doit pas être enveloppé : on veut voir l'e-mail
-# dans les logs, pas déclencher un repli SMTP.
-_est_test_a_blanc = any(
-    marqueur in _email_backend_demande for marqueur in ("console", "locmem", "dummy")
-)
-if EMAIL_FALLBACK_BACKEND and not _est_test_a_blanc:
-    EMAIL_PRIMARY_BACKEND = _email_backend_demande
-    EMAIL_BACKEND = "apps_coop.notifications.email_backends.FailoverEmailBackend"
-else:
-    # Aucun secours configuré : chemin direct, comportement strictement
-    # identique à celui d'avant l'ajout du repli.
-    EMAIL_BACKEND = _email_backend_demande
 
 # Serve compressed, hashed static files via WhiteNoise.
 MIDDLEWARE = [

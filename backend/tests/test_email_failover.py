@@ -286,68 +286,46 @@ def test_send_template_les_deux_voies_ko_reste_en_echec(template):
 
 # --- Câblage des réglages de PRODUCTION -------------------------------------
 #
-# Ces tests chargent réellement ``config.settings.prod`` dans un sous-processus,
-# avec un environnement contrôlé. Ils gardent l'invariant qui évite de rejouer
-# la panne de septembre : le backend de repli ne doit JAMAIS être imposé par le
-# docker-compose (téléversé à chaque déploiement) mais décidé par le code, qui
-# voyage avec l'image. Un compose nommant un module absent de l'image =
-# ImportError à chaque envoi, donc tous les e-mails muets.
+# Ces tests gardent l'invariant qui évite de rejouer la panne de septembre : le
+# backend de repli ne doit JAMAIS être imposé par le docker-compose (téléversé
+# à chaque déploiement) mais décidé par le code, qui voyage avec l'image. Un
+# compose nommant un module absent de l'image = ImportError à chaque envoi,
+# donc tous les e-mails muets.
+#
+# La règle est isolée dans ``config.settings.email_routing``, sans import
+# Django : la tester en chargeant ``settings.prod`` exigeait les dépendances de
+# PRODUCTION (whitenoise…) que la CI n'installe pas — ça passait en local et
+# cassait en CI.
 
+from config.settings.email_routing import FAILOVER_BACKEND, resolve_email_backends
 
-def _prod_setting(nom_reglage: str, **env_supplementaire) -> str:
-    """Valeur d'un réglage tel que ``config.settings.prod`` le calcule."""
-    import os
-    import subprocess
-    import sys
-
-    env = {
-        **os.environ,
-        "DJANGO_SETTINGS_MODULE": "config.settings.prod",
-        "DJANGO_SECRET_KEY": "test-only",
-        "DJANGO_ALLOWED_HOSTS": "example.com",
-        "DEFAULT_FROM_EMAIL": "test@example.com",
-        # Neutralise l'héritage du shell courant.
-        "EMAIL_BACKEND": "",
-        "EMAIL_FALLBACK_SMTP_HOST": "",
-    }
-    env.update({k: str(v) for k, v in env_supplementaire.items()})
-    # Une valeur vide signifie « variable absente » côté déploiement.
-    for cle in [k for k, v in env.items() if v == ""]:
-        env.pop(cle)
-
-    out = subprocess.run(
-        [
-            sys.executable, "-c",
-            "import django;django.setup();"
-            "from django.conf import settings;"
-            f"print(getattr(settings, {nom_reglage!r}, ''))",
-        ],
-        capture_output=True, text=True, env=env, cwd=".",
-    )
-    assert out.returncode == 0, out.stderr[-800:]
-    return out.stdout.strip()
+BREVO = "anymail.backends.brevo.EmailBackend"
+CONSOLE = "django.core.mail.backends.console.EmailBackend"
+SMTP_SECOURS = "django.core.mail.backends.smtp.EmailBackend"
 
 
 class TestReglagesProduction:
     def test_sans_smtp_de_secours_le_module_de_repli_nest_pas_utilise(self):
-        """Cas du déploiement standard : rien ne change par rapport à avant."""
-        assert _prod_setting("EMAIL_BACKEND") == "anymail.backends.brevo.EmailBackend"
+        """Déploiement standard : rien ne change par rapport à avant."""
+        backend, primary = resolve_email_backends(BREVO, fallback_backend="")
+        assert backend == BREVO
+        assert primary == BREVO
 
     def test_avec_smtp_de_secours_le_repli_sinterpose(self):
-        assert _prod_setting(
-            "EMAIL_BACKEND", EMAIL_FALLBACK_SMTP_HOST="smtp.exemple.test",
-        ) == FAILOVER
-        assert _prod_setting(
-            "EMAIL_PRIMARY_BACKEND", EMAIL_FALLBACK_SMTP_HOST="smtp.exemple.test",
-        ) == "anymail.backends.brevo.EmailBackend"
+        backend, primary = resolve_email_backends(BREVO, fallback_backend=SMTP_SECOURS)
+        assert backend == FAILOVER_BACKEND
+        assert primary == BREVO
 
     def test_un_test_a_blanc_console_nest_jamais_enveloppe(self):
         """On veut lire l'e-mail dans les logs, pas déclencher un repli SMTP."""
-        assert _prod_setting(
-            "EMAIL_BACKEND",
-            EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend",
-            EMAIL_FALLBACK_SMTP_HOST="smtp.exemple.test",
-        ) == "django.core.mail.backends.console.EmailBackend"
+        backend, _ = resolve_email_backends(CONSOLE, fallback_backend=SMTP_SECOURS)
+        assert backend == CONSOLE
+
+    def test_la_constante_pointe_le_backend_reellement_livre(self):
+        """Un renommage du module casserait le repli en silence."""
+        from django.utils.module_loading import import_string
+
+        assert import_string(FAILOVER_BACKEND) is not None
 
     def test_le_compose_de_production_ne_nomme_pas_le_module_de_repli(self):
         """Garde-fou d'infrastructure : `deploy.yml` téléverse ce fichier même
