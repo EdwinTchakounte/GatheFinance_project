@@ -4,11 +4,13 @@ from .base import (
     ALLOWED_HOSTS,
     CORS_ALLOWED_ORIGINS,
     CSRF_TRUSTED_ORIGINS,
+    EMAIL_FALLBACK_BACKEND,
     MIDDLEWARE,
     REST_FRAMEWORK,
     STORAGES,
     env,
 )
+from .email_routing import resolve_email_backends
 
 DEBUG = False
 SECRET_KEY = env("DJANGO_SECRET_KEY")  # required in production
@@ -48,12 +50,24 @@ for _host in _PUBLIC_HOSTS:
     if _origin not in CORS_ALLOWED_ORIGINS:
         CORS_ALLOWED_ORIGINS.append(_origin)
 
-# --- Email : envoi RÉEL via l'API HTTP Brevo (django-anymail) en production --
-# base.py défaut = console (dev). En prod on bascule sur le backend Anymail-Brevo
-# qui appelle l'API transactionnelle Brevo avec ANYMAIL["BREVO_API_KEY"].
-# (Mettre EMAIL_BACKEND=...console.EmailBackend dans l'env pour un test à blanc.)
-EMAIL_BACKEND = env(
-    "EMAIL_BACKEND", default="anymail.backends.brevo.EmailBackend"
+# --- Email : Brevo (API HTTP) avec repli SMTP en production ------------------
+# Voie nominale = ce que demande l'env (Brevo par défaut). Le backend à DOUBLE
+# VOIE ne s'interpose QUE si un SMTP de secours est réellement configuré.
+#
+# ⚠️ Pourquoi la décision est prise ICI et jamais dans le docker-compose :
+# `deploy.yml` téléverse `infra/` à chaque déploiement, mais deux chemins
+# gardent l'ANCIENNE image — le repli sur les images en cache quand le pull
+# GHCR échoue, et le rollback quand le healthcheck ne passe pas. Un compose
+# qui nommerait `FailoverEmailBackend` se retrouverait alors devant une image
+# où ce module n'existe pas : ImportError à chaque envoi, donc TOUS les
+# e-mails muets — la panne de septembre reproduite par un rollback.
+# En décidant ici, le réglage voyage avec le code qui l'implémente : une
+# ancienne image porte un ancien `prod.py`, qui retombe simplement sur Brevo.
+# La règle elle-même vit dans `email_routing`, sans import Django, pour rester
+# testable sans charger les réglages de prod ni leurs dépendances.
+EMAIL_BACKEND, EMAIL_PRIMARY_BACKEND = resolve_email_backends(
+    env("EMAIL_BACKEND", default="anymail.backends.brevo.EmailBackend"),
+    fallback_backend=EMAIL_FALLBACK_BACKEND,
 )
 
 # Serve compressed, hashed static files via WhiteNoise.

@@ -141,3 +141,69 @@ $COMPOSE exec backend python manage.py shell -c \
 - `SESSION_COOKIE_DOMAIN=.gathe-finance.horus-lab.com` (cross-subdomain).
 - Clé Brevo, secret Tara, `DJANGO_SECRET_KEY` : dans `.env.prod` uniquement,
   jamais commit.
+
+---
+
+## 8) Repli SMTP quand Brevo échoue (voie de secours)
+
+Les e-mails de la coopérative sont **critiques** (mot de passe, activation,
+échéance J-3, saisie sur épargne) : si Brevo tombe — quota mensuel épuisé, clé
+révoquée, compte suspendu pour réputation, API indisponible — le message est
+**rejoué sur un SMTP de secours** au lieu d'être perdu.
+
+> ⚠️ La délivrabilité de la voie de secours est **dégradée : l'e-mail partira
+> probablement en spam**. C'est un compromis assumé — un e-mail en spam reste
+> récupérable par le membre, un e-mail jamais parti ne l'est pas.
+
+### Activer
+
+Dans `.env.prod`, renseigner le SMTP de secours puis redémarrer le backend :
+
+```bash
+EMAIL_FALLBACK_SMTP_HOST=smtp.exemple-nhr.com
+EMAIL_FALLBACK_SMTP_PORT=587
+EMAIL_FALLBACK_SMTP_USER=...
+EMAIL_FALLBACK_SMTP_PASSWORD=...
+EMAIL_FALLBACK_SMTP_USE_TLS=true
+# Si ce SMTP n'autorise que ses propres adresses en From: (rejet 550 sinon).
+# L'expéditeur GATHE est alors conservé en Reply-To.
+EMAIL_FALLBACK_FROM="NHR <no-reply@exemple-nhr.com>"
+
+$COMPOSE up -d backend qcluster
+```
+
+**`EMAIL_FALLBACK_SMTP_HOST` vide = AUCUN repli** : le backend délègue tout à
+Brevo, comportement strictement identique à avant. C'est le cas en dev et en CI.
+
+### Vérifier quels e-mails sont passés par le secours
+
+Le mode dégradé est **visible**, pas silencieux :
+
+- Dashboard admin → **Supervision** → colonne Statut, badge « Voie de secours ».
+- Django admin → *Emails envoyés* → filtre `transport`.
+- En shell :
+
+```bash
+$COMPOSE exec backend python manage.py shell -c \
+  "from apps_coop.notifications.models import EmailLog; \
+   print(EmailLog.objects.filter(transport='fallback').count())"
+```
+
+Un compteur qui grimpe = **Brevo est en panne ou à bout de quota**, à traiter :
+le secours est un filet, pas un régime de croisière.
+
+### Tester le repli sans casser Brevo
+
+Poser une fausse clé API le temps d'un envoi (les messages basculent tous sur le
+secours), puis remettre la vraie :
+
+```bash
+$COMPOSE exec -e BREVO_API_KEY=invalide backend python manage.py shell -c \
+  "from apps_coop.notifications.services import send_template; \
+   print(send_template('member.welcome', to='toi@exemple.com').transport)"
+# attendu : fallback
+```
+
+Mécanique : `apps_coop/notifications/email_backends.py` (`FailoverEmailBackend`,
+posé sur `EMAIL_BACKEND` par `config/settings/prod.py`). Le repli est décidé
+**message par message** : dans un lot, seuls les messages tombés sont rejoués.

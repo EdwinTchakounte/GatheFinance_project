@@ -12,8 +12,8 @@ class EmailTemplateAdmin(admin.ModelAdmin):
 
 @admin.register(EmailLog)
 class EmailLogAdmin(admin.ModelAdmin):
-    list_display = ("template", "destinataire", "statut", "sent_at", "created_at")
-    list_filter = ("statut", "created_at")
+    list_display = ("template", "destinataire", "statut", "transport", "sent_at", "created_at")
+    list_filter = ("statut", "transport", "created_at")
     search_fields = ("destinataire", "objet", "template__code")
     autocomplete_fields = ("template", "member")
     date_hierarchy = "created_at"

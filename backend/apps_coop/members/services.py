@@ -980,3 +980,88 @@ def issue_password_setup_token(*, user, ip_request: str | None = None):
         ip_request=ip_request,
     )
     return token
+
+
+# ── Renvoi de l'e-mail de création de compte (admin) ─────────────────────────
+class ResendWelcomeError(ValueError):
+    """Renvoi impossible (membre sans compte, sans adresse e-mail…)."""
+
+
+def resend_welcome_email(member: Member, *, to_email: str | None = None, actor=None) -> dict:
+    """Renvoie l'e-mail de bienvenue (lien « définir mon mot de passe ») au membre.
+
+    Motivation (incident 2026-09) : quand l'envoi échoue — clé API expirée,
+    fournisseur indisponible, adresse mal saisie — le membre approuvé n'a
+    jamais son lien et ne peut PAS se connecter. Il fallait jusqu'ici passer
+    par un shell Django sur le serveur. C'est désormais un geste admin.
+
+    Le token de définition de mot de passe expire au bout de 72 h : renvoyer
+    le même e-mail ne suffirait pas, il faut en réémettre un. C'est
+    ``_send_welcome_email`` qui s'en charge (il appelle
+    ``issue_password_setup_token``, lequel invalide les précédents) — d'où la
+    réutilisation du même chemin que l'approbation, plutôt qu'un envoi ad hoc
+    qui divergerait du contenu réel.
+
+    Renvoie ``{"sent": bool, "to": str, "statut": str, "erreur": str,
+    "transport": str, "had_password": bool}``. Ne lève que sur une erreur de
+    saisie (``ResendWelcomeError``) — un échec d'envoi est *rapporté*, pas levé,
+    pour que l'admin voie le motif au lieu d'une 500 opaque.
+    """
+    from apps_coop.notifications.models import EmailLog
+
+    user = getattr(member, "user", None)
+    if user is None:
+        raise ResendWelcomeError("Ce membre n'a pas de compte utilisateur.")
+
+    destination = (to_email or user.email or "").strip()
+    if not destination:
+        raise ResendWelcomeError(
+            "Aucune adresse e-mail connue pour ce membre. Renseigne-la d'abord "
+            "sur sa fiche, ou fournis-en une pour ce renvoi."
+        )
+
+    # Information rendue à l'admin : si le membre a DÉJÀ un mot de passe
+    # utilisable, le lien renvoyé lui permettra d'en choisir un nouveau. Ce
+    # n'est pas un blocage (c'est parfois le but), mais l'admin doit le savoir.
+    had_password = bool(user.has_usable_password())
+
+    # Repère temporel : on ne veut relire QUE la trace de cet envoi-ci, pas
+    # celle d'un envoi précédent.
+    started_at = timezone.now()
+    _send_welcome_email(member, destination)
+
+    log = (
+        EmailLog.objects.filter(
+            template_id="member.welcome",
+            destinataire=destination,
+            created_at__gte=started_at,
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    sent = bool(log and log.statut == EmailLog.Statut.ENVOYE)
+
+    record_audit(
+        action="member.welcome_resent",
+        entite_type="Member",
+        entite_id=member.id,
+        user=actor,
+        details={
+            "numero_membre": member.numero_membre,
+            "destinataire": destination,
+            "sent": sent,
+            "statut": getattr(log, "statut", "") or "aucune_trace",
+            "had_password": had_password,
+        },
+    )
+
+    return {
+        "sent": sent,
+        "to": destination,
+        # ``aucune_trace`` : l'événement n'a produit aucun EmailLog — template
+        # absent ou désactivé (kill-switch admin), pas un échec réseau.
+        "statut": getattr(log, "statut", "") or "aucune_trace",
+        "erreur": getattr(log, "erreur", "") or "",
+        "transport": getattr(log, "transport", "") or "",
+        "had_password": had_password,
+    }

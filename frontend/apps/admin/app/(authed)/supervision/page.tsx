@@ -340,6 +340,14 @@ export default function SupervisionPage() {
                     </td>
                     <td>
                       <span className={statutPill(r.statut)}>{r.statut_display}</span>
+                      {r.transport === "fallback" ? (
+                        <span
+                          className="pill pill-warning mt-1 block w-fit"
+                          title="Brevo a échoué : le message est parti par le SMTP de secours. Délivré, mais probablement en spam."
+                        >
+                          Voie de secours
+                        </span>
+                      ) : null}
                       {r.statut === "echec" && r.erreur ? (
                         <span className="mt-1 block max-w-[18rem] truncate text-xs text-error" title={r.erreur}>
                           {r.erreur}

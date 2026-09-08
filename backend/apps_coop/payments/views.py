@@ -1447,6 +1447,11 @@ _CASH_IN_ALLOWED_TYPES = {
     # (crédite la participation VALIDÉE du membre dans le cycle ouvert).
     Payment.Type.CAISSE_SCOLAIRE,
     Payment.Type.TONTINE_ALIMENTAIRE,
+    # Tontines de GROUPE (réunions) : versement espèces encaissé en séance.
+    # Beaucoup de réunions cotisent en liquide sur place ; sans ce type, la
+    # cagnotte ne pouvait être alimentée que par Mobile Money ou prélèvement
+    # sur épargne, et les espèces restaient hors système.
+    Payment.Type.TONTINE_GROUPE,
     Payment.Type.REMBOURSEMENT,
 }
 
@@ -1462,7 +1467,9 @@ _CASH_IN_ALLOWED_TYPES = {
         "`montant` requis. `reference_externe` (n° bordereau papier) "
         "fortement recommande. `note` libre. Specifiques : `loan_id` si "
         "REMBOURSEMENT, `nb_jours_couverts` (>=1) si EPARGNE multi-jours, "
-        "`is_placement` (bool) si EPARGNE_CLASSIQUE."
+        "`is_placement` (bool) si EPARGNE_CLASSIQUE, `group_id` (requis) et "
+        "`group_loan_id` (optionnel — rembourse un prêt de la réunion au lieu "
+        "d\'alimenter la cagnotte) si TONTINE_GROUPE."
     ),
     responses={
         200: OpenApiResponse(description="Payment cree et hook business execute"),
@@ -1576,6 +1583,8 @@ def admin_cash_in_payment(request):
     nb_jours_couverts = 1
     is_placement = False
     special_cycle = None
+    group_tontine = None
+    group_loan = None
     if payment_type == Payment.Type.REMBOURSEMENT:
         from apps_coop.loans.models import Loan
         try:
@@ -1741,6 +1750,52 @@ def admin_cash_in_payment(request):
                 {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST
             )
 
+    elif payment_type == Payment.Type.TONTINE_GROUPE:
+        # Cotisation espèces dans une réunion : MÊME barrière que le canal
+        # membre (`init_payment`) — réunion existante et ouverte, membre au
+        # roster. Une saisie agence ne doit pas être un contournement.
+        from apps_coop.special_collections.group_services import role_of
+        from apps_coop.special_collections.models import (
+            GroupTontine,
+            GroupTontineLoan,
+        )
+
+        group_tontine = GroupTontine.objects.filter(pk=data.get("group_id")).first()
+        if group_tontine is None:
+            return Response(
+                {"detail": "Réunion introuvable."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if not group_tontine.is_open:
+            return Response(
+                {"detail": "Cette réunion est clôturée."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if role_of(group_tontine, member) is None:
+            return Response(
+                {"detail": "Ce membre ne fait pas partie de cette réunion."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Remboursement d'un prêt de la réunion, réglé en espèces : l'argent est
+        # réel, on rembourse le prêt au lieu d'alimenter la cagnotte
+        # (aiguillage fait par ``credit_cotisation``).
+        if data.get("group_loan_id"):
+            group_loan = GroupTontineLoan.objects.filter(
+                pk=data.get("group_loan_id"),
+                group=group_tontine,
+                member=member,
+            ).first()
+            if group_loan is None:
+                return Response(
+                    {"detail": "Prêt introuvable pour ce membre dans cette réunion."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if group_loan.statut == GroupTontineLoan.Statut.SOLDE:
+                return Response(
+                    {"detail": "Ce prêt est déjà soldé."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
     reference_externe = (data.get("reference_externe") or "").strip()[:64]
     note = (data.get("note") or "").strip()[:500]
     # D6 . Flag explicite is_renewal pour FRAIS_CARNET . declenche
@@ -1765,6 +1820,8 @@ def admin_cash_in_payment(request):
             nb_jours_couverts=nb_jours_couverts,
             is_placement=is_placement,
             special_cycle=special_cycle,
+            group_tontine=group_tontine,
+            group_loan=group_loan,
         )
         # Execution du hook business . meme code que webhook Tara.
         from .services import _BUSINESS_HOOKS
@@ -1821,8 +1878,14 @@ def admin_cash_in_payment(request):
     summary="🔒 Admin — débit manuel (agence) sur un compte membre",
     description=(
         "Débit direct immédiat, symétrique du cash-in. Mode retrait simple "
-        "(compte collecte/classique + motif) OU prélèvement d'un frais du barème "
-        "(fee_code) réglé depuis l'épargne classique."
+        "(`compte` + motif) OU prélèvement d'un frais du barème (`fee_code`) "
+        "réglé depuis l'épargne classique.\n\n"
+        "`compte` : `collecte`, `classique`, `tontine`, `caisse`. Pour les deux "
+        "derniers (collectes particulières), `cycle_id` désigne la collecte à "
+        "débiter — facultatif s'il n'y en a qu'une approvisionnée, requis sinon "
+        "— et `destination` vaut `cash` (espèces à l'agence, défaut) ou "
+        "`epargne` (bascule vers l'épargne classique du membre).\n\n"
+        "`fee_code` accepte aussi `CARNET_TONTINE` / `CARNET_CAISSE`."
     ),
     responses={200: OpenApiResponse(description="Débit effectué")},
 )
@@ -1844,6 +1907,9 @@ def admin_manual_debit(request):
             motif=request.data.get("motif") or "",
             fee_code=request.data.get("fee_code") or None,
             is_renewal=bool(request.data.get("is_renewal", False)),
+            # Collectes particulières : collecte visée + sortie de l'argent.
+            cycle_id=request.data.get("cycle_id") or None,
+            destination=request.data.get("destination") or "cash",
             actor=request.user,
         )
     except ManualDebitError as exc:

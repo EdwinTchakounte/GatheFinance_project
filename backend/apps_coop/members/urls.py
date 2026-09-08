@@ -89,6 +89,12 @@ urlpatterns = [
         views.admin_restore_member,
         name="admin-member-restore",
     ),
+    # Renvoi de l'e-mail de création de compte (nouveau token 72 h).
+    path(
+        "admin/members/<int:pk>/resend-welcome/",
+        views.admin_member_resend_welcome,
+        name="admin-member-resend-welcome",
+    ),
     path("admin/membership-requests/", views.admin_list_membership_requests, name="admin-membership-list"),
     path("admin/membership-requests/<int:pk>/approve/", views.admin_approve_membership_request, name="admin-membership-approve"),
     path("admin/membership-requests/<int:pk>/reject/", views.admin_reject_membership_request, name="admin-membership-reject"),

@@ -43,6 +43,13 @@ class EmailLog(TimestampedModel):
         ENVOYE = "envoye", "Envoyé"
         ECHEC = "echec", "Échec"
 
+    class Transport(models.TextChoices):
+        """Voie qui a réellement porté le message (cf. ``email_backends``)."""
+
+        INCONNU = "", "—"
+        PRIMARY = "primary", "Brevo (nominal)"
+        FALLBACK = "fallback", "SMTP de secours (spam probable)"
+
     template = models.ForeignKey(
         EmailTemplate,
         on_delete=models.PROTECT,
@@ -62,6 +69,17 @@ class EmailLog(TimestampedModel):
     statut = models.CharField(max_length=12, choices=Statut.choices, default=Statut.EN_ATTENTE, db_index=True)
     erreur = models.TextField(blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
+    # Voie effectivement utilisée. ``fallback`` = Brevo a échoué et le SMTP de
+    # secours a pris le relais : l'e-mail est parti mais probablement en spam.
+    # Rend le mode dégradé VISIBLE dans Supervision au lieu d'être silencieux.
+    transport = models.CharField(
+        max_length=12,
+        choices=Transport.choices,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="Voie d'envoi réelle : Brevo (nominal) ou SMTP de secours.",
+    )
 
     class Meta:
         ordering = ["-created_at"]

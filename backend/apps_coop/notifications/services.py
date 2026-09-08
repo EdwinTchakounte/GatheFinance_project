@@ -271,7 +271,10 @@ def send_template(
         msg.send(fail_silently=False)
         log.statut = EmailLog.Statut.ENVOYE
         log.sent_at = timezone.now()
-        log.save(update_fields=["statut", "sent_at", "updated_at"])
+        # Voie réelle, estampillée par FailoverEmailBackend (Brevo ou SMTP de
+        # secours). Absent avec les backends simples (console en dev) → "".
+        log.transport = getattr(msg, "gathe_transport", "") or ""
+        log.save(update_fields=["statut", "sent_at", "transport", "updated_at"])
     except Exception as exc:  # noqa: BLE001
         logger.exception("Email send failed for template=%s to=%s", code, to)
         log.statut = EmailLog.Statut.ECHEC

@@ -1375,6 +1375,32 @@ export type SupervisionOverview = {
   quick_links: { label: string; href: string; resource: string }[];
 };
 
+export type AdminDeadline = {
+  cle: string;
+  titre: string;
+  description: string;
+  date_echeance: string | null;
+  /** Négatif = échéance dépassée. `null` si le processus n'a rien à dater. */
+  jours_restants: number | null;
+  en_retard: boolean;
+  gravite: "urgent" | "proche" | "info";
+  /** Nombre d'éléments concernés. 0 = rien à traiter (la carte reste visible). */
+  volume: number;
+  unite: string;
+  lien: string;
+};
+
+export type AdminDeadlinesResponse = {
+  horizon_days: number;
+  summary: {
+    urgent: number;
+    proche: number;
+    total_elements: number;
+    a_traiter: number;
+  };
+  results: AdminDeadline[];
+};
+
 export type SupervisionEmail = {
   id: number;
   destinataire: string;
@@ -1382,6 +1408,9 @@ export type SupervisionEmail = {
   template: string;
   statut: string;
   statut_display: string;
+  /** Voie d'envoi réelle : "" (inconnue), "primary" (Brevo), "fallback" (SMTP de secours). */
+  transport: string;
+  transport_display: string;
   erreur: string;
   member: string | null;
   created_at: string;
@@ -1734,6 +1763,29 @@ export const adminApi = {
   },
 
   loans: {
+    // Crédit décidé en séance à l'agence : crée la demande ET l'approuve, en
+    // réutilisant le chemin d'approbation habituel. La durée n'est pas
+    // transmise — elle découle du montant via le barème (Art. 7).
+    // Le crédit naît actif mais NON décaissé : l'argent sort ensuite.
+    createAgencyLoan: (payload: {
+      member_id: number;
+      montant: number;
+      motif: string;
+      date_premiere_echeance: string;
+      modalite_paiement?: string;
+      taux_annuel?: number;
+      montant_gele_demandeur?: number;
+      garantie_materielle?: boolean;
+      garantie_description?: string;
+      date_comite?: string;
+      privilege_accorde?: boolean;
+      privilege_motif?: string;
+      note?: string;
+    }) =>
+      request<AdminLoanRow & { numero_dossier: string; duree_mois: number }>(
+        "/loans/admin/manual/",
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
     list: (
       params: { statut?: string; q?: string; limit?: number; offset?: number } = {},
     ) =>
@@ -1865,6 +1917,24 @@ export const adminApi = {
       request<Member>(`/admin/members/create/`, {
         method: "POST",
         body: JSON.stringify(payload),
+      }),
+    // Renvoie l'e-mail de création de compte (lien « définir mon mot de passe »).
+    // Émet un token NEUF de 72 h et invalide les précédents : renvoyer le même
+    // lien ne servirait à rien passé ce délai. `to_email` corrige la destination
+    // pour ce seul envoi (faute de frappe) sans modifier la fiche.
+    // La réponse rapporte l'issue RÉELLE : `sent=false` + `erreur` si l'envoi
+    // a échoué, au lieu d'un succès de façade.
+    resendWelcome: (memberId: number, toEmail?: string) =>
+      request<{
+        sent: boolean;
+        to: string;
+        statut: string;
+        erreur: string;
+        transport: string;
+        had_password: boolean;
+      }>(`/admin/members/${memberId}/resend-welcome/`, {
+        method: "POST",
+        body: JSON.stringify(toEmail ? { to_email: toEmail } : {}),
       }),
     // Édition d'un membre : identité + contact + pièces (multipart FormData).
     // 409 si l'e-mail est déjà pris par un autre compte.
@@ -2228,6 +2298,7 @@ export const adminApi = {
         | "epargne_classique"
         | "caisse_scolaire"
         | "tontine_alimentaire"
+        | "tontine_groupe"
         | "frais_reconduction"
         | "remboursement";
       montant: number | string;
@@ -2240,6 +2311,12 @@ export const adminApi = {
       is_renewal?: boolean;
       // Collecte précise visée (versement manuel tontine/caisse).
       cycle_id?: number;
+      // Réunion visée (cotisation espèces d'une tontine de GROUPE). Requis
+      // pour le type `tontine_groupe`.
+      group_id?: number;
+      // Si fourni, le versement REMBOURSE ce prêt de la réunion au lieu
+      // d'alimenter la cagnotte.
+      group_loan_id?: number;
     }) =>
       request<PaymentRow>("/payments/admin/cash-in/", {
         method: "POST",
@@ -2249,11 +2326,16 @@ export const adminApi = {
     // frais du barème (fee_code) réglé depuis l'épargne classique.
     manualDebit: (payload: {
       member_id: number;
-      compte?: "collecte" | "classique";
+      compte?: "collecte" | "classique" | "tontine" | "caisse";
       montant?: number;
       motif?: string;
       fee_code?: string;
       is_renewal?: boolean;
+      // Collectes particulières (`tontine` / `caisse`) : collecte visée —
+      // facultatif s'il n'y en a qu'une approvisionnée, requis sinon (le
+      // serveur refuse plutôt que de deviner) — et sortie de l'argent.
+      cycle_id?: number;
+      destination?: "cash" | "epargne";
     }) =>
       request<{ montant: string; solde_apres: string }>(
         "/payments/admin/manual-debit/",
@@ -2265,6 +2347,17 @@ export const adminApi = {
         method: "POST",
         body: JSON.stringify(motif ? { motif } : {}),
       }),
+  },
+
+  // Onglet Notifications — échéances de fin de chaque processus. LECTURE seule :
+  // rien n'est envoyé ni modifié, ce sont les crons qui agissent.
+  deadlines: {
+    list: (horizonDays?: number) =>
+      request<AdminDeadlinesResponse>(
+        `/audit/admin/deadlines/${qs({
+          horizon: horizonDays ? String(horizonDays) : undefined,
+        })}`,
+      ),
   },
 
   // Refonte 2026 LOT 1 — Justificatifs BRC.

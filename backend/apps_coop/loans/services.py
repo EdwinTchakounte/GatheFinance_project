@@ -1387,3 +1387,143 @@ def seize_member_savings_for_loan(loan: Loan) -> dict:
 
     result = seize_for_loan(loan)
     return result.to_summary()
+
+
+# ---------------------------------------------------------------------------
+# Crédit accordé DIRECTEMENT À L'AGENCE (2026-09)
+# ---------------------------------------------------------------------------
+class AgencyLoanError(ValueError):
+    """Octroi en agence impossible (membre inéligible, montant hors barème…)."""
+
+
+def create_agency_loan(
+    *,
+    member: Member,
+    montant: Decimal,
+    motif: str,
+    date_premiere_echeance: date,
+    modalite_paiement: str = PaymentModality.MENSUEL,
+    taux_annuel: Decimal | None = None,
+    garantie_materielle: bool = False,
+    garantie_description: str = "",
+    garantie_valeur_estimee: Decimal | None = None,
+    montant_gele_demandeur: Decimal | None = None,
+    date_comite: date | None = None,
+    privilege_accorde: bool = False,
+    privilege_motif: str = "",
+    note: str = "",
+    actor=None,
+) -> Loan:
+    """Crée un crédit **décidé en séance à l'agence**, sans passer par le
+    parcours de demande en ligne.
+
+    Le comité statue parfois en présence du membre, dossier papier en main : il
+    n'y a alors aucune demande dans le système à instruire. Cette fonction crée
+    la ``LoanRequest`` correspondante — pour ne pas perdre la trace de ce qui a
+    été décidé — puis l'approuve immédiatement.
+
+    Choix de conception : on **réutilise ``approve_loan_request``** au lieu de
+    fabriquer un ``Loan`` à la main. Tout ce qui rend un crédit cohérent y vit —
+    barème de durée (Art. 7), figeage du taux d'intérêt et du taux de pénalité,
+    mode de retenue des intérêts, décomposition gagé/découvert, échéancier, date
+    butoire, audit, événement ``loan.approved``. Un second chemin d'octroi
+    diverge dès le premier changement de règlement, et sur du crédit cela
+    signifie deux barèmes vivants en parallèle.
+
+    Les garde-fous conservés sont ceux qui protègent l'argent de la
+    coopérative, pas la procédure :
+      * le membre doit être ``ACTIF`` — on ne prête pas à un compte suspendu
+        ou radié ;
+      * il ne doit pas déjà porter un crédit en cours (§14.6) — sinon
+        l'exposition double sans que personne ne l'ait décidé.
+    En revanche, l'absence de demande en ligne, de frais d'étude ou d'avaliste
+    n'est PAS un obstacle : c'est précisément ce que « validé à l'agence » veut
+    dire.
+
+    Le crédit naît ``ACTIF`` avec ``en_attente_decaissement=True`` : l'argent
+    n'est pas encore sorti. Le décaissement suit le chemin habituel (Tara ou
+    manuel), donc rien de nouveau à apprendre côté guichet.
+    """
+    montant = Decimal(str(montant or "0"))
+    if montant <= 0:
+        raise AgencyLoanError("Le montant doit être strictement positif.")
+
+    motif = (motif or "").strip()
+    if not motif:
+        raise AgencyLoanError("Le motif du crédit est obligatoire (trace de la décision).")
+
+    if member.statut != Member.Statut.ACTIF:
+        raise AgencyLoanError(
+            f"Membre au statut « {member.get_statut_display()} » : "
+            "seul un membre actif peut recevoir un crédit."
+        )
+
+    en_cours = Loan.objects.filter(
+        member=member,
+        statut__in=[Loan.Statut.ACTIF, Loan.Statut.EN_RETARD, Loan.Statut.CONTENTIEUX],
+    ).count()
+    if en_cours:
+        raise AgencyLoanError(
+            f"Ce membre a déjà {en_cours} crédit(s) en cours. "
+            "Solde-les avant d'en accorder un nouveau."
+        )
+
+    # Barème de durée (Art. 7) : lève si le montant est sous le palier le plus
+    # bas. On le vérifie AVANT de créer quoi que ce soit, pour ne pas laisser
+    # une LoanRequest orpheline derrière un refus.
+    try:
+        duree = duration_months_for(montant)
+    except ValueError as exc:
+        raise AgencyLoanError(str(exc)) from exc
+
+    with transaction.atomic():
+        loan_request = LoanRequest.objects.create(
+            member=member,
+            montant_demande=montant,
+            duree_mois=duree,
+            modalite_paiement=modalite_paiement or PaymentModality.MENSUEL,
+            motif=motif,
+            statut=LoanRequest.Statut.EN_INSTRUCTION,
+            # Décidé au guichet : les frais d'étude ont été réglés sur place ou
+            # ne s'appliquent pas. Sans ce drapeau la demande resterait bloquée
+            # à la porte d'entrée de l'instruction.
+            frais_demande_credit_paye=True,
+            garantie_materielle=bool(garantie_materielle),
+            garantie_description=(garantie_description or "").strip(),
+            garantie_valeur_estimee=Decimal(garantie_valeur_estimee or 0),
+            montant_gele_demandeur=Decimal(montant_gele_demandeur or 0),
+            # Repère durable de l'origine : indispensable pour distinguer plus
+            # tard un dossier instruit en ligne d'une décision de guichet.
+            extra_payload={
+                "octroye_en_agence": True,
+                "note_agence": (note or "").strip()[:500],
+            },
+        )
+
+        loan = approve_loan_request(
+            loan_request,
+            decided_by=actor,
+            taux_annuel=taux_annuel,
+            date_premiere_echeance=date_premiere_echeance,
+            date_comite=date_comite,
+            privilege_accorde=privilege_accorde,
+            privilege_motif=privilege_motif,
+        )
+
+    record_audit(
+        action="loan.created_in_agency",
+        entite_type="Loan",
+        entite_id=loan.id,
+        user=actor,
+        details={
+            "numero_dossier": loan.numero_dossier,
+            "member_id": member.id,
+            "numero_membre": member.numero_membre,
+            "montant": str(loan.montant),
+            "duree_mois": loan.duree_mois,
+            "modalite": loan.modalite_paiement,
+            "request_id": loan_request.id,
+            "note": (note or "").strip()[:500],
+        },
+    )
+    return loan

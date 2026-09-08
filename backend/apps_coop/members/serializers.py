@@ -268,6 +268,20 @@ class MemberReinscriptionConfirmSerializer(serializers.Serializer):
     note = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 
+class MemberResendWelcomeSerializer(serializers.Serializer):
+    """Body du POST admin « renvoyer l'e-mail de création de compte »."""
+
+    to_email = serializers.EmailField(
+        required=False,
+        allow_blank=True,
+        help_text=(
+            "Adresse de destination. Vide = l'adresse du compte du membre. "
+            "Sert à corriger une faute de frappe sur l'adresse d'origine sans "
+            "modifier la fiche."
+        ),
+    )
+
+
 class MemberReadSerializer(serializers.ModelSerializer):
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     email = serializers.CharField(source="user.email", read_only=True)

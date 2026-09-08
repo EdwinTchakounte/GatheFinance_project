@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from .models import Loan, LoanInstallment, LoanRequest
+from .models import PAYMENT_MODALITY_CHOICES, Loan, LoanInstallment, LoanRequest
 
 
 # Aucun plancher réglementaire sur la durée : un crédit remboursé plus vite est
@@ -396,6 +396,49 @@ class LoanInstallmentReadSerializer(serializers.ModelSerializer):
             "statut_display",
         )
         read_only_fields = fields
+
+
+class AgencyLoanCreateSerializer(serializers.Serializer):
+    """Body du POST admin « crédit accordé directement à l'agence ».
+
+    Pas de ``duree_mois`` : la durée est **déduite du montant** par le barème
+    du règlement (Art. 7). La laisser saisir ouvrirait la porte à un échéancier
+    incohérent avec le barème.
+    """
+
+    member_id = serializers.IntegerField()
+    montant = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=1)
+    motif = serializers.CharField(
+        max_length=2000,
+        help_text="Objet du crédit — trace écrite de ce qui a été décidé en séance.",
+    )
+    date_premiere_echeance = serializers.DateField()
+    modalite_paiement = serializers.ChoiceField(
+        choices=PAYMENT_MODALITY_CHOICES, required=False, default="mensuel",
+    )
+    taux_annuel = serializers.DecimalField(
+        max_digits=5, decimal_places=4, required=False, allow_null=True,
+        min_value=0, max_value=1,
+        help_text="Vide = taux courant du barème (RateParam LOAN_INTEREST).",
+    )
+    date_comite = serializers.DateField(required=False, allow_null=True)
+    # Garantie matérielle éventuellement présentée au guichet.
+    garantie_materielle = serializers.BooleanField(required=False, default=False)
+    garantie_description = serializers.CharField(
+        max_length=2000, required=False, allow_blank=True,
+    )
+    garantie_valeur_estimee = serializers.DecimalField(
+        max_digits=14, decimal_places=2, required=False, allow_null=True, min_value=0,
+    )
+    # Part de l'épargne propre du membre gelée en collatéral.
+    montant_gele_demandeur = serializers.DecimalField(
+        max_digits=14, decimal_places=2, required=False, allow_null=True, min_value=0,
+    )
+    privilege_accorde = serializers.BooleanField(required=False, default=False)
+    privilege_motif = serializers.CharField(
+        max_length=500, required=False, allow_blank=True,
+    )
+    note = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 
 class LoanRequestDecideSerializer(serializers.Serializer):
