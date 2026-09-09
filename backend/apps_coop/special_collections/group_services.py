@@ -66,8 +66,13 @@ def member_permissions(group: GroupTontine, member) -> dict:
     if row.role == GroupTontineMember.Role.PRESIDENT:
         return {f: True for f in fields}
     if row.role == GroupTontineMember.Role.TRESORIER:
+        # Le trésorier DÉSIGNE le bénéficiaire et enregistre les cotisations.
+        # Il n'ACCORDE PLUS de prêt (2026-09) : engager la cagnotte sur une
+        # dette est une décision qui revient au président ou au guichet, la
+        # coopérative détenant les fonds. Une réunion qui veut le lui rendre
+        # peut toujours le faire par un rôle personnalisé cochant
+        # ``can_grant_loan`` — l'exception reste possible, mais explicite.
         perms["can_manage_funds"] = True
-        perms["can_grant_loan"] = True
         perms["can_record_cotisation"] = True
     if row.custom_role is not None:
         for f in fields:
@@ -477,16 +482,34 @@ def transfer_cotisation(*, group, member, montant):
 
 
 # ── Versement à un bénéficiaire (sortie de cagnotte) ─────────────────────────
-def payout_beneficiary(*, group, beneficiary, montant, by):
-    """Verse ``montant`` de la cagnotte au compte épargne du bénéficiaire.
+def payout_beneficiary(
+    *, group, beneficiary, montant, by, destination="epargne", skip_perm_check=False,
+):
+    """Verse ``montant`` de la cagnotte au bénéficiaire désigné.
 
-    Droit : président ou trésorier. Le bénéficiaire doit être membre du groupe.
-    Le montant est libre (fixé par le président/trésorier), plafonné au solde.
+    ``destination`` — où sort réellement l'argent :
+      * ``"epargne"`` : crédite l'épargne classique du bénéficiaire (défaut,
+        comportement historique) ;
+      * ``"cash"``    : remise en espèces au guichet. La cagnotte est débitée,
+        rien n'est crédité ailleurs — l'argent quitte la coopérative.
+
+    Une tontine se solde le plus souvent en billets à la fin de la séance.
+    Forcer ce cas dans l'épargne obligeait le bénéficiaire à déposer une demande
+    de retrait pour ressortir son propre argent, et gonflait artificiellement
+    les soldes d'épargne classique — donc les états financiers.
+
+    ``skip_perm_check`` — réservé au canal AGENCE. Le contrôle de droit y est
+    fait en amont par la permission de la vue (staff + ressource RBAC) : une
+    réunion peut n'avoir ni président ni trésorier disponible, et le guichet
+    doit pouvoir servir le bénéficiaire malgré tout. Ne JAMAIS le poser depuis
+    le canal membre.
     """
     montant = Decimal(montant)
     if montant <= 0:
         raise GroupTontineError("Montant invalide.")
-    if not _can_manage_funds(group, by):
+    if destination not in ("epargne", "cash"):
+        raise GroupTontineError("Destination inconnue (epargne / cash).")
+    if not skip_perm_check and not _can_manage_funds(group, by):
         raise GroupTontineError(
             "Vous n'avez pas l'autorisation de verser au bénéficiaire dans cette "
             "réunion."
@@ -504,9 +527,13 @@ def payout_beneficiary(*, group, beneficiary, montant, by):
             )
         grp.solde = Decimal(grp.solde) - montant
         grp.save(update_fields=["solde", "updated_at"])
-        _credit_member_classic(
-            beneficiary, montant, libelle="Versement tontine de groupe"
-        )
+        if destination == "epargne":
+            _credit_member_classic(
+                beneficiary, montant, libelle="Versement tontine de groupe"
+            )
+        # destination == "cash" : aucun credit interne. L'argent est remis en
+        # main propre ; la trace est l'ecriture ci-dessous et l'audit.
+        canal = "espèces" if destination == "cash" else "épargne"
         row = GroupTontineTransaction.objects.create(
             group=grp,
             member=beneficiary,
@@ -515,15 +542,19 @@ def payout_beneficiary(*, group, beneficiary, montant, by):
             montant=montant,
             solde_apres=grp.solde,
             date=timezone.now(),
-            libelle=f"Versement au bénéficiaire (par {actor_name(_as_user(by))})",
+            libelle=(
+                f"Versement au bénéficiaire ({canal}, "
+                f"par {actor_name(_as_user(by))})"
+            ),
         )
     # Notifie le bénéficiaire : reçu X, versé par [acteur].
     _notify(
         getattr(beneficiary, "user", None),
         type="collecte.beneficiaire",
         message=(
-            f"Tu as reçu {int(montant)} FCFA de « {grp.nom} » sur ton épargne "
-            f"libre, versé par {actor_name(_as_user(by))}."
+            f"Tu as reçu {int(montant)} FCFA de « {grp.nom} » "
+            + ("en espèces à l'agence" if destination == "cash" else "sur ton épargne libre")
+            + f", versé par {actor_name(_as_user(by))}."
         ),
     )
     record_audit(
@@ -533,14 +564,18 @@ def payout_beneficiary(*, group, beneficiary, montant, by):
         user=getattr(by, "user", by),
         details={
             "group_id": grp.id, "beneficiary_id": beneficiary.id,
-            "montant": str(montant),
+            "montant": str(montant), "destination": destination,
+            "canal": "agence" if skip_perm_check else "membre",
         },
     )
     return row
 
 
 # ── Prêt à un membre (sortie) + remboursement (entrée) ───────────────────────
-def grant_loan(*, group, member, montant, by, avaliste=None, avaliste_nom=""):
+def grant_loan(
+    *, group, member, montant, by, avaliste=None, avaliste_nom="",
+    destination="epargne", skip_perm_check=False,
+):
     """Accorde un prêt de la cagnotte à un membre.
 
     ``avaliste`` / ``avaliste_nom`` : INFORMATIF uniquement — « à qui se
@@ -551,7 +586,11 @@ def grant_loan(*, group, member, montant, by, avaliste=None, avaliste_nom=""):
     montant = Decimal(montant)
     if montant <= 0:
         raise GroupTontineError("Montant invalide.")
-    if not _has_perm(group, by, "can_grant_loan"):
+    if destination not in ("epargne", "cash"):
+        raise GroupTontineError("Destination inconnue (epargne / cash).")
+    # ``skip_perm_check`` : canal AGENCE, contrôlé en amont par la permission de
+    # la vue (staff + ressource RBAC). Voir ``payout_beneficiary``.
+    if not skip_perm_check and not _has_perm(group, by, "can_grant_loan"):
         raise GroupTontineError(
             "Vous n'avez pas l'autorisation d'accorder un prêt dans cette réunion."
         )
@@ -577,7 +616,11 @@ def grant_loan(*, group, member, montant, by, avaliste=None, avaliste_nom=""):
             avaliste_nom=(avaliste_nom or "").strip(),
             created_by=getattr(by, "user", None),
         )
-        _credit_member_classic(member, montant, libelle="Prêt tontine de groupe")
+        if destination == "epargne":
+            _credit_member_classic(member, montant, libelle="Prêt tontine de groupe")
+        # destination == "cash" : les billets sont remis au guichet, rien n'est
+        # crédité en interne. La DETTE reste identique dans les deux cas.
+        canal = "espèces" if destination == "cash" else "épargne"
         row = GroupTontineTransaction.objects.create(
             group=grp,
             member=member,
@@ -587,14 +630,20 @@ def grant_loan(*, group, member, montant, by, avaliste=None, avaliste_nom=""):
             montant=montant,
             solde_apres=grp.solde,
             date=timezone.now(),
-            libelle=f"Prêt à un membre (par {actor_name(_as_user(by))})",
+            libelle=(
+                f"Prêt à un membre ({canal}, par {actor_name(_as_user(by))})"
+            ),
         )
     record_audit(
         action="group_tontine.loan_granted",
         entite_type="GroupTontineLoan",
         entite_id=loan.id,
         user=getattr(by, "user", by),
-        details={"group_id": grp.id, "member_id": member.id, "montant": str(montant)},
+        details={
+            "group_id": grp.id, "member_id": member.id, "montant": str(montant),
+            "destination": destination,
+            "canal": "agence" if skip_perm_check else "membre",
+        },
     )
     return loan, row
 

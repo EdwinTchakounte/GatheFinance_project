@@ -136,6 +136,74 @@ def admin_group_set_role(request, pk: int):
 
 @api_view(["POST"])
 @permission_classes([IsStaff])
+def admin_group_payout(request, pk: int):
+    """🔒 Agence — verser la cagnotte au bénéficiaire désigné.
+
+    Pendant du cash-in agence : l'argent des réunions étant détenu au guichet,
+    la SORTIE doit pouvoir s'y enregistrer aussi. Sans cet endpoint, une réunion
+    dont le trésorier est absent, sans téléphone — ou qui n'en a tout simplement
+    pas — restait bloquée : personne ne pouvait servir le bénéficiaire.
+
+    ``destination`` : ``cash`` (remise en espèces, défaut ici — c'est le cas
+    courant en séance) ou ``epargne`` (virement sur l'épargne classique).
+
+    Le contrôle de droit est celui de la vue (staff + ressource RBAC
+    ``special-collections``), pas le rôle dans la réunion : le guichet agit au
+    nom de la coopérative qui détient les fonds.
+    """
+    group = get_object_or_404(GroupTontine, pk=pk)
+    beneficiary = get_object_or_404(Member, pk=request.data.get("member_id"))
+    destination = (request.data.get("destination") or "cash").strip()
+    try:
+        gs.payout_beneficiary(
+            group=group,
+            beneficiary=beneficiary,
+            montant=request.data.get("montant"),
+            by=request.user,
+            destination=destination,
+            skip_perm_check=True,
+        )
+    except (gs.GroupTontineError, ArithmeticError, TypeError, ValueError) as e:
+        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(_detail_payload(group))
+
+
+@api_view(["POST"])
+@permission_classes([IsStaff])
+def admin_group_loan(request, pk: int):
+    """🔒 Agence — accorder un prêt sur la cagnotte d'une réunion.
+
+    Même raison que le versement : la coopérative détient les fonds, et une
+    réunion peut n'avoir personne pour engager la cagnotte. Depuis 2026-09 le
+    trésorier n'accorde plus de prêt — c'est le président ou le guichet.
+
+    ``destination`` : ``cash`` (billets remis, défaut) ou ``epargne``. La DETTE
+    de l'emprunteur est la même dans les deux cas ; seule change la façon dont
+    l'argent lui parvient.
+    """
+    group = get_object_or_404(GroupTontine, pk=pk)
+    emprunteur = get_object_or_404(Member, pk=request.data.get("member_id"))
+    avaliste = None
+    if request.data.get("avaliste_id"):
+        avaliste = Member.objects.filter(pk=request.data.get("avaliste_id")).first()
+    try:
+        gs.grant_loan(
+            group=group,
+            member=emprunteur,
+            montant=request.data.get("montant"),
+            by=request.user,
+            avaliste=avaliste,
+            avaliste_nom=request.data.get("avaliste_nom") or "",
+            destination=(request.data.get("destination") or "cash").strip(),
+            skip_perm_check=True,
+        )
+    except (gs.GroupTontineError, ArithmeticError, TypeError, ValueError) as e:
+        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(_detail_payload(group))
+
+
+@api_view(["POST"])
+@permission_classes([IsStaff])
 def admin_group_close(request, pk: int):
     group = get_object_or_404(GroupTontine, pk=pk)
     gs.close_group(group, by=request.user)

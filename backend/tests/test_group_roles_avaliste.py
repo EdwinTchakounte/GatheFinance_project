@@ -61,10 +61,15 @@ class TestBuiltinPermissions:
         perms = gs.member_permissions(group, pres)
         assert all(perms[f] for f in GroupTontineRole.ACTION_FIELDS)
 
-    def test_tresorier_manages_funds_not_roster(self):
+    def test_tresorier_designe_le_beneficiaire_mais_ne_prete_plus(self):
+        """Décision 2026-09 : le trésorier DÉSIGNE qui reçoit, il n'ENGAGE PAS
+        la cagnotte sur une dette. Accorder un prêt revient au président ou au
+        guichet, la coopérative détenant les fonds. Une réunion peut le lui
+        rendre par un rôle personnalisé — l'exception devient explicite."""
         group, _, tres, _ = _group()
         perms = gs.member_permissions(group, tres)
-        assert perms["can_manage_funds"] and perms["can_grant_loan"]
+        assert perms["can_manage_funds"] and perms["can_record_cotisation"]
+        assert not perms["can_grant_loan"]
         assert not perms["can_manage_roster"] and not perms["can_close"]
 
     def test_plain_member_has_no_action(self):

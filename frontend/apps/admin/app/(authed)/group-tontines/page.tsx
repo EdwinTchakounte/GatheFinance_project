@@ -370,6 +370,58 @@ function GroupDetailPanel({
       setError((e as ApiError).detail ?? "Retrait impossible.");
     }
   }
+  // Versement au bénéficiaire enregistré au guichet. La coopérative détient
+  // les fonds des réunions : la sortie doit pouvoir s'y enregistrer, y compris
+  // quand la réunion n'a ni président ni trésorier disponible.
+  const [payoutMember, setPayoutMember] = useState("");
+  const [payoutMontant, setPayoutMontant] = useState("");
+  const [payoutDest, setPayoutDest] = useState<"cash" | "epargne">("cash");
+  const [payoutBusy, setPayoutBusy] = useState(false);
+
+  async function doPayout() {
+    setError(null);
+    const mid = Number(payoutMember);
+    const amount = Number(payoutMontant);
+    if (!mid) return setError("Choisis le bénéficiaire.");
+    if (!amount || amount <= 0) return setError("Montant invalide.");
+    setPayoutBusy(true);
+    try {
+      setG(await adminApi.groupTontines.payout(id, mid, amount, payoutDest));
+      setPayoutMember("");
+      setPayoutMontant("");
+      onChanged();
+    } catch (e) {
+      setError((e as ApiError).detail ?? "Versement impossible.");
+    } finally {
+      setPayoutBusy(false);
+    }
+  }
+
+  // Prêt accordé au guichet (même raison que le versement).
+  const [loanMember, setLoanMember] = useState("");
+  const [loanMontant, setLoanMontant] = useState("");
+  const [loanDest, setLoanDest] = useState<"cash" | "epargne">("cash");
+  const [loanBusy, setLoanBusy] = useState(false);
+
+  async function doGrantLoan() {
+    setError(null);
+    const mid = Number(loanMember);
+    const amount = Number(loanMontant);
+    if (!mid) return setError("Choisis l'emprunteur.");
+    if (!amount || amount <= 0) return setError("Montant invalide.");
+    setLoanBusy(true);
+    try {
+      setG(await adminApi.groupTontines.grantLoan(id, mid, amount, loanDest));
+      setLoanMember("");
+      setLoanMontant("");
+      onChanged();
+    } catch (e) {
+      setError((e as ApiError).detail ?? "Prêt impossible.");
+    } finally {
+      setLoanBusy(false);
+    }
+  }
+
   async function addMember(m: Member) {
     try {
       setG(await adminApi.groupTontines.addMember(id, m.id, "membre"));
@@ -616,6 +668,108 @@ function GroupDetailPanel({
 
           {/* Colonne latérale : prêts + mouvements + clôture */}
           <div className="space-y-5">
+          {/* Versement au bénéficiaire (guichet) */}
+          {g.is_open ? (
+            <div className="rounded-lg border border-line-200 bg-paper p-4">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-500">
+                Verser au bénéficiaire
+              </p>
+              <p className="mb-2.5 text-xs text-ink-500">
+                Sortie de cagnotte enregistrée au guichet. Fonctionne même si la
+                réunion n&apos;a pas de trésorier.
+              </p>
+              <div className="space-y-2">
+                <select
+                  value={payoutMember}
+                  onChange={(e) => setPayoutMember(e.target.value)}
+                  className="w-full rounded-md border border-line-200 bg-paper px-2.5 py-1.5 text-xs"
+                >
+                  <option value="">— Choisir le bénéficiaire —</option>
+                  {g.members.map((r) => (
+                    <option key={r.member_id} value={r.member_id}>
+                      {fullName(r.prenom, r.nom)} · {r.numero_membre}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min="1"
+                  value={payoutMontant}
+                  onChange={(e) => setPayoutMontant(e.target.value)}
+                  placeholder="Montant (XAF)"
+                  className="w-full rounded-md border border-line-200 bg-paper px-2.5 py-1.5 text-xs"
+                />
+                <select
+                  value={payoutDest}
+                  onChange={(e) => setPayoutDest(e.target.value as "cash" | "epargne")}
+                  className="w-full rounded-md border border-line-200 bg-paper px-2.5 py-1.5 text-xs"
+                >
+                  <option value="cash">Espèces remises à l&apos;agence</option>
+                  <option value="epargne">Virement sur son épargne classique</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={doPayout}
+                  disabled={payoutBusy}
+                  className="w-full rounded-md bg-blue-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-800 disabled:opacity-40"
+                >
+                  {payoutBusy ? "Versement…" : "Enregistrer le versement"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Accorder un prêt (guichet) */}
+          {g.is_open ? (
+            <div className="rounded-lg border border-line-200 bg-paper p-4">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-500">
+                Accorder un prêt
+              </p>
+              <p className="mb-2.5 text-xs text-ink-500">
+                Engage la cagnotte sur une dette. La somme due est la même quelle
+                que soit la modalité de remise.
+              </p>
+              <div className="space-y-2">
+                <select
+                  value={loanMember}
+                  onChange={(e) => setLoanMember(e.target.value)}
+                  className="w-full rounded-md border border-line-200 bg-paper px-2.5 py-1.5 text-xs"
+                >
+                  <option value="">— Choisir l&apos;emprunteur —</option>
+                  {g.members.map((r) => (
+                    <option key={r.member_id} value={r.member_id}>
+                      {fullName(r.prenom, r.nom)} · {r.numero_membre}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min="1"
+                  value={loanMontant}
+                  onChange={(e) => setLoanMontant(e.target.value)}
+                  placeholder="Montant (XAF)"
+                  className="w-full rounded-md border border-line-200 bg-paper px-2.5 py-1.5 text-xs"
+                />
+                <select
+                  value={loanDest}
+                  onChange={(e) => setLoanDest(e.target.value as "cash" | "epargne")}
+                  className="w-full rounded-md border border-line-200 bg-paper px-2.5 py-1.5 text-xs"
+                >
+                  <option value="cash">Espèces remises à l&apos;agence</option>
+                  <option value="epargne">Virement sur son épargne classique</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={doGrantLoan}
+                  disabled={loanBusy}
+                  className="w-full rounded-md border border-line-300 bg-paper px-3 py-1.5 text-xs font-medium text-ink-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-40"
+                >
+                  {loanBusy ? "Octroi…" : "Accorder le prêt"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {/* Prêts en cours */}
           {g.loans.length > 0 ? (
             <div className="rounded-lg border border-line-200 bg-paper p-4">
