@@ -94,6 +94,17 @@ urlpatterns = [
         group_views.admin_group_set_role,
         name="group-tontine-admin-role",
     ),
+    # Sortie de cagnotte enregistree au guichet (especes ou virement epargne).
+    path(
+        "admin/groups/<int:pk>/payout/",
+        group_views.admin_group_payout,
+        name="group-tontine-admin-payout",
+    ),
+    path(
+        "admin/groups/<int:pk>/loan/",
+        group_views.admin_group_loan,
+        name="group-tontine-admin-loan",
+    ),
     path(
         "admin/groups/<int:pk>/close/",
         group_views.admin_group_close,

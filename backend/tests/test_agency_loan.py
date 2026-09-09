@@ -355,3 +355,95 @@ def test_le_parcours_de_demande_en_ligne_reste_intact():
     assert not AuditLog.objects.filter(
         action="loan.created_in_agency", entite_id=loan.id,
     ).exists()
+
+
+# --- Le credit appartient VRAIMENT au membre --------------------------------
+#
+# Un credit accorde au guichet doit etre indiscernable, du point de vue du
+# membre, d'un credit obtenu par le parcours en ligne : il le voit dans son
+# espace, il est le seul a le voir, et l'agent qui l'a accorde reste trace.
+
+
+class TestRattachementAuMembre:
+    def test_le_membre_voit_le_credit_dans_son_espace(self):
+        member = MemberFactory()
+        loan = create_agency_loan(
+            member=member, montant=Decimal("100000"),
+            motif="Octroi en seance", date_premiere_echeance=_ECHEANCE,
+        )
+
+        res = _api(member.user).get("/api/v1/loans/me/active/")
+
+        assert res.status_code == 200
+        dossiers = [r["numero_dossier"] for r in res.json()]
+        assert loan.numero_dossier in dossiers
+
+    def test_aucun_autre_membre_ne_le_voit(self):
+        beneficiaire = MemberFactory()
+        etranger = MemberFactory()
+        create_agency_loan(
+            member=beneficiaire, montant=Decimal("100000"),
+            motif="Octroi en seance", date_premiere_echeance=_ECHEANCE,
+        )
+
+        res = _api(etranger.user).get("/api/v1/loans/me/active/")
+
+        assert res.status_code == 200
+        assert res.json() == []
+
+    def test_le_loan_et_sa_demande_pointent_le_meme_membre(self):
+        member = MemberFactory()
+        loan = create_agency_loan(
+            member=member, montant=Decimal("100000"),
+            motif="Octroi en seance", date_premiere_echeance=_ECHEANCE,
+        )
+
+        assert loan.member_id == member.id
+        assert loan.loan_request.member_id == member.id
+        # Les echeances suivent le meme credit.
+        assert all(e.loan_id == loan.id for e in loan.installments.all())
+
+    def test_lagent_qui_a_accorde_reste_trace(self):
+        """Qui a decide doit rester identifiable apres coup."""
+        member = MemberFactory()
+        agent = _comite_superuser()
+
+        loan = create_agency_loan(
+            member=member, montant=Decimal("100000"),
+            motif="Octroi en seance", date_premiere_echeance=_ECHEANCE,
+            actor=agent,
+        )
+
+        assert loan.loan_request.decide_par_id == agent.id
+        log = AuditLog.objects.filter(
+            action="loan.created_in_agency", entite_id=loan.id,
+        ).latest("id")
+        assert log.user_id == agent.id
+
+    def test_le_membre_est_notifie_comme_pour_un_credit_en_ligne(self):
+        """`loan.approved` est emis : le membre apprend son octroi."""
+        from apps_coop.notifications.models import EmailTemplate
+
+        EmailTemplate.objects.update_or_create(
+            code="loan.approved",
+            defaults={
+                "objet": "Credit accorde",
+                "corps_html": "<p>{{ numero_dossier }}</p>",
+                "corps_texte": "{{ numero_dossier }}",
+                "actif": True,
+            },
+        )
+        member = MemberFactory()
+        member.user.email = "membre@test.local"
+        member.user.save(update_fields=["email"])
+
+        loan = create_agency_loan(
+            member=member, montant=Decimal("100000"),
+            motif="Octroi en seance", date_premiere_echeance=_ECHEANCE,
+        )
+
+        from apps_coop.notifications.models import EmailLog
+
+        assert EmailLog.objects.filter(
+            template_id="loan.approved", member=member,
+        ).exists(), f"aucune notification pour {loan.numero_dossier}"

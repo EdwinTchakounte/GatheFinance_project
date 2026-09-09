@@ -2084,6 +2084,39 @@ export const adminApi = {
         `/special-collections/admin/groups/${id}/role/`,
         { method: "POST", body: JSON.stringify({ member_id, role }) },
       ),
+    // Sortie de cagnotte enregistree au guichet. La cooperative detient les
+    // fonds des reunions : la sortie doit pouvoir s'y enregistrer, meme quand
+    // la reunion n'a ni president ni tresorier disponible.
+    // `destination` : "cash" = remise en especes (cas courant en seance, defaut
+    // cote serveur) · "epargne" = virement sur l'epargne classique du beneficiaire.
+    payout: (
+      id: number,
+      member_id: number,
+      montant: number,
+      destination: "cash" | "epargne",
+    ) =>
+      request<GroupTontineDetail>(
+        `/special-collections/admin/groups/${id}/payout/`,
+        {
+          method: "POST",
+          body: JSON.stringify({ member_id, montant, destination }),
+        },
+      ),
+    // Pret accorde au guichet. Le tresorier n'accorde plus de pret (2026-09) :
+    // engager la cagnotte revient au president ou a l'agence.
+    grantLoan: (
+      id: number,
+      member_id: number,
+      montant: number,
+      destination: "cash" | "epargne",
+    ) =>
+      request<GroupTontineDetail>(
+        `/special-collections/admin/groups/${id}/loan/`,
+        {
+          method: "POST",
+          body: JSON.stringify({ member_id, montant, destination }),
+        },
+      ),
     close: (id: number) =>
       request<GroupTontineRow>(
         `/special-collections/admin/groups/${id}/close/`,
