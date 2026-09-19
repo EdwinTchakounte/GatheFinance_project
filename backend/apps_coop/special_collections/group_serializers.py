@@ -19,7 +19,9 @@ class GroupRoleSerializer(serializers.ModelSerializer):
         model = GroupTontineRole
         fields = [
             "id", "nom",
-            "can_manage_funds", "can_grant_loan", "can_manage_roster",
+            # `can_manage_roster` retiré (2026-09) : sans effet, il ne doit
+            # plus être proposé à la saisie.
+            "can_manage_funds", "can_grant_loan",
             "can_record_cotisation", "can_close",
         ]
 
@@ -88,6 +90,9 @@ class GroupTransactionSerializer(serializers.ModelSerializer):
             "id", "type_op", "type_op_display", "montant", "solde_apres",
             "libelle", "date_effective", "member_nom", "member_prenom",
             "acted_by_name", "created_at",
+            # Correction (2026-09) : l'écriture d'origine reste visible, mais
+            # signalée corrigée — sinon le registre mentirait par omission.
+            "destination", "corrected_at", "correction_note",
         ]
 
     def get_acted_by_name(self, obj) -> str:

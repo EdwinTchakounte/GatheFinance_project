@@ -1555,6 +1555,12 @@ export type GroupTontineTx = {
   member_prenom?: string;
   acted_by_name?: string;
   created_at: string;
+  /** Sortie de cagnotte : ou l'argent est reellement alle. "" pour une entree
+   *  ou une ecriture anterieure a 2026-09 (une correction y est refusee). */
+  destination?: "" | "cash" | "epargne";
+  /** Non nul = montant corrige. L'ecriture reste visible, marquee. */
+  corrected_at?: string | null;
+  correction_note?: string;
 };
 
 export type GroupTontineDetail = GroupTontineRow & {
@@ -2117,6 +2123,21 @@ export const adminApi = {
           body: JSON.stringify({ member_id, montant, destination }),
         },
       ),
+    // Correction d'un montant saisi par erreur. Le registre reste append-only :
+    // l'ecriture d'origine est marquee corrigee, une ecriture d'AJUSTEMENT
+    // porte l'ecart. Le motif est OBLIGATOIRE cote serveur.
+    correctAmount: (id: number, transaction_id: number, montant: number, motif: string) =>
+      request<GroupTontineDetail & {
+        correction: {
+          ancien: string;
+          nouveau: string;
+          ecart: string;
+          epargne_negative: boolean;
+        };
+      }>(`/special-collections/admin/groups/${id}/correct-amount/`, {
+        method: "POST",
+        body: JSON.stringify({ transaction_id, montant, motif }),
+      }),
     close: (id: number) =>
       request<GroupTontineRow>(
         `/special-collections/admin/groups/${id}/close/`,

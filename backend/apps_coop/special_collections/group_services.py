@@ -541,6 +541,7 @@ def payout_beneficiary(
             type_op=GroupTontineTransaction.TypeOp.VERSEMENT_BENEFICIAIRE,
             montant=montant,
             solde_apres=grp.solde,
+            destination=destination,
             date=timezone.now(),
             libelle=(
                 f"Versement au bénéficiaire ({canal}, "
@@ -629,6 +630,7 @@ def grant_loan(
             type_op=GroupTontineTransaction.TypeOp.PRET,
             montant=montant,
             solde_apres=grp.solde,
+            destination=destination,
             date=timezone.now(),
             libelle=(
                 f"Prêt à un membre ({canal}, par {actor_name(_as_user(by))})"
@@ -758,3 +760,176 @@ def groups_for_member(member):
     return GroupTontine.objects.filter(
         members__member=member, members__actif=True
     ).distinct().order_by("-created_at")
+
+
+# ── Correction d'un montant saisi par erreur (2026-09) ──────────────────────
+def _debit_member_classic(member, montant, *, libelle=""):  # noqa: ARG001
+    """Reprend au membre ce qui lui avait été crédité par erreur.
+
+    ``libelle`` est accepté par symétrie avec ``_credit_member_classic`` ; le
+    modèle ``ClassicSavingsTransaction`` ne porte pas ce champ.
+
+    Symétrique de ``_credit_member_classic``. Le solde peut devenir négatif si
+    le membre a déjà dépensé la somme : on le TOLÈRE et on le signale, plutôt
+    que de bloquer la correction — un registre faux est pire qu'un solde
+    négatif visible, qui se régularise au versement suivant.
+    """
+    from apps_coop.savings.models import (
+        ClassicSavingsAccount,
+        ClassicSavingsTransaction,
+    )
+
+    account = (
+        ClassicSavingsAccount.objects.select_for_update()
+        .filter(member=member)
+        .first()
+    )
+    if account is None:
+        return False
+    account.solde = Decimal(account.solde) - Decimal(montant)
+    account.save(update_fields=["solde", "updated_at"])
+    ClassicSavingsTransaction.objects.create(
+        account=account,
+        type_op=ClassicSavingsTransaction.TypeOp.RETRAIT,
+        montant=montant,
+        solde_apres=account.solde,
+        date=timezone.now(),
+        booklet_order=BookletOrder.latest_for(member),
+    )
+    return account.solde < 0
+
+
+#: Écritures dont le montant est corrigible : les SORTIES saisies au guichet.
+_CORRIGEABLES = (
+    GroupTontineTransaction.TypeOp.VERSEMENT_BENEFICIAIRE,
+    GroupTontineTransaction.TypeOp.PRET,
+)
+
+
+def corriger_montant(*, transaction, nouveau_montant, motif, by=None) -> dict:
+    """Corrige le montant d'une sortie de cagnotte saisie par erreur.
+
+    Le registre reste **append-only** : l'écriture d'origine n'est jamais
+    réécrite. Elle est marquée corrigée, et une écriture d'AJUSTEMENT porte
+    l'écart — c'est l'approche journalisée déjà retenue pour les saisies
+    antidatées de l'épargne.
+
+    Ce qui est défait dépend de la destination ENREGISTRÉE (champ structuré) :
+    un versement passé en épargne doit être repris sur l'épargne, un versement
+    espèces ne touche que la cagnotte. Une écriture antérieure à 2026-09 n'a
+    pas cette information : on REFUSE plutôt que de deviner où l'argent est
+    allé.
+
+    Renvoie ``{"ecart": str, "ancien": str, "nouveau": str,
+    "epargne_negative": bool}``.
+    """
+    nouveau = Decimal(str(nouveau_montant or "0"))
+    if nouveau <= 0:
+        raise GroupTontineError("Le nouveau montant doit être strictement positif.")
+    motif = (motif or "").strip()
+    if not motif:
+        raise GroupTontineError(
+            "Le motif de la correction est obligatoire (trace de la décision)."
+        )
+    if transaction.type_op not in _CORRIGEABLES:
+        raise GroupTontineError(
+            "Seules les sorties de cagnotte (versement, prêt) sont corrigibles ici. "
+            "Une cotisation adossée à un paiement se corrige en invalidant le "
+            "paiement, puis en le ressaisissant."
+        )
+    if transaction.payment_id is not None:
+        raise GroupTontineError(
+            "Cette écriture est adossée à un paiement : corrige-la en invalidant "
+            "le paiement, sinon la caisse et le registre divergeraient."
+        )
+    if transaction.is_corrected:
+        raise GroupTontineError("Cette écriture a déjà été corrigée.")
+    if not transaction.destination:
+        raise GroupTontineError(
+            "Écriture trop ancienne : sa destination (espèces ou épargne) n'a pas "
+            "été enregistrée, impossible de savoir quoi défaire. Passe par un "
+            "ajustement manuel."
+        )
+
+    ancien = Decimal(transaction.montant)
+    ecart = nouveau - ancien
+    if ecart == 0:
+        raise GroupTontineError("Le montant est déjà celui-ci.")
+
+    epargne_negative = False
+    with db_transaction.atomic():
+        grp = GroupTontine.objects.select_for_update().get(pk=transaction.group_id)
+        if not grp.is_open:
+            raise GroupTontineError(
+                "Réunion clôturée : ses écritures sont figées."
+            )
+        # Une sortie plus GRANDE creuse la cagnotte ; plus PETITE la restitue.
+        if ecart > 0 and Decimal(grp.solde) < ecart:
+            raise GroupTontineError(
+                f"Cagnotte insuffisante pour augmenter ce montant "
+                f"({int(grp.solde)} XAF disponibles)."
+            )
+        grp.solde = Decimal(grp.solde) - ecart
+        grp.save(update_fields=["solde", "updated_at"])
+
+        # Effet dérivé : l'épargne du membre suit l'écart, si elle avait été
+        # créditée. Un versement espèces n'a rien crédité — rien à reprendre.
+        if transaction.destination == GroupTontineTransaction.Destination.EPARGNE:
+            if ecart > 0:
+                _credit_member_classic(
+                    transaction.member, ecart, libelle="Correction tontine (hausse)",
+                )
+            else:
+                epargne_negative = _debit_member_classic(
+                    transaction.member, -ecart,
+                    libelle="Correction tontine (baisse)",
+                )
+
+        # La dette d'un prêt suit le montant réellement remis.
+        if transaction.type_op == GroupTontineTransaction.TypeOp.PRET and transaction.loan_id:
+            loan = GroupTontineLoan.objects.select_for_update().get(pk=transaction.loan_id)
+            loan.montant = Decimal(loan.montant) + ecart
+            loan.solde_restant = Decimal(loan.solde_restant) + ecart
+            loan.save(update_fields=["montant", "solde_restant", "updated_at"])
+
+        transaction.corrected_at = timezone.now()
+        transaction.corrected_by = _as_user(by)
+        transaction.correction_note = motif[:300]
+        transaction.save(
+            update_fields=["corrected_at", "corrected_by", "correction_note", "updated_at"],
+        )
+
+        GroupTontineTransaction.objects.create(
+            group=grp,
+            member=transaction.member,
+            loan=transaction.loan,
+            acted_by=_as_user(by),
+            type_op=GroupTontineTransaction.TypeOp.AJUSTEMENT,
+            montant=abs(ecart),
+            solde_apres=grp.solde,
+            destination=transaction.destination,
+            date=timezone.now(),
+            libelle=(
+                f"Correction #{transaction.id} : {int(ancien)} → {int(nouveau)} XAF "
+                f"({motif[:60]})"
+            ),
+        )
+
+    record_audit(
+        action="group_tontine.montant_corrige",
+        entite_type="GroupTontineTransaction",
+        entite_id=transaction.id,
+        user=_as_user(by),
+        details={
+            "group_id": transaction.group_id,
+            "type_op": transaction.type_op,
+            "ancien": str(ancien), "nouveau": str(nouveau), "ecart": str(ecart),
+            "destination": transaction.destination,
+            "motif": motif[:300],
+            "epargne_negative": epargne_negative,
+        },
+    )
+    return {
+        "ancien": str(ancien), "nouveau": str(nouveau), "ecart": str(ecart),
+        "epargne_negative": epargne_negative,
+    }

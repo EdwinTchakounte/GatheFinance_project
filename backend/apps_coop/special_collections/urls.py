@@ -18,19 +18,14 @@ urlpatterns = [
         group_views.group_loan_repay,
         name="group-tontine-loan-repay",
     ),
-    path("groups/<int:pk>/role/", group_views.group_set_role, name="group-tontine-role"),
-    # Rôles personnalisés (actions rattachées) — membre habilité « gérer le roster ».
-    path("groups/<int:pk>/roles/", group_views.group_roles, name="group-tontine-roles"),
-    path(
-        "groups/<int:pk>/roles/<int:role_id>/",
-        group_views.group_role_detail,
-        name="group-tontine-role-detail",
-    ),
-    path(
-        "groups/<int:pk>/assign-role/",
-        group_views.group_assign_role,
-        name="group-tontine-assign-role",
-    ),
+    # 2026-09 — La GESTION DES RÔLES et du roster quitte le canal membre : elle
+    # revient exclusivement à l'administrateur de la coopérative
+    # (`admin/groups/<pk>/role/`, `.../roles/`, `.../assign-role/`,
+    # `.../members/add|remove/`). Décider qui préside, qui tient les fonds ou
+    # qui entre dans une réunion engage la coopérative, pas seulement le groupe.
+    # L'ajout de membres n'a jamais été ouvert côté membre.
+    # Les rôles personnalisés restent LISIBLES par les membres : ils arrivent
+    # dans le détail de la réunion (`custom_roles`), sans endpoint dédié.
     path(
         "groups/<int:pk>/cotiser/",
         group_views.group_transfer_cotisation,
@@ -104,6 +99,12 @@ urlpatterns = [
         "admin/groups/<int:pk>/loan/",
         group_views.admin_group_loan,
         name="group-tontine-admin-loan",
+    ),
+    # Correction d'un montant saisi par erreur (registre append-only).
+    path(
+        "admin/groups/<int:pk>/correct-amount/",
+        group_views.admin_group_correct_amount,
+        name="group-tontine-admin-correct-amount",
     ),
     path(
         "admin/groups/<int:pk>/close/",

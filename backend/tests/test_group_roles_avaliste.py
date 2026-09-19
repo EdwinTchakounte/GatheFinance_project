@@ -70,7 +70,10 @@ class TestBuiltinPermissions:
         perms = gs.member_permissions(group, tres)
         assert perms["can_manage_funds"] and perms["can_record_cotisation"]
         assert not perms["can_grant_loan"]
-        assert not perms["can_manage_roster"] and not perms["can_close"]
+        assert not perms["can_close"]
+        # `can_manage_roster` a quitté le catalogue (2026-09) : la gestion
+        # des rôles revient à l'administrateur de la coopérative.
+        assert "can_manage_roster" not in perms
 
     def test_plain_member_has_no_action(self):
         group, _, _, m3 = _group()
@@ -105,11 +108,13 @@ class TestCustomRole:
 
     def test_custom_role_cumulates_over_builtin(self):
         group, _, tres, _ = _group()
-        role = gs.create_custom_role(group, "Secrétaire", {"can_manage_roster": True})
+        role = gs.create_custom_role(group, "Adjoint prêteur", {"can_grant_loan": True})
         gs.assign_custom_role(group, tres, role)
         perms = gs.member_permissions(group, tres)
         # Actions du trésorier CONSERVÉES + celle du rôle custom AJOUTÉE.
-        assert perms["can_manage_funds"] and perms["can_manage_roster"]
+        # (`can_grant_loan` lui a été retiré en 2026-09 ; un rôle custom peut
+        # le lui rendre — c'est justement le cumul qu'on vérifie ici.)
+        assert perms["can_manage_funds"] and perms["can_grant_loan"]
 
     def test_unassign_role_removes_action(self):
         group, _, _, m3 = _group()
@@ -194,38 +199,58 @@ _BASE = "/api/v1/special-collections/groups"
 
 
 class TestRoleApi:
-    def test_president_creates_and_assigns_role(self):
-        group, pres, _, m3 = _group()
-        c = _client(pres)
-        # Création d'un rôle « Secrétaire » habilité à gérer le roster.
-        r = c.post(
-            f"{_BASE}/{group.id}/roles/",
-            {"nom": "Secrétaire", "permissions": {"can_manage_roster": True}},
-            format="json",
-        )
-        assert r.status_code == 200, r.content
-        roles = r.json()["custom_roles"]
-        assert len(roles) == 1 and roles[0]["nom"] == "Secrétaire"
-        role_id = roles[0]["id"]
-        # Attribution à m3 → m3 gagne l'action manage_roster.
-        r2 = c.post(
-            f"{_BASE}/{group.id}/assign-role/",
-            {"member_id": m3.id, "custom_role_id": role_id},
-            format="json",
-        )
-        assert r2.status_code == 200, r2.content
-        m3_row = next(m for m in r2.json()["members"] if m["member_id"] == m3.id)
-        assert m3_row["custom_role_nom"] == "Secrétaire"
-        assert m3_row["permissions"]["can_manage_roster"] is True
+    """2026-09 — la gestion des rôles a QUITTÉ le canal membre.
 
-    def test_plain_member_cannot_create_role(self):
+    Décider qui préside une réunion, qui tient ses fonds ou qui y entre engage
+    la coopérative, pas seulement le groupe : ça ne se règle plus depuis un
+    téléphone. Ces tests figent la fermeture du canal, pour qu'une remise en
+    service accidentelle se voie.
+    """
+
+    @pytest.mark.parametrize(
+        "chemin,methode,corps",
+        [
+            ("roles/", "post", {"nom": "Pirate", "permissions": {"can_manage_funds": True}}),
+            ("assign-role/", "post", {"member_id": 1, "custom_role_id": None}),
+            ("role/", "post", {"member_id": 1, "role": "president"}),
+        ],
+    )
+    def test_le_canal_membre_est_ferme(self, chemin, methode, corps):
+        group, pres, _, _ = _group()
+        # Même le PRÉSIDENT, qui pouvait tout faire avant, n'y a plus accès.
+        r = getattr(_client(pres), methode)(
+            f"{_BASE}/{group.id}/{chemin}", corps, format="json",
+        )
+        assert r.status_code in (404, 405), (chemin, r.status_code)
+
+    def test_ladmin_prend_le_relais(self):
+        """Le besoin reste couvert — ailleurs."""
         group, _, _, m3 = _group()
-        r = _client(m3).post(
-            f"{_BASE}/{group.id}/roles/",
-            {"nom": "Pirate", "permissions": {"can_manage_funds": True}},
+        staff = MemberFactory()
+        staff.user.is_staff = True
+        staff.user.is_superuser = True
+        staff.user.save(update_fields=["is_staff", "is_superuser"])
+
+        r = _client(staff).post(
+            f"/api/v1/special-collections/admin/groups/{group.id}/role/",
+            {"member_id": m3.id, "role": "tresorier"},
             format="json",
         )
-        assert r.status_code == 403, r.content
+
+        assert r.status_code == 200, r.content
+        ligne = next(m for m in r.json()["members"] if m["member_id"] == m3.id)
+        assert ligne["role"] == "tresorier"
+
+    def test_les_roles_restent_lisibles_par_les_membres(self):
+        """On ferme l'écriture, pas la lecture : le membre voit toujours qui
+        fait quoi dans sa réunion."""
+        group, pres, _, _ = _group()
+        gs.create_custom_role(group, "Adjoint", {"can_grant_loan": True})
+
+        r = _client(pres).get(f"{_BASE}/{group.id}/")
+
+        assert r.status_code == 200
+        assert [x["nom"] for x in r.json()["custom_roles"]] == ["Adjoint"]
 
     def test_my_permissions_exposed_in_detail(self):
         group, pres, _, _ = _group()
@@ -234,20 +259,32 @@ class TestRoleApi:
         assert r.json()["my_permissions"]["can_close"] is True
 
     def test_custom_role_unlocks_action_end_to_end(self):
-        """Un membre habilité par rôle custom peut réellement agir via l'API."""
+        """L'ADMIN attribue le rôle, le MEMBRE agit.
+
+        C'est la nouvelle répartition : la coopérative décide qui peut quoi,
+        le groupe exécute. Le rôle custom reste donc pleinement opérant — seul
+        son point d'attribution a changé.
+        """
         group, pres, _, m3 = _group()
         _fund_pot(group, pres, Decimal("10000"))
-        cpres = _client(pres)
-        role_id = cpres.post(
-            f"{_BASE}/{group.id}/roles/",
+        staff = MemberFactory()
+        staff.user.is_staff = True
+        staff.user.is_superuser = True
+        staff.user.save(update_fields=["is_staff", "is_superuser"])
+        cadmin = _client(staff)
+        admin_base = f"/api/v1/special-collections/admin/groups/{group.id}"
+
+        role_id = cadmin.post(
+            f"{admin_base}/roles/",
             {"nom": "Payeur", "permissions": {"can_manage_funds": True}},
             format="json",
         ).json()["custom_roles"][0]["id"]
-        cpres.post(
-            f"{_BASE}/{group.id}/assign-role/",
+        cadmin.post(
+            f"{admin_base}/assign-role/",
             {"member_id": m3.id, "custom_role_id": role_id}, format="json",
         )
-        # m3 (membre + rôle Payeur) verse maintenant sans être président/trésorier.
+
+        # m3 (membre + rôle Payeur) verse sans être président ni trésorier.
         r = _client(m3).post(
             f"{_BASE}/{group.id}/payout/",
             {"beneficiary_id": m3.id, "montant": 2000}, format="json",

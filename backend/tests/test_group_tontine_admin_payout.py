@@ -448,5 +448,5 @@ class TestTresorierRestreint:
         assert perms["can_record_cotisation"] is True
         assert perms["can_grant_loan"] is False
         # Il ne gérait déjà pas le roster ni la clôture : inchangé.
-        assert perms["can_manage_roster"] is False
+        assert "can_manage_roster" not in perms  # hors catalogue depuis 2026-09
         assert perms["can_close"] is False
