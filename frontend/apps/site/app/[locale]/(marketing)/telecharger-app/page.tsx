@@ -97,7 +97,7 @@ export default async function DownloadAppPage({ params }: Params) {
                   className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-800"
                 >
                   <Smartphone className="h-4 w-4" aria-hidden="true" />
-                  Installer depuis Google Play
+                  {t("playStoreButton")}
                 </a>
 
                 {/* REPLI : APK directe, avec vraie progression (proxy Next).
@@ -105,9 +105,7 @@ export default async function DownloadAppPage({ params }: Params) {
                     en agence sans compte Google. */}
                 <div className="mt-4 border-t border-line-200 pt-4">
                   <p className="mb-2 text-xs text-ink-500">
-                    Pas d&apos;accès au Play Store ? Installe le fichier
-                    directement (autorise les « sources inconnues » si ton
-                    téléphone le demande).
+                    {t("apkFallbackHint")}
                   </p>
                   <DownloadAppButton label={t("downloadButton")} />
                 </div>
@@ -138,6 +136,22 @@ export default async function DownloadAppPage({ params }: Params) {
                     </dd>
                   </div>
                 </dl>
+              </div>
+
+              {/* Anciens installeurs APK : la signature change en passant au
+                  Play Store, la desinstallation prealable n'est pas optionnelle. */}
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6">
+                <div className="flex items-start gap-3">
+                  <Shield className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" aria-hidden="true" />
+                  <div>
+                    <h3 className="font-semibold text-ink-900">
+                      {t("reinstallTitle")}
+                    </h3>
+                    <p className="mt-2 text-sm text-ink-700">
+                      {t("reinstallDesc")}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Instructions installation Android (sources inconnues) */}
