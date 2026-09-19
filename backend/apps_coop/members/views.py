@@ -1379,7 +1379,16 @@ def admin_member_adhesion(request, pk: int):
             "identity": {
                 "nom": req.nom,
                 "prenom": req.prenom,
-                "email": req.email,
+                # L'e-mail affiché est celui du COMPTE, pas celui figé à la
+                # soumission. Un admin qui corrige une adresse mal saisie doit
+                # voir sa correction ici : sinon un agent relisant la fiche
+                # écrirait à l'ancienne adresse — c'est le bug signalé en
+                # 2026-09. La valeur soumise reste exposée à part : c'est une
+                # pièce du dossier (qui a déposé quoi), on ne la réécrit pas.
+                "email": (
+                    getattr(member.user, "email", "") or req.email or ""
+                ),
+                "email_soumis": req.email or "",
                 "phone": req.phone,
                 "whatsapp": req.whatsapp,
                 "city": req.city,

@@ -55,7 +55,12 @@ class TestMemberAdhesion:
         r = _api(staff.user).get(f"/api/v1/admin/members/{member.id}/adhesion/")
         assert r.status_code == 200
         assert r.data["identity"]["nom"] == "Mballa"
-        assert r.data["identity"]["email"] == "jean@t.local"
+        # `email` = celui du COMPTE (ce sur quoi un agent agit), `email_soumis`
+        # = celui déclaré à la soumission, conservé comme pièce du dossier.
+        # Avant 2026-09 la fiche n'exposait que le second, et une correction
+        # d'adresse restait invisible ici.
+        assert r.data["identity"]["email"] == member.user.email
+        assert r.data["identity"]["email_soumis"] == "jean@t.local"
         assert r.data["identity"]["statut_pro"] == "Commerçant"
         assert r.data["urgence"]["nom"] == "Marie"
         assert r.data["motivation"] == "Épargner pour mon commerce."
@@ -125,3 +130,80 @@ class TestMemberAdhesion:
         member = MemberFactory()
         r = _api(member.user).get(f"/api/v1/admin/members/{member.id}/adhesion/")
         assert r.status_code in (401, 403)
+
+
+# --- L'e-mail de la fiche suit le COMPTE, pas la soumission ------------------
+#
+# Bug signalé en 2026-09 : un admin corrige une adresse mal saisie, le compte
+# est bien modifié, mais la fiche d'adhésion continuait d'afficher l'ancienne —
+# elle lisait `MembershipRequest.email`, figé à la soumission. Un agent relisant
+# la fiche écrivait donc à la mauvaise adresse.
+#
+# Correction : la fiche montre l'e-mail du COMPTE (ce sur quoi on agit), et
+# expose à part la valeur SOUMISE — c'est une pièce du dossier (qui a déposé
+# quoi), on ne la réécrit pas.
+
+
+class TestEmailFiche:
+    def _fiche(self, member):
+        staff = _staff()
+        res = _api(staff.user).get(f"/api/v1/admin/members/{member.pk}/adhesion/")
+        assert res.status_code == 200, res.content
+        return res.json()
+
+    def test_la_fiche_montre_lemail_corrige_du_compte(self):
+        member = MemberFactory()
+        MembershipRequest.objects.create(
+            member=member, nom=member.nom, prenom=member.prenom,
+            email="faute-de-frappe@test.local", phone="699000000",
+            statut=MembershipRequest.Statut.APPROUVEE,
+        )
+        member.user.email = "adresse-corrigee@test.local"
+        member.user.save(update_fields=["email"])
+
+        identite = self._fiche(member)["identity"]
+
+        assert identite["email"] == "adresse-corrigee@test.local"
+
+    def test_la_valeur_soumise_reste_consultable(self):
+        """Pièce du dossier : on ne réécrit pas ce que le candidat a déposé."""
+        member = MemberFactory()
+        MembershipRequest.objects.create(
+            member=member, nom=member.nom, prenom=member.prenom,
+            email="declare@test.local", phone="699000000",
+            statut=MembershipRequest.Statut.APPROUVEE,
+        )
+        member.user.email = "corrige@test.local"
+        member.user.save(update_fields=["email"])
+
+        identite = self._fiche(member)["identity"]
+
+        assert identite["email_soumis"] == "declare@test.local"
+        assert identite["email"] != identite["email_soumis"]
+
+    def test_sans_correction_les_deux_concordent(self):
+        member = MemberFactory()
+        member.user.email = "membre@test.local"
+        member.user.save(update_fields=["email"])
+        MembershipRequest.objects.create(
+            member=member, nom=member.nom, prenom=member.prenom,
+            email="membre@test.local", phone="699000000",
+            statut=MembershipRequest.Statut.APPROUVEE,
+        )
+
+        identite = self._fiche(member)["identity"]
+
+        assert identite["email"] == identite["email_soumis"] == "membre@test.local"
+
+    def test_compte_sans_email_retombe_sur_la_valeur_soumise(self):
+        """Mieux vaut l'adresse déclarée que rien du tout."""
+        member = MemberFactory()
+        member.user.email = ""
+        member.user.save(update_fields=["email"])
+        MembershipRequest.objects.create(
+            member=member, nom=member.nom, prenom=member.prenom,
+            email="declare@test.local", phone="699000000",
+            statut=MembershipRequest.Statut.APPROUVEE,
+        )
+
+        assert self._fiche(member)["identity"]["email"] == "declare@test.local"

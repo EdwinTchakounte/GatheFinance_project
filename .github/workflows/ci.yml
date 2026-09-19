@@ -240,8 +240,25 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           mkdir -p frontend/apps/site/public/downloads
-          gh release download "${APK_RELEASE_TAG:-mobile-v1.1.0}" \
+          # Le tag n'est PLUS code en dur : on prend automatiquement la release
+          # `mobile-v*` la plus recente. Avec un tag fige, publier une nouvelle
+          # version mobile sans penser a editer ce fichier faisait servir
+          # SILENCIEUSEMENT l'ancienne APK par la vitrine.
+          # `APK_RELEASE_TAG` (variable de depot) reste prioritaire pour
+          # epingler volontairement une version.
+          TAG="${APK_RELEASE_TAG:-}"
+          if [ -z "$TAG" ]; then
+            TAG=$(gh release list --repo "${{ github.repository }}" --limit 30 \
+              --json tagName --jq '[.[].tagName | select(startswith("mobile-v"))] | first // ""')
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::error::Aucune release 'mobile-v*' trouvee — impossible de baker l'APK."
+            exit 1
+          fi
+          echo ">>> APK prise dans la release : $TAG"
+          gh release download "$TAG" \
             --repo "${{ github.repository }}" \
             --pattern 'Gathe-Finance.apk' \
             --output frontend/apps/site/public/downloads/Gathe-Finance.apk \
