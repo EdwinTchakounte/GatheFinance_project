@@ -15,6 +15,7 @@ import {
   type GroupRolePerms,
   type GroupTontineDetail,
   type GroupTontineRow,
+  type GroupTontineTx,
   type Member,
 } from "@/lib/api";
 import { fullName } from "@/lib/name";
@@ -402,6 +403,42 @@ function GroupDetailPanel({
   const [loanMontant, setLoanMontant] = useState("");
   const [loanDest, setLoanDest] = useState<"cash" | "epargne">("cash");
   const [loanBusy, setLoanBusy] = useState(false);
+
+  // Correction d'un montant saisi par erreur. Le registre reste append-only :
+  // l'ecriture d'origine est marquee corrigee, un AJUSTEMENT porte l'ecart.
+  const [fixTx, setFixTx] = useState<GroupTontineTx | null>(null);
+  const [fixMontant, setFixMontant] = useState("");
+  const [fixMotif, setFixMotif] = useState("");
+  const [fixBusy, setFixBusy] = useState(false);
+
+  async function doCorrect() {
+    if (!fixTx) return;
+    setError(null);
+    const amount = Number(fixMontant);
+    if (!amount || amount <= 0) return setError("Montant invalide.");
+    if (!fixMotif.trim()) return setError("Le motif est obligatoire.");
+    setFixBusy(true);
+    try {
+      const r = await adminApi.groupTontines.correctAmount(
+        id, fixTx.id, amount, fixMotif.trim(),
+      );
+      setG(r);
+      if (r.correction?.epargne_negative) {
+        setError(
+          "Correction enregistrée, mais l'épargne du membre est passée NÉGATIVE : " +
+            "il avait déjà dépensé la somme. Elle se régularisera au prochain versement.",
+        );
+      }
+      setFixTx(null);
+      setFixMontant("");
+      setFixMotif("");
+      onChanged();
+    } catch (e) {
+      setError((e as ApiError).detail ?? "Correction impossible.");
+    } finally {
+      setFixBusy(false);
+    }
+  }
 
   async function doGrantLoan() {
     setError(null);
@@ -803,20 +840,53 @@ function GroupDetailPanel({
               <p className="text-sm text-ink-500">Aucun mouvement.</p>
             ) : (
               <ul className="max-h-80 space-y-1 overflow-y-auto">
-                {g.transactions.map((t) => (
-                  <li key={t.id} className="flex justify-between rounded-md border border-line-200 px-2.5 py-1.5 text-xs">
-                    <span>
-                      {t.type_op_display}
-                      {t.member_nom ? ` · ${t.member_prenom} ${t.member_nom}` : ""}
-                      {t.acted_by_name ? (
-                        <span className="ml-1 text-ink-400">par {t.acted_by_name}</span>
+                {g.transactions.map((t) => {
+                  // Corrigeable : sortie de cagnotte, destination connue, pas
+                  // deja corrigee, reunion ouverte. Le serveur re-verifie tout.
+                  const corrigeable =
+                    g.is_open &&
+                    !t.corrected_at &&
+                    !!t.destination &&
+                    (t.type_op === "versement_beneficiaire" || t.type_op === "pret");
+                  return (
+                    <li key={t.id} className="rounded-md border border-line-200 px-2.5 py-1.5 text-xs">
+                      <div className="flex justify-between gap-2">
+                        <span className={t.corrected_at ? "text-ink-400 line-through" : ""}>
+                          {t.type_op_display}
+                          {t.member_nom ? ` · ${t.member_prenom} ${t.member_nom}` : ""}
+                          {t.acted_by_name ? (
+                            <span className="ml-1 text-ink-400">par {t.acted_by_name}</span>
+                          ) : null}
+                        </span>
+                        <span
+                          className={`whitespace-nowrap tabular-nums ${
+                            t.corrected_at ? "text-ink-400 line-through" : "text-ink-600"
+                          }`}
+                        >
+                          {fmtXAF(t.montant)} → {fmtXAF(t.solde_apres)}
+                        </span>
+                      </div>
+                      {t.corrected_at ? (
+                        <p className="mt-0.5 text-[11px] text-amber-700">
+                          Corrigé{t.correction_note ? ` — ${t.correction_note}` : ""}
+                        </p>
                       ) : null}
-                    </span>
-                    <span className="tabular-nums text-ink-600">
-                      {fmtXAF(t.montant)} → {fmtXAF(t.solde_apres)}
-                    </span>
-                  </li>
-                ))}
+                      {corrigeable ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFixTx(t);
+                            setFixMontant(String(Number(t.montant)));
+                            setFixMotif("");
+                          }}
+                          className="mt-1 text-[11px] font-semibold text-blue-700 hover:underline"
+                        >
+                          Corriger le montant
+                        </button>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -833,6 +903,61 @@ function GroupDetailPanel({
           </div>
         </div>
       )}
+
+      <Modal
+        open={fixTx !== null}
+        onClose={() => setFixTx(null)}
+        title="Corriger le montant"
+        description="L'écriture d'origine n'est pas réécrite : elle reste visible, marquée corrigée, et un ajustement porte l'écart."
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setFixTx(null)}
+              className={buttonClasses({ variant: "ghost", size: "sm" })}
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={doCorrect}
+              disabled={fixBusy}
+              className={buttonClasses({ variant: "primary", size: "sm" })}
+            >
+              {fixBusy ? "Correction…" : "Enregistrer la correction"}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {fixTx ? (
+            <p className="rounded-md border border-line-200 bg-line-50/50 px-3 py-2 text-xs text-ink-600">
+              {fixTx.type_op_display} de{" "}
+              <strong className="tabular-nums">{fmtXAF(fixTx.montant)}</strong>
+              {fixTx.destination === "epargne"
+                ? " — versé sur l'épargne du membre, elle sera ajustée d'autant."
+                : " — remis en espèces, seule la cagnotte bouge."}
+            </p>
+          ) : null}
+          <ModalField label="Montant corrigé (XAF)">
+            <input
+              type="number"
+              min="1"
+              value={fixMontant}
+              onChange={(e) => setFixMontant(e.target.value)}
+              className={modalInputClass}
+            />
+          </ModalField>
+          <ModalField label="Motif" hint="Obligatoire — c'est la trace de la correction dans le registre.">
+            <input
+              value={fixMotif}
+              onChange={(e) => setFixMotif(e.target.value)}
+              placeholder="ex. erreur de saisie en séance"
+              className={modalInputClass}
+            />
+          </ModalField>
+        </div>
+      </Modal>
 
       <ConfirmModal
         open={confirmClose}

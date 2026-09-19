@@ -87,7 +87,6 @@ class _GroupTontinePageState extends ConsumerState<GroupTontinePage> {
     final canPayout = d.can('can_manage_funds');
     final canLoan = d.can('can_grant_loan');
     final canClose = d.can('can_close');
-    final canRoster = d.can('can_manage_roster');
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       child: Column(
@@ -162,22 +161,9 @@ class _GroupTontinePageState extends ConsumerState<GroupTontinePage> {
           // Membres
           _sectionTitle('Membres (${d.members.length})'),
           const SizedBox(height: 8),
-          ...d.members.map((m) => _memberRow(d, m, canRoster && s.isOpen)),
-
-          // Rôles personnalisés (actions rattachées) — si habilité « gérer le roster ».
-          if (canRoster) ...[
-            const SizedBox(height: 18),
-            _sectionTitle('Rôles personnalisés'),
-            const SizedBox(height: 8),
-            ...d.customRoles.map((r) => _customRoleRow(d, r)),
-            const SizedBox(height: 8),
-            PaButton(
-              label: 'Créer un rôle',
-              variant: PaButtonVariant.outline,
-              icon: Icons.add_moderator_outlined,
-              onPressed: () => _createRoleSheet(d),
-            ),
-          ],
+          // 2026-09 — Les rôles sont en LECTURE SEULE ici : leur attribution
+          // revient à l'administrateur de la coopérative, depuis le dashboard.
+          ...d.members.map((m) => _memberRow(d, m)),
 
           // Prêts
           if (d.loans.isNotEmpty) ...[
@@ -264,7 +250,13 @@ class _GroupTontinePageState extends ConsumerState<GroupTontinePage> {
     );
   }
 
-  Widget _memberRow(GroupDetail d, GroupMember m, bool canSetRole) {
+  /// Ligne membre — en LECTURE SEULE depuis 2026-09.
+  ///
+  /// L'attribution des rôles (intégrés comme personnalisés) revient à
+  /// l'administrateur de la coopérative, depuis le dashboard. Décider qui
+  /// préside une réunion ou qui tient ses fonds engage la coopérative, pas
+  /// seulement le groupe : ça ne se règle pas depuis un téléphone.
+  Widget _memberRow(GroupDetail d, GroupMember m) {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -283,63 +275,15 @@ class _GroupTontinePageState extends ConsumerState<GroupTontinePage> {
               ),
             ),
           ),
-          if (canSetRole) ...[
-            DropdownButton<String>(
-              value: m.role,
-              underline: const SizedBox.shrink(),
-              isDense: true,
-              items: const [
-                DropdownMenuItem(value: 'president', child: Text('Président')),
-                DropdownMenuItem(value: 'tresorier', child: Text('Trésorier')),
-                DropdownMenuItem(value: 'membre', child: Text('Membre')),
-              ],
-              onChanged: (v) async {
-                if (v == null) return;
-                try {
-                  _apply(
-                    await ref
-                        .read(groupTontinesProvider.notifier)
-                        .setRole(widget.id, m.memberId, v),
-                  );
-                } catch (e) {
-                  _toast(friendlyError(e));
-                }
-              },
+          Text(
+            m.customRoleNom.isNotEmpty
+                ? '${m.roleDisplay} · ${m.customRoleNom}'
+                : m.roleDisplay,
+            style: const TextStyle(
+              color: PaColors.inkSecondary,
+              fontSize: 12,
             ),
-            if (d.customRoles.isNotEmpty)
-              DropdownButton<int?>(
-                value: m.customRoleId,
-                underline: const SizedBox.shrink(),
-                isDense: true,
-                hint: const Text('Rôle +', style: TextStyle(fontSize: 12)),
-                items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('—')),
-                  ...d.customRoles.map(
-                    (r) => DropdownMenuItem<int?>(value: r.id, child: Text(r.nom)),
-                  ),
-                ],
-                onChanged: (v) async {
-                  try {
-                    _apply(
-                      await ref
-                          .read(groupTontinesProvider.notifier)
-                          .assignRole(widget.id, m.memberId, v),
-                    );
-                  } catch (e) {
-                    _toast(friendlyError(e));
-                  }
-                },
-              ),
-          ] else
-            Text(
-              m.customRoleNom.isNotEmpty
-                  ? '${m.roleDisplay} · ${m.customRoleNom}'
-                  : m.roleDisplay,
-              style: const TextStyle(
-                color: PaColors.inkSecondary,
-                fontSize: 12,
-              ),
-            ),
+          ),
         ],
       ),
     );
@@ -516,73 +460,6 @@ class _GroupTontinePageState extends ConsumerState<GroupTontinePage> {
   }
 
   // ── Rôles personnalisés ────────────────────────────────────────────────────
-  Widget _customRoleRow(GroupDetail d, GroupCustomRole r) {
-    final actions = kGroupRoleActions.entries
-        .where((e) => r.perms[e.key] == true)
-        .map((e) => e.value)
-        .toList();
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: PaColors.cardBg,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  r.nom,
-                  style: const TextStyle(
-                    color: PaColors.inkPrimary,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  actions.isEmpty ? 'Aucune action' : actions.join(' · '),
-                  style: const TextStyle(
-                    color: PaColors.inkSecondary,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, size: 20),
-            color: PaColors.danger,
-            onPressed: () async {
-              try {
-                _apply(
-                  await ref
-                      .read(groupTontinesProvider.notifier)
-                      .deleteRole(widget.id, r.id),
-                );
-              } catch (e) {
-                _toast(friendlyError(e));
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _createRoleSheet(GroupDetail d) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: PaColors.canvas,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => _CreateRoleSheet(id: widget.id, onDone: _apply),
-    );
-  }
 }
 
 // ── Feuille cotisation (MoMo ou depuis épargne) ───────────────────────────────
@@ -1192,101 +1069,3 @@ class _LoanSheetState extends ConsumerState<_LoanSheet> {
   }
 }
 
-// ── Feuille « Créer un rôle personnalisé » (nom + actions cochées) ────────────
-class _CreateRoleSheet extends ConsumerStatefulWidget {
-  const _CreateRoleSheet({required this.id, required this.onDone});
-  final int id;
-  final void Function(GroupDetail) onDone;
-
-  @override
-  ConsumerState<_CreateRoleSheet> createState() => _CreateRoleSheetState();
-}
-
-class _CreateRoleSheetState extends ConsumerState<_CreateRoleSheet> {
-  final _nom = TextEditingController();
-  final Map<String, bool> _perms = {
-    for (final k in kGroupRoleActions.keys) k: false,
-  };
-  bool _busy = false;
-
-  @override
-  void dispose() {
-    _nom.dispose();
-    super.dispose();
-  }
-
-  void _toast(String m) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
-
-  Future<void> _submit() async {
-    if (_nom.text.trim().isEmpty) {
-      _toast('Le nom du rôle est obligatoire.');
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      final d = await ref
-          .read(groupTontinesProvider.notifier)
-          .createRole(widget.id, _nom.text.trim(), _perms);
-      widget.onDone(d);
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      if (mounted) _toast(friendlyError(e));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Créer un rôle',
-                style: TextStyle(
-                  color: PaColors.inkPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 14),
-              _field(_nom, 'Nom du rôle (ex. Secrétaire)'),
-              const SizedBox(height: 14),
-              const Text(
-                'Actions permises',
-                style: TextStyle(
-                  color: PaColors.inkSecondary,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              ...kGroupRoleActions.entries.map(
-                (e) => CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  value: _perms[e.key],
-                  title: Text(e.value, style: const TextStyle(fontSize: 13.5)),
-                  onChanged: (v) => setState(() => _perms[e.key] = v ?? false),
-                ),
-              ),
-              const SizedBox(height: 12),
-              PaButton(
-                label: _busy ? '…' : 'Créer le rôle',
-                onPressed: _busy ? null : _submit,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

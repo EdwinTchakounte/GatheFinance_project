@@ -204,6 +204,37 @@ def admin_group_loan(request, pk: int):
 
 @api_view(["POST"])
 @permission_classes([IsStaff])
+def admin_group_correct_amount(request, pk: int):
+    """🔒 Agence — corriger le montant d'une sortie de cagnotte saisie par erreur.
+
+    Le registre reste append-only : l'écriture d'origine n'est jamais réécrite,
+    elle est marquée corrigée et une écriture d'AJUSTEMENT porte l'écart. Même
+    approche journalisée que les saisies antidatées de l'épargne.
+
+    Corps : ``transaction_id``, ``montant`` (le nouveau), ``motif`` (obligatoire).
+    """
+    from .models import GroupTontineTransaction
+
+    group = get_object_or_404(GroupTontine, pk=pk)
+    tx = get_object_or_404(
+        GroupTontineTransaction, pk=request.data.get("transaction_id"), group=group,
+    )
+    try:
+        resultat = gs.corriger_montant(
+            transaction=tx,
+            nouveau_montant=request.data.get("montant"),
+            motif=request.data.get("motif") or "",
+            by=request.user,
+        )
+    except (gs.GroupTontineError, ArithmeticError, TypeError, ValueError) as e:
+        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    payload = _detail_payload(group)
+    payload["correction"] = resultat
+    return Response(payload)
+
+
+@api_view(["POST"])
+@permission_classes([IsStaff])
 def admin_group_close(request, pk: int):
     group = get_object_or_404(GroupTontine, pk=pk)
     gs.close_group(group, by=request.user)
@@ -310,28 +341,6 @@ def group_loan_repay(request, pk: int, loan_id: int):
 
 @api_view(["POST"])
 @permission_classes([IsMember])
-def group_set_role(request, pk: int):
-    """Change les rôles — président, ou tout membre habilité « gérer le roster »."""
-    group, member, role = _member_group_or_403(request, pk)
-    if group is None or role is None:
-        return Response({"detail": "Réunion réservée à ses membres."}, status=403)
-    if not gs.member_permissions(group, member).get("can_manage_roster"):
-        return Response(
-            {"detail": "Vous n'avez pas l'autorisation de gérer les rôles."},
-            status=403,
-        )
-    target = Member.objects.filter(pk=request.data.get("member_id")).first()
-    if target is None:
-        return Response({"detail": "Membre introuvable."}, status=404)
-    try:
-        gs.set_role(group, target, request.data.get("role"), by=member)
-    except gs.GroupTontineError as e:
-        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    return Response(_detail_payload(group, viewer_role=role, viewer_member=member))
-
-
-@api_view(["POST"])
-@permission_classes([IsMember])
 def group_transfer_cotisation(request, pk: int):
     """Cotisation par prélèvement sur mon épargne classique disponible."""
     group, member, role = _member_group_or_403(request, pk)
@@ -377,86 +386,6 @@ def _require_roster_perm(group, member):
             status=403,
         )
     return None
-
-
-@api_view(["POST"])
-@permission_classes([IsMember])
-def group_roles(request, pk: int):
-    """Crée un rôle personnalisé (membre habilité « gérer le roster »)."""
-    group, member, role = _member_group_or_403(request, pk)
-    if group is None or role is None:
-        return Response({"detail": "Réunion réservée à ses membres."}, status=403)
-    denied = _require_roster_perm(group, member)
-    if denied is not None:
-        return denied
-    try:
-        gs.create_custom_role(
-            group, request.data.get("nom"),
-            _role_perms_from_payload(request.data), by=member,
-        )
-    except gs.GroupTontineError as e:
-        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    return Response(_detail_payload(group, viewer_role=role, viewer_member=member))
-
-
-@api_view(["POST", "DELETE"])
-@permission_classes([IsMember])
-def group_role_detail(request, pk: int, role_id: int):
-    """Met à jour (POST) ou supprime (DELETE) un rôle personnalisé."""
-    group, member, role = _member_group_or_403(request, pk)
-    if group is None or role is None:
-        return Response({"detail": "Réunion réservée à ses membres."}, status=403)
-    denied = _require_roster_perm(group, member)
-    if denied is not None:
-        return denied
-    obj = GroupTontineRole.objects.filter(pk=role_id, group=group).first()
-    if obj is None:
-        return Response({"detail": "Rôle introuvable."}, status=404)
-    if request.method == "DELETE":
-        gs.delete_custom_role(obj, by=member)
-        return Response(_detail_payload(group, viewer_role=role, viewer_member=member))
-    try:
-        gs.update_custom_role(
-            obj,
-            nom=request.data.get("nom"),
-            permissions=(
-                _role_perms_from_payload(request.data)
-                if ("permissions" in request.data
-                    or any(f in request.data for f in GroupTontineRole.ACTION_FIELDS))
-                else None
-            ),
-            by=member,
-        )
-    except gs.GroupTontineError as e:
-        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    return Response(_detail_payload(group, viewer_role=role, viewer_member=member))
-
-
-@api_view(["POST"])
-@permission_classes([IsMember])
-def group_assign_role(request, pk: int):
-    """Attribue/retire un rôle personnalisé à un membre (habilité roster)."""
-    group, member, role = _member_group_or_403(request, pk)
-    if group is None or role is None:
-        return Response({"detail": "Réunion réservée à ses membres."}, status=403)
-    denied = _require_roster_perm(group, member)
-    if denied is not None:
-        return denied
-    target = Member.objects.filter(pk=request.data.get("member_id")).first()
-    if target is None:
-        return Response({"detail": "Membre introuvable."}, status=404)
-    custom_role = None
-    if request.data.get("custom_role_id"):
-        custom_role = GroupTontineRole.objects.filter(
-            pk=request.data.get("custom_role_id"), group=group
-        ).first()
-        if custom_role is None:
-            return Response({"detail": "Rôle introuvable."}, status=404)
-    try:
-        gs.assign_custom_role(group, target, custom_role, by=member)
-    except gs.GroupTontineError as e:
-        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    return Response(_detail_payload(group, viewer_role=role, viewer_member=member))
 
 
 # ── Rôles personnalisés — variante ADMIN (IsStaff) ───────────────────────────

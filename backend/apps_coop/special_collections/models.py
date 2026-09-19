@@ -339,8 +339,12 @@ class GroupTontineRole(TimestampedModel):
     can_grant_loan = models.BooleanField(
         default=False, help_text="Accorder un prêt de la cagnotte."
     )
+    # DÉPRÉCIÉ (2026-09) — la gestion du roster et des rôles est passée à
+    # l'administrateur de la coopérative : plus aucun endpoint membre ne la
+    # consomme, et la colonne est hors du catalogue ACTION_FIELDS ci-dessous.
+    # Conservée pour ne pas détruire les valeurs déjà saisies ; sans effet.
     can_manage_roster = models.BooleanField(
-        default=False, help_text="Ajouter/retirer des membres et changer les rôles."
+        default=False, help_text="DÉPRÉCIÉ — sans effet. Réservé à l'administrateur."
     )
     can_record_cotisation = models.BooleanField(
         default=False, help_text="Enregistrer des cotisations."
@@ -360,10 +364,13 @@ class GroupTontineRole(TimestampedModel):
         ordering = ["nom"]
 
     # Attributs du catalogue d'actions (source de vérité pour l'agrégation).
+    # ``can_manage_roster`` en est volontairement ABSENT depuis 2026-09 : ce que
+    # cette constante énumère est ce qu'un rôle de réunion peut réellement
+    # accorder. Laisser la case cochable alors qu'elle n'ouvre plus rien
+    # tromperait le président qui l'attribue.
     ACTION_FIELDS = (
         "can_manage_funds",
         "can_grant_loan",
-        "can_manage_roster",
         "can_record_cotisation",
         "can_close",
     )
@@ -526,6 +533,35 @@ class GroupTontineTransaction(TimestampedModel):
         help_text="Date effective (antidatable). Null → created_at.",
     )
     libelle = models.CharField(max_length=160, blank=True, default="")
+
+    class Destination(models.TextChoices):
+        """Où l'argent est réellement allé, pour les SORTIES de cagnotte."""
+
+        EPARGNE = "epargne", "Crédité sur l'épargne classique"
+        CASH = "cash", "Remis en espèces"
+
+    # Destination STRUCTURÉE d'une sortie. Elle n'était jusqu'ici lisible que
+    # dans le libellé texte — insuffisant pour défaire une écriture : corriger
+    # un montant exige de savoir si l'épargne du membre a été créditée ou non,
+    # et on ne fait pas d'arithmétique d'argent en analysant une chaîne.
+    # Vide = entrée de cagnotte, ou écriture antérieure à 2026-09 (une
+    # correction y est alors refusée plutôt que devinée).
+    destination = models.CharField(
+        max_length=12, choices=Destination.choices, blank=True, default="",
+    )
+    # Correction (2026-09) : une écriture erronée n'est jamais modifiée en
+    # place — le registre reste append-only. On la marque corrigée et on écrit
+    # les contre-passations qui portent l'écart.
+    corrected_at = models.DateTimeField(null=True, blank=True)
+    corrected_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+    )
+    correction_note = models.CharField(max_length=300, blank=True, default="")
+
+    @property
+    def is_corrected(self) -> bool:
+        return self.corrected_at is not None
 
     class Meta:
         verbose_name = "Écriture de tontine de groupe"

@@ -281,30 +281,14 @@ class GroupTontinesNotifier extends AsyncNotifier<List<GroupTontineSummary>> {
         if (avalisteNom.trim().isNotEmpty) 'avaliste_nom': avalisteNom.trim(),
       });
 
-  // Rôles personnalisés (actions rattachées) — membre habilité « gérer le roster ».
-  Future<GroupDetail> createRole(int id, String nom, Map<String, bool> perms) =>
-      _post(id, 'roles/', {'nom': nom, 'permissions': perms});
-
-  Future<GroupDetail> deleteRole(int id, int roleId) async {
-    final dio = ref.read(apiClientProvider).dio;
-    final res = await dio.delete<Map<String, dynamic>>(
-      '/special-collections/groups/$id/roles/$roleId/',
-    );
-    await refresh();
-    return GroupDetail.fromJson(res.data ?? const {});
-  }
-
-  Future<GroupDetail> assignRole(int id, int memberId, int? customRoleId) =>
-      _post(id, 'assign-role/', {
-        'member_id': memberId,
-        'custom_role_id': customRoleId,
-      });
+  // 2026-09 — La gestion des RÔLES et du roster a quitté le canal membre :
+  // elle revient exclusivement à l'administrateur de la coopérative. Les
+  // méthodes createRole / deleteRole / assignRole / setRole ont été retirées
+  // avec leurs endpoints serveur. Les rôles personnalisés restent LISIBLES
+  // (ils arrivent dans le détail de la réunion).
 
   Future<GroupDetail> repay(int id, int loanId, num montant) =>
       _post(id, 'loan/$loanId/repay/', {'montant': montant});
-
-  Future<GroupDetail> setRole(int id, int memberId, String role) =>
-      _post(id, 'role/', {'member_id': memberId, 'role': role});
 
   Future<GroupDetail> cotiserFromSavings(int id, num montant) =>
       _post(id, 'cotiser/', {'montant': montant});
