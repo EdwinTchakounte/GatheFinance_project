@@ -511,6 +511,15 @@ function AdhesionDetails({ adh }: { adh: MemberAdhesion }) {
         <AdhLine label="Nom" value={adh.identity.nom} />
         <AdhLine label="Prénom" value={adh.identity.prenom} />
         <AdhLine label="Email" value={adh.identity.email} />
+        {/* Si l'adresse a été corrigée depuis la soumission, on montre les
+            deux : l'agent sait à qui écrire, sans perdre ce qui a été déposé. */}
+        {adh.identity.email_soumis &&
+        adh.identity.email_soumis !== adh.identity.email ? (
+          <AdhLine
+            label="Email déclaré à la soumission"
+            value={adh.identity.email_soumis}
+          />
+        ) : null}
         <AdhLine label="Téléphone" value={adh.identity.phone} />
         <AdhLine label="WhatsApp" value={adh.identity.whatsapp} />
         <AdhLine label="Ville" value={adh.identity.city} />

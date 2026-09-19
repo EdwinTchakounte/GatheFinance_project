@@ -1268,6 +1268,9 @@ export type MemberAdhesion = {
     nom: string;
     prenom: string;
     email: string;
+    /** Adresse DÉCLARÉE à la soumission, conservée comme pièce du dossier.
+     *  `email` ci-dessus est celle du compte — c'est elle qui fait foi pour joindre le membre. */
+    email_soumis?: string;
     phone: string;
     whatsapp: string;
     city: string;

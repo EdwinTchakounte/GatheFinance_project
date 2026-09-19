@@ -12,24 +12,24 @@ import { images } from "@/lib/site-config";
 
 type Params = { params: Promise<{ locale: string }> };
 
-// Le BOUTON telecharge desormais l'APK AUTO-HEBERGEE (/downloads/Gathe-Finance.apk,
-// servie via volume /srv/gathe-finance/apk -> Content-Length natif, vraie
-// progression ; Drive refusait de servir un 74 Mo par programme -> 502).
-// Le file ID Drive ci-dessous ne sert plus qu'au QR code (repli mobile :
-// scanner ouvre l'UI Drive, qui elle sait servir le gros fichier).
-const APK_DRIVE_FILE_ID = "1kJEkKbHthwVWTdF47SazLJKqbL-5T88f";
-// URL "share" (preview Drive) : encodee dans le QR code (public/downloads/
-// qr-app.png) → ouvre l'app Drive sur mobile, l'utilisateur clique Telecharger.
-const APK_SHARE_URL =
-  `https://drive.google.com/file/d/${APK_DRIVE_FILE_ID}/view?usp=sharing`;
-// NB : le téléchargement direct passe désormais par le proxy Next
-// `/api/download-app` (progression réelle) — cf. DownloadAppButton.
-const APK_VERSION = "1.1.0";
+// CANAL PRINCIPAL depuis 2026-09 : le Google Play Store. C'est la voie que
+// l'utilisateur connaît, qui gère les mises à jour toute seule, et qui évite
+// de lui faire autoriser les « sources inconnues » sur son téléphone.
+const PLAY_STORE_URL =
+  "https://play.google.com/store/apps/details?id=com.gathefinance.gathe_finance";
+
+// REPLI conservé : l'APK auto-hébergée (/downloads/Gathe-Finance.apk, servie
+// avec un Content-Length natif → vraie progression). Utile hors Play Store —
+// téléphone sans Services Google, ou installation en agence sans compte Google.
+// Le téléchargement direct passe par le proxy Next `/api/download-app`
+// (progression réelle) — cf. DownloadAppButton.
+const APK_VERSION = "1.2.0";
 const APK_SIZE = "74,5 Mo";
 
-// QR code AUTO-HEBERGE (public/downloads/qr-app.png), genere avec la lib
-// `qrcode` et encodant APK_SHARE_URL. Pas de service tiers (fin de la
-// dependance a api.qrserver.com). A regenerer si le file ID Drive change.
+// QR code AUTO-HEBERGE (public/downloads/qr-app.png), généré avec la lib
+// `qrcode`. Il encode désormais l'URL PLAY STORE — plus la vieille URL Google
+// Drive, qui dépendait d'un fichier partagé pouvant disparaître et imposait à
+// l'utilisateur un détour par l'UI Drive. À régénérer si l'URL change.
 const QR_IMAGE_SRC = "/downloads/qr-app.png";
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
@@ -44,9 +44,9 @@ export default async function DownloadAppPage({ params }: Params) {
   const t = await getTranslations({ locale, namespace: "download" });
   const tn = await getTranslations({ locale, namespace: "nav" });
 
-  // URL pour le QR code : on encode l'URL "share" Drive, qui ouvre
-  // proprement l'app Drive sur mobile (clic → bouton Telecharger natif).
-  const apkAbsoluteUrl = APK_SHARE_URL;
+  // Le QR code mène au Play Store : scanné depuis un téléphone, il ouvre
+  // directement la fiche de l'app, prête à installer.
+  const apkAbsoluteUrl = PLAY_STORE_URL;
 
   return (
     <>
@@ -88,8 +88,29 @@ export default async function DownloadAppPage({ params }: Params) {
                   </div>
                 </div>
 
-                {/* Téléchargement avec VRAIE progression (proxy Next → % réel). */}
-                <DownloadAppButton label={t("downloadButton")} />
+                {/* Canal PRINCIPAL : le Play Store. Mises à jour automatiques,
+                    pas de « sources inconnues » à autoriser. */}
+                <a
+                  href={PLAY_STORE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-800"
+                >
+                  <Smartphone className="h-4 w-4" aria-hidden="true" />
+                  Installer depuis Google Play
+                </a>
+
+                {/* REPLI : APK directe, avec vraie progression (proxy Next).
+                    Pour les téléphones sans Services Google, ou l'installation
+                    en agence sans compte Google. */}
+                <div className="mt-4 border-t border-line-200 pt-4">
+                  <p className="mb-2 text-xs text-ink-500">
+                    Pas d&apos;accès au Play Store ? Installe le fichier
+                    directement (autorise les « sources inconnues » si ton
+                    téléphone le demande).
+                  </p>
+                  <DownloadAppButton label={t("downloadButton")} />
+                </div>
 
                 <dl className="mt-6 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
                   <div>
