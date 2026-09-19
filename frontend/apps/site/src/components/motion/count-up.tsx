@@ -42,6 +42,16 @@ export function CountUp({
       raf = requestAnimationFrame(tick);
     };
 
+    // La bande de chiffres du hero est collée au bas de la fenêtre : avec le
+    // rootMargin négatif ci-dessous, elle n'entre jamais dans la zone observée
+    // tant qu'on ne défile pas, et le visiteur lit « 0 projets financés ».
+    // Un élément déjà visible au montage démarre donc tout de suite.
+    const r = el.getBoundingClientRect();
+    if (r.top < window.innerHeight && r.bottom > 0) {
+      run();
+      return () => cancelAnimationFrame(raf);
+    }
+
     // `once` : on se déconnecte dès la première entrée dans le viewport.
     const io = new IntersectionObserver(
       (entries) => {

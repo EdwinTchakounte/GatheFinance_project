@@ -105,6 +105,7 @@
       "projectsValue": "4 500",
       "projectsLabel": "projets financés",
       "fundedValue": "400 M",
+      "fundedUnit": "M",
       "fundedSuffix": "FCFA",
       "fundedLabel": "de projets financés"
     },
