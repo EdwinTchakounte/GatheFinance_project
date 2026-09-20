@@ -25,20 +25,25 @@ def app_version_view(request):
       - ``mobile.update_message``    : message affiché sur l'écran de blocage
     """
     from apps_coop.audit.services import get_str_setting
+    from apps_coop.audit.tunables import get_entry
+
+    def _setting(key: str) -> str:
+        """Valeur en base, à défaut le défaut DU CATALOGUE.
+
+        Les défauts vivaient ici en dur, en double du catalogue — et les deux
+        ont divergé : le catalogue ignorait ces clés, tandis que cet endpoint
+        annonçait « 1.1.0 » sans qu'aucune ligne en base ne le dise. Une
+        seule source de vérité désormais.
+        """
+        entry = get_entry(key) or {}
+        return get_str_setting(key, entry.get("default", ""))
 
     return Response(
         {
-            "min_version": get_str_setting("mobile.min_version", "1.0.0"),
-            "latest_version": get_str_setting("mobile.latest_version", "1.1.0"),
-            "android_download_url": get_str_setting(
-                "mobile.android_download_url",
-                "https://app.gathe-finance.com/telecharger-app",
-            ),
-            "update_message": get_str_setting(
-                "mobile.update_message",
-                "Une nouvelle version de l'application est disponible. "
-                "Merci de mettre à jour pour continuer.",
-            ),
+            "min_version": _setting("mobile.min_version"),
+            "latest_version": _setting("mobile.latest_version"),
+            "android_download_url": _setting("mobile.android_download_url"),
+            "update_message": _setting("mobile.update_message"),
         }
     )
 

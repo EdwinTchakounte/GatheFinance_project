@@ -10,7 +10,8 @@ entrée déclare :
   - ``label``        : intitulé court (FR) affiché dans le formulaire.
   - ``description``  : explication métier (1-3 phrases).
   - ``type``         : ``int`` / ``decimal`` / ``bool`` / ``str`` / ``csv`` /
-                       ``enum`` — pilote le widget UI et la validation.
+                       ``enum`` / ``semver`` / ``url`` — pilote le widget UI
+                       et la validation.
   - ``default``      : valeur par défaut (str — stockée brute dans AppSetting).
   - ``choices`` (opt) : pour le type ``enum``, liste des valeurs autorisées.
   - ``min`` / ``max`` (opt) : pour ``int`` / ``decimal``.
@@ -26,6 +27,7 @@ from typing import Optional
 
 # Groupes UI — ordre d'affichage des sections (le frontend les rend dans cet ordre).
 GROUPS_ORDER = [
+    ("mobile", "Application mobile"),
     ("member", "Membre"),
     ("seniority", "Ancienneté"),
     ("collecte", "Collecte journalière"),
@@ -47,6 +49,55 @@ GROUPS_ORDER = [
 
 
 CATALOG: list[dict] = [
+    # Porte de mise à jour mobile — lue par ``GET /api/v1/app-version/``
+    # (public, avant toute connexion). Ces clés se règlent à chaque
+    # publication Play Store ; sans elles au catalogue, le dashboard
+    # répondait « Clé inconnue » et il fallait passer par l'admin Django.
+    {
+        "key": "mobile.min_version",
+        "group": "mobile",
+        "label": "Version minimale exigée",
+        "description": (
+            "En dessous de cette version, l'application est BLOQUÉE tant que "
+            "le membre n'a pas mis à jour. Ne la relevez qu'une fois la "
+            "nouvelle version réellement disponible sur le Play Store."
+        ),
+        "type": "semver",
+        "default": "1.0.0",
+    },
+    {
+        "key": "mobile.latest_version",
+        "group": "mobile",
+        "label": "Dernière version publiée",
+        "description": (
+            "Version annoncée aux membres comme disponible. Purement "
+            "informative : elle ne bloque personne."
+        ),
+        "type": "semver",
+        "default": "1.0.0",
+    },
+    {
+        "key": "mobile.android_download_url",
+        "group": "mobile",
+        "label": "Lien de mise à jour Android",
+        "description": (
+            "Cible du bouton « Mettre à jour ». Normalement la fiche Play "
+            "Store de l'application."
+        ),
+        "type": "url",
+        "default": "https://app.gathe-finance.com/telecharger-app",
+    },
+    {
+        "key": "mobile.update_message",
+        "group": "mobile",
+        "label": "Message de mise à jour",
+        "description": "Texte affiché sur l'écran de blocage ou d'invitation.",
+        "type": "str",
+        "default": (
+            "Une nouvelle version de l'application est disponible. "
+            "Merci de mettre à jour pour continuer."
+        ),
+    },
     # LOT 1 — Identifiant membre + ancienneté
     {
         "key": "member.id.format",
@@ -574,6 +625,20 @@ def validate_value(entry: dict, value: str) -> tuple[bool, str]:
         choices = entry.get("choices", [])
         if v not in choices:
             return False, f"Doit être l'une de : {', '.join(choices)}."
+        return True, ""
+    if t == "semver":
+        import re
+
+        if not re.fullmatch(r"\d+\.\d+\.\d+", v):
+            return False, "Format attendu : MAJEUR.MINEUR.CORRECTIF (ex. 1.2.0)."
+        if any(len(part) > 4 for part in v.split(".")):
+            return False, "Chaque nombre doit tenir sur 4 chiffres au plus."
+        return True, ""
+    if t == "url":
+        if not v.startswith("https://"):
+            return False, "L'URL doit commencer par https://."
+        if " " in v:
+            return False, "L'URL ne doit pas contenir d'espace."
         return True, ""
     if t == "csv":
         # Pas de contrainte stricte ici — la lib downstream filtre les

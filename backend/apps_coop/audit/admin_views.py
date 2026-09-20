@@ -60,6 +60,55 @@ def _serialize_entry(entry: dict, current_value: str, is_admin_edited: bool) -> 
     ),
     responses={200: OpenApiResponse(description="`{ groups, settings }`")},
 )
+def _mobile_version_tuple(value: str) -> tuple[int, ...]:
+    """Version « 1.2.0 » -> (1, 2, 0). Le format est deja valide en amont."""
+    return tuple(int(p) for p in value.split("."))
+
+
+def _check_mobile_gate(key: str, new_value: str) -> tuple[bool, str]:
+    """Refuse une porte de mise a jour impossible a franchir.
+
+    `mobile.min_version` bloque l'application en dessous du seuil. Le poser
+    au-dessus de `mobile.latest_version` enferme TOUS les membres : ecran de
+    blocage, invitation a mettre a jour, et aucune version a installer. Le
+    cas est irrattrapable depuis le telephone — seul un acces admin le
+    corrige. On l'interdit donc a l'ecriture.
+    """
+    if key not in ("mobile.min_version", "mobile.latest_version"):
+        return True, ""
+
+    autre = (
+        "mobile.latest_version"
+        if key == "mobile.min_version"
+        else "mobile.min_version"
+    )
+    entry_autre = get_entry(autre) or {}
+    ligne = AppSetting.objects.filter(cle=autre).first()
+    valeur_autre = ligne.valeur if ligne else entry_autre.get("default", "")
+    if not valeur_autre:
+        return True, ""
+
+    try:
+        minimale, derniere = (
+            (_mobile_version_tuple(new_value), _mobile_version_tuple(valeur_autre))
+            if key == "mobile.min_version"
+            else (_mobile_version_tuple(valeur_autre), _mobile_version_tuple(new_value))
+        )
+    except ValueError:
+        # Valeur historique mal formee en base : on ne bloque pas l'edition,
+        # c'est justement elle qui permet de reparer.
+        return True, ""
+
+    if minimale > derniere:
+        return False, (
+            f"La version minimale ({'.'.join(map(str, minimale))}) depasserait "
+            f"la derniere version publiee ({'.'.join(map(str, derniere))}) : "
+            "les membres seraient bloques sans mise a jour disponible. "
+            "Publiez d'abord la nouvelle version, puis relevez le minimum."
+        )
+    return True, ""
+
+
 @api_view(["GET"])
 @permission_classes([IsStaff])
 def admin_settings_list(request):
@@ -120,6 +169,10 @@ def admin_settings_update(request, key: str):
         new_value = str(raw_value).strip()
 
     ok, msg = validate_value(entry, new_value)
+    if not ok:
+        return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+
+    ok, msg = _check_mobile_gate(key, new_value)
     if not ok:
         return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
 
