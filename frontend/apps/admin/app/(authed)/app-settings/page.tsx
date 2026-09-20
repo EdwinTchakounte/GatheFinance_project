@@ -223,14 +223,26 @@ function SettingRow({
             </select>
           ) : (
             <input
-              type={row.type === "int" || row.type === "decimal" ? "text" : "text"}
+              type="text"
               inputMode={
                 row.type === "int"
                   ? "numeric"
                   : row.type === "decimal"
                     ? "decimal"
+                    : row.type === "url"
+                      ? "url"
+                      : undefined
+              }
+              placeholder={
+                row.type === "semver"
+                  ? "1.2.0"
+                  : row.type === "url"
+                    ? "https://..."
                     : undefined
               }
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               disabled={saving}

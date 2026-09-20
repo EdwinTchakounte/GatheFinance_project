@@ -870,7 +870,17 @@ export type AnnouncementCreatePayload = {
 
 
 // P2 — AppSettings tunables (refonte 2026).
-export type AppSettingType = "int" | "decimal" | "bool" | "str" | "csv" | "enum";
+// `semver` et `url` valent `str` cote stockage : ils ne changent que le
+// widget et la validation serveur (cf. audit/tunables.py).
+export type AppSettingType =
+  | "int"
+  | "decimal"
+  | "bool"
+  | "str"
+  | "csv"
+  | "enum"
+  | "semver"
+  | "url";
 
 export type AppSettingRow = {
   key: string;
