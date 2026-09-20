@@ -95,7 +95,11 @@ class TestPaymentsStats:
 
     def test_period_filter_today_only(self, admin_user, seeded_payments):
         now, _ = seeded_payments
-        today = now.date().isoformat()
+        # `now` est UTC-aware ; l'endpoint filtre avec `__date`, que Django
+        # evalue en heure locale (Africa/Douala, UTC+1). Prendre `now.date()`
+        # tel quel demandait la veille entre 23h et minuit UTC — le test
+        # cassait alors une heure par jour, quelle que soit la PR.
+        today = timezone.localtime(now).date().isoformat()
         body = _admin(admin_user).get(
             f"{STATS}?date_from={today}&date_to={today}"
         ).json()

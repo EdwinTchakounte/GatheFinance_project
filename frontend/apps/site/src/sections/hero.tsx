@@ -116,7 +116,7 @@ export async function Hero({ locale }: { locale: string }) {
             <Coins aria-hidden="true" className="size-3.5 shrink-0 text-emerald sm:size-[18px]" />
             <p className="flex min-w-0 items-baseline gap-1.5 truncate font-display text-[0.78rem] leading-none text-white sm:text-[0.95rem]">
               <span className="font-semibold tracking-tight">
-                <CountUp value={400} locale={locale} suffix={` ${t("stats.fundedSuffix")}`} />
+                <CountUp value={400} locale={locale} suffix={` ${t("stats.fundedUnit")} ${t("stats.fundedSuffix")}`} />
               </span>
               <span className="sr-only text-[0.7rem] font-normal text-blue-200/90 sm:not-sr-only sm:inline">
                 · {t("stats.fundedLabel")}
