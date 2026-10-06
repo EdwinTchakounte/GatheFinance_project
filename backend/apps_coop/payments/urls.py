@@ -26,6 +26,11 @@ urlpatterns = [
     path("admin/cash-in/", views.admin_cash_in_payment, name="admin-cash-in"),
     path("admin/manual-debit/", views.admin_manual_debit, name="admin-manual-debit"),
     path(
+        "admin/manual-debits/",
+        views.admin_manual_debit_history,
+        name="admin-manual-debit-history",
+    ),
+    path(
         "admin/<int:pk>/invalidate/",
         views.admin_invalidate_payment,
         name="admin-invalidate",

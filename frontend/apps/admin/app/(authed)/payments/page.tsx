@@ -5,6 +5,7 @@ import { SkeletonList } from "@gathe/ui";
 import { Search, Plus, Minus } from "lucide-react";
 
 import { CashInModal } from "@/components/cash-in-modal";
+import { ManualDebitHistory } from "@/components/manual-debit-history";
 import { ManualDebitModal } from "@/components/manual-debit-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { DataTable, type DataColumn } from "@/components/data-table";
@@ -62,6 +63,8 @@ function Inner() {
   // B1 . Cash-in modal admin (saisie versement agence).
   const [cashInOpen, setCashInOpen] = useState(false);
   const [debitOpen, setDebitOpen] = useState(false);
+  // Incrémenté après un débit : l'historique ci-dessous se recharge.
+  const [debitHistoryKey, setDebitHistoryKey] = useState(0);
   const [flash, setFlash] = useState<string | null>(null);
   // Invalidation : cible de la modale de confirmation (remplace window.prompt).
   const [invalidateTarget, setInvalidateTarget] = useState<PaymentRow | null>(null);
@@ -574,6 +577,11 @@ function Inner() {
         />
       ) : null}
 
+      {/* Historique des débits — séparé de la table des paiements, qui ne
+          montre que les ENTRÉES. Les sorties vivaient jusqu'ici uniquement
+          dans les registres, sans vue d'ensemble. */}
+      <ManualDebitHistory refreshKey={debitHistoryKey} />
+
       {flash ? (
         <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-md bg-emerald px-4 py-2 text-sm font-medium text-white shadow-lg">
           {flash}
@@ -599,6 +607,9 @@ function Inner() {
           setTimeout(() => setFlash(null), 4500);
           reload();
           loadStats();
+          // L'historique se recharge aussi : sinon le débit qu'on vient de
+          // saisir n'apparaîtrait qu'au prochain passage sur la page.
+          setDebitHistoryKey((k) => k + 1);
         }}
       />
 

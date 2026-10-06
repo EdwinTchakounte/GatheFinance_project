@@ -93,21 +93,7 @@ def ensure_savings_carnet(member) -> None:
         )
 
 
-def validate_placement_window(member) -> None:
-    """Placement : ouvert seulement pendant les N premiers mois d'ancienneté.
-
-    Barrière serveur commune : le client masque déjà l'option, mais le cash-in
-    admin n'avait aucune garde → un ``is_placement`` hors fenêtre créait une
-    écriture « placement » sans tranche (argent non gelé). On refuse ici.
-    """
-    from apps_coop.savings.placement import (
-        placement_eligibility_months,
-        placement_open_for_member,
-    )
-
-    if not placement_open_for_member(member):
-        months = placement_eligibility_months()
-        raise DepositValidationError(
-            f"Le placement n'est ouvert que pendant les {months} premiers mois "
-            f"suivant l'adhésion. L'épargne peut toujours être versée en LIBRE."
-        )
+# `validate_placement_window` a été retirée (2026-10). Elle n'avait plus qu'un
+# appelant, le cash-in agence, où le placement hors fenêtre est désormais une
+# dérogation admin assumée (cf. `Payment.placement_force_admin`). Le canal
+# membre garde sa barrière, posée directement dans `init_payment`.

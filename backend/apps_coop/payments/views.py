@@ -1582,6 +1582,7 @@ def admin_cash_in_payment(request):
     loan = None
     nb_jours_couverts = 1
     is_placement = False
+    placement_force_admin = False
     special_cycle = None
     group_tontine = None
     group_loan = None
@@ -1667,26 +1668,37 @@ def admin_cash_in_payment(request):
             )
     elif payment_type == Payment.Type.EPARGNE_CLASSIQUE:
         is_placement = bool(data.get("is_placement", False))
-        # R2/R3 — mêmes règles que le canal membre : gate config.actif + plancher
-        # 1 000 + plafond, ET refus d'un placement hors fenêtre (sinon l'écriture
-        # serait marquée « placement » sans tranche → argent non gelé).
+        # R2/R3 — mêmes règles montant que le canal membre : gate config.actif
+        # + plancher 1 000 + plafond.
+        #
+        # Le placement, lui, n'est PAS soumis ici aux fenêtres qui s'appliquent
+        # au membre (date-limite globale, ancienneté). L'admin encaisse au
+        # guichet, devant le membre, en connaissance de cause : lui refuser le
+        # placement l'obligeait à passer par l'épargne libre puis à rattraper
+        # autrement. Le geste est tracé (`placement_force_admin` + audit) et le
+        # hook crée bien la tranche prêteur, donc l'argent est réellement gelé.
+        # Le canal membre, lui, reste barré par `init_payment`.
         from .deposit_validation import (
             DepositValidationError,
             ensure_savings_carnet,
             validate_classique_deposit,
-            validate_placement_window,
         )
 
         _test_any = getattr(settings, "PAYMENTS_TEST_ALLOW_ANY_AMOUNT", False)
         try:
             ensure_savings_carnet(member)
             validate_classique_deposit(montant=montant, allow_any_amount=_test_any)
-            if is_placement:
-                validate_placement_window(member)
         except DepositValidationError as exc:
             return Response(
                 {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST,
             )
+
+        if is_placement:
+            from apps_coop.savings.placement import placement_open_for_member
+
+            # Marqué seulement quand les verrous auraient refusé : un placement
+            # dans les clous reste un placement ordinaire.
+            placement_force_admin = not placement_open_for_member(member)
     elif payment_type == Payment.Type.FRAIS_DEMANDE_CREDIT:
         # Anti double-facturation : si le membre a une (ou des) demande(s)
         # EN_ATTENTE et qu'AUCUNE n'attend plus de frais d'étude (elles sont
@@ -1819,6 +1831,7 @@ def admin_cash_in_payment(request):
             reference_externe=reference_externe,
             nb_jours_couverts=nb_jours_couverts,
             is_placement=is_placement,
+            placement_force_admin=placement_force_admin,
             special_cycle=special_cycle,
             group_tontine=group_tontine,
             group_loan=group_loan,
@@ -1854,6 +1867,9 @@ def admin_cash_in_payment(request):
             "reference_externe": reference_externe,
             "note": note,
             "is_placement": is_placement,
+            # Dérogation : ce placement a été accepté alors que les fenêtres
+            # normales l'auraient refusé. Visible dans le journal d'audit.
+            "placement_force_admin": placement_force_admin,
             "nb_jours_couverts": nb_jours_couverts,
         },
         ip=client_ip(request),
@@ -1915,6 +1931,117 @@ def admin_manual_debit(request):
     except ManualDebitError as exc:
         return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
     return Response(result)
+
+
+#: Actions d'audit écrites par ``manual_debit`` — la source de l'historique.
+#: Le débit manuel n'a pas de table à lui : il écrit directement dans les
+#: registres (collecte, épargne, collectes particulières) ou crée un Payment
+#: pour un frais. Le seul endroit qui réunit les trois est le journal d'audit,
+#: qui a l'avantage de couvrir aussi les débits passés.
+_MANUAL_DEBIT_ACTIONS = ("savings.manual_debit", "payment.fee_paid_from_savings_manual")
+
+#: Libellés lisibles des comptes débités.
+_DEBIT_COMPTE_LABELS = {
+    "collecte": "Collecte journalière",
+    "classique": "Épargne classique",
+    "tontine": "Tontine alimentaire",
+    "caisse": "Caisse scolaire",
+}
+
+
+@extend_schema(
+    tags=["payments"],
+    summary="🔒 Admin — historique des débits manuels",
+    description=(
+        "Liste les débits manuels effectués en agence (retraits sur un compte "
+        "et frais prélevés sur l'épargne), du plus récent au plus ancien. "
+        "Lecture seule, reconstruite depuis le journal d'audit : elle couvre "
+        "donc aussi les débits antérieurs à cet écran. Filtres : `member` "
+        "(id), `compte`, `date_from` / `date_to` (`AAAA-MM-JJ`). Pagination "
+        "`offset` / `limit`."
+    ),
+    responses={200: OpenApiResponse(description="Historique paginé")},
+)
+@api_view(["GET"])
+@permission_classes([IsStaff])
+def admin_manual_debit_history(request):
+    from apps_coop.audit.models import AuditLog
+    from apps_coop.common import parse_pagination
+    from apps_coop.members.models import Member
+
+    qs = AuditLog.objects.filter(action__in=_MANUAL_DEBIT_ACTIONS).select_related("user")
+
+    member_id = (request.query_params.get("member") or "").strip()
+    if member_id.isdigit():
+        # `member_id` vit dans le JSON de détails, pas en colonne : on filtre
+        # côté base pour ne pas rapatrier tout le journal.
+        qs = qs.filter(details_json__member_id=int(member_id))
+
+    compte = (request.query_params.get("compte") or "").strip()
+    if compte:
+        qs = qs.filter(details_json__compte=compte)
+
+    date_from = _parse_stats_date(request.query_params.get("date_from"))
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    date_to = _parse_stats_date(request.query_params.get("date_to"))
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+
+    offset, limit = parse_pagination(request, default_limit=25, max_limit=200)
+    count = qs.count()
+    rows = list(qs.order_by("-created_at", "-id")[offset : offset + limit])
+
+    # Un seul aller-retour pour les membres de la page courante.
+    member_ids = {
+        int(r.details_json.get("member_id"))
+        for r in rows
+        if str(r.details_json.get("member_id") or "").isdigit()
+    }
+    membres = {
+        m.id: {
+            "id": m.id,
+            "numero_membre": m.numero_membre,
+            "nom": m.nom,
+            "prenom": m.prenom,
+        }
+        for m in Member.objects.filter(id__in=member_ids)
+    }
+
+    results = []
+    for r in rows:
+        d = r.details_json or {}
+        est_frais = r.action == "payment.fee_paid_from_savings_manual"
+        mid = d.get("member_id")
+        compte_code = d.get("compte") or ("classique" if est_frais else "")
+        acteur = None
+        if r.user:
+            nom = " ".join(filter(None, [r.user.first_name, r.user.last_name])).strip()
+            acteur = {"id": r.user_id, "nom": nom or r.user.get_username()}
+        results.append(
+            {
+                "id": r.id,
+                "date": r.created_at,
+                "nature": "frais" if est_frais else "retrait",
+                "compte": compte_code,
+                "compte_label": _DEBIT_COMPTE_LABELS.get(compte_code, compte_code),
+                "montant": d.get("montant"),
+                "solde_apres": d.get("solde_apres"),
+                "motif": d.get("motif") or "",
+                "fee_code": d.get("fee_code"),
+                "destination": d.get("destination"),
+                "cycle_id": d.get("cycle_id"),
+                "is_renewal": d.get("is_renewal"),
+                "entite_type": r.entite_type,
+                "entite_id": r.entite_id,
+                "member": membres.get(int(mid)) if str(mid or "").isdigit() else None,
+                "acteur": acteur,
+            }
+        )
+
+    return Response(
+        {"count": count, "limit": limit, "offset": offset, "results": results}
+    )
 
 
 @extend_schema(
