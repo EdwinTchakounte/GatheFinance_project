@@ -224,6 +224,24 @@ class Payment(TimestampedModel):
         ),
     )
 
+    # Dérogation admin au placement (2026-10). Le placement est fermé par deux
+    # verrous : une date-limite globale et une fenêtre d'ancienneté par membre.
+    # L'admin qui encaisse en agence doit pouvoir placer malgré eux — c'est un
+    # geste de guichet délibéré, tracé, sur un membre présent.
+    #
+    # Ce drapeau est PERSISTANT et pas seulement passé au hook : le hook s'en
+    # sert pour créer quand même la tranche prêteur. Sans lui, l'écriture
+    # serait marquée « placement » alors qu'aucune tranche ne gèle l'argent —
+    # exactement le défaut que la barrière d'origine évitait.
+    placement_force_admin = models.BooleanField(
+        default=False,
+        help_text=(
+            "Placement autorisé par un admin hors des fenêtres normales "
+            "(date-limite globale ou ancienneté du membre). Sans effet si "
+            "is_placement est faux."
+        ),
+    )
+
     # LOT 2 (refonte 2026) — multi-jours pré-payé sur la collecte journalière.
     # Pertinent uniquement pour ``type = EPARGNE`` (collecte) ; ignoré sinon.
     # 1 = paiement standard d'1 jour. N > 1 = paiement couvrant N jours

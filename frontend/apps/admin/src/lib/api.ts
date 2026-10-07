@@ -869,6 +869,34 @@ export type AnnouncementCreatePayload = {
 };
 
 
+// Historique des débits manuels (lecture seule). Reconstruit côté serveur
+// depuis le journal d'audit : le débit manuel n'a pas de table à lui, il écrit
+// selon le cas dans la collecte, l'épargne classique, une collecte
+// particulière, ou crée un Payment pour un frais prélevé.
+export type ManualDebitRow = {
+  id: number;
+  date: string;
+  nature: "retrait" | "frais";
+  compte: string;
+  compte_label: string;
+  montant: string | null;
+  solde_apres: string | null;
+  motif: string;
+  fee_code: string | null;
+  destination: "cash" | "epargne" | null;
+  cycle_id: number | null;
+  is_renewal: boolean | null;
+  entite_type: string;
+  entite_id: number | null;
+  member: {
+    id: number;
+    numero_membre: string;
+    nom: string;
+    prenom: string;
+  } | null;
+  acteur: { id: number; nom: string } | null;
+};
+
 // P2 — AppSettings tunables (refonte 2026).
 export type AppSettingType = "int" | "decimal" | "bool" | "str" | "csv" | "enum";
 
@@ -2397,6 +2425,28 @@ export const adminApi = {
       request<{ montant: string; solde_apres: string }>(
         "/payments/admin/manual-debit/",
         { method: "POST", body: JSON.stringify(payload) },
+      ),
+    // Historique des débits manuels — LECTURE SEULE. Couvre aussi les débits
+    // antérieurs à cet écran, puisqu'il se lit depuis le journal d'audit.
+    manualDebitHistory: (
+      params: {
+        member?: number;
+        compte?: string;
+        date_from?: string;
+        date_to?: string;
+        limit?: number;
+        offset?: number;
+      } = {},
+    ) =>
+      request<Paginated<ManualDebitRow>>(
+        `/payments/admin/manual-debits/${qs({
+          member: params.member != null ? String(params.member) : undefined,
+          compte: params.compte,
+          date_from: params.date_from,
+          date_to: params.date_to,
+          limit: params.limit ? String(params.limit) : undefined,
+          offset: params.offset ? String(params.offset) : undefined,
+        })}`,
       ),
     // Invalidation d'un paiement validé (contre-passation ledger).
     invalidate: (id: number, motif?: string) =>

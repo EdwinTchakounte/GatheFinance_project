@@ -8,8 +8,16 @@ Avant le fix 2026-07-21, ce endpoint créait des dépôts SANS validation :
     « placement » sans tranche prêteur (argent NON gelé mais annoncé comme placé).
 
 Ces tests figent l'alignement sur `apps_coop/payments/deposit_validation.py`.
+
+R3 a changé de forme en 2026-10 : le placement hors fenêtre n'est plus refusé
+à l'admin, il est ASSUMÉ. Ce qu'il fallait éviter — une écriture « placement »
+sans tranche — est désormais évité par l'autre bout : le hook crée la tranche
+quand `Payment.placement_force_admin` est posé. Voir `TestR3PlacementWindow`.
 """
 from __future__ import annotations
+
+from datetime import date, timedelta
+from decimal import Decimal
 
 import pytest
 from rest_framework.test import APIClient
@@ -152,12 +160,30 @@ class TestRemboursementGuards:
 
 
 class TestR3PlacementWindow:
-    def test_placement_when_closed_rejected(self, active_member, admin_user):
-        # Ferme le placement globalement.
+    """Dérogation admin au placement (2026-10).
+
+    L'admin encaisse au guichet, devant le membre. Lui refuser le placement
+    parce que la date-limite est passée ou que le membre a dépassé sa fenêtre
+    d'ancienneté l'obligeait à verser en LIBRE puis à rattraper autrement.
+
+    Le risque que la barrière d'origine évitait — une écriture marquée
+    « placement » sans tranche prêteur en face, donc de l'argent annoncé comme
+    gelé qui ne l'est pas — est désormais traité à la source : le cash-in pose
+    `placement_force_admin`, et le hook crée la tranche sur ce signal.
+
+    Le canal MEMBRE n'est pas touché : `init_payment` refuse toujours
+    (cf. `tests/test_placement_window.py`).
+    """
+
+    def _close_placement(self):
         AppSetting.objects.update_or_create(
             cle="epargne.placement.enabled",
             defaults={"valeur": "false", "description": ""},
         )
+
+    def test_admin_peut_placer_meme_placement_ferme(self, active_member, admin_user):
+        self._close_placement()
+
         r = _post(
             _admin_client(admin_user),
             active_member,
@@ -165,10 +191,118 @@ class TestR3PlacementWindow:
             montant="5000",
             is_placement=True,
         )
-        assert r.status_code == 400, r.content
-        assert b"LIBRE" in r.content
-        # Aucune écriture créée (ni placement, ni libre) — le refus est total.
-        assert not ClassicSavingsTransaction.objects.filter(account__member=active_member).exists()
+
+        assert r.status_code == 201, r.content
+        tx = ClassicSavingsTransaction.objects.get(account__member=active_member)
+        assert tx.is_placement is True
+
+    def test_la_tranche_preteur_est_bien_creee(self, active_member, admin_user):
+        """Le point entier de la dérogation : sans tranche, l'argent ne serait
+        pas gelé alors que l'écriture le proclamerait."""
+        from apps_coop.savings.models import LenderTranche
+
+        self._close_placement()
+
+        _post(
+            _admin_client(admin_user),
+            active_member,
+            type="epargne_classique",
+            montant="5000",
+            is_placement=True,
+        )
+
+        tranches = LenderTranche.objects.filter(member=active_member)
+        assert tranches.count() == 1
+        assert tranches.first().montant == Decimal("5000")
+
+    def test_la_derogation_est_marquee_sur_le_paiement(self, active_member, admin_user):
+        from apps_coop.payments.models import Payment
+
+        self._close_placement()
+
+        r = _post(
+            _admin_client(admin_user),
+            active_member,
+            type="epargne_classique",
+            montant="5000",
+            is_placement=True,
+        )
+
+        payment = Payment.objects.get(pk=r.json()["id"])
+        assert payment.placement_force_admin is True
+
+    def test_un_placement_dans_les_clous_n_est_pas_marque(self, active_member, admin_user):
+        """Placement ouvert et membre éligible : rien d'exceptionnel, donc pas
+        de marqueur — sinon le journal se remplirait de fausses dérogations.
+
+        Il faut rouvrir explicitement le placement : la date-limite par défaut
+        (2026-08-01) est dépassée, donc à ce jour TOUT placement admin serait
+        marqué comme dérogation.
+        """
+        from apps_coop.payments.models import Payment
+
+        AppSetting.objects.update_or_create(
+            cle="savings.placement.closed_from",
+            defaults={"valeur": "2099-01-01", "description": ""},
+        )
+        AppSetting.objects.update_or_create(
+            cle="epargne.placement.eligibility_months",
+            defaults={"valeur": "0", "description": ""},
+        )
+
+        r = _post(
+            _admin_client(admin_user),
+            active_member,
+            type="epargne_classique",
+            montant="5000",
+            is_placement=True,
+        )
+
+        assert r.status_code == 201, r.content
+        payment = Payment.objects.get(pk=r.json()["id"])
+        assert payment.placement_force_admin is False
+
+    def test_la_derogation_est_tracee_dans_l_audit(self, active_member, admin_user):
+        from apps_coop.audit.models import AuditLog
+
+        self._close_placement()
+
+        _post(
+            _admin_client(admin_user),
+            active_member,
+            type="epargne_classique",
+            montant="5000",
+            is_placement=True,
+        )
+
+        log = AuditLog.objects.filter(action="payment.cash_in_admin").latest("id")
+        assert log.details_json["placement_force_admin"] is True
+
+    def test_hors_fenetre_d_anciennete_aussi(self, active_member, admin_user):
+        """L'autre verrou : le membre a dépassé ses N premiers mois."""
+        from apps_coop.payments.models import Payment
+
+        AppSetting.objects.update_or_create(
+            cle="epargne.placement.eligibility_months",
+            defaults={"valeur": "0", "description": ""},
+        )
+        AppSetting.objects.update_or_create(
+            cle="epargne.placement.eligibility_months",
+            defaults={"valeur": "1", "description": ""},
+        )
+        active_member.date_adhesion = date.today() - timedelta(days=400)
+        active_member.save(update_fields=["date_adhesion"])
+
+        r = _post(
+            _admin_client(admin_user),
+            active_member,
+            type="epargne_classique",
+            montant="5000",
+            is_placement=True,
+        )
+
+        assert r.status_code == 201, r.content
+        assert Payment.objects.get(pk=r.json()["id"]).placement_force_admin is True
 
     def test_libre_still_accepted_when_placement_closed(self, active_member, admin_user):
         AppSetting.objects.update_or_create(

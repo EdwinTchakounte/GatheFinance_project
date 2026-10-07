@@ -379,6 +379,35 @@ function GroupDetailPanel({
   const [payoutDest, setPayoutDest] = useState<"cash" | "epargne">("cash");
   const [payoutBusy, setPayoutBusy] = useState(false);
 
+  // Confirmation avant tout mouvement de cagnotte. Ces gestes sont saisis en
+  // séance, souvent dans le bruit, et ils sont journalisés : une erreur de
+  // montant se corrige ensuite par une écriture d'ajustement, jamais par un
+  // effacement. Un récapitulatif avant validation coûte une seconde et évite
+  // cette correction.
+  const [confirmMove, setConfirmMove] = useState<{
+    kind: "payout" | "loan";
+    memberId: number;
+    nom: string;
+    montant: number;
+    dest: "cash" | "epargne";
+  } | null>(null);
+
+  function askPayout() {
+    setError(null);
+    const mid = Number(payoutMember);
+    const amount = Number(payoutMontant);
+    if (!mid) return setError("Choisis le bénéficiaire.");
+    if (!amount || amount <= 0) return setError("Montant invalide.");
+    const m = g?.members.find((r) => r.member_id === mid);
+    setConfirmMove({
+      kind: "payout",
+      memberId: mid,
+      nom: m ? fullName(m.prenom, m.nom) : `membre #${mid}`,
+      montant: amount,
+      dest: payoutDest,
+    });
+  }
+
   async function doPayout() {
     setError(null);
     const mid = Number(payoutMember);
@@ -438,6 +467,22 @@ function GroupDetailPanel({
     } finally {
       setFixBusy(false);
     }
+  }
+
+  function askGrantLoan() {
+    setError(null);
+    const mid = Number(loanMember);
+    const amount = Number(loanMontant);
+    if (!mid) return setError("Choisis l'emprunteur.");
+    if (!amount || amount <= 0) return setError("Montant invalide.");
+    const m = g?.members.find((r) => r.member_id === mid);
+    setConfirmMove({
+      kind: "loan",
+      memberId: mid,
+      nom: m ? fullName(m.prenom, m.nom) : `membre #${mid}`,
+      montant: amount,
+      dest: loanDest,
+    });
   }
 
   async function doGrantLoan() {
@@ -746,7 +791,7 @@ function GroupDetailPanel({
                 </select>
                 <button
                   type="button"
-                  onClick={doPayout}
+                  onClick={askPayout}
                   disabled={payoutBusy}
                   className="w-full rounded-md bg-blue-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-800 disabled:opacity-40"
                 >
@@ -797,7 +842,7 @@ function GroupDetailPanel({
                 </select>
                 <button
                   type="button"
-                  onClick={doGrantLoan}
+                  onClick={askGrantLoan}
                   disabled={loanBusy}
                   className="w-full rounded-md border border-line-300 bg-paper px-3 py-1.5 text-xs font-medium text-ink-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-40"
                 >
@@ -958,6 +1003,61 @@ function GroupDetailPanel({
           </ModalField>
         </div>
       </Modal>
+
+      {/* Vérification des montants avant écriture. Le registre de la réunion
+          est append-only : une erreur ne s'efface pas, elle se corrige par une
+          écriture d'ajustement. Mieux vaut la voir avant. */}
+      <ConfirmModal
+        open={confirmMove !== null}
+        onClose={() => setConfirmMove(null)}
+        onConfirm={async () => {
+          const mv = confirmMove;
+          if (!mv) return;
+          setConfirmMove(null);
+          if (mv.kind === "payout") await doPayout();
+          else await doGrantLoan();
+        }}
+        title={
+          confirmMove?.kind === "loan"
+            ? "Confirmer ce prêt ?"
+            : "Confirmer ce versement ?"
+        }
+        confirmLabel={
+          confirmMove?.kind === "loan" ? "Accorder le prêt" : "Enregistrer le versement"
+        }
+        message={
+          confirmMove ? (
+            <div className="space-y-3">
+              <p className="text-sm text-ink-600">
+                Vérifie le montant avant validation : l&apos;écriture est
+                journalisée et ne pourra être corrigée que par un ajustement.
+              </p>
+              <dl className="divide-y divide-line-200 rounded-md border border-line-200 bg-ink-50/40 text-sm">
+                <div className="flex items-baseline justify-between px-3 py-2">
+                  <dt className="text-ink-500">
+                    {confirmMove.kind === "loan" ? "Emprunteur" : "Bénéficiaire"}
+                  </dt>
+                  <dd className="font-medium text-ink-900">{confirmMove.nom}</dd>
+                </div>
+                <div className="flex items-baseline justify-between px-3 py-2">
+                  <dt className="text-ink-500">Montant</dt>
+                  <dd className="font-mono text-base font-semibold text-ink-900">
+                    {confirmMove.montant.toLocaleString("fr-FR")} XAF
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between px-3 py-2">
+                  <dt className="text-ink-500">Sortie</dt>
+                  <dd className="text-ink-900">
+                    {confirmMove.dest === "epargne"
+                      ? "Virement sur son épargne classique"
+                      : "Espèces remises à l'agence"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          ) : null
+        }
+      />
 
       <ConfirmModal
         open={confirmClose}

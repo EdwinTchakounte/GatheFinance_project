@@ -604,10 +604,18 @@ def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
     # Placement fermé (toggle off, après la date-limite globale, OU membre
     # hors de sa fenêtre des N premiers mois d'ancienneté) → le versement reste
     # en épargne LIBRE : aucune tranche créée.
+    #
+    # Exception : une dérogation admin (`placement_force_admin`, posée par le
+    # cash-in agence) crée la tranche malgré les verrous. Sans cela, l'écriture
+    # porterait `is_placement=True` sans tranche en face : de l'argent annoncé
+    # comme gelé qui ne le serait pas.
     from apps_coop.savings.placement import placement_open_for_member
 
     tranche_id: int | None = None
-    if payment.is_placement and placement_open_for_member(payment.member):
+    place = payment.is_placement and (
+        payment.placement_force_admin or placement_open_for_member(payment.member)
+    )
+    if place:
         consent, _ = LenderConsent.objects.get_or_create(
             member=payment.member,
             defaults={
@@ -640,6 +648,7 @@ def _hook_classic_savings_deposit(payment: Payment, _raw: dict) -> None:
             "montant": str(payment.montant),
             "solde_apres": str(nouveau_solde),
             "is_placement": payment.is_placement,
+            "placement_force_admin": payment.placement_force_admin,
             "lender_tranche_id": tranche_id,
         },
     )

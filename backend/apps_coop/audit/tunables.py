@@ -10,7 +10,8 @@ entrée déclare :
   - ``label``        : intitulé court (FR) affiché dans le formulaire.
   - ``description``  : explication métier (1-3 phrases).
   - ``type``         : ``int`` / ``decimal`` / ``bool`` / ``str`` / ``csv`` /
-                       ``enum`` — pilote le widget UI et la validation.
+                       ``enum`` / ``date`` — pilote le widget UI et la
+                       validation.
   - ``default``      : valeur par défaut (str — stockée brute dans AppSetting).
   - ``choices`` (opt) : pour le type ``enum``, liste des valeurs autorisées.
   - ``min`` / ``max`` (opt) : pour ``int`` / ``decimal``.
@@ -23,6 +24,13 @@ from __future__ import annotations
 
 from typing import Optional
 
+# Les défauts du placement vivent dans `savings/placement.py`, qui reste la
+# source de vérité : le catalogue les reprend plutôt que de les recopier.
+from apps_coop.savings.placement import (
+    PLACEMENT_CLOSED_FROM_DEFAULT,
+    PLACEMENT_ELIGIBILITY_MONTHS_DEFAULT,
+)
+
 
 # Groupes UI — ordre d'affichage des sections (le frontend les rend dans cet ordre).
 GROUPS_ORDER = [
@@ -30,6 +38,7 @@ GROUPS_ORDER = [
     ("seniority", "Ancienneté"),
     ("collecte", "Collecte journalière"),
     ("epargne", "Épargne classique"),
+    ("placement", "Placement épargne"),
     ("savings", "Épargne (legacy)"),
     ("members", "Réinscription"),
     ("loans", "Crédit (général)"),
@@ -47,6 +56,48 @@ GROUPS_ORDER = [
 
 
 CATALOG: list[dict] = [
+    # Placement épargne — les trois verrous existaient en AppSetting mais pas
+    # au catalogue : seul un shell Django pouvait les changer, alors que la
+    # date-limite et la fenêtre d'ancienneté sont des décisions de gestion qui
+    # bougent. Les défauts sont repris de `savings/placement.py`, qui reste la
+    # source de vérité.
+    {
+        "key": "epargne.placement.enabled",
+        "group": "placement",
+        "label": "Placement ouvert",
+        "description": (
+            "Interrupteur global. Décoché, plus aucun nouveau placement n'est "
+            "accepté côté membre ; les placements existants ne bougent pas."
+        ),
+        "type": "bool",
+        "default": "true",
+    },
+    {
+        "key": "savings.placement.closed_from",
+        "group": "placement",
+        "label": "Fermeture du placement (date)",
+        "description": (
+            "À partir de cette date, le placement est fermé côté membre : tout "
+            "nouveau versement d'épargne classique part en LIBRE. Les "
+            "placements déjà constitués ne sont pas touchés."
+        ),
+        "type": "date",
+        "default": PLACEMENT_CLOSED_FROM_DEFAULT,
+    },
+    {
+        "key": "epargne.placement.eligibility_months",
+        "group": "placement",
+        "label": "Fenêtre d'éligibilité (mois)",
+        "description": (
+            "Le membre ne peut placer que pendant ce nombre de mois après son "
+            "adhésion. Au-delà, seule l'épargne libre reste possible. 0 "
+            "désactive cette fenêtre (seuls la date et l'interrupteur jouent)."
+        ),
+        "type": "int",
+        "default": str(PLACEMENT_ELIGIBILITY_MONTHS_DEFAULT),
+        "min": 0,
+        "max": 600,
+    },
     # LOT 1 — Identifiant membre + ancienneté
     {
         "key": "member.id.format",
@@ -574,6 +625,14 @@ def validate_value(entry: dict, value: str) -> tuple[bool, str]:
         choices = entry.get("choices", [])
         if v not in choices:
             return False, f"Doit être l'une de : {', '.join(choices)}."
+        return True, ""
+    if t == "date":
+        from datetime import date as _date
+
+        try:
+            _date.fromisoformat(v)
+        except ValueError:
+            return False, "Format attendu : AAAA-MM-JJ (ex. 2026-08-01)."
         return True, ""
     if t == "csv":
         # Pas de contrainte stricte ici — la lib downstream filtre les
