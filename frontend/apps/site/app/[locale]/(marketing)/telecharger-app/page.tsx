@@ -24,7 +24,11 @@ const PLAY_STORE_URL =
 // Le téléchargement direct passe par le proxy Next `/api/download-app`
 // (progression réelle) — cf. DownloadAppButton.
 const APK_VERSION = "1.2.0";
-const APK_SIZE = "74,5 Mo";
+// Taille reelle de l'asset publie dans la release `mobile-v1.2.0`
+// (77 010 556 octets). A reajuster a chaque nouvelle APK : la valeur
+// precedente annoncait 74,5 Mo pour un fichier qui n'a jamais fait
+// cette taille.
+const APK_SIZE = "77 Mo";
 
 // QR code AUTO-HEBERGE (public/downloads/qr-app.png), généré avec la lib
 // `qrcode`. Il encode désormais l'URL PLAY STORE — plus la vieille URL Google
